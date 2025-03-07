@@ -19,12 +19,10 @@ default_theory = 'theory.kurt'         # default theory
 # level3: proving
 
 ### NEXT
-# TODO load always uses '.' and then 'theories', define a path variable and a function that finds the file
-# TODO add filename in front of the line numbers
+# TODO add filename in front of the line numbers, but not if the file is obvious
 # TODO check whether everything promised has been proven
 # TODO create constants automatically
 # TODO rewrite expr_str using match
-# TODO create nice outputs <file.kurt:128>
 # TODO any checks required for 'bindop'?
 # TODO next: implement `equal_elim`
 # TODO next: implement first order inference, WE ARE IGNORING FOR NOW WHETHER VARIABLES ARE BOUND OR FREE
@@ -829,7 +827,8 @@ def eval_expression(expr, kb, line, filename, comment):
             for k in keywords.keys(): print(f'  {k:<12} {keywords[k]}')
         elif keyword == 'load':
             check_args(expr, [['STRING']])
-            kb, _ = load_file(expr[1].value, kb)
+            current_path, _ = os.path.split(filename)    # search first at the current path
+            kb, _ = load_file(expr[1].value, kb, path=[current_path]+theory_path)
         elif keyword == 'parse':
             check_args(expr, [['EXPR']])
             e = parse_tokenlist(expr[1:], kb)
@@ -928,7 +927,7 @@ def eval_expression(expr, kb, line, filename, comment):
                     reason += f' {comment}'
                 f = Formula(e, line, filename, status=keyword, reason=reason, comment=comment)
                 kb.theory.append(f)
-                log(f.formula_str(kb), f'{line} {reason}', kb)
+                log(f.formula_str(kb), f'{os.path.basename(filename)}:{line} {reason}', kb)
         elif keyword in ['show'] + formula_flags:
             check_args(expr, [[], ['EXPR']])
             if len(expr) == 1: print(kb.show_str())
@@ -940,7 +939,7 @@ def eval_expression(expr, kb, line, filename, comment):
                 flag = None if keyword=='show' else keyword
                 f = Formula(e, line, filename, status='show', flag=flag, comment=comment)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
-                reason = f'{line} claim'
+                reason = f'{os.path.basename(filename)}:{line} claim'
                 if comment is not None:
                     reason += f' {comment}'
                 log(f.formula_str(kb), reason, kb)
@@ -964,7 +963,7 @@ def eval_expression(expr, kb, line, filename, comment):
             kb.show.pop()                         # pop it now off the show stack, since it was proved
             kb.theory.append(f)                   # add a copy to the theory
             log('qed', None, kb)
-            log(f.formula_str(kb), f'{line} {reason}', kb)
+            log(f.formula_str(kb), f'{os.path.basename(filename)}:{line} {reason}', kb)
         else:
             assert False, f'BUG: unknown keyword, got "{keyword}"'
 
@@ -976,7 +975,7 @@ def eval_expression(expr, kb, line, filename, comment):
         reason = derive_expr(expr, kb)            # this might raise ProofError exceptions
         f = Formula(expr, line, filename, status=None, reason=reason)
         kb.theory.append(f)                         # add it to the knowledge base
-        log(f.formula_str(kb), f'{line} {reason}', kb)
+        log(f.formula_str(kb), f'{os.path.basename(filename)}:{line} {reason}', kb)
 
     # finally return the possibly modified knowledgebase
     return kb
@@ -1056,9 +1055,9 @@ def restatement(e, kb):
     # A
     # -----
     # A
-    for ff in kb.all_theory():
-        if equal_expr(ff.expr, e):
-            return 'restatement'
+    for f in kb.all_theory():
+        if equal_expr(f.expr, e):
+            return f'restatement of {os.path.basename(f.filename)}:{f.line}'
     return None
 
 # this function is only called when closing a block (via `qed` or using indentation)
@@ -1174,7 +1173,7 @@ def derive_expr(e, kb):
         if implication.comment is not None:
             reason = f'by {implication.comment}'
         else:
-            reason = f'by {implication.line}'
+            reason = f'by {os.path.basename(implication.filename)}:{implication.line}'
         return reason    # bingo!  found an implication
 
     # couldn't derive formula using any of the rules
@@ -1191,16 +1190,16 @@ def eval(input_line, kb, line, filename):
         raise e
     return kb
 
-def load_file(filename, kb, markdown=False):
+def load_file(filename, kb, markdown=False, path=theory_path):
     # files are always loaded into level
     level = kb.level       # save current level
     if not filename.endswith('.kurt'):
         filename += '.kurt'
     try:
-        filename = find_theory_file(filename)    # search along the path
-        if filename is None:
+        fname = find_file(filename, path)    # search along the path
+        if fname is None:
             raise OSError
-        with open(filename) as f:
+        with open(fname) as f:
             kb, success = read_eval_loop(f, kb, markdown)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
@@ -1275,8 +1274,8 @@ def read_eval_loop(input_stream, kb, markdown=False):
             break
     return kb, success
 
-def find_theory_file(fname):
-    for p in theory_path:
+def find_file(fname, path):
+    for p in path:
         cand = os.path.join(p, fname)
         if os.path.isfile(cand):
             return cand
@@ -1306,7 +1305,7 @@ def main():
         theory_path[1] = args.path   # overwrite the default 'theory'
 
     # by default load `default_theory` or nothing
-    if (theory_filename := find_theory_file(default_theory)):
+    if (theory_filename := find_file(default_theory, theory_path)):
         kb, _ = load_file(theory_filename, kb)
 
     # if there is a filename run the file

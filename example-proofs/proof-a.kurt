@@ -1,0 +1,4 @@
+; proof-a.kurt: simple example where two files are involved to check proper filenames
+const "A"
+bool "A"
+use A
