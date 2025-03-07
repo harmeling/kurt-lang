@@ -1,4 +1,6 @@
-; syntax for set theory (ZFC or NBG)
+; set theory
+
+; syntax
 infix    "in" 55 55          ; element
 bool     "in"
 alias    "∈" "in"            ; "∈" inherits all properties of "in"

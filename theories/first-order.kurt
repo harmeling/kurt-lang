@@ -1,5 +1,7 @@
-; syntax for first order logic
-load "propositional"    ; syntax for propositional logic
+; first order logic
+
+;; syntax
+load "propositional"    ; syntax and rules for propositional logic
 arity  "forall" 2       ; universal quantification
 arity  "exists" 2       ; existential quantification
 bool   "forall"
@@ -7,6 +9,7 @@ bool   "exists"
 bindop "forall"         ; universal quantification
 bindop "exists"         ; existential quantification
 
-; use $x = $y                                                    ; equal-intro
+;; inference rules
+; use $x = $y                                                    ; equal-intro, in `kurt.py`
 use $A and $x = $y implies ($A // $x=$y)                         ; equal-elim
 

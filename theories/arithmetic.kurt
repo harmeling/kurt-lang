@@ -1,4 +1,6 @@
-; syntax for arithmetic operations
+; arithmetic
+
+;; syntax
 infix   "+"  60 60           ; binary plus
 infix   "-"  60 60           ; binary minus
 infix   "*"  70 70           ; binary times

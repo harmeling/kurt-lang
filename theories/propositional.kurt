@@ -1,6 +1,6 @@
-;; propositional logic
+; propositional logic
 
-; syntax
+;; syntax
 prefix "not"        18  ; logical not
 infix  "and"     16 16  ; logical and
 infix  "or"      14 14  ; logical or
@@ -20,7 +20,7 @@ bool   "not"
 bool   "implies"
 alias  "contradiction" "false"
 
-; inference rules
+;; inference rules
 ;
 ; all rules have the form (with finitely many premises)
 ;
