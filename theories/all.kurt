@@ -1,0 +1,5 @@
+; syntax for many tasks
+load "minimal"
+load "first-order"     ; loads "propositional" as well
+load "set"
+load "arithmetic"

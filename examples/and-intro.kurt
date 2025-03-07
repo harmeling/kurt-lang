@@ -1,0 +1,10 @@
+; example: and-intro
+load "propositional"
+use ($A and $B) implies ($A and $B)   ; and-intro
+const "I"
+const "J"
+bool "I"
+bool "J"
+use I
+use J
+I and J

@@ -1,0 +1,8 @@
+; syntax for first order logic
+load "propositional"    ; syntax for propositional logic
+arity  "forall" 2       ; universal quantification
+arity  "exists" 2       ; existential quantification
+bool   "forall"
+bool   "exists"
+bindop "forall"         ; universal quantification
+bindop "exists"         ; existential quantification

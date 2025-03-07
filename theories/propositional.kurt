@@ -1,0 +1,19 @@
+; syntax for propositional logic
+prefix "not"        18  ; logical not
+infix  "and"     16 16  ; logical and
+infix  "or"      14 14  ; logical or
+infix  "implies" 13 12  ; logical implies, right associative (since 13>12)
+infix  "iff"     10 10  ; logical if-and-only-if
+flat   "and"            ; (a and b) and c  iff  a and b and c
+flat   "or"             ; (a or b) or c  iff  a or b or c
+sym    "and"            ;  a and b  iff  b and a
+sym    "or"             ;  a or b  iff  b or a
+const  "true"
+const  "false"
+bool   "true"
+bool   "false"
+bool   "and"
+bool   "or"
+bool   "not"
+bool   "implies"
+alias  "contradiction" "false"

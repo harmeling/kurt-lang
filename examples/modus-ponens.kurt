@@ -1,0 +1,17 @@
+; example: modus ponens
+load "all"
+const "A"
+const "B"
+const "C"
+const "D"
+bool "A"
+bool "B"
+bool "C"
+bool "D"
+use A
+use A implies B
+B
+use A and B implies C
+C
+use A and B and C implies D
+D

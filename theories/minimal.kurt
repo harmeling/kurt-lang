@@ -1,0 +1,11 @@
+; minimal syntax (never loaded manually)
+
+false                   ; never load this theory manually
+
+;;; hardcoded in `kurt.py`
+;brackets "(" ")"       ; for grouping during parsing
+;infix ","   5  5       ; for lists
+;infix "="  20 20       ; equality, left associative
+;sum "="
+;infix " "  22 22       ; space, flat
+;infix "//"  3 3        ; substitution of variables

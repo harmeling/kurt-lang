@@ -1,0 +1,12 @@
+; example: show-proof-qed
+load "all"
+const "E"
+const "F"
+bool "E"
+bool "F"
+use E implies F
+show E implies F
+proof
+    assume E
+    F
+qed

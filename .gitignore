@@ -1,0 +1,11 @@
+.ipynb_checkpoints
+auto
+*.aux
+*.log
+*.pdf
+*.rip
+.DS_Store
+papers
+__pycache__
+*~
+__pycache__

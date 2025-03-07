@@ -1,0 +1,9 @@
+; example: equal-elim
+load "all.kurt"
+const "f"
+bool "f"
+use ($A and $x=$y) implies ($A // $x=$y)  ; equal-elim
+use a = 17
+use f(a)
+f(17)
+; how to match "f(17)" against "$A // $x=$y"
