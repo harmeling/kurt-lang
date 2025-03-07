@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
-version      = 0.1
-md_indent    = 7     # ignore all lines not starting with `md_indent` many spaces
-proof_indent = 4     # how much to indent for a `proof` block
-
 ## kurt.py
 # the kurt programming language for proof writing and checking
-# by Stefan Harmeling (2016-2025)
+# developed by Stefan Harmeling (2016-2025)
+
+# config
+version        = 0.1
+made_by        = 'made by Stefan Harmeling, 2025'
+md_indent      = 7                     # ignore all lines not starting with `md_indent` many spaces
+proof_indent   = 4                     # how much to indent for a `proof` block
+theory_path    = ['.', 'theories']     # default path for theories
+default_theory = 'theory.kurt'         # default theory
 
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
@@ -1200,6 +1204,9 @@ def load_file(filename, kb, markdown=False):
     if not filename.endswith('.kurt'):
         filename += '.kurt'
     try:
+        filename = find_theory_file(filename)    # search along the path
+        if filename is None:
+            raise OSError
         with open(filename) as f:
             kb = read_eval_loop(f, kb, markdown)
     except OSError as e:
@@ -1259,19 +1266,26 @@ def read_eval_loop(input_stream, kb, markdown=False):
     
     return kb
 
+def find_theory_file(fname):
+    for p in theory_path:
+        cand = os.path.join(p, fname)
+        if os.path.isfile(cand):
+            return cand
+    return None
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='a simple proof assistant (made by Stefan Harmeling, 2016-2023)')
-    parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, if no file is given start interactively')
-    parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading "filename", w/o filename this is the default')
-    parser.add_argument('-m', '--markdown',     action='store_true', help=f'run on .md files instead of .kurt, will ignore everything that is not indented by {md_indent} spaces')
-    parser.add_argument('-p', '--path',         default='theories',  help=f'specify the path where `load` looks for theories')
+    parser = argparse.ArgumentParser(description=f'a simple proof assistant ({made_by})')
+    parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
+    parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading `filename`')
+    parser.add_argument('-m', '--markdown',     action='store_true', help=f'run on `.md` files instead of `.kurt`, will ignore everything that is not indented by {md_indent} spaces')
+    parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking `.`')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-t', '--test',         action='store_true', help=f'run tests')
     return parser.parse_args()
 
 def main():
     args = parse_args()
-    print(f'This is Kurt, Version {version} (made by Stefan Harmeling, 2016-2025)')
+    print(f'This is Kurt, Version {version} ({made_by})')
 
     # the knowledge base we start with on level 0
     kb = initial_kb
@@ -1288,11 +1302,12 @@ def main():
         # from https://stackoverflow.com/questions/31559473/run-unittests-from-a-different-file
         exit(0)
 
-    # by default load 'theory.kurt' or f'{args.path}/theory.kurt' or nothing
-    theory_filename = 'theory.kurt'
-    if not os.path.isfile(theory_filename):
-        theory_filename = f'{args.path}/theory.kurt'
-    if os.path.isfile(theory_filename):
+    # theory path
+    if args.path is not None:
+        theory_path[1] = args.path   # overwrite the default 'theory'
+
+    # by default load `default_theory` or nothing
+    if (theory_filename := find_theory_file(default_theory)):
         kb = eval(f'load "{theory_filename}"', kb, 0, '<stdin>')
 
     # if there is a filename run the file
