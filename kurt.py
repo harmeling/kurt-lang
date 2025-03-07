@@ -805,7 +805,13 @@ def check_args(expr, arg_labels):
 def strip_keyword(s, column):
     return s[(1+column):]                  # get rid of the keyword at the beginning
 
-def eval_expression(expr, kb, line, filename, comment):
+def decorate_reason(mainstream, reason, filename, line):
+    if mainstream:
+        return f'{line} {reason}'
+    else:
+        return f'{os.path.basename(filename)}:{line} {reason}'
+
+def eval_expression(expr, kb, line, filename, comment, mainstream):
     if expr is None:
         return kb
     if is_token(expr):
@@ -828,7 +834,7 @@ def eval_expression(expr, kb, line, filename, comment):
         elif keyword == 'load':
             check_args(expr, [['STRING']])
             current_path, _ = os.path.split(filename)    # search first at the current path
-            kb, _ = load_file(expr[1].value, kb, path=[current_path]+theory_path)
+            kb, _ = load_file(expr[1].value, kb, path=[current_path]+theory_path, mainstream=False)
         elif keyword == 'parse':
             check_args(expr, [['EXPR']])
             e = parse_tokenlist(expr[1:], kb)
@@ -927,7 +933,8 @@ def eval_expression(expr, kb, line, filename, comment):
                     reason += f' {comment}'
                 f = Formula(e, line, filename, status=keyword, reason=reason, comment=comment)
                 kb.theory.append(f)
-                log(f.formula_str(kb), f'{os.path.basename(filename)}:{line} {reason}', kb)
+                reason = decorate_reason(mainstream, reason, filename, line)
+                log(f.formula_str(kb), reason , kb)
         elif keyword in ['show'] + formula_flags:
             check_args(expr, [[], ['EXPR']])
             if len(expr) == 1: print(kb.show_str())
@@ -939,7 +946,7 @@ def eval_expression(expr, kb, line, filename, comment):
                 flag = None if keyword=='show' else keyword
                 f = Formula(e, line, filename, status='show', flag=flag, comment=comment)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
-                reason = f'{os.path.basename(filename)}:{line} claim'
+                reason = decorate_reason(mainstream, 'claim', filename, line)
                 if comment is not None:
                     reason += f' {comment}'
                 log(f.formula_str(kb), reason, kb)
@@ -963,7 +970,8 @@ def eval_expression(expr, kb, line, filename, comment):
             kb.show.pop()                         # pop it now off the show stack, since it was proved
             kb.theory.append(f)                   # add a copy to the theory
             log('qed', None, kb)
-            log(f.formula_str(kb), f'{os.path.basename(filename)}:{line} {reason}', kb)
+            reason = decorate_reason(mainstream, reason, filename, line)
+            log(f.formula_str(kb), reason, kb)
         else:
             assert False, f'BUG: unknown keyword, got "{keyword}"'
 
@@ -971,11 +979,12 @@ def eval_expression(expr, kb, line, filename, comment):
     else:
         if not bool_expr(expr, kb):
             raise KurtException(f'ProofError: expression must evaluate to boolean')
-        expr = simplify(expr, kb)                 # simplify the formula using flatness and symmetry
-        reason = derive_expr(expr, kb)            # this might raise ProofError exceptions
+        expr = simplify(expr, kb)                   # simplify the formula using flatness and symmetry
+        reason = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
         f = Formula(expr, line, filename, status=None, reason=reason)
         kb.theory.append(f)                         # add it to the knowledge base
-        log(f.formula_str(kb), f'{os.path.basename(filename)}:{line} {reason}', kb)
+        reason = decorate_reason(mainstream, reason, filename, line)
+        log(f.formula_str(kb), reason, kb)
 
     # finally return the possibly modified knowledgebase
     return kb
@@ -1143,7 +1152,7 @@ def match_all(premises, subst, kb):
             return None
     assert False, f'BUG: `match_all` must be called with a list'
 
-def derive_expr(e, kb):
+def derive_expr(e, kb, filename, mainstream):
 
     # check hard-coded rules
     if (reason:=top_intro(e)):       return reason
@@ -1173,24 +1182,27 @@ def derive_expr(e, kb):
         if implication.comment is not None:
             reason = f'by {implication.comment}'
         else:
-            reason = f'by {os.path.basename(implication.filename)}:{implication.line}'
+            if mainstream and implication.filename==filename:
+                reason = f'by {implication.line}'
+            else:
+                reason = f'by {os.path.basename(implication.filename)}:{implication.line}'
         return reason    # bingo!  found an implication
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
 
-def eval(input_line, kb, line, filename):
+def eval(input_line, kb, line, filename, mainstream=False):
     try:
-        ts            = PG(scan_string(input_line))                        # lexer
-        expr, comment = parse_tokenstream(ts, kb)                          # parser
-        kb            = eval_expression(expr, kb, line, filename, comment) # evaluation
+        ts            = PG(scan_string(input_line))                                    # lexer
+        expr, comment = parse_tokenstream(ts, kb)                                      # parser
+        kb            = eval_expression(expr, kb, line, filename, comment, mainstream) # evaluation
     except KurtException as e:
         e.filename = filename
         e.line     = line
         raise e
     return kb
 
-def load_file(filename, kb, markdown=False, path=theory_path):
+def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
     # files are always loaded into level
     level = kb.level       # save current level
     if not filename.endswith('.kurt'):
@@ -1200,14 +1212,21 @@ def load_file(filename, kb, markdown=False, path=theory_path):
         if fname is None:
             raise OSError
         with open(fname) as f:
-            kb, success = read_eval_loop(f, kb, markdown)
+            kb, success = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open "{filename}"') from None
-    # after running the file all blocks must be closed
-    if kb.level != level:
-        kb.level = level       # set levels back before raising the exception
-        raise KurtException(f'EvalError: inside "{filename}" not all blocks closed, missing "end"?')
+    
+    if success:
+        # checks after closing the file
+        if kb.level != level:
+            kb.level = level       # set levels back before raising the exception
+            raise KurtException(f'EvalError: inside "{filename}" not all blocks closed, missing "end"?')
+        if len(kb.show) != 0:
+            s = '\nNot shown:\n'
+            for f in kb.show:
+                s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
+            raise KurtException(f'{s}\n\nEvalError: inside "{filename}" not all promised formulas were proved.')
     return kb, success
 
 ###########################
@@ -1222,7 +1241,7 @@ def prompt(level, line, continued=False):
         s += f'!!![{line}] '                        # the bangs mean "show!"
     return s
 
-def read_eval_loop(input_stream, kb, markdown=False):
+def read_eval_loop(input_stream, kb, markdown=False, mainstream=False):
     success   = True
     is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
     line       = 1
@@ -1253,7 +1272,7 @@ def read_eval_loop(input_stream, kb, markdown=False):
                 continued = True
             else:
                 try:
-                    kb = eval(input_line, kb, line, input_stream.name)
+                    kb = eval(input_line, kb, line, input_stream.name, mainstream)
                 except KurtException as e:
                     if e.column is None: e.column = len(input_line)
                     if e.filename == '<stdin>':
@@ -1270,7 +1289,7 @@ def read_eval_loop(input_stream, kb, markdown=False):
                 continued = False
                 line += 1
         except EOFError:
-            print("\nBye!")      # this happens when Ctrl-d is pressed in the interactive session
+            print("\nBye!")      # this only happens when Ctrl-d is pressed in the interactive session
             break
     return kb, success
 
@@ -1306,19 +1325,25 @@ def main():
 
     # by default load `default_theory` or nothing
     if (theory_filename := find_file(default_theory, theory_path)):
-        kb, _ = load_file(theory_filename, kb)
+        try:
+            kb, _ = load_file(theory_filename, kb, mainstream=False)
+        except KurtException as e:
+            print(e.msg, file=sys.stderr)
 
     # if there is a filename run the file
     if args.filename is not None:
-        kb, success = load_file(args.filename, kb)
-        if success:
-            log('Proof checked.', None, kb)
+        try:
+            kb, success = load_file(args.filename, kb, mainstream=not args.interactive)
+            if success:
+                log('Proof checked.', None, kb)
+        except KurtException as e:
+            print(e.msg, file=sys.stderr)
     else:
         args.interactive = True
 
     # read-eval-print loop
     if args.interactive:
-        kb, _ = read_eval_loop(sys.stdin, kb)
+        kb, _ = read_eval_loop(sys.stdin, kb, mainstream=True)
     exit(0)
 
 if __name__ == "__main__":

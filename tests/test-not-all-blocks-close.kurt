@@ -1,0 +1,5 @@
+; error: not alle blocks close
+; should create an error message
+load "propositional"
+show true
+proof
