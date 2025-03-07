@@ -19,11 +19,8 @@ default_theory = 'theory.kurt'         # default theory
 # level3: proving
 
 ### NEXT
-# TODO add filename in front of the line numbers, but not if the file is obvious
-# TODO check whether everything promised has been proven
 # TODO create constants automatically
-# TODO rewrite expr_str using match
-# TODO any checks required for 'bindop'?
+# TODO any checks required for 'bindop'?  yes, check that the first arg is a variable and that it appears freely in the formula
 # TODO next: implement `equal_elim`
 # TODO next: implement first order inference, WE ARE IGNORING FOR NOW WHETHER VARIABLES ARE BOUND OR FREE
 # TODO add `//` to the language
@@ -59,6 +56,9 @@ default_theory = 'theory.kurt'         # default theory
 
 ## all external libraries (let's keep the dependencies minimal)
 import sys          # sys.stdin, sys.stderr
+if sys.version_info < (3, 10):
+    print("Python 3.10 or newer is required, since we are using Python's `match`!  Sorry about that!")
+    exit(0)
 import os           # os.path.isfile
 import argparse     # argparse.ArgumentParser
 import re           # re.compile, re.VERBOSE, re.MULTILINE
@@ -462,56 +462,97 @@ def expr_str(expr, kb):
     if kb.format == 'sexpr':
         return expr_sexpr(expr)
     elif kb.format == 'normal':
-        return expr_normal(expr, kb)
+        s = expr_normal(expr, kb)
+        if s[0] == '(' and s[-1] == ')':
+            s = s[1:-1]         # the brackets are useful during construction, but on the top level we have to omit them
+        return s
     else:
         assert False, f'BUG: unknown expression format, got {kb.format}'
 
+# def expr_sexpr(expr):                      # create s-expression
+#     if is_token(expr):
+#         if expr.label == 'STRING':
+#             return f'"{expr.value}"'
+#         else:
+#             return str(expr.value)
+#     elif is_list(expr):
+#         return f'({" ".join([expr_sexpr(e) for e in expr])})'
+#     elif expr is None:
+#         return ''
+#     else:
+#         assert False, f'BUG: unknown expression, got {expr}'
+
 def expr_sexpr(expr):                      # create s-expression
-    if is_token(expr):
-        if expr.label == 'STRING':
-            return f'"{expr.value}"'
-        else:
-            return str(expr.value)
-    elif is_list(expr):
-        return f'({" ".join([expr_sexpr(e) for e in expr])})'
-    elif expr is None:
-        return ''
-    else:
-        assert False, f'BUG: unknown expression, got {expr}'
+    match expr:
+        case Token(label='STRING', value=v):
+            return f'"{v}"'       # quotation marks
+        case Token(value=v):
+            return str(v)
+        case [*entries]:
+            return f'({" ".join([expr_sexpr(e) for e in entries])})'
+        case None:
+            return ''
+    assert False, f'BUG: unknown expression, got {expr}'
+
+# def expr_normal(expr, kb, rbp=0):          # create raw input expression
+#     if is_token(expr):
+#         return expr_sexpr(expr)            # reuse implementation from expr_sexpr
+#     elif is_list(expr):
+#         lexpr = len(expr)
+#         if lexpr == 1:
+#             return expr_normal(expr[0], kb)
+#         elif lexpr == 2:
+#             a = expr[0].value
+#             if kb.is_prefix(a):
+#                 return f'({a} {expr_normal(expr[1], kb)})'
+#             elif kb.is_postfix(a):
+#                 return f'({expr_normal(expr[1], kb)} {a})'
+#             elif expr[0].label == 'COMMENT':
+#                 return f'{expr_normal(expr[1], kb)} ; {a}'
+#             else:
+#                 return f'{expr_normal(expr[0], kb)} {expr_normal(expr[1], kb)}'
+#         elif lexpr == 3:
+#             a = expr[0].value
+#             if kb.is_infix(a):
+#                 return f'({expr_normal(expr[1], kb)} {a} {expr_normal(expr[2], kb)})'
+#             else:
+#                 return f'({a} {expr_normal(expr[1], kb)} {expr_normal(expr[2], kb)})'
+#         else:
+#             a = expr[0].value
+#             if kb.is_flat(a):
+#                 return f'({f' {a} '.join([expr_normal(e, kb) for e in expr[1:]])})'
+#             else:
+#                 return f'({" ".join([expr_normal(e, kb) for e in expr])})'
+#     elif expr is None:
+#         return ''
+#     else:
+#         assert False, f'BUG: unknown expression, got {expr}'
 
 def expr_normal(expr, kb, rbp=0):          # create raw input expression
-    if is_token(expr):
-        return expr_sexpr(expr)            # reuse implementation from expr_sexpr
-    elif is_list(expr):
-        lexpr = len(expr)
-        if lexpr == 1:
-            return expr_normal(expr[0], kb)
-        elif lexpr == 2:
-            a = expr[0].value
-            if kb.is_prefix(a):
-                return f'({a} {expr_normal(expr[1], kb)})'
-            elif kb.is_postfix(a):
-                return f'({expr_normal(expr[1], kb)} {a})'
-            elif expr[0].label == 'COMMENT':
-                return f'{expr_normal(expr[1], kb)} ; {a}'
-            else:
-                return f'{expr_normal(expr[0], kb)} {expr_normal(expr[1], kb)}'
-        elif lexpr == 3:
-            a = expr[0].value
-            if kb.is_infix(a):
-                return f'({expr_normal(expr[1], kb)} {a} {expr_normal(expr[2], kb)})'
-            else:
-                return f'({a} {expr_normal(expr[1], kb)} {expr_normal(expr[2], kb)})'
-        else:
-            a = expr[0].value
-            if kb.is_flat(a):
-                return f'({f' {a} '.join([expr_normal(e, kb) for e in expr[1:]])})'
-            else:
-                return f'({" ".join([expr_normal(e, kb) for e in expr])})'
-    elif expr is None:
-        return ''
-    else:
-        assert False, f'BUG: unknown expression, got {expr}'
+    match expr:
+        case Token():
+            return expr_sexpr(expr)            # reuse implementation from expr_sexpr
+        case [e0]:
+            return expr_normal(e0, kb)
+        case [Token(label='SYMBOL', value=a), e1] if kb.is_prefix(a):
+            return f'({a} {expr_normal(e1, kb)})'
+        case [Token(label='SYMBOL', value=a), e1] if kb.is_postfix(a):
+            return f'({expr_normal(e1, kb)} {a})'
+        case [Token(label='COMMENT', value=a), e1]:
+            return f'{expr_normal(e1, kb)} ; {a}'
+        case [e0, e1]:
+            return f'{expr_normal(e0, kb)} {expr_normal(e1, kb)}'
+        case [Token(label='SYMBOL', value=a), e1, e2] if kb.is_infix(a):
+            return f'({expr_normal(e1, kb)} {a} {expr_normal(e2, kb)})'
+        case [Token(label='SYMBOL', value=a), e1, e2]:
+            return f'({a} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
+        case [Token(label='SYMBOL', value=a), *rest] if kb.is_flat(a):
+            return f'({f' {a} '.join([expr_normal(e, kb) for e in rest])})'
+        case [*rest]:
+            return f'({" ".join([expr_normal(e, kb) for e in rest])})'
+        case None:
+            return ''
+    assert False, f'BUG: unknown expression, got {expr}'
 
 def is_op_expr(e, op):
     return is_list(e) and is_token(e[0]) and e[0].value==op
@@ -1221,7 +1262,7 @@ def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
         # checks after closing the file
         if kb.level != level:
             kb.level = level       # set levels back before raising the exception
-            raise KurtException(f'EvalError: inside "{filename}" not all blocks closed, missing "end"?')
+            raise KurtException(f'\nEvalError: inside "{filename}" not all blocks closed, missing "end"?')
         if len(kb.show) != 0:
             s = '\nNot shown:\n'
             for f in kb.show:
