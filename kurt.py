@@ -1280,7 +1280,6 @@ def parse_args():
     parser.add_argument('-m', '--markdown',     action='store_true', help=f'run on `.md` files instead of `.kurt`, will ignore everything that is not indented by {md_indent} spaces')
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking `.`')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
-    parser.add_argument('-t', '--test',         action='store_true', help=f'run tests')
     return parser.parse_args()
 
 def main():
@@ -1290,17 +1289,8 @@ def main():
     # the knowledge base we start with on level 0
     kb = initial_kb
 
-    # verbosity?
+    # verbosity?…
     kb.verbose = args.verbose
-    
-    # run tests?
-    if args.test:
-        import unittest
-        from test import kurt_test
-        suite = unittest.TestLoader().loadTestsFromModule(kurt_test)
-        unittest.TextTestRunner(verbosity=2).run(suite)
-        # from https://stackoverflow.com/questions/31559473/run-unittests-from-a-different-file
-        exit(0)
 
     # theory path
     if args.path is not None:

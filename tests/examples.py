@@ -1,9 +1,7 @@
-import kurt
-import unittest
+## examples to test lexing and parsing
 
-## test code for lexing and parsing
 # three entries: input, scanned, parsed
-test_examples = [
+examples = [
     # left associative
     ("1 - 1 + 1",
      '[(INT "1"), (SYMBOL "-"), (INT "1"), (SYMBOL "+"), (INT "1"), (END "")]',
@@ -162,37 +160,3 @@ test_examples = [
      "SyntaxError: expression expected, got end of line")
 ]
 
-class Test_Lexing(unittest.TestCase):
-    def test_lexing(self):
-        #print('Running tests.')
-        n = len(test_examples)
-        passed = 0
-        for i in range(n):
-            (input_line, true_output, _) = test_examples[i]  # pick input, lexed
-            try:
-                output = str(list(kurt.scan_string(input_line)))  # peekable token stream
-            except Exception as e:
-                output = (str(e).split('\n'))[-1]    # this could be the desired result
-            with self.subTest(msg=input_line, i=i):
-                self.assertEqual(output, true_output)
-
-class Test_Parsing(unittest.TestCase):
-    def test_parsing(self):
-        #print('Running tests.')
-        kurt.load_file('standards.kurt', kurt.initial_kb)
-        kurt.initial_kb.format = 'sexpr'
-        n = len(test_examples)
-        passed = 0
-        for i in range(n):
-            (input_line, _, true_output) = test_examples[i]    # pick input, parsed
-            try:
-                ts = kurt.PG(kurt.scan_string(input_line))     # peekable token stream
-                pt = kurt.parse_tokenstream(ts, kurt.initial_kb)[0]  # parse tree
-                output = kurt.expr_str(pt, kurt.initial_kb)
-            except Exception as e:
-                output = (str(e).split('\n'))[-1]    # this could be the desired result
-            with self.subTest(msg=input_line, i=i):
-                self.assertEqual(output, true_output)
-
-if __name__ == '__main__':
-    unittest.main()

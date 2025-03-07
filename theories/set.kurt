@@ -1,6 +1,6 @@
 ; syntax for set theory (ZFC or NBG)
-bool "in"
-alias "∈" "in"               ; "∈" inherits all properties of "in"
-infix   "in" 55 55           ; element
+infix    "in" 55 55          ; element
+bool     "in"
+alias    "∈" "in"            ; "∈" inherits all properties of "in"
 brackets "{" "}"             ; curly brackets
 brackets "[" "]"             ; squared brackets
