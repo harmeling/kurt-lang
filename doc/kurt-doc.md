@@ -1,12 +1,9 @@
----
-title:  The Kurt Programming Language
-author: Stefan Harmeling
-date:   2025-02-25 (created)
----
+# The Kurt Programming Language Documentation
 
-TODO: rewrite this, such that it can be run in `kurt.py` itself
+**Author:** Stefan Harmeling
+**Date:** 2025-02-25 (created)
 
-# The Kurt Programming Language
+---
 
 The Kurt programming language is a made to write down and automatically check simple (and not so simple) mathematical proofs.  The motivation is to have a language that students can use while learning mathematics.  Similarly to automatic testing while learning programming, students can write down their proofs in Kurt and test them automatically to get immediate feedback.
 
