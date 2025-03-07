@@ -350,7 +350,7 @@ Isabelle, Coq, Lean4
 
          (A implies B) and A implies B                            ; implies_elim (modus ponens)
          (true implies A) implies A                               ; top_elim
-         A(x) and x==y implies B(y)                               ; equal_elim
+         A(x) and x==y implies A(y)                               ; equal_elim
 
          A and B implies A and B                                  ; and_intro
          A and B implies A                                        ; and_elim

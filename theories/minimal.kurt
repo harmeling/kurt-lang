@@ -1,11 +1,16 @@
-; minimal syntax (never loaded manually)
+; minimal
 
-false                   ; never load this theory, it is already built-in
+false            ; never load this theory, it is already hard-coded in `kurt.py`
 
-;;; hardcoded in `kurt.py`
-;brackets "(" ")"       ; for grouping during parsing
-;infix ","   5  5       ; for lists
-;infix "="  20 20       ; equality, left associative
-;sym "="                ; equality is symmetric
-;infix " "  22 22       ; space, flat
-;infix "//"  3 3        ; substitution of variables
+;; syntax
+; brackets "(" ")"                                ; for grouping during parsing
+; infix ","   5  5                                ; for lists
+; infix "="  20 20                                ; equality, left associative
+; sym "="                                         ; equality is symmetric
+; infix " "  22 22                                ; space, flat
+; infix "//"  3 3                                 ; substitution of variables
+
+;; inference rules
+; use $A implies $A                               ; restatement
+; use ($A implies $B) implies ($A implies $B)     ; impl-intro
+; use true                                        ; top-intro

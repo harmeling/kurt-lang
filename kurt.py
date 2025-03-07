@@ -853,14 +853,15 @@ def decorate_reason(mainstream, reason, filename, line):
         return f'{os.path.basename(filename)}:{line} {reason}'
 
 def eval_expression(expr, kb, line, filename, comment, mainstream):
-    if expr is None:
-        return kb
-    if is_token(expr):
-        value, label = expr.value, expr.label
-    elif is_token(expr[0]):
-        value, label = expr[0].value, expr[0].label
-    else:
-        raise KurtException(f'SyntaxError: token or list beginning with a token expected, got {expr}')
+    match expr:
+        case None | []:
+            return kb
+        case Token(label=label, value=value):
+            pass
+        case [Token(label=label, value=value), *rest]:
+            pass
+        case _:
+            raise KurtException(f'SyntaxError: token or list beginning with a token expected, got {expr}')
 
     # KEYWORD
     if value in keywords and label == 'SYMBOL':
@@ -1220,13 +1221,12 @@ def derive_expr(e, kb, filename, mainstream):
             print(f'expression to prove: {expr_str(e, kb)}')
             print(f'implication used:    {implication.formula_str(kb)}')
             print(f'substitution used:   {subst}')
-        if implication.comment is not None:
-            reason = f'by {implication.comment}'
+        if mainstream and implication.filename==filename:
+            reason = f'by {implication.line}'
         else:
-            if mainstream and implication.filename==filename:
-                reason = f'by {implication.line}'
-            else:
-                reason = f'by {os.path.basename(implication.filename)}:{implication.line}'
+            reason = f'by {os.path.basename(implication.filename)}:{implication.line}'
+        if implication.comment is not None:
+            reason += f' {implication.comment}'
         return reason    # bingo!  found an implication
 
     # couldn't derive formula using any of the rules

@@ -6,3 +6,7 @@ bool   "forall"
 bool   "exists"
 bindop "forall"         ; universal quantification
 bindop "exists"         ; existential quantification
+
+; use $x = $y                                                    ; equal-intro
+use $A and $x = $y implies ($A // $x=$y)                         ; equal-elim
+

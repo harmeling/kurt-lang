@@ -4,7 +4,6 @@ const "G"
 const "H"
 bool "G"
 bool "H"
-use ($G implies false) implies not $G   ; not-intro
 use G implies false
 show not G
 proof

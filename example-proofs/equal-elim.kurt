@@ -1,4 +1,4 @@
-; example: equal-elim
+; example: equal-elim TODO
 load "all.kurt"
 const "f"
 bool "f"

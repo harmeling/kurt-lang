@@ -1,4 +1,4 @@
-; example: forall-intro
+; example: forall-intro TODO
 load "first-order"
 use $A implies forall $x A   ; forall-intro
 const "prime"
