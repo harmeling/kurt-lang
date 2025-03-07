@@ -19,6 +19,7 @@ default_theory = 'theory.kurt'         # default theory
 # level3: proving
 
 ### NEXT
+# TODO maybe it is a good idea to have variables with $x and constants without
 # TODO create constants automatically
 # TODO any checks required for 'bindop'?  yes, check that the first arg is a variable and that it appears freely in the formula
 # TODO next: implement `equal_elim`
@@ -975,8 +976,9 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
                     reason += f' {comment}'
                 f = Formula(e, line, filename, status=keyword, reason=reason, comment=comment)
                 kb.theory.append(f)
-                reason = decorate_reason(mainstream, reason, filename, line)
-                log(f.formula_str(kb), reason , kb)
+                if mainstream:
+                    reason = decorate_reason(mainstream, reason, filename, line)
+                    log(f.formula_str(kb), reason , kb)
         elif keyword in ['show'] + formula_flags:
             check_args(expr, [[], ['EXPR']])
             if len(expr) == 1: print(kb.show_str())
@@ -988,15 +990,17 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
                 flag = None if keyword=='show' else keyword
                 f = Formula(e, line, filename, status='show', flag=flag, comment=comment)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
-                reason = decorate_reason(mainstream, 'claim', filename, line)
-                if comment is not None:
-                    reason += f' {comment}'
-                log(f.formula_str(kb), reason, kb)
+                if mainstream:
+                    reason = decorate_reason(mainstream, 'claim', filename, line)
+                    if comment is not None:
+                        reason += f' {comment}'
+                    log(f.formula_str(kb), reason, kb)
         elif keyword == 'proof':                  # opens a new block (scope)
             check_args(expr, [[]])
             if len(kb.show) == 0:
                 raise KurtException(f'ProofError: can not start proof since there is no planned formula on current level')
-            log('proof', None, kb)
+            if mainstream:
+                log('proof', None, kb)
             kb = KnowledgeBase(kb)                # add a new level/scope to the knowledgebase
         elif keyword == 'qed':                    # closes the last block (scope)
             check_args(expr, [[]])
@@ -1011,9 +1015,10 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
             f = Formula(pf.expr, line, filename, status=None, flag=pf.flag, reason=reason)
             kb.show.pop()                         # pop it now off the show stack, since it was proved
             kb.theory.append(f)                   # add a copy to the theory
-            log('qed', None, kb)
-            reason = decorate_reason(mainstream, reason, filename, line)
-            log(f.formula_str(kb), reason, kb)
+            if mainstream:
+                log('qed', None, kb)
+                reason = decorate_reason(mainstream, reason, filename, line)
+                log(f.formula_str(kb), reason, kb)
         else:
             assert False, f'BUG: unknown keyword, got "{keyword}"'
 
@@ -1025,8 +1030,9 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
         reason = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
         f = Formula(expr, line, filename, status=None, reason=reason)
         kb.theory.append(f)                         # add it to the knowledge base
-        reason = decorate_reason(mainstream, reason, filename, line)
-        log(f.formula_str(kb), reason, kb)
+        if mainstream:
+            reason = decorate_reason(mainstream, reason, filename, line)
+            log(f.formula_str(kb), reason, kb)
 
     # finally return the possibly modified knowledgebase
     return kb
