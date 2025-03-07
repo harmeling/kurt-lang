@@ -9,6 +9,7 @@ version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
 md_indent      = 7                     # ignore all lines not starting with `md_indent` many spaces
 proof_indent   = 4                     # how much to indent for a `proof` block
+reason_indent  = 60                    # how much the reason is indented
 theory_path    = ['.', 'theories']     # default path for theories
 default_theory = 'theory.kurt'         # default theory
 
@@ -1006,7 +1007,7 @@ def log(s, reason, kb):
         if reason is None:
             print(indent+s)
         else:
-            print(f'{(indent+s):<60}; {reason}')
+            print(f'{(indent+s):<{reason_indent}}; {reason}')
 
 def bool_expr(expr, kb):
     match expr:
@@ -1216,7 +1217,6 @@ def load_file(filename, kb, markdown=False):
     if kb.level != level:
         kb.level = level       # set levels back before raising the exception
         raise KurtException(f'EvalError: inside "{filename}" not all blocks closed, missing "end"?')
-    log(f'Loaded "{filename}"', None, kb)
     return kb
 
 def prompt(level, line, continued=False):
@@ -1289,7 +1289,7 @@ def main():
     # the knowledge base we start with on level 0
     kb = initial_kb
 
-    # verbosity?…
+    # verbosity?
     kb.verbose = args.verbose
 
     # theory path

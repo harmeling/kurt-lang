@@ -4,11 +4,13 @@
         "arities",
         "barebones",
         "bindop",
+        "cand",
         "EAFP",
         "elim",
         "firstorder",
         "fixpoints",
         "forall",
+        "functool",
         "Harmeling",
         "Hindley",
         "knowledgebase",
@@ -55,7 +57,7 @@
         "-s",
         "./tests",
         "-p",
-        "test*.py"
+        "test_*.py"
     ],
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true
