@@ -1,6 +1,6 @@
 ; minimal syntax (never loaded manually)
 
-false                   ; never load this theory manually
+false                   ; never load this theory, it is already built-in
 
 ;;; hardcoded in `kurt.py`
 ;brackets "(" ")"       ; for grouping during parsing

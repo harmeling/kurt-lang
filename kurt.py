@@ -68,9 +68,11 @@ import functools    # functools.cmp_to_key
 import readline     # readline.parse_and_bind, readline.add_history
 
 class KurtException(Exception):
-    def __init__(self, msg, column=None):
-        self.msg    = msg
-        self.column = column
+    def __init__(self, msg, column=None, line=None, filename=None):
+        self.msg      = msg
+        self.column   = column
+        self.lin      = line
+        self.filename = filename
 
 ## the syntax is stored in a hierarchical knowledge base called `KnowledgeBase`
 format_options = ['sexpr', 'normal']            # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
@@ -827,7 +829,7 @@ def eval_expression(expr, kb, line, filename, comment):
             for k in keywords.keys(): print(f'  {k:<12} {keywords[k]}')
         elif keyword == 'load':
             check_args(expr, [['STRING']])
-            kb = load_file(expr[1].value, kb)
+            kb, _ = load_file(expr[1].value, kb)
         elif keyword == 'parse':
             check_args(expr, [['EXPR']])
             e = parse_tokenlist(expr[1:], kb)
@@ -1178,25 +1180,15 @@ def derive_expr(e, kb):
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
 
-###########################
-## commandline interface ##
-###########################
-
 def eval(input_line, kb, line, filename):
     try:
         ts            = PG(scan_string(input_line))                        # lexer
         expr, comment = parse_tokenstream(ts, kb)                          # parser
         kb            = eval_expression(expr, kb, line, filename, comment) # evaluation
     except KurtException as e:
-        if e.column is None: e.column = len(input_line)
-        if filename == '<stdin>':
-            msg = f'\n'
-        else:
-            msg = f'  File "{filename}", line {line}\n'
-        msg += f'    {input_line}\n'
-        msg += f'    {" " * e.column + "^"}\n'
-        msg += e.msg
-        print(msg, file=sys.stderr)
+        e.filename = filename
+        e.line     = line
+        raise e
     return kb
 
 def load_file(filename, kb, markdown=False):
@@ -1209,7 +1201,7 @@ def load_file(filename, kb, markdown=False):
         if filename is None:
             raise OSError
         with open(filename) as f:
-            kb = read_eval_loop(f, kb, markdown)
+            kb, success = read_eval_loop(f, kb, markdown)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open "{filename}"') from None
@@ -1217,7 +1209,11 @@ def load_file(filename, kb, markdown=False):
     if kb.level != level:
         kb.level = level       # set levels back before raising the exception
         raise KurtException(f'EvalError: inside "{filename}" not all blocks closed, missing "end"?')
-    return kb
+    return kb, success
+
+###########################
+## commandline interface ##
+###########################
 
 def prompt(level, line, continued=False):
     s = '> ' * level
@@ -1228,16 +1224,17 @@ def prompt(level, line, continued=False):
     return s
 
 def read_eval_loop(input_stream, kb, markdown=False):
-    not_file   = (input_stream.name == '<stdin>')   # for non files we have a fancy prompt
+    success   = True
+    is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
     line       = 1
     continued  = False
     input_line = ''
-    if not_file:
+    if not is_file:
         readline.parse_and_bind("tab: complete")    # Enable tab completion
 
     while True:
         try:
-            if not_file:
+            if not is_file:
                 prompt_text = prompt(kb.level, line, continued)
                 new_line = input(prompt_text).rstrip()  # use readline
                 readline.add_history(new_line)          # save to history
@@ -1256,15 +1253,27 @@ def read_eval_loop(input_stream, kb, markdown=False):
                 input_line = input_line[:-1]
                 continued = True
             else:
-                kb = eval(input_line, kb, line, input_stream.name)
+                try:
+                    kb = eval(input_line, kb, line, input_stream.name)
+                except KurtException as e:
+                    if e.column is None: e.column = len(input_line)
+                    if e.filename == '<stdin>':
+                        msg = f'\n'
+                    else:
+                        msg = f'  File "{e.filename}", line {e.line}\n'
+                    msg += f'    {input_line}\n'
+                    msg += f'    {" " * e.column + "^"}\n'
+                    msg += e.msg
+                    print(msg, file=sys.stderr)
+                    if is_file:
+                        return kb, not success    # stop processing after the first error
                 input_line = ''  # Reset input
                 continued = False
                 line += 1
         except EOFError:
-            print("\nBye!")
+            print("\nBye!")      # this happens when Ctrl-d is pressed in the interactive session
             break
-    
-    return kb
+    return kb, success
 
 def find_theory_file(fname):
     for p in theory_path:
@@ -1298,17 +1307,19 @@ def main():
 
     # by default load `default_theory` or nothing
     if (theory_filename := find_theory_file(default_theory)):
-        kb = eval(f'load "{theory_filename}"', kb, 0, '<stdin>')
+        kb, _ = load_file(theory_filename, kb)
 
     # if there is a filename run the file
     if args.filename is not None:
-        kb = eval(f'load "{args.filename}"', kb, 0, '<stdin>')
+        kb, success = load_file(args.filename, kb)
+        if success:
+            log('Proof checked.', None, kb)
     else:
         args.interactive = True
 
     # read-eval-print loop
     if args.interactive:
-        kb = read_eval_loop(sys.stdin, kb)
+        kb, _ = read_eval_loop(sys.stdin, kb)
     exit(0)
 
 if __name__ == "__main__":

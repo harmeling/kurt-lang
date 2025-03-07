@@ -1,4 +1,4 @@
-; example: modus ponens
+; example: impl-elim (aka modus ponens)
 load "all"
 const "A"
 const "B"
