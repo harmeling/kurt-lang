@@ -37,8 +37,7 @@ alias  "contradiction" "false"
 ; use $A implies $A                                                 ; restatement
 
 ; use ($A implies $B) implies ($A implies $B)                       ; impl-intro
-use ($A implies $B) and $A implies $B                               ; implies-elim (modus ponens)
-;; implies-elim is the same as "modus ponens"
+; use ($A implies $B) and $A implies $B                             ; impl-elim
 
 use $A and $B implies $A and $B                                     ; and-intro
 use $A and $B implies $A                                            ; and-elim
@@ -52,7 +51,7 @@ use ($A implies $B) and ($B implies $A) implies ($A iff $B)         ; iff-intro
 use ($A iff $B) implies ($A implies $B)                             ; iff-elim
 use ($A iff $B) implies ($B implies $A)                             ; iff-elim
 
-; use true                                                          ; top-intro
+use true                                                            ; top-intro
 use (true implies $A) implies $A                                    ; top-elim
 ;; top-intro has zero premises (which is equal to true)
 

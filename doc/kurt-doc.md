@@ -170,6 +170,10 @@ Isabelle, Coq, Lean4
 
      var f : Real -> Real    ; this define the arity of `f` to be 1
 
+## Equality
+
+- insight: `iff` is `=` for boolean
+
 ## Formulas
 
 - A *formula* is a term of type `Bool`.
@@ -550,3 +554,30 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 - "induction"
 
          (A // x=0) and (forall n in Nat  (A // x=n) implies (A // x=n+1)) implies forall n in Nat  A  ; induction
+
+## minimal rules (2025-03-08)
+
+- In propositional logic we only need:
+
+    use $A   implies   $A                                  ; restatement
+    use ($A IMPLIES $B)   implies   ($A implies $B)        ; impl-intro
+    use ($A implies $B) and $A   implies   $B              ; impl-elim
+
+  These three inference are all implemented in `kurt.py`.  Note that `impl-intro` is called when we close a proof with `qed` and `IMPLIES` is shown by a `proof`-`qed`-block.
+
+- Note on `restatement`: we do allow substitution of variables , so actually we have:
+
+    use $A implies ($A // $x=$a)                       ; restatement
+
+  I.e., we can substitute variables in `$A` with arbitrary terms.  That is how we implemented `restatement` in `kurt.py`.
+
+- In substitutions like `$x=$a`, the LHS `$x` is variable that gets assigned, while the RHS is a term where we can plug in anything.  However, we denote this "anything" by `$a`
+
+- If we add equality we additionally have:
+
+    use ($A // $x=$a) and $a=$b implies ($A // $x=$b)  ; equal-elim
+    use $x=$x                                          ; equal-intro
+
+- So an expression like `17=17` is obtained from `equal-intro` using `restatement` with variable substitution `{$x=17}`.  We write a substitution as a python dictionary.
+
+- Curiously, `restatement` is a special case of `equal-elim` if we set `$a` to `$x`.

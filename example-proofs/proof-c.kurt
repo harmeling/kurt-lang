@@ -1,0 +1,4 @@
+; proof-c.kurt: simple example where two files are involved to check proper filenames
+load "proof-b"
+A
+B

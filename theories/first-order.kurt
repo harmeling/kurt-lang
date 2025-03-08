@@ -10,6 +10,11 @@ bindop "forall"         ; universal quantification
 bindop "exists"         ; existential quantification
 
 ;; inference rules
-; use $x = $y                                                    ; equal-intro, in `kurt.py`
+; use $x = $x                                                    ; equal-intro, hard-coded in `kurt.py`
 use $A and $x = $y implies ($A // $x=$y)                         ; equal-elim
 
+use $A implies forall $x A                                       ; forall-intro
+use forall $x $A implies ($A // $x=$t)                           ; forall_elim
+
+use $A implies exists $x ($A // $t=$x)                           ; exists_intro
+use (exists $x $A) and (($A // $x=$c) implies $B) implies $B     ; exists_elim

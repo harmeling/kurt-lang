@@ -1,0 +1,16 @@
+; natural numbers
+
+;; syntax
+const "0"
+const "1"
+infix "+" 10 10
+
+;; inference rules
+use Nat = {0, 1, 2, ...}
+
+; alternatively
+use 0 in Nat
+use $n in Nat  implies  $n+1 in Nat
+
+; induction
+use ($A // $n=0) and (forall $n in Nat  ($A implies ($A // $n=$n+1))) implies forall $n in Nat  A  ; induction

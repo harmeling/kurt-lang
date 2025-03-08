@@ -19,14 +19,23 @@ default_theory = 'theory.kurt'         # default theory
 # level3: proving
 
 ### NEXT
-# TODO insight: `iff` is `=` for boolean
+# TODO have keywords: `free` and `bound`
+# TODO quantifier:  the first arg should be a variable or an expression.  for the expression case the quantifier take the expression as a pre-condition and quantifies over all variables in the expression:
+#      e.g.    forall x!=y  F(x, y)
+# TODO do we need `restatement` or can we use it as a special case of `equal-elim`.
 # TODO create an initial version and start working on the branch
-# TODO maybe it is a good idea to have variables with $x and constants without
-# TODO create constants automatically
+# TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
+# TODO create constants automatically, when calling `arity` or `bool` or `infix`.
 # TODO any checks required for 'bindop'?  yes, check that the first arg is a variable and that it appears freely in the formula
 # TODO next: implement `equal_elim`
 # TODO next: implement first order inference, WE ARE IGNORING FOR NOW WHETHER VARIABLES ARE BOUND OR FREE
 # TODO add `//` to the language
+# TODO parse also the stuff following the keywords: add the keywords to the language as well as prefix operators with very low binding power
+#      that must appear at the beginning, this should simplify the parsing, and we can easily do something like `bool "a", "b", "c", "d"` or
+#      even better `bool a, b, c, d`
+# TODO keep comments as comments and add some syntax for labels
+# TODO try `contradiction` instead of `false` in the `example-proofs/proof-by-contradiction.kurt`, it doesn't work yet
+# TODO show also the premises in the reasons
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
 #      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
 # TODO Q: is the match of `match_expr` always unique?  we are assuming it!
@@ -35,6 +44,7 @@ default_theory = 'theory.kurt'         # default theory
 # TODO put everything into a symbol table?  let's have it additionally.
 # TODO right now 'parse 17 42 244' is allowed, even though '17' does not have arity 2.  this should lead to an error.
 # TODO however, `parse (+) 18 42` works, but it shouldn't!  make it work by defining the arity of infix operators explicit to 2
+# TODO maybe yes: allow `(+)` to turn an infix operators into a function call with arity 2, similar prefix, postfix
 # TODO write kurt integration for vscode, highlight the lines that are proven, https://microsoft.github.io/language-server-protocol/
 # TODO two algorithms: constraint based (https://www.youtube.com/watch?v=H7x4THVU4BQ) and substitution based (W)
 # TODO redo something like https://terrytao.wordpress.com/2023/12/05/a-slightly-longer-lean-4-proof-tour/
@@ -43,10 +53,10 @@ default_theory = 'theory.kurt'         # default theory
 # TODO write more test code, also for the proof stuff
 # TODO implement 'nonassoc', this could then be checked in 'post_process'
 ### LATER/MAYBE
+# TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
 # TODO use more 'match' statements?  E.g. in eval? <https://peps.python.org/pep-0636/>
 # TODO implement comments as labels, i.e. store them in the formula and use them
-# TODO introduce witness of a formula?
 # TODO optionally give an output filename for the proof structure
 # TODO do multi-line equations, and indentation for begin/end block
 # TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
@@ -54,8 +64,6 @@ default_theory = 'theory.kurt'         # default theory
 # TODO format "latex", also allow custom latex formats
 # TODO possibly 'a b' is problematic if there are no arities for 'a' defined?
 # TODO keep the code below 1000 lines of code!  unlikely...
-# TODO maybe yes: allow `(+)` to turn an infix operators into a function call with arity 2, similar prefix, postfix
-# TODO replace functool.cmp_to_key
 
 ## all external libraries (let's keep the dependencies minimal)
 import sys          # sys.stdin, sys.stderr
@@ -354,8 +362,8 @@ class KnowledgeBase():
     def add_bool(self, s):
         if self.is_bool(s):
             raise KurtException(f'EvalError: symbol "{s}" is already declared bool')
-        if not (self.is_var(s) or self.is_const(s)):
-            raise KurtException(f'EvalError: symbol "{s}" must be either a variable or a constant')
+        if not (self.is_const(s) or self.is_var(s)):
+            self.add_const(s)     # create a constant automatically
         self.bool[s] = None       # add a key with value None
 
     def get_nud(self, token):
@@ -394,7 +402,7 @@ class KnowledgeBase():
     # THEORY RELATED
     def all_theory(self):
         # iterate over all levels
-        for f in self.theory:
+        for f in reversed(self.theory):
             yield f
         if self.parent is not None:
             yield from self.parent.all_theory()
@@ -436,10 +444,11 @@ space_rbp   = 22                              # right binding power: stronger th
 initial_kb = KnowledgeBase()
 initial_kb.add_infix("//", 3, 3)                       # substitution of variables
 initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
-initial_kb.add_infix('=', 20, 20)                      # equality with lower binding power than space
+initial_kb.add_infix('=', 20, 20)                      # equality with lower binding power than space, equality is left-associative
+initial_kb.add_sym('=')                                # equalities should be symmetric
+initial_kb.add_bool('=')                               # equalities are true or false
 initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is for expression like `f x`
 initial_kb.add_flat(',')                               # flatness of comma operator
-initial_kb.add_sym('=')                                # equalities should be symmetric
 initial_kb.add_brackets('(', ')')                      # round brackets for grouping
 
 ################
@@ -472,19 +481,6 @@ def expr_str(expr, kb):
     else:
         assert False, f'BUG: unknown expression format, got {kb.format}'
 
-# def expr_sexpr(expr):                      # create s-expression
-#     if is_token(expr):
-#         if expr.label == 'STRING':
-#             return f'"{expr.value}"'
-#         else:
-#             return str(expr.value)
-#     elif is_list(expr):
-#         return f'({" ".join([expr_sexpr(e) for e in expr])})'
-#     elif expr is None:
-#         return ''
-#     else:
-#         assert False, f'BUG: unknown expression, got {expr}'
-
 def expr_sexpr(expr):                      # create s-expression
     match expr:
         case Token(label='STRING', value=v):
@@ -496,40 +492,6 @@ def expr_sexpr(expr):                      # create s-expression
         case None:
             return ''
     assert False, f'BUG: unknown expression, got {expr}'
-
-# def expr_normal(expr, kb, rbp=0):          # create raw input expression
-#     if is_token(expr):
-#         return expr_sexpr(expr)            # reuse implementation from expr_sexpr
-#     elif is_list(expr):
-#         lexpr = len(expr)
-#         if lexpr == 1:
-#             return expr_normal(expr[0], kb)
-#         elif lexpr == 2:
-#             a = expr[0].value
-#             if kb.is_prefix(a):
-#                 return f'({a} {expr_normal(expr[1], kb)})'
-#             elif kb.is_postfix(a):
-#                 return f'({expr_normal(expr[1], kb)} {a})'
-#             elif expr[0].label == 'COMMENT':
-#                 return f'{expr_normal(expr[1], kb)} ; {a}'
-#             else:
-#                 return f'{expr_normal(expr[0], kb)} {expr_normal(expr[1], kb)}'
-#         elif lexpr == 3:
-#             a = expr[0].value
-#             if kb.is_infix(a):
-#                 return f'({expr_normal(expr[1], kb)} {a} {expr_normal(expr[2], kb)})'
-#             else:
-#                 return f'({a} {expr_normal(expr[1], kb)} {expr_normal(expr[2], kb)})'
-#         else:
-#             a = expr[0].value
-#             if kb.is_flat(a):
-#                 return f'({f' {a} '.join([expr_normal(e, kb) for e in expr[1:]])})'
-#             else:
-#                 return f'({" ".join([expr_normal(e, kb) for e in expr])})'
-#     elif expr is None:
-#         return ''
-#     else:
-#         assert False, f'BUG: unknown expression, got {expr}'
 
 def expr_normal(expr, kb, rbp=0):          # create raw input expression
     match expr:
@@ -549,10 +511,10 @@ def expr_normal(expr, kb, rbp=0):          # create raw input expression
             return f'({expr_normal(e1, kb)} {a} {expr_normal(e2, kb)})'
         case [Token(label='SYMBOL', value=a), e1, e2]:
             return f'({a} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
-        case [Token(label='SYMBOL', value=a), *rest] if kb.is_flat(a):
-            return f'({f' {a} '.join([expr_normal(e, kb) for e in rest])})'
-        case [*rest]:
-            return f'({" ".join([expr_normal(e, kb) for e in rest])})'
+        case [Token(label='SYMBOL', value=a), *tail] if kb.is_flat(a):
+            return f'({f' {a} '.join([expr_normal(e, kb) for e in tail])})'
+        case [*tail]:
+            return f'({" ".join([expr_normal(e, kb) for e in tail])})'
         case None:
             return ''
     assert False, f'BUG: unknown expression, got {expr}'
@@ -577,12 +539,26 @@ def compare_expr(t1, t2):                                # "less than" for expre
         return -1                                        # e.g. 17 < [1,2]
     elif is_list(t1) and is_token(t2):
         return 1                                         # e.g. [1,2] < 17
-    elif t1 < t2:
-        return -1                                        # e.g. 17 < 42 or [1,2,3] < [55]
-    elif t1 > t2:
-        return 1                                         # e.g. 42 > 17 or [55] > [1,2,3]
+    elif is_token(t1) and is_token(t2):
+        if t1 < t2:
+            return -1
+        elif t1 > t1:
+            return 1
+        else:
+            return 0
     else:
-        return 0                                         # e.g. 42 == 42 or [1,2,3] == [1,2,3]
+        assert is_list(t1) and is_list(t2), f'BUG: expression is either a list or token'
+        if len(t1) < len(t2):
+            return -1
+        elif len(t1) > len(t2):
+            return 1
+        else:
+            for (s1, s2) in zip(t1, t2):
+                c = compare_expr(s1, s2)
+                if c == 0:
+                    continue
+                return c
+            return 0
 
 def simplify(expr, kb):
     if expr is None:
@@ -810,12 +786,12 @@ def parse_tokenstream(ts, kb):                           # gets a peekable token
     elif ts.peek.value in keywords:
         # we have to remove the comment already here, so that commands like `bool` get not confused
         match list(ts):
-            case [*rest, Token(label='COMMENT', value=comment), end_token]:
-                return rest, comment
+            case [*tail, Token(label='COMMENT', value=comment), end_token]:
+                return tail, comment
             case [Token(label='COMMENT', value=comment), end_token]:
                 return None, comment
-            case [*rest, end_token]:
-                return rest, None                        # chop off the end-token and postpone the parsing
+            case [*tail, end_token]:
+                return tail, None                        # chop off the end-token and postpone the parsing
     else:
         expr = parse_expression(ts, kb, 0)               # parse expression
         return post_process(kb, expr)                    # apply some transformations
@@ -861,7 +837,7 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
             return kb
         case Token(label=label, value=value):
             pass
-        case [Token(label=label, value=value), *rest]:
+        case [Token(label=label, value=value), *_]:
             pass
         case _:
             raise KurtException(f'SyntaxError: token or list beginning with a token expected, got {expr}')
@@ -1012,7 +988,7 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
                 raise KurtException(f'ProofError: planned formula "{pf}" in current proof is unproven')
             assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
             pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
-            reason = impl_intro(pf.expr, kb)      # this might generate a KurtException
+            reason = impl_intro(pf.expr, kb, mainstream)      # this might generate a KurtException
             kb = kb.parent                        # drop current level
             f = Formula(pf.expr, line, filename, status=None, flag=pf.flag, reason=reason)
             kb.show.pop()                         # pop it now off the show stack, since it was proved
@@ -1073,7 +1049,7 @@ def bool_expr(expr, kb):
     match expr:
         case Token(label='SYMBOL', value=v):
             return kb.is_bool(v)
-        case [Token(label='SYMBOL', value=v), *rest]:
+        case [Token(label='SYMBOL', value=v), *_]:
             return kb.is_bool(v)
     return False
 
@@ -1092,35 +1068,8 @@ def bool_expr(expr, kb):
 # 1. check whether the formula to prove matches D
 # 2. search for A and B and C in the theory (with substitution applied)
 
-def top_intro(e):
-    # <nothing>
-    # -----
-    # true
-    if is_token(e) and e.label == 'SYMBOL' and e.value == 'true':
-        return 'top_intro'
-    else:
-        return None
-
-def equal_intro(e):
-    # <nothing>
-    # -----
-    # True
-    if is_list(e) and len(e) == 3 and equal_expr(e[1], e[2]):
-        return 'equal_intro'
-    else:
-        return None
-
-def restatement(e, kb):
-    # A
-    # -----
-    # A
-    for f in kb.all_theory():
-        if equal_expr(f.expr, e):
-            return f'restatement of {os.path.basename(f.filename)}:{f.line}'
-    return None
-
-# this function is only called when closing a block (via `qed` or using indentation)
-def impl_intro(expr, kb):
+# this function is called when closing a block (via `qed` or using indentation)
+def impl_intro(expr, kb, mainstream):
     
     # step 1: collect all assumptions of the current level
     premise = [f.expr for f in kb.theory if f.status=='assume']
@@ -1151,11 +1100,29 @@ def impl_intro(expr, kb):
         return reason
     raise KurtException(f'ProofError: could not prove    {expr}\n            instead got        {result}')
 
-def equal_elim(e, kb):
-    pass
-    #assert False, f'BUG: equal_elim is not implemented yet'
-
-## WE ARE IGNORING FOR NOW WHETHER VARIABLES ARE BOUND OR FREE
+def free_bound_vars(e, kb):
+    # return two dicts of the free and bound variables in expression `e`
+    match e:
+        case Token(label='SYMBOL', value=v) if kb.is_var(v):
+            return {v:None}, {}
+        case Token():
+            return {}, {}
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail] if kb.is_var(v) and kb.is_bindop(op):
+            fv, bv = free_bound_vars(tail, kb)
+            if v in fv:
+                del fv[v]      # remove from the free vars
+                bv[v] = None   # add to the bound vars
+            return fv, bv
+        case [*children]:
+            fv, bv = {}, {}
+            for child in children:
+                fv0, bv0 = free_bound_vars(child, kb)
+                fv.update(fv0)
+                bv.update(bv0)
+            return fv, bv
+        case []:
+            return {}, {}
+    assert False, f'BUG: did not match expression `{e}` in `free_bound_vars`'
 
 def apply_subst(e, subst, kb):
     match e:
@@ -1169,7 +1136,7 @@ def apply_subst(e, subst, kb):
 # `match_one` matches a single expression to a single pattern
 def match_one(pattern, expr, subst, kb):
     assert isinstance(pattern, Token | list), f'BUG: `match_one` must be called with an expression as the pattern, not with a formula'
-    assert isinstance(expr, Token | list), f'BUG: `match_one` must be called with an expression, not with a formula'
+    assert isinstance(expr,    Token | list), f'BUG: `match_one` must be called with an expression, not with a formula'
     # matches the `expr` to the `pattern` and extends the `subst` (substitutions/bindings)
     match pattern:
         case Token(label='SYMBOL', value=v) if kb.is_var(v):
@@ -1181,7 +1148,8 @@ def match_one(pattern, expr, subst, kb):
         case [*_] if is_list(expr) and len(pattern)==len(expr):
             for (p,e) in zip(pattern, expr):
                 p = apply_subst(p, subst, kb)
-                if (subst:=match_one(p, e, subst, kb)) is None:
+                subst = match_one(p, e, subst, kb)
+                if subst is None:
                     return None     # no match
             return subst
     return None           # no match, so no `subst` dictionary
@@ -1192,28 +1160,37 @@ def match_all(premises, subst, kb):
     match premises:
         case []:
             return subst     # done!
-        case [premise, *rest]:
+        case [premise, *tail]:
             premise = apply_subst(premise, subst, kb)
             for candidate in kb.all_theory():    # iterate over all formulas
                 # we use `subst_tmp` to avoid overwriting `subst` for the `continue`
-                if (subst_tmp := match_one(candidate.expr, premise, subst, kb)) is None:
+                subst_tmp = match_one(candidate.expr, premise, subst, kb)
+                if subst_tmp is None:
                     continue   # no match of the `premise`
-                return match_all(rest, subst_tmp, kb)
+                return match_all(tail, subst_tmp, kb)
             return None
     assert False, f'BUG: `match_all` must be called with a list'
 
-def derive_expr(e, kb, filename, mainstream):
+def restatement(e, kb, filename, mainstream):
+    # use $A implies ($A // $x=$a, $y=$b, ...)       ; restatement
+    for previous in kb.all_theory():
+        previous_expr = previous.expr
+        subst = match_one(previous_expr, e, {}, kb)
+        if subst is not None:
+            if mainstream and previous.filename==filename:
+                reason = f'restatement of {previous.line}'
+            else:
+                reason = f'restatement of {os.path.basename(previous.filename)}:{previous.line}'
+            if len(subst)>0:
+                reason += f' with {subst}'
+            return reason
 
-    # check hard-coded rules
-    if (reason:=top_intro(e)):       return reason
-    if (reason:=equal_intro(e)):     return reason
-    if (reason:=restatement(e, kb)): return reason
-    if (reason:=equal_elim(e, kb)):  return reason
-
-    # check user-defined rules
+def impl_elim(e, kb, filename, mainstream):
+    # use $A and ($A implies $B) implies $B          ; impl-elim
     for implication in kb.all_usable_implications():
         conclusion = implication.expr[2]
-        if (subst := match_one(conclusion, e, {}, kb)) is None:
+        subst = match_one(conclusion, e, {}, kb)
+        if subst is None:
             continue   # no luck this time, try the next iteration
         # match was found with conclusion, unpack the premises
         match implication.expr[1]:
@@ -1222,7 +1199,8 @@ def derive_expr(e, kb, filename, mainstream):
             case premise:
                 premises = [premise]    # wrap a single premise in a list
         # check the premises
-        if (subst := match_all(premises, subst, kb)) is None:
+        subst = match_all(premises, subst, kb)
+        if subst is None:
             continue   # no luck this time, try the next iteration
         if kb.verbose:
             print('BINGO!')
@@ -1236,6 +1214,29 @@ def derive_expr(e, kb, filename, mainstream):
         if implication.comment is not None:
             reason += f' {implication.comment}'
         return reason    # bingo!  found an implication
+
+def equal_elim(e, kb, filename, mainstream):
+    # use ($A // $x=$a) and $a=$b implies ($A // $x=$b)         ; equal_elim
+    print('FREE/BOUND')
+    print(free_bound_vars(e, kb))
+    return None   # not implemented
+
+def derive_expr(e, kb, filename, mainstream):
+
+    # check whether we are restating an existing formula (possibly with a substitution)
+    reason = restatement(e, kb, filename, mainstream)
+    if reason is not None:
+        return reason
+
+    # check whether we can use an implication
+    reason = impl_elim(e, kb, filename, mainstream)
+    if reason is not None: 
+        return reason
+
+    # check whether we can use an equality
+    reason = equal_elim(e, kb, filename, mainstream)
+    if reason is not None:
+        return reason
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
@@ -1373,7 +1374,8 @@ def main():
         theory_path[1] = args.path   # overwrite the default 'theory'
 
     # by default load `default_theory` or nothing
-    if (theory_filename := find_file(default_theory, theory_path)):
+    theory_filename = find_file(default_theory, theory_path)
+    if theory_filename is not None:
         try:
             kb, _ = load_file(theory_filename, kb, mainstream=False)
         except KurtException as e:

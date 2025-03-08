@@ -1,9 +1,5 @@
 ; example: impl-elim (aka modus ponens)
 load "all"
-const "A"
-const "B"
-const "C"
-const "D"
 bool "A"
 bool "B"
 bool "C"
