@@ -19,6 +19,8 @@ default_theory = 'theory.kurt'         # default theory
 # level3: proving
 
 ### NEXT
+# TODO insight: `iff` is `=` for boolean
+# TODO create an initial version and start working on the branch
 # TODO maybe it is a good idea to have variables with $x and constants without
 # TODO create constants automatically
 # TODO any checks required for 'bindop'?  yes, check that the first arg is a variable and that it appears freely in the formula
