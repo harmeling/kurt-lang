@@ -18,6 +18,7 @@ bool   "and"     0 1 2  ; and and its inputs have type bool
 bool   "or"      0 1 2  ; and and its inputs have type bool
 bool   "not"     0 1    ; and and its inputs have type bool
 bool   "implies" 0 1 2  ; and and its inputs have type bool
+bool   "iff"     0 1 2  ; and and its inputs have type bool
 alias  "contradiction" "false"
 
 ;; inference rules

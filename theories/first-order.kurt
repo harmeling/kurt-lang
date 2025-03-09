@@ -13,7 +13,7 @@ bool   "exists" 0 2     ; position 1 is special for binding operators and must b
 ; use $x = $x                                                    ; equal-intro, hard-coded in `kurt.py`
 use $A and $x = $y implies ($A // $x=$y)                         ; equal-elim
 
-use $A implies forall $x A                                       ; forall-intro
+use $A implies forall $x $A                                      ; forall-intro
 use forall $x $A implies ($A // $x=$t)                           ; forall_elim
 
 use $A implies exists $x ($A // $t=$x)                           ; exists_intro

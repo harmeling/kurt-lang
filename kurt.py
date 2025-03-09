@@ -16,23 +16,22 @@ default_theory = 'theory.kurt'         # default theory
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
 # level2: parsing
-# level3: proving
+# level3: simple type checking
+# level4: proving
 
 ### NEXT
+# TODO function calls have double brackets
+# TODO we don't stop if the inner file `proof-a.kurt` creates an error message
+# TODO check that the RHS of an substitution is a list of equations
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
-# TODO we don't stop if the inner file `proof-a.kurt` creates an error message
 # TODO quantifier:  the first arg should be a variable or an expression.  for the expression case the quantifier take the expression as a pre-condition and quantifies over all variables in the expression:
 #      e.g.    forall x!=y  F(x, y)
 # TODO do we need `restatement` or can we use it as a special case of `equal-elim`.
 # TODO create an initial version and start working on the branch
 # TODO have keywords: `free` and `bound`
-# TODO merge `bool_expr` and `check_expression`?
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
-# TODO any checks required for 'bindop'?  yes, check that the first arg contains a variable, the first arg can be a formula
 # TODO next: implement `equal_elim`
-# TODO next: implement first order inference, WE ARE IGNORING FOR NOW WHETHER VARIABLES ARE BOUND OR FREE
-# TODO add `//` to the language
 # TODO parse also the stuff following the keywords: add the keywords to the language as well as prefix operators with very low binding power
 #      that must appear at the beginning, this should simplify the parsing, and we can easily do something like `bool "a", "b", "c", "d"` or
 #      even better `bool a, b, c, d`
@@ -1064,8 +1063,12 @@ def free_bound_vars(e, kb):
 
 def bool_expr(expr, kb):
     match expr:
+        case Token(label='SYMBOL', value=v) if kb.is_var(v):
+            return True                    # variables are potentially boolean
         case Token(label='SYMBOL', value=v) if not kb.is_var(v):
             return 0 in kb.bool_sig(v)
+        case [Token(label='SYMBOL', value='//'), *tail]:
+            return bool_expr(tail[0], kb)
         case [Token(label='SYMBOL', value=v), *_] if not kb.is_var(v):
             return 0 in kb.bool_sig(v)
     return False
@@ -1097,8 +1100,7 @@ def check_expression(expr, kb):
         case [Token(label='SYMBOL', value=op), *tail]:
             for idx in range(1, len(tail)+1):
                 if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
-                    print('FOOOOOOOOOOOO')
-                    raise KurtException(f'TypeError: arg {idx} of `{tail[idx-1]}` must be boolean')
+                    raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean, but is  `{tail[idx-1]}`')
             for e in tail:
                 check_expression(e, kb)
 
@@ -1318,7 +1320,6 @@ def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
             raise OSError
         with open(fname) as f:
             kb, success = read_eval_loop(f, kb, markdown, mainstream=mainstream)
-            print('FOOBAR', success)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open "{filename}"') from None
