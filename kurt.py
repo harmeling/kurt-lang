@@ -19,14 +19,17 @@ default_theory = 'theory.kurt'         # default theory
 # level3: proving
 
 ### NEXT
-# TODO have keywords: `free` and `bound`
+# TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
+# TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
+# TODO we don't stop if the inner file `proof-a.kurt` creates an error message
 # TODO quantifier:  the first arg should be a variable or an expression.  for the expression case the quantifier take the expression as a pre-condition and quantifies over all variables in the expression:
 #      e.g.    forall x!=y  F(x, y)
 # TODO do we need `restatement` or can we use it as a special case of `equal-elim`.
 # TODO create an initial version and start working on the branch
+# TODO have keywords: `free` and `bound`
+# TODO merge `bool_expr` and `check_expression`?
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
-# TODO create constants automatically, when calling `arity` or `bool` or `infix`.
-# TODO any checks required for 'bindop'?  yes, check that the first arg is a variable and that it appears freely in the formula
+# TODO any checks required for 'bindop'?  yes, check that the first arg contains a variable, the first arg can be a formula
 # TODO next: implement `equal_elim`
 # TODO next: implement first order inference, WE ARE IGNORING FOR NOW WHETHER VARIABLES ARE BOUND OR FREE
 # TODO add `//` to the language
@@ -53,6 +56,7 @@ default_theory = 'theory.kurt'         # default theory
 # TODO write more test code, also for the proof stuff
 # TODO implement 'nonassoc', this could then be checked in 'post_process'
 ### LATER/MAYBE
+# TODO integration:    `int x in (0, 1)  f(x)
 # TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
 # TODO use more 'match' statements?  E.g. in eval? <https://peps.python.org/pep-0636/>
@@ -243,11 +247,16 @@ class KnowledgeBase():
     is_bindop  = lambda self, s: s in self.bindop  or (self.parent is not None and self.parent.is_bindop(s))
     is_flat    = lambda self, s: s in self.flat    or (self.parent is not None and self.parent.is_flat(s))
     is_sym     = lambda self, s: s in self.sym     or (self.parent is not None and self.parent.sym(s))
-    is_bool    = lambda self, s: s in self.bool    or (self.parent is not None and self.parent.is_bool(s))
-    is_var     = lambda self, s: s in self.var     or (self.parent is not None and self.parent.is_var(s)) or s[0]=='$'
+    is_var     = lambda self, s: s in self.var     or (self.parent is not None and self.parent.is_var(s)) or s[0]=='$'   # constant vs variable symbols (variables start with '$')
     is_const   = lambda self, s: s in self.const   or (self.parent is not None and self.parent.is_const(s))
     is_alias   = lambda self, s: s in self.alias   or (self.parent is not None and self.parent.is_alias(s))
-    # constant vs variable symbols (variables start with '$')
+
+    def bool_sig(self, s):   # get the bool signature
+        if s in self.bool:
+            return self.bool[s]
+        if self.parent is None:
+            return []
+        return self.parent.bool_sig(s)
 
     is_bracket = lambda self, s: s in self.brackets.values() or s in self.brackets.keys() or (self.parent is not None and self.parent.is_bracket(s))
 
@@ -306,6 +315,8 @@ class KnowledgeBase():
     def add_bindop(self, fun):
         if fun not in self.arity:
             raise KurtException(f'EvalError: before declaring symbol "{fun}" as variable binding, you must set its arity')
+        if self.arity[fun] < 2:
+            raise KurtException(f'EvalError: arity of binding operators must be at least 2')
         self.bindop[fun] = None
 
     def add_flat(self, op):
@@ -359,12 +370,14 @@ class KnowledgeBase():
             raise KurtException(f'EvalError: symbol "{t}" must be either a variable or a constant')
         self.alias[s] = t         # add a key `s` with value `t`
 
-    def add_bool(self, s):
-        if self.is_bool(s):
+    def add_bool(self, s, v):
+        if len(self.bool_sig(s)) > 0:
             raise KurtException(f'EvalError: symbol "{s}" is already declared bool')
         if not (self.is_const(s) or self.is_var(s)):
             self.add_const(s)     # create a constant automatically
-        self.bool[s] = None       # add a key with value None
+        if self.is_bindop(s) and 1 in v:
+            raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
+        self.bool[s] = v          # add a key with value the tuple of positions that are bool
 
     def get_nud(self, token):
         if token.label == 'SYMBOL':
@@ -446,7 +459,7 @@ initial_kb.add_infix("//", 3, 3)                       # substitution of variabl
 initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
 initial_kb.add_infix('=', 20, 20)                      # equality with lower binding power than space, equality is left-associative
 initial_kb.add_sym('=')                                # equalities should be symmetric
-initial_kb.add_bool('=')                               # equalities are true or false
+initial_kb.add_bool('=', [0])                          # equalities are true or false, but the inputs can be anything
 initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is for expression like `f x`
 initial_kb.add_flat(',')                               # flatness of comma operator
 initial_kb.add_brackets('(', ')')                      # round brackets for grouping
@@ -683,7 +696,9 @@ def parse_tokenlist(expr_list, kb):
     tokenlist = expr_list + [end_token]           # add end token for parse_expression
     ts = PG((t for t in tokenlist))               # turn list into peekable generator
     expr = parse_expression(ts, kb, 0)            # parse the tokenlist
-    return post_process(kb, expr)[0]              # turn spaces into calls
+    expr,_ = post_process(kb, expr)               # turn spaces into calls, symmetry, flatness
+    check_expression(expr, kb)                    # some type checking
+    return expr
 
 def sort_symmetric_ops(kb, expr):                        # symmetric operators can sort their args
     if is_list(expr):
@@ -793,8 +808,10 @@ def parse_tokenstream(ts, kb):                           # gets a peekable token
             case [*tail, end_token]:
                 return tail, None                        # chop off the end-token and postpone the parsing
     else:
-        expr = parse_expression(ts, kb, 0)               # parse expression
-        return post_process(kb, expr)                    # apply some transformations
+        expr          = parse_expression(ts, kb, 0)      # parse expression
+        expr, comment = post_process(kb, expr)           # turn spaces into calls, symmetry, flatness
+        check_expression(expr, kb)                       # some type checking
+        return expr, comment
 
 ## kurt eval
 def create_usage(keyword, arg_labels):
@@ -915,9 +932,11 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
             if   len(expr) == 1: print(kb.dict_str(kb.sym, keyword))
             elif len(expr) == 2: kb.add_sym(expr[1].value)
         elif keyword == 'bool':
-            check_args(expr, [[], ['STRING']])
+            check_args(expr, [[], ['STRING', 'INT'], ['STRING', 'INT', 'INT'], ['STRING', 'INT', 'INT', 'INT']])
             if   len(expr) == 1: print(kb.dict_str(kb.bool, keyword))
-            elif len(expr) == 2: kb.add_bool(expr[1].value)
+            elif len(expr) == 3: kb.add_bool(expr[1].value, [expr[2].value])
+            elif len(expr) == 4: kb.add_bool(expr[1].value, [expr[2].value, expr[3].value])
+            elif len(expr) == 5: kb.add_bool(expr[1].value, [expr[2].value, expr[3].value, expr[4].value])
         elif keyword == 'var':
             check_args(expr, [[], ['STRING']])
             if   len(expr) == 1: print(kb.dict_str(kb.var, keyword))
@@ -1015,6 +1034,74 @@ def eval_expression(expr, kb, line, filename, comment, mainstream):
     # finally return the possibly modified knowledgebase
     return kb
 
+########################
+## kurt type checking ##
+########################
+
+def free_bound_vars(e, kb):
+    # return two dicts of the free and bound variables in expression `e`
+    match e:
+        case Token(label='SYMBOL', value=v) if kb.is_var(v):
+            return {v:None}, {}
+        case Token():
+            return {}, {}
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail] if kb.is_var(v) and kb.is_bindop(op):
+            fv, bv = free_bound_vars(tail, kb)
+            if v in fv:
+                del fv[v]      # remove from the free vars
+                bv[v] = None   # add to the bound vars
+            return fv, bv
+        case [*children]:
+            fv, bv = {}, {}
+            for child in children:
+                fv0, bv0 = free_bound_vars(child, kb)
+                fv.update(fv0)
+                bv.update(bv0)
+            return fv, bv
+        case []:
+            return {}, {}
+    assert False, f'BUG: did not match expression `{e}` in `free_bound_vars`'
+
+def bool_expr(expr, kb):
+    match expr:
+        case Token(label='SYMBOL', value=v) if not kb.is_var(v):
+            return 0 in kb.bool_sig(v)
+        case [Token(label='SYMBOL', value=v), *_] if not kb.is_var(v):
+            return 0 in kb.bool_sig(v)
+    return False
+
+def check_expression(expr, kb):
+    # this is for now hardcoded, should be part of the syntax definitions
+    match expr:
+        # binding operators such as `forall`, `exists`, `lim`, `int`
+        case [Token(label='SYMBOL', value=op), *tail] if kb.is_bindop(op):
+            if len(tail) < 2:
+                raise KurtException(f'TypeError: arity of binding operator must be at least two')
+            if 1 in kb.bool_sig(op):
+                assert False, f'BUG: there should not be `1` in kb.bool for binding operators'
+            for idx in range(1, len(tail)+1):
+                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-2], kb):
+                    raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean')
+            expr1 = tail[0]
+            if not kb.is_var(expr1):
+                if not bool_expr(expr1, kb):
+                    raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean')
+                # check existence of a free variable
+                fv, _ = free_bound_vars(expr1, kb)
+                if len(fv) == 0:
+                    raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
+            # recursive calls
+            for e in tail:
+                check_expression(e, kb)
+        # arity > 0: prefix, postfix, infix, ...
+        case [Token(label='SYMBOL', value=op), *tail]:
+            for idx in range(1, len(tail)+1):
+                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
+                    print('FOOOOOOOOOOOO')
+                    raise KurtException(f'TypeError: arg {idx} of `{tail[idx-1]}` must be boolean')
+            for e in tail:
+                check_expression(e, kb)
+
 #################
 ## kurt prover ##
 #################
@@ -1044,14 +1131,6 @@ def log(s, reason, kb):
             print(indent+s)
         else:
             print(f'{(indent+s):<{reason_indent}}; {reason}')
-
-def bool_expr(expr, kb):
-    match expr:
-        case Token(label='SYMBOL', value=v):
-            return kb.is_bool(v)
-        case [Token(label='SYMBOL', value=v), *_]:
-            return kb.is_bool(v)
-    return False
 
 # how to derive a formula?
 # - equalities lead to two rules
@@ -1099,30 +1178,6 @@ def impl_intro(expr, kb, mainstream):
             print(f'derived {result}')
         return reason
     raise KurtException(f'ProofError: could not prove    {expr}\n            instead got        {result}')
-
-def free_bound_vars(e, kb):
-    # return two dicts of the free and bound variables in expression `e`
-    match e:
-        case Token(label='SYMBOL', value=v) if kb.is_var(v):
-            return {v:None}, {}
-        case Token():
-            return {}, {}
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail] if kb.is_var(v) and kb.is_bindop(op):
-            fv, bv = free_bound_vars(tail, kb)
-            if v in fv:
-                del fv[v]      # remove from the free vars
-                bv[v] = None   # add to the bound vars
-            return fv, bv
-        case [*children]:
-            fv, bv = {}, {}
-            for child in children:
-                fv0, bv0 = free_bound_vars(child, kb)
-                fv.update(fv0)
-                bv.update(bv0)
-            return fv, bv
-        case []:
-            return {}, {}
-    assert False, f'BUG: did not match expression `{e}` in `free_bound_vars`'
 
 def apply_subst(e, subst, kb):
     match e:
@@ -1263,6 +1318,7 @@ def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
             raise OSError
         with open(fname) as f:
             kb, success = read_eval_loop(f, kb, markdown, mainstream=mainstream)
+            print('FOOBAR', success)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open "{filename}"') from None

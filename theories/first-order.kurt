@@ -4,10 +4,10 @@
 load "propositional"    ; syntax and rules for propositional logic
 arity  "forall" 2       ; universal quantification
 arity  "exists" 2       ; existential quantification
-bool   "forall"
-bool   "exists"
 bindop "forall"         ; universal quantification
 bindop "exists"         ; existential quantification
+bool   "forall" 0 2     ; position 1 is special for binding operators and must be boolean or just a variable
+bool   "exists" 0 2     ; position 1 is special for binding operators and must be boolean or just a variable
 
 ;; inference rules
 ; use $x = $x                                                    ; equal-intro, hard-coded in `kurt.py`

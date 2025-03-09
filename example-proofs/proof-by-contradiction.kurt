@@ -2,8 +2,8 @@
 load "propositional"
 const "G"
 const "H"
-bool "G"
-bool "H"
+bool "G" 0
+bool "H" 0
 use G implies false
 show not G
 proof

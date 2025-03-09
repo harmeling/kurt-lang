@@ -1,6 +1,6 @@
 ; example: forall-intro TODO
 load "first-order"
-bool "prime"
+bool "prime" 0
 arity "prime" 1
 use prime $z
 forall $z prime $z

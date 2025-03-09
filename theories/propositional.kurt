@@ -12,12 +12,12 @@ sym    "and"            ; a and b  iff  b and a
 sym    "or"             ; a or b  iff  b or a
 const  "true"
 const  "false"
-bool   "true"
-bool   "false"
-bool   "and"
-bool   "or"
-bool   "not"
-bool   "implies"
+bool   "true"    0      ; true has type bool
+bool   "false"   0      ; false has type bool
+bool   "and"     0 1 2  ; and and its inputs have type bool
+bool   "or"      0 1 2  ; and and its inputs have type bool
+bool   "not"     0 1    ; and and its inputs have type bool
+bool   "implies" 0 1 2  ; and and its inputs have type bool
 alias  "contradiction" "false"
 
 ;; inference rules

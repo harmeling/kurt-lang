@@ -16,7 +16,7 @@ flat "+"
 flat "*"
 sym  "+"
 sym  "*"
-bool "<"
-bool ">"
-bool "<="
-bool ">="
+bool "<"  0
+bool ">"  0
+bool "<=" 0
+bool ">=" 0
