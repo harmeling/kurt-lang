@@ -14,3 +14,4 @@ proof
     qed
     not G
 qed
+;;; Proof checked.

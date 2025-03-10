@@ -3,4 +3,4 @@
 load "propositional"
 show true
 proof
-;;; EvalError: inside "tests/proofs/test-not-all-blocks-close.kurt" not all blocks closed, missing "end"?
+;;; EvalError: inside "./tests/proofs/test-not-all-blocks-close.kurt" not all blocks closed, missing "end"?

@@ -20,16 +20,12 @@ default_theory = 'theory.kurt'         # default theory
 # level4: proving
 
 ### NEXT
-# TODO how MATCH, first runterhangeln bis zu den variablen, dann variable ohne substitution matchen und schauen, wieviel substitutions man braucht, dann kann man schon so einiges ausschliessen.  unter denen dann alle kombination wo die substituted variable vorkommt ausprobieren.
+# TODO how MATCH, first runterhangeln bis zu den variablen, dann variable ohne substitution match und schauen, wie viel substitutions man braucht, dann kann man schon so einiges ausschliessen.  unter denen dann alle combination wo die substituted variable vorkommt ausprobieren.
 # TODO in `$A // ($x=$a)`, the variable `$x` is special since it doesn't really appear in the final formula.
 # TODO check for extra args?  this could help simply implementing keyword stuff
-# TODO function calls have double brackets
-# TODO we don't stop if the inner file `proof-a.kurt` creates an error message
 # TODO check that the RHS of an substitution is a list of equations
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
-# TODO quantifier:  the first arg should be a variable or an expression.  for the expression case the quantifier take the expression as a pre-condition and quantifies over all variables in the expression:
-#      e.g.    forall x!=y  F(x, y)
 # TODO do we need `restatement` or can we use it as a special case of `equal-elim`.
 # TODO create an initial version and start working on the branch
 # TODO have keywords: `free` and `bound`
@@ -54,8 +50,7 @@ default_theory = 'theory.kurt'         # default theory
 # TODO two algorithms: constraint based (https://www.youtube.com/watch?v=H7x4THVU4BQ) and substitution based (W)
 # TODO redo something like https://terrytao.wordpress.com/2023/12/05/a-slightly-longer-lean-4-proof-tour/
 #                          https://terrytao.wordpress.com/2023/11/18/formalizing-the-proof-of-pfr-in-lean4-using-blueprint-a-short-tour/
-# TODO organize the rules as a dictionary of lists with the top-level operator as the key
-# TODO write more test code, also for the proof stuff
+# TODO organize the implications as a dictionary of lists with the top-level operator of RHS as the key
 # TODO implement 'nonassoc', this could then be checked in 'post_process'
 ### LATER/MAYBE
 # TODO integration:    `int x in (0, 1)  f(x)
@@ -83,11 +78,12 @@ import functools    # functools.cmp_to_key
 import readline     # readline.parse_and_bind, readline.add_history
 
 class KurtException(Exception):
-    def __init__(self, msg, column=None, line=None, filename=None):
+    def __init__(self, msg, column=None, line=None, filename=None, short=False):
         self.msg      = msg
         self.column   = column
         self.lin      = line
         self.filename = filename
+        self.short    = short
 
 ## the syntax is stored in a hierarchical knowledge base called `KnowledgeBase`
 format_options = ['sexpr', 'normal']            # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
@@ -1137,9 +1133,9 @@ def debug(s):
 def log(s, reason, kb):
         indent = ' ' * (proof_indent * kb.level)
         if reason is None:
-            print(indent+s)
+            print(indent+s, file=sys.stdout)
         else:
-            print(f'{(indent+s):<{reason_indent}}; {reason}')
+            print(f'{(indent+s):<{reason_indent}}; {reason}', file=sys.stdout)
 
 # how to derive a formula?
 # - equalities lead to two rules
@@ -1204,9 +1200,12 @@ def match_one(pattern, expr, subst, kb):
     # matches the `expr` to the `pattern` and extends the `subst` (substitutions/bindings)
     match pattern:
         case Token(label='SYMBOL', value=v) if kb.is_var(v):
-            assert v not in subst, f'BUG: variable "{v}" is already in the substitution, infinite regression?'
-            subst[v] = expr      # extend the substitution
-            return subst
+            if v in subst and not equal_expr(subst[v], expr):
+                return None          # can not match, since the variable had already a different assignment
+                                     # TODO: actually, we should try to merge `expr` and `subst[v]`
+            else:
+                subst[v] = expr      # extend the substitution
+                return subst
         case Token(label=l, value=v) if is_token(expr) and l==expr.label and v==expr.value:
             return subst
         case [*_] if is_list(expr) and len(pattern)==len(expr):
@@ -1329,18 +1328,20 @@ def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
             kb, success = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
-        raise KurtException(f'EvalError: unable to open "{filename}"') from None
+        raise KurtException(f'EvalError: unable to open "{fname}"') from None
     
     if success:
         # checks after closing the file
         if kb.level != level:
             kb.level = level       # set levels back before raising the exception
-            raise KurtException(f'\nEvalError: inside "{filename}" not all blocks closed, missing "end"?')
+            raise KurtException(f'\nEvalError: inside "{fname}" not all blocks closed, missing "end"?')
         if len(kb.show) != 0:
             s = '\nNot shown:\n'
             for f in kb.show:
                 s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
-            raise KurtException(f'{s}\n\nEvalError: inside "{filename}" not all promised formulas were proved.')
+            raise KurtException(f'{s}\n\nEvalError: inside "{fname}" not all promised formulas were proved.')
+    else:
+        raise KurtException(f'EvalError: inside "{fname}"', short=True)
     return kb, success
 
 ###########################
@@ -1388,14 +1389,17 @@ def read_eval_loop(input_stream, kb, markdown=False, mainstream=False):
                 try:
                     kb = eval(input_line, kb, line, input_stream.name, mainstream)
                 except KurtException as e:
-                    if e.column is None: e.column = len(input_line)
-                    if e.filename == '<stdin>':
-                        msg = f'\n'
+                    if e.short:
+                        msg = e.msg
                     else:
-                        msg = f'  File "{e.filename}", line {e.line}\n'
-                    msg += f'    {input_line}\n'
-                    msg += f'    {" " * e.column + "^"}\n'
-                    msg += e.msg
+                        if e.column is None: e.column = len(input_line)
+                        if e.filename == '<stdin>':
+                            msg = f'\n'
+                        else:
+                            msg = f'  File "{e.filename}", line {e.line}\n'
+                        msg += f'    {input_line}\n'
+                        msg += f'    {" " * e.column + "^"}\n'
+                        msg += e.msg
                     print(msg, file=sys.stderr)
                     if is_file:
                         return kb, not success    # stop processing after the first error

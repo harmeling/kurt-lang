@@ -10,3 +10,4 @@ proof
     assume E
     F
 qed
+;;; Proof checked.

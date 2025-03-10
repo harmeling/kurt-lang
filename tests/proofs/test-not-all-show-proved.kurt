@@ -1,4 +1,4 @@
 ; should create an error message
 load "propositional"
 show true
-;;; EvalError: inside "tests/proofs/test-not-all-show-proved.kurt" not all promised formulas were proved.
+;;; EvalError: inside "./tests/proofs/test-not-all-show-proved.kurt" not all promised formulas were proved.
