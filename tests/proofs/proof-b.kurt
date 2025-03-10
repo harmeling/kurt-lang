@@ -3,3 +3,4 @@ load "proof-a"
 bool "B" 0
 A
 use B
+;;; Proof checked.

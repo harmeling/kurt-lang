@@ -4,9 +4,7 @@ from examples import examples
 
 class Test_Lexing(unittest.TestCase):
     def test_lexing(self):
-        n = len(examples)
-        passed = 0
-        for i in range(n):
+        for i in range(len(examples)):
             (input_line, true_output, _) = examples[i]  # pick input, lexed
             try:
                 output = str(list(kurt.scan_string(input_line)))  # peekable token stream

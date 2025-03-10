@@ -4,3 +4,4 @@ bool "prime" 0
 arity "prime" 1
 use prime $z
 forall $z prime $z
+;;; Proof checked.

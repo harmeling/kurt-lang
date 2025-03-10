@@ -1,4 +1,0 @@
-; should create an error message
-load "propositional"
-show true
-

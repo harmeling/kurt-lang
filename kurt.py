@@ -20,6 +20,9 @@ default_theory = 'theory.kurt'         # default theory
 # level4: proving
 
 ### NEXT
+# TODO how MATCH, first runterhangeln bis zu den variablen, dann variable ohne substitution matchen und schauen, wieviel substitutions man braucht, dann kann man schon so einiges ausschliessen.  unter denen dann alle kombination wo die substituted variable vorkommt ausprobieren.
+# TODO in `$A // ($x=$a)`, the variable `$x` is special since it doesn't really appear in the final formula.
+# TODO check for extra args?  this could help simply implementing keyword stuff
 # TODO function calls have double brackets
 # TODO we don't stop if the inner file `proof-a.kurt` creates an error message
 # TODO check that the RHS of an substitution is a list of equations
@@ -204,7 +207,7 @@ class KnowledgeBase():
         self.show     = []        # lists of formulas to show
 
         # misc
-        self.format   = format_options[1] if parent is None else parent.format  # how formulas look in the shell
+        self.format   = format_options[0] if parent is None else parent.format  # how formulas look in the shell
         self.verbose  = verbose if parent is None else parent.verbose           # extra information or not
 
     def entry_str(self, keyword, key, value):
@@ -216,7 +219,7 @@ class KnowledgeBase():
         elif keyword == 'flat':     return f'flat "{key}"'
         elif keyword == 'sym':      return f'sym "{key}"'
         elif keyword == 'bindop':   return f'bindop "{key}"'
-        elif keyword == 'bool':     return f'bool "{key}"'
+        elif keyword == 'bool':     return f'bool "{key}" {' '.join(map(str, value))}'
         elif keyword == 'var':      return f'var "{key}"'
         elif keyword == 'const':    return f'const "{key}"'
         elif keyword == 'alias':    return f'alias "{key}" "{value}"'
@@ -264,6 +267,8 @@ class KnowledgeBase():
     def get_arity(self, fun):
         if fun in self.arity:
             return self.arity[fun]
+        elif self.parent is not None:
+            return self.parent.get_arity(fun)
         else:
             return 0
 
@@ -575,7 +580,7 @@ def compare_expr(t1, t2):                                # "less than" for expre
 def simplify(expr, kb):
     if expr is None:
         return None
-    for op in kb.flat: 
+    for op in kb.flat:
         expr = flatten_op(op, expr)       # flatten certain operators
     expr = sort_symmetric_ops(kb, expr)   # sort expressions of symmetric operators from the inside to the outside
     return expr
@@ -710,51 +715,52 @@ def sort_symmetric_ops(kb, expr):                        # symmetric operators c
     else:
         assert False, f'BUG: expression must be list or Token, got {expr}'
 
-def flatten_op(op, expr):                                # flatten nested 'op'-expressions
+def flatten_op(flat_op, expr):                                # flatten nested 'op'-expressions
     # e.g. [',', 17, [',', 42, 100]] --> [',', 17, 42, 100]
-    if is_token(expr):
-        return expr
-    elif is_list(expr):
-        if is_op_expr(expr, op):
+    match expr:
+        case [Token(label='SYMBOL', value=op), *tail] if op==flat_op:
             e = [expr[0]]
-            for i in range(1, len(expr)):
-                ee = flatten_op(op, expr[i])
-                if is_op_expr(ee, op):
+            for child in tail:
+                ee = flatten_op(flat_op, child)
+                if is_op_expr(ee, flat_op):
                     e.extend(ee[1:])
                 else:
                     e.append(ee)
             return e
-        else:
-            return [flatten_op(op, e) for e in expr]
-    else:
-        assert False, f'BUG: expression must be list or Token, got {expr}'
+        case [*_]:
+            return [flatten_op(flat_op, e) for e in expr]
+        case Token():
+            return expr
+    assert False, f'BUG: expression must be list or Token, got {expr}'
 
-def group_by_arity(kb, expr):
-    assert is_op_expr(expr, ' '), f'BUG: expected space-operator, got {expr}'
-    assert len(expr) > 1, f'BUG: got empty expr'
-    e = []
-    while len(expr) > 1:
-        x = expr.pop()                                          # start at the end
-        if is_token(x) and x.label == 'SYMBOL':                 # only symbols have args
-            arity = kb.get_arity(x.value)                       # get arity
-            if arity > 0:                                       # do we expect args?
-                try:
-                    x = [x] + [e.pop() for i in range(arity)]   # collect the args
-                except IndexError:
-                    raise KurtException(f'EvalError: not enough arguments for "{x.value}"')
-        e.append(x)
-    e.reverse()
-    return e
+def group_by_arity(expr, kb):
+    # input: `expr` which is a list of functions and arguments
+    # output: `e` which is properly group and the `tail` which is the rest of non-eaten arguments
+    match expr:
+        case [Token(label='SYMBOL', value=op), *tail] if (arity:=kb.get_arity(op)) > 0:
+            e = [expr[0]]                                       # the new expression
+            for i in range(1, arity+1):
+                if len(tail) == 0:
+                    raise KurtException(f'EvalError: not enough arguments for "{op}"')
+                ei, tail = group_by_arity(tail, kb)             # let the next one eat as many expr as it needs
+                e.append(ei)
+            return e, tail
+        case [head, *tail]:        # list with operator that doesn't have an arity > 0
+            return head, tail
+        case _:
+            assert False, f'BUG: `group_by_arity` must be called with a list of expressions'
 
-def process_arity(kb, expr):
-    if is_token(expr):
-        return expr
-    elif is_list(expr):
-        if is_op_expr(expr, ' '):
-            expr = group_by_arity(kb, expr)
-        return [process_arity(kb, e) for e in expr]
-    else:
-        assert False, f'BUG: list or Token expected, got {expr}'
+def process_arity(expr, kb):
+    # we assume that `flatten_op` for `op=' '` has been called just before
+    # calls `group_by_arity` for each ' ' operator
+    match expr:
+        case Token():
+            return expr
+        case [Token(label='SYMBOL', value=' '), *tail]:
+            expr, tail = group_by_arity(tail, kb)
+            if len(tail) > 0:
+                expr = [expr] + tail         # extra arguments (might be there for keywords!)
+    return [process_arity(e, kb) for e in expr]
 
 def remove_round_brackets(expr):
     if is_token(expr):
@@ -789,7 +795,7 @@ def post_process(kb, expr):
             comment = None
     check_no_keywords(expr)                          # no keywords allowed in expressions
     expr = flatten_op(' ', expr)                     # flatten all space operators
-    expr = process_arity(kb, expr)                   # turns space operators into function calls according to arities
+    expr = process_arity(expr, kb)                   # turns space operators into function calls according to arities
     expr = remove_round_brackets(expr)               # remove round brackets for grouping
     return expr, comment
 
@@ -1086,13 +1092,14 @@ def check_expression(expr, kb):
                 if idx in kb.bool_sig(op) and not bool_expr(tail[idx-2], kb):
                     raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean')
             expr1 = tail[0]
-            if not kb.is_var(expr1):
-                if not bool_expr(expr1, kb):
-                    raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean')
-                # check existence of a free variable
-                fv, _ = free_bound_vars(expr1, kb)
-                if len(fv) == 0:
-                    raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
+            match expr1:
+                case Token(label='SYMBOL', value=v) if not kb.is_var(v):
+                    if not bool_expr(expr1, kb):
+                        raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean')
+                    # check existence of a free variable
+                    fv, _ = free_bound_vars(expr1, kb)
+                    if len(fv) == 0:
+                        raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
             # recursive calls
             for e in tail:
                 check_expression(e, kb)

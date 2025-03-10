@@ -5,3 +5,4 @@ bool "J" 0  ; declare `J` as constant and boolean
 use I
 use J
 I and J
+;;; Proof checked.

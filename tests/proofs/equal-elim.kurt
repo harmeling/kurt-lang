@@ -6,3 +6,4 @@ use a = 17
 use f(a)
 f(17)
 ; how to match "f(17)" against "$A // $x=$y"
+;;; Proof checked.

@@ -581,3 +581,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 - So an expression like `17=17` is obtained from `equal-intro` using `restatement` with variable substitution `{$x=17}`.  We write a substitution as a python dictionary.
 
 - Curiously, `restatement` is a special case of `equal-elim` if we set `$a` to `$x`.
+
+## library mechanism
+
+- We do not support loading libraries twice.  The main reason is that the knowledge we are building should be constructed but never deconstructed, i.e., if we load libraries twice, we would have to remove the old syntax and old axioms and invalidate all formulas that used those and the ones that used the those, etc.
