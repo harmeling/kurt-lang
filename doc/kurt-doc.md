@@ -582,6 +582,19 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - Curiously, `restatement` is a special case of `equal-elim` if we set `$a` to `$x`.
 
-## library mechanism
+## library mechanism (2025-03-10)
 
 - We do not support loading libraries twice.  The main reason is that the knowledge we are building should be constructed but never deconstructed, i.e., if we load libraries twice, we would have to remove the old syntax and old axioms and invalidate all formulas that used those and the ones that used the those, etc.
+
+## implement a better `impl-elim` or `equal-elim`
+
+- How do we match expressions with variables at head positions
+
+- Example `equal-elim`:
+
+    use ($A // $x=$a) and $a=$b implies ($A // $x=$b)
+
+### thoughts
+
+- how MATCH, first runterhangeln bis zu den variablen, dann variable ohne substitution match und schauen, wie viel substitutions man braucht, dann kann man schon so einiges ausschliessen.  unter denen dann alle combination wo die substituted variable vorkommt ausprobieren.
+- in `$A // ($x=$a)`, the variable `$x` is special since it doesn't really appear in the final formula.
