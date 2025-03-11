@@ -1,9 +1,8 @@
 ; natural numbers
 
 ;; syntax
-const "0"
-const "1"
-infix "+" 10 10
+const 0, 1
+infix + 10 10
 
 ;; inference rules
 use Nat = {0, 1, 2, ...}

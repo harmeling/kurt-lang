@@ -20,8 +20,6 @@ default_theory = 'theory.kurt'         # default theory
 # level4: proving
 
 ### NEXT
-# TODO check that strings only appear at the end of an expression
-# TODO check for extra args?  this could help simply implementing keyword stuff
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
 # TODO do we need `restatement` or can we use it as a special case of `equal-elim`.
@@ -29,9 +27,6 @@ default_theory = 'theory.kurt'         # default theory
 # TODO have keywords: `free` and `bound`
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
 # TODO next: implement `equal_elim`
-# TODO parse also the stuff following the keywords: add the keywords to the language as well as prefix operators with very low binding power
-#      that must appear at the beginning, this should simplify the parsing, and we can easily do something like `bool "a", "b", "c", "d"` or
-#      even better `bool a, b, c, d`
 # TODO try `contradiction` instead of `false` in the `example-proofs/proof-by-contradiction.kurt`, it doesn't work yet
 # TODO show also the premises in the reasons
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
@@ -120,9 +115,10 @@ keywords = {
     'lemma':       'plan to prove a formula and flag it "lemma"',
     'proposition': 'plan to prove a formula and flag it "proposition"',
     }
+formula_flags = ['theorem', 'proposition', 'lemma']    # must also appear in 'keywords'
+keywords_with_parsing = ['use', 'assume', 'show'] + formula_flags
 
 # formulas and rules
-formula_flags = ['theorem', 'proposition', 'lemma']    # must also appear in 'keywords'
 class Formula:
     next_id = 0
     def __init__(self, expr, line, filename, status, flag=None, reason=None, comment=None):
@@ -787,14 +783,19 @@ def post_process(kb, expr):
 
 def parse_tokenstream(ts, kb):                             # gets a peekable token stream
     if ts.peek.label == 'SYMBOL' and ts.peek.value in keywords:
-        keyword = next(ts)                                 # remove a keyword right away early
+        keyword_token = next(ts)                           # remove a keyword right away early
     else:
-        keyword = None
+        keyword_token = None
     if ts.peek.label == 'END': 
-        return keyword, [], None                           # empty token stream
-    expr          = parse_expression(ts, kb, 0)            # parse expression
-    expr, comment = post_process(kb, expr)                 # turn spaces into calls, symmetry, flatness
-    return keyword, expr, comment
+        return keyword_token, [], None                     # empty token stream
+    if keyword_token is None or keyword_token.value in keywords_with_parsing:
+        expr          = parse_expression(ts, kb, 0)        # parse expression
+        expr, comment = post_process(kb, expr)             # turn spaces into calls, symmetry, flatness
+        type_check_expression(expr, kb)                    # (some) type checking
+    else:
+        expr = list(ts)[:-1]                               # [:-1] removes end_token
+        comment = None
+    return keyword_token, expr, comment
 
 ## kurt eval
 def create_usage(keyword, arg_labels):
@@ -831,8 +832,11 @@ def decorate_reason(mainstream, reason, filename, line):
         return f'{os.path.basename(filename)}:{line} {reason}'
 
 def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream):
-    assert is_list(args), f'BUG: `args` must be list (maybe empty)'
     keyword = keyword_token.value
+
+    debug(f'keyword_token = {keyword_token}')
+    debug(f'args          = {args}')
+    debug(f'comment       = {comment}')
 
     # GENERAL STUFF
     if keyword == 'help':
@@ -885,7 +889,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.prefix, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op), Token(label='INT', value=rbp)]:
+            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=rbp)]:
                 kb.add_prefix(op, rbp)
             case _:
                 raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
@@ -893,7 +897,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.postfix, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op), Token(label='INT', value=lbp)]:
+            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp)]:
                 kb.add_postfix(op, lbp)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING', 'INT']])
@@ -902,7 +906,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.infix, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op), Token(label='INT', value=lbp), Token(label='INT', value=rbp)]:
+            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp), Token(label='INT', value=rbp)]:
                 kb.add_infix(op, lbp, rbp)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING', 'INT', 'INT']])
@@ -911,7 +915,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.arity, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op), Token(label='INT', value=arity)]:
+            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=arity)]:
                 kb.add_arity(op, arity)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING', 'INT']])
@@ -920,7 +924,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.brackets, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=lbracket), Token(label='STRING', value=rbracket)]:
+            case [Token(label='STRING'|'SYMBOL', value=lbracket), Token(label='STRING'|'SYMBOL', value=rbracket)]:
                 kb.add_brackets(lbracket, rbracket)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING', 'STRING']])
@@ -929,7 +933,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.bindop, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op)]:
+            case [Token(label='STRING'|'SYMBOL', value=op)]:
                 kb.add_bindop(op)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING']])
@@ -938,7 +942,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.flat, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op)]:
+            case [Token(label='STRING'|'SYMBOL', value=op)]:
                 kb.add_flat(op)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING']])
@@ -947,7 +951,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.sym, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op)]:
+            case [Token(label='STRING'|'SYMBOL', value=op)]:
                 kb.add_sym(op)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING']])
@@ -956,11 +960,11 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.bool, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op), Token(label='INT', value=a)]:
+            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a)]:
                 kb.add_bool(op, [a])
-            case [Token(label='STRING', value=op), Token(label='INT', value=a), Token(label='INT', value=b)]:
+            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b)]:
                 kb.add_bool(op, [a, b])
-            case [Token(label='STRING', value=op), Token(label='INT', value=a), Token(label='INT', value=b), Token(label='INT', value=c)]:
+            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b), Token(label='INT', value=c)]:
                 kb.add_bool(op, [a, b, c])
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING', 'INT'], ['STRING', 'INT', 'INT'], ['STRING', 'INT', 'INT', 'INT']])
@@ -969,7 +973,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.var, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op)]:
+            case [Token(label='STRING'|'SYMBOL', value=op)]:
                 kb.add_var(op)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING']])
@@ -978,16 +982,16 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.const, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=op)]:
+            case [Token(label='STRING'|'SYMBOL', value=op)]:
                 kb.add_const(op)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    elif keyword == "alias":
+    elif keyword == 'alias':
         match args:
             case []:
                 print(kb.dict_str(kb.alias, keyword), file=sys.stdout)
-            case [Token(label='STRING', value=s), Token(label='STRING', value=t)]:
+            case [Token(label='STRING'|'SYMBOL', value=s), Token(label='STRING'|'SYMBOL', value=t)]:
                 kb.add_alias(s, t)
             case _:
                 msg = create_usage(keyword_token.value, [[], ['STRING', 'STRING']])
@@ -1103,11 +1107,21 @@ def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream
             log(f.formula_str(kb), reason, kb)
         return kb
     else:
-        if is_token(expr):
-            args = [expr]              # args must be a list
-        else:
-            args = expr
-        return eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
+        # iterate over the expr to allow ',' in keyword expressions
+        args = []
+        if not is_list(expr):
+            expr = [expr]
+        for e in expr:
+            match e:
+                case Token(label='SYMBOL', value=','):
+                    if len(args) == 0:
+                        raise KurtException(f'nothing to separate with a comma, too many commas')
+                    kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
+                    args = []
+                case _:
+                    args += [e]
+        kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
+        return kb
 
 ########################
 ## kurt type checking ##
@@ -1384,7 +1398,6 @@ def scan_parse_check_eval(input_line, kb, line, filename, mainstream=False):
     try:
         ts   = PG(scan_string(input_line))                                                   # lexer
         keyword_token, expr, comment = parse_tokenstream(ts, kb)                             # parser
-        type_check_expression(expr, kb)                                                      # (some) type checking
         kb   = eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
     except KurtException as e:
         e.filename = filename

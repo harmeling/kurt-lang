@@ -1,9 +1,7 @@
 ; example: proof by contradiction
 load "propositional"
-const "G"
-const "H"
-bool "G" 0
-bool "H" 0
+const G, H
+bool  G 0, H 0
 use G implies false
 show not G
 proof

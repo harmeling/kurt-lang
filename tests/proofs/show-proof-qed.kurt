@@ -1,9 +1,7 @@
 ; example: show-proof-qed
 load "all"
-const "E"
-const "F"
-bool "E" 0
-bool "F" 0
+const E, F
+bool E 0, F 0
 use E implies F
 show E implies F
 proof

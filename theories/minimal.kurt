@@ -3,13 +3,13 @@
 false            ; never load this theory, it is already hard-coded in `kurt.py`
 
 ;; syntax
-; brackets "(" ")"                                ; for grouping during parsing
-; infix ","   5  5                                ; for lists
-; infix "="  20 20                                ; equality is left associative
-; sym "="                                         ; equalities are symmetric
-; bool "=" 0                                      ; equalities are true or false
-; infix " "  22 22                                ; space, flat
-; infix "//"  3 3                                 ; substitution of variables
+; brackets ( )                                    ; for grouping during parsing
+; infix    ,    5  5                              ; for lists
+; infix    =   20 20                              ; equality is left associative
+; sym      =                                      ; equalities are symmetric
+; bool     =    0                                 ; equalities are true or false
+; infix    " " 22 22                              ; space, flat
+; infix    //   3 3                               ; substitution of variables
 
 ;; inference rules
 ; use $A implies $A                               ; restatement
