@@ -60,6 +60,7 @@ import argparse     # argparse.ArgumentParser
 import re           # re.compile, re.VERBOSE, re.MULTILINE
 import functools    # functools.cmp_to_key
 import readline     # readline.parse_and_bind, readline.add_history
+import atexit       # atexit.register
 
 class KurtException(Exception):
     def __init__(self, msg, column=None, line=None, filename=None, short=False):
@@ -1239,7 +1240,7 @@ def type_check_expression(expr, kb):
 #   A and B and C implies D
 
 def debug(*s):
-    #print(f'DEBUG: {s}', file=sys.stdout)
+    print(f'DEBUG: {s}', file=sys.stdout)
     pass
 
 def log(s, reason, kb):
@@ -1477,13 +1478,11 @@ def read_eval_loop(input_stream, kb, markdown=False, mainstream=False):
     input_line = ''
     if not is_file:
         readline.parse_and_bind("tab: complete")    # Enable tab completion
-
     while True:
         try:
             if not is_file:
                 prompt_text = prompt(kb.level, line, continued)
-                new_line = input(prompt_text).rstrip()  # use readline
-                readline.add_history(new_line)          # save to history
+                new_line = input(prompt_text).rstrip()  # automatically uses readline
             else:
                 new_line = input_stream.readline()
                 if not new_line:
@@ -1543,6 +1542,12 @@ def parse_args():
 def main():
     args = parse_args()
     print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
+
+    # readline history
+    readline_history_file = os.path.expanduser("~/.kurt_history")
+    if os.path.exists(readline_history_file):
+        readline.read_history_file(readline_history_file)                 # restore history
+    atexit.register(readline.write_history_file, readline_history_file)   # register for automatic saving
 
     # the knowledge base we start with on level 0
     kb = initial_kb
