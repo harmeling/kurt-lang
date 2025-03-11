@@ -27,7 +27,6 @@ default_theory = 'theory.kurt'         # default theory
 # TODO have keywords: `free` and `bound`
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
 # TODO next: implement `equal_elim`
-# TODO try `contradiction` instead of `false` in the `example-proofs/proof-by-contradiction.kurt`, it doesn't work yet
 # TODO show also the premises in the reasons
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
 #      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
@@ -35,9 +34,6 @@ default_theory = 'theory.kurt'         # default theory
 # TODO turn `load_file` into a method of class KnowledgeBase
 # TODO allow outer forall block around implications
 # TODO put everything into a symbol table?  let's have it additionally.
-# TODO right now 'parse 17 42 244' is allowed, even though '17' does not have arity 2.  this should lead to an error.
-# TODO however, `parse (+) 18 42` works, but it shouldn't!  make it work by defining the arity of infix operators explicit to 2
-# TODO maybe yes: allow `(+)` to turn an infix operators into a function call with arity 2, similar prefix, postfix
 # TODO write kurt integration for vscode, highlight the lines that are proven, https://microsoft.github.io/language-server-protocol/
 # TODO two algorithms: constraint based (https://www.youtube.com/watch?v=H7x4THVU4BQ) and substitution based (W)
 # TODO redo something like https://terrytao.wordpress.com/2023/12/05/a-slightly-longer-lean-4-proof-tour/
@@ -48,13 +44,10 @@ default_theory = 'theory.kurt'         # default theory
 # TODO integration:    `int x in (0, 1)  f(x)
 # TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
-# TODO use more 'match' statements?  E.g. in eval? <https://peps.python.org/pep-0636/>
-# TODO optionally give an output filename for the proof structure
 # TODO do multi-line equations, and indentation for begin/end block
 # TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
 # TODO maybe not: do automatic line continuation if more tokens are required, e.g. after '+'
 # TODO format "latex", also allow custom latex formats
-# TODO possibly 'a b' is problematic if there are no arities for 'a' defined?
 # TODO keep the code below 1000 lines of code!  unlikely...
 
 ## all external libraries (let's keep the dependencies minimal)
@@ -260,6 +253,14 @@ class KnowledgeBase():
         else:
             return 0
 
+    def get_alias(self, s):
+        if s in self.alias:
+            return self.alias[s]
+        elif self.parent is not None:
+            return self.parent.get_alias(s)
+        else:
+            return None
+
     def add_arity(self, fun, a):
         if self.is_prefix(fun):
             raise KurtException(f'EvalError: arity of prefix operators is one and can not be set')
@@ -385,6 +386,8 @@ class KnowledgeBase():
                 return self.led[token.value]
             elif self.parent is not None:
                 return self.parent.get_led(token)
+        elif token.label == 'STRING':
+            return lambda ts, kb, left, op_token: [op_token, left]   # same as for postfix
         raise KurtException(f'SyntaxError: infix or postfix operator expected, got {self.value}', token.column)
 
     def get_lbp(self, token):
@@ -395,6 +398,8 @@ class KnowledgeBase():
                 return self.lbp[token.value]
             elif self.parent is not None:
                 return self.parent.get_lbp(token)
+        elif token.label == 'STRING':
+            return string_lbp
         elif token.label == 'END':
             return end_lbp           # this is to finish the while loop in 'expression'
         # the default value
@@ -435,8 +440,8 @@ class KnowledgeBase():
 
 # some important constants for the parser
 bracket_lbp = 0                               # left binding power of brackets
-end_lbp     = 0                               # left binding power of end of string
-comment_lbp = 1                               # left binding power of comments
+end_lbp     = 0                               # left binding power of end of input line
+string_lbp  = 1                               # left binding power of strings
 space_op    = ' '                             # must be something that is never returned from the tokenizer
 space_lbp   = 22                              # left binding power: stronger than '='
 space_rbp   = 22                              # right binding power: stronger than '='
@@ -455,10 +460,11 @@ initial_kb.add_brackets('(', ')')                      # round brackets for grou
 ## kurt lexer ##
 ################
 class Token:
-    def __init__(self, label, value, column=None):
+    def __init__(self, label, value, column=None, alias=None):
         self.label  = label
         self.value  = value
         self.column = column
+        self.alias  = alias
     def __repr__(self):
         return f'({self.label} "{self.value}")'
     def __lt__(self, other):
@@ -485,8 +491,11 @@ def expr_sexpr(expr):                      # create s-expression
     match expr:
         case Token(label='STRING', value=v):
             return f'"{v}"'       # quotation marks
-        case Token(value=v):
-            return str(v)
+        case Token(value=v, alias=alias):
+            if alias is None:
+                return str(v)
+            else:
+                return str(alias)
         case [*entries]:
             return f'({" ".join([expr_sexpr(e) for e in entries])})'
         case None:
@@ -656,8 +665,11 @@ class PG(object):                                 # a peekable generator
 
 # by replacing aliases as early as possible, we don't have to register the alias as infix, etc
 def replace_alias(kb, token):
-    if token.label == 'SYMBOL' and token.value in kb.alias:
-        token.value = kb.alias[token.value]
+    if token.label == 'SYMBOL':
+        t = kb.get_alias(token.value)
+        if t is not None:
+            token.alias = token.value             # store for string generation
+            token.value = t
     return token
 
 # the heart of the Pratt parser (calls 'led' and 'nud' implemented elsewhere in this file)
@@ -753,6 +765,8 @@ def check_no_keyword(expr):
         case [*_]:
             for e in expr:
                 check_no_keyword(e)
+        case _:
+            pass
 
 def check_expr_comment(expr, kb):            # check [expr] [comment]
     # cases:
@@ -761,17 +775,18 @@ def check_expr_comment(expr, kb):            # check [expr] [comment]
     #   x=9
     comment = None
     match expr:
-        case [*middle, Token(label='STRING', value=comment)]:
-            pass
-        case [*middle]:
-            pass
+        case [Token(label='STRING', value=comment), *tail]:  # comments are parsed like very low binding postfix operators
+            if len(tail) == 1:
+                tail = tail[0]
+        case [*tail]:
+            if len(tail) == 1:
+                tail = tail[0]
         case Token():
-            middle = None
+            tail = expr
         case _:
             assert False, f'BUG: list or Token expected, got {expr}'
-    if middle is not None:
-        check_no_keyword(middle)             # don't check the `keyword` and the `comment`
-    return expr, comment
+    check_no_keyword(tail)             # don't check the `keyword` and the `comment`
+    return tail, comment
 
 def post_process(kb, expr):
     expr = flatten_op(' ', expr)                           # flatten all space operators
@@ -863,7 +878,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                 expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
                 msg = f'{expr_str(expr, kb)}'
                 if comment is not None:
-                    msg += f'"{comment}"'
+                    msg += f' "{comment}"'
             case _:
                 assert f'BUG: `args` must be a list'
         print(msg, file=sys.stdout)
@@ -1102,7 +1117,7 @@ def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream
         if expr==[]:
             return kb
         if not bool_expr(expr, kb):
-            raise KurtException(f'EvalError: must evallluate to boolean')
+            raise KurtException(f'EvalError: must evaluate to boolean')
         reason = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
         f = Formula(expr, line, filename, status=None, reason=reason)
         kb.theory.append(f)                         # add it to the knowledge base
@@ -1220,7 +1235,7 @@ def type_check_expression(expr, kb):
 # or written as a kurt formula
 #   A and B and C implies D
 
-def debug(s):
+def debug(*s):
     #print(f'DEBUG: {s}', file=sys.stdout)
     pass
 

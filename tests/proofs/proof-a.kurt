@@ -1,4 +1,5 @@
 ; proof-a.kurt: simple example where two files are involved to check proper filenames
-bool A 0
+bool A 0, C 0
 use A
+use C
 ;;; Proof checked.
