@@ -856,12 +856,16 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 msg = ''
-            case [expr] | [*expr]:
-                msg = expr_str(expr, kb)
+            case [*expr_list]:
+                tokenlist = expr_list + [end_token]           # add end token for parse_expression
+                ts = PG((t for t in tokenlist))               # turn list into peekable generator
+                expr = parse_expression(ts, kb, 0)            # parse the tokenlist
+                expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
+                msg = f'{expr_str(expr, kb)}'
+                if comment is not None:
+                    msg += f'"{comment}"'
             case _:
                 assert f'BUG: `args` must be a list'
-        if comment is not None:
-            msg += f'; {comment}'
         print(msg, file=sys.stdout)
     elif keyword == 'format':
         match args:
@@ -1217,7 +1221,8 @@ def type_check_expression(expr, kb):
 #   A and B and C implies D
 
 def debug(s):
-    print(f'DEBUG: {s}', file=sys.stdout)
+    #print(f'DEBUG: {s}', file=sys.stdout)
+    pass
 
 def log(s, reason, kb):
         indent = ' ' * (proof_indent * kb.level)
