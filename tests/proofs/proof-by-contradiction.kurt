@@ -1,7 +1,7 @@
 ; example: proof by contradiction
 load "propositional"
 const G, H
-bool  G 0, H 0
+bool  G, H
 use G implies false
 show not G
 proof

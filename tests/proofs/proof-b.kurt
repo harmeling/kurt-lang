@@ -1,6 +1,6 @@
 ; proof-b.kurt: simple example where two files are involved to check proper filenames
 load "proof-a"
-bool B 0
+bool B
 A
 use B
 ;;; Proof checked.

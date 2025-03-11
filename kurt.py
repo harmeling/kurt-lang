@@ -188,7 +188,7 @@ class KnowledgeBase():
         self.show     = []        # lists of formulas to show
 
         # misc
-        self.format   = format_options[0] if parent is None else parent.format  # how formulas look in the shell
+        self.format   = format_options[1] if parent is None else parent.format  # how formulas look in the shell
         self.verbose  = verbose if parent is None else parent.verbose           # extra information or not
 
     def entry_str(self, keyword, key, value):
@@ -979,6 +979,8 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
         match args:
             case []:
                 print(kb.dict_str(kb.bool, keyword), file=sys.stdout)
+            case [Token(label='STRING'|'SYMBOL', value=op)]:
+                kb.add_bool(op, [0])
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a)]:
                 kb.add_bool(op, [a])
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b)]:
@@ -1130,11 +1132,12 @@ def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream
         args = []
         if not is_list(expr):
             expr = [expr]
+        debug(1, expr)
         for e in expr:
             match e:
                 case Token(label='SYMBOL', value=','):
                     if len(args) == 0:
-                        raise KurtException(f'nothing to separate with a comma, too many commas')
+                        raise KurtException(f'ParseError: nothing to separate with a comma, comma can not be used with `use`, `assume`, `show`, etc.')
                     kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
                     args = []
                 case _:

@@ -1,7 +1,7 @@
 ; example: forall-intro TODO
 load "first-order"
-bool "prime" 0
-arity "prime" 1
+bool  prime
+arity prime 1        ; expects one argument
 use prime $z
 forall $z prime $z
 ;;; Proof checked.

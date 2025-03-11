@@ -1,7 +1,7 @@
 ; example: show-proof-qed
 load "all"
 const E, F
-bool E 0, F 0
+bool E, F
 use E implies F
 show E implies F
 proof

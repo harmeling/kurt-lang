@@ -1,10 +1,22 @@
 ; example: equal-elim TODO
 load "all.kurt"
-bool "f" 0
-use ($A and $x=$y) implies ($A // $x=$y)  ; equal-elim
-use a = 17
-use f(a)
+bool f 0
+use ($A and $a=$b) implies ($A // $a=$b)     "equal-elim"
+use x = 17
+use f(x)
 f(17)
-; how to match "f(17)" against "$A // $x=$y"
 
-;;; EvalError: inside "./tests/proofs/equal-elim.kurt"
+; $a = x
+; $b = 17
+; $A = f($a)
+;
+; search strategy
+; substitutions are only allowed on the RHS of implications
+; how to match against substitutions
+; 1. iterate over all equations (backwards through the theory)
+; 2. is the LHS or the RHS a subterm?
+; 3. if yes replace the LHS (or RHS respectively) and search for the formula
+
+
+
+;;; Proof checked.
