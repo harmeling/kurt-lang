@@ -1,17 +1,26 @@
 ; minimal
 
-false            ; never load this theory, it is already hard-coded in `kurt.py`
+false ; never load this theory, it is already hard-coded in `kurt.py`
 
 ;; syntax
-; brackets ( )                                    ; for grouping during parsing
-; infix    ,    5  5                              ; for lists
-; infix    =   20 20                              ; equality is left associative
-; sym      =                                      ; equalities are symmetric
-; bool     =    0                                 ; equalities are true or false
-; infix    " " 22 22                              ; space, flat
-; infix    //   3 3                               ; substitution of variables
+brackets ( )                                 ; for grouping during parsing
+infix    ,    5  5                           ; for lists
+infix    " " 22 22                           ; space for function applications
+infix    //   3  3                           ; substitution of variables, less strongly binding than `=`
+
+const true
+bool  true                                   ; true has type bool
+infix implies 13 12                          ; logical implies, right associative (since 13>12)
 
 ;; inference rules
 use $A implies $A                               "restatement"    ; possibly a special case of `impl-intro`
 use ($A implies $B) implies ($A implies $B)     "impl-intro"     ; the LHS is shown with a `proof`/`qed` block
+use ($A implies $B) and $A implies $B           "impl-elim"      ; see `kurt.py`
+
 use true                                        "top-intro"
+
+
+
+;;;;;;
+arity  subst 3                               ; function for substitutions
+bindop subst                                 ; first arg must be a variable that is bound

@@ -1,7 +1,7 @@
 ; example: and-intro
 load "propositional"
-bool "I" 0  ; declare `I` as constant and boolean
-bool "J" 0  ; declare `J` as constant and boolean
+bool I   ; declare `I` as constant and boolean
+bool J   ; declare `J` as constant and boolean
 use I
 use J
 I and J

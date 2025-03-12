@@ -1,0 +1,10 @@
+show true
+proof
+    load "modal"
+    true
+qed
+show true
+proof
+    load "modal"
+    true
+qed

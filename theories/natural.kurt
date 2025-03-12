@@ -12,4 +12,4 @@ use 0 in Nat
 use $n in Nat  implies  $n+1 in Nat
 
 ; induction
-use ($A // $n=0) and (forall $n in Nat  ($A implies ($A // $n=$n+1))) implies forall $n in Nat  A  ; induction
+use ($A // $x=0) and (forall $n in Nat  (($A // $x=$n) implies ($A // $x=$n+1))) implies forall $n in Nat  (A//$x=$n)  "induction"

@@ -23,6 +23,7 @@ default_theory = 'theory.kurt'         # default theory
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO check that `minimal.kurt` is really hard-coded here
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
 # TODO do we need `restatement` or can we use it as a special case of `equal-elim`.
@@ -43,11 +44,12 @@ default_theory = 'theory.kurt'         # default theory
 #                          https://terrytao.wordpress.com/2023/11/18/formalizing-the-proof-of-pfr-in-lean4-using-blueprint-a-short-tour/
 # TODO organize the implications as a dictionary of lists with the top-level operator of RHS as the key
 # TODO implement 'nonassoc', this could then be checked in 'post_process'
+# TODO have a useful exception, if we load a file twice
 ### LATER/MAYBE
 # TODO integration:    `int x in (0, 1)  f(x)
 # TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
-# TODO do multi-line equations, and indentation for begin/end block
+# TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block
 # TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
 # TODO maybe not: do automatic line continuation if more tokens are required, e.g. after '+'
 # TODO format "latex", also allow custom latex formats
@@ -156,8 +158,9 @@ class Rule:
 class KnowledgeBase():
     def __init__(self, parent=None, verbose=False):
         # general
-        self.level    = 0 if parent is None else parent.level + 1
         self.parent   = parent
+        self.level    = 0 if parent is None else parent.level + 1
+        self.libs     = []        # the filenames of loaded libraries
 
         # syntax
         self.infix    = {}        # left and right binding powers of infix operators
@@ -254,6 +257,14 @@ class KnowledgeBase():
             return self.alias[s]
         elif self.parent is not None:
             return self.parent.get_alias(s)
+        else:
+            return None
+
+    def get_load_level(self, fname):
+        if fname in self.libs:
+            return self.level
+        elif self.parent is not None:
+            return self.parent.get_load_level(fname)
         else:
             return None
 
@@ -1202,6 +1213,8 @@ def type_check_expression(expr, kb):
                     fv, _ = free_bound_vars(cond, kb)
                     if len(fv) == 0:
                         raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
+                case _:
+                    assert False, f'BUG: did not match {tail[0]} while type checking'
             # recursive calls
             for e in tail:
                 type_check_expression(e, kb)
@@ -1233,9 +1246,11 @@ def type_check_expression(expr, kb):
 # or written as a kurt formula
 #   A and B and C implies D
 
+debug_flag = False
 def debug(*s):
-    print(f'DEBUG: {s}', file=sys.stdout)
-    pass
+    global debug_flag
+    if debug_flag:
+        print(f'DEBUG: {s}', file=sys.stdout)
 
 def log(s, reason, kb):
         indent = ' ' * (proof_indent * kb.level)
@@ -1432,6 +1447,9 @@ def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
         fname = find_file(filename, path)    # search along the path
         if fname is None:
             raise OSError
+        load_level = kb.get_load_level(fname)
+        if load_level is not None:
+            raise KurtException(f'EvalError: can not load library "{fname}" twice, it has already been loaded on level {load_level}')
         with open(fname) as f:
             kb, success = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
@@ -1448,6 +1466,7 @@ def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
             for f in kb.show:
                 s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
             raise KurtException(f'{s}\n\nEvalError: inside "{fname}" not all promised formulas were proved.')
+        kb.libs.append(fname)
     else:
         raise KurtException(f'EvalError: inside "{fname}"', short=True)
     return kb, success
@@ -1529,13 +1548,18 @@ def parse_args():
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
     parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading `filename`')
     parser.add_argument('-m', '--markdown',     action='store_true', help=f'run on `.md` files instead of `.kurt`, will ignore everything that is not indented by {md_indent} spaces')
-    parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking `.`')
+    parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
+    parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
     return parser.parse_args()
 
 def main():
     args = parse_args()
     print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
+
+    # debug flag?
+    global debug_flag
+    debug_flag = args.debug
 
     # readline history
     readline_history_file = os.path.expanduser("~/.kurt_history")

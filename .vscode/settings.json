@@ -2,6 +2,7 @@
     "cSpell.words": [
         "addtype",
         "arities",
+        "Automath",
         "barebones",
         "bindop",
         "cand",
@@ -10,6 +11,7 @@
         "firstorder",
         "fixpoints",
         "forall",
+        "Freek",
         "functool",
         "Harmeling",
         "Hindley",
@@ -29,8 +31,11 @@
         "ponens",
         "sexpr",
         "subtyping",
+        "tenary",
         "tokenlist",
-        "tokenstream"
+        "tokenstream",
+        "Umbennung",
+        "Wiedijk"
     ],
     "workbench.colorCustomizations": {
         "activityBar.activeBackground": "#d3f9cc",

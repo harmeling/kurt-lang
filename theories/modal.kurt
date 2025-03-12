@@ -1,0 +1,4 @@
+; modal logic
+prefix b, d          ; box and diamond
+bool b, d
+
