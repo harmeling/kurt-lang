@@ -52,6 +52,7 @@ default_theory = 'theory.kurt'         # default theory
 # TODO maybe not: do automatic line continuation if more tokens are required, e.g. after '+'
 # TODO format "latex", also allow custom latex formats
 # TODO keep the code below 1000 lines of code!  unlikely...
+# TODO add back the `formula-flags` from the `formula-flag` branch?  instead use string comments?
 
 ## all external libraries (let's keep the dependencies minimal)
 import sys          # sys.stdin, sys.stderr
@@ -106,24 +107,17 @@ keywords = {
     'show':        'plan to prove a formula',
     'proof':       'start a block and open a new level to prove the last planned formula',
     'qed':         'end a block, pop one level and finish the proof of the last planned formula',
-
-    # syntactic sugar
-    'theorem':     'plan to prove a formula and flag it "theorem"',
-    'lemma':       'plan to prove a formula and flag it "lemma"',
-    'proposition': 'plan to prove a formula and flag it "proposition"',
     }
-formula_flags = ['theorem', 'proposition', 'lemma']    # must also appear in 'keywords'
-keywords_with_parsing = ['use', 'assume', 'show'] + formula_flags
+keywords_with_parsing = ['use', 'assume', 'show']
 
 # formulas and rules
 class Formula:
     next_id = 0
-    def __init__(self, expr, line, filename, status, flag=None, reason=None, comment=None):
+    def __init__(self, expr, line, filename, status, reason=None, comment=None):
         self.expr     = expr               # expression of the formula
         self.line     = line               # line of this formula
         self.filename = filename           # file of this formula
         self.status   = status             # one of 'use', 'assume', 'show', None (for derived)
-        self.flag     = flag               # one of 'theorem' or 'lemma' or 'proposition' or etc or None
         self.reason   = reason             # the reason why it is true
         self.comment  = comment            # basically, a label of the formula
         self.id       = Formula.next_id    # a unique id for every formula
@@ -133,8 +127,6 @@ class Formula:
         s = ''
         if self.status is not None:
             s += f'{self.status} '
-        if self.flag is not None:
-            s += f'{self.flag} '
         return s
     
     def comment_str(self):
@@ -431,7 +423,7 @@ class KnowledgeBase():
         s = self.parent.theory_str(keyword, op) if self.parent is not None else ''
         s += f'; on level {self.level}\n'
         for f in self.theory:
-            if (keyword is None and op is None) or (keyword==f.status) or (keyword==f.flag) or is_op_expr(f.expr, op):
+            if (keyword is None and op is None) or (keyword==f.status) or is_op_expr(f.expr, op):
                 s += f'{f.formula_str(self)}\n'
         return s
 
@@ -1061,15 +1053,14 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                     log(f.formula_str(kb), reason , kb)
             case _:
                 assert f'BUG: `args` must be a list'
-    elif keyword in ['show'] + formula_flags:
+    elif keyword in ['show']:
         match args:
             case []:
                 print(kb.show_str(), file=sys.stdout)
             case [expr] | [*expr]:
-                flag = None if keyword=='show' else keyword
                 if not bool_expr(expr, kb):
                     raise KurtException(f'EvalError: must evaluate to boolean')
-                f = Formula(expr, line, filename, status='show', flag=flag, comment=comment)  # syntactic sugar for theorem, proposition, lemma
+                f = Formula(expr, line, filename, status='show', comment=comment)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
                 if mainstream:
                     reason = decorate_reason(mainstream, 'claim', filename, line)
@@ -1101,7 +1092,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                 pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
                 reason = impl_intro(pf.expr, kb, mainstream)      # this might generate a KurtException
                 kb = kb.parent                        # drop current level
-                f = Formula(pf.expr, line, filename, status=None, flag=pf.flag, reason=reason)
+                f = Formula(pf.expr, line, filename, status=None, reason=reason)
                 kb.show.pop()                         # pop it now off the show stack, since it was proved
                 kb.theory.append(f)                   # add a copy to the theory
                 if mainstream:
