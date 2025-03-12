@@ -19,6 +19,9 @@ default_theory = 'theory.kurt'         # default theory
 # level3: simple type checking
 # level4: proving
 
+## links
+# https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
+
 ### NEXT
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
@@ -1187,7 +1190,6 @@ def bool_expr(expr, kb):
     return False
 
 def type_check_expression(expr, kb):
-
     # this is for now hardcoded, should be part of the syntax definitions
     match expr:
         # binding operators such as `forall`, `exists`, `lim`, `int`
@@ -1196,16 +1198,17 @@ def type_check_expression(expr, kb):
                 raise KurtException(f'TypeError: arity of binding operator must be at least two')
             if 1 in kb.bool_sig(op):
                 assert False, f'BUG: there should not be `1` in kb.bool for binding operators'
-            for idx in range(1, len(tail)+1):
-                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-2], kb):
+            for idx in range(2, len(tail)+1):
+                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
                     raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean')
-            expr1 = tail[0]
-            match expr1:
-                case Token(label='SYMBOL', value=v) if not kb.is_var(v):
-                    if not bool_expr(expr1, kb):
-                        raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean')
+            match tail[0]:
+                case Token(label='SYMBOL', value=v) if kb.is_var(v):
+                    pass
+                case [*cond]:
+                    if not bool_expr(cond, kb):
+                        raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean, got {cond}')
                     # check existence of a free variable
-                    fv, _ = free_bound_vars(expr1, kb)
+                    fv, _ = free_bound_vars(cond, kb)
                     if len(fv) == 0:
                         raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
             # recursive calls

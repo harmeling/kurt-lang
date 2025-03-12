@@ -594,7 +594,31 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
     use ($A // $x=$a) and $a=$b implies ($A // $x=$b)
 
-### thoughts
-
 - how MATCH, first runterhangeln bis zu den variablen, dann variable ohne substitution match und schauen, wie viel substitutions man braucht, dann kann man schon so einiges ausschliessen.  unter denen dann alle combination wo die substituted variable vorkommt ausprobieren.
-- in `$A // ($x=$a)`, the variable `$x` is special since it doesn't really appear in the final formula.
+
+## substitutions (subs)
+
+- semantics:
+  - `A // ($x=a)` is the formula that replaces all free occurrences of `$x` in `A` with `a`.
+  - for `A // ($x=a)` the requirement is that `a` does not contain any bound variables of `A`
+  - subs ordering
+
+        ((A // $x=a) // $x=b)    ; which one happens first: always from the inside out
+
+    1. before outer subs, apply inner subs
+    2. the inner subs variable `$x` can not be replaced, since it must be a variable
+
+## how to implement matching against substitutions
+
+- here are the cases we have to cover
+
+        use ($A // $x = $a) and $a = $b implies ($A // $x = $b)          "equal-elim"
+
+        use $A implies forall $x $A                                      "forall-intro"
+        use forall $x $A implies ($A // $x=$t)                           "forall_elim"    ; `$t` must not contain variables that are bound by `$A`
+
+        use ($A // $x=$t) implies exists $x $A                           "exists_intro"   ; `$t` must not contain variables that are bound by `$A`
+        use (exists $x $A) implies ($A // $x=c)                          "exists_elim"    ; 
+        use (exists $x $A) and (($A // $x=c) implies $B) implies $B      "exists_elim"    ; `c` must be new
+        use (exists $x $A) and (forall $x ($A implies $B)) implies $B
+

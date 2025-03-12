@@ -9,12 +9,18 @@ bool   forall 0 2     ; position 1 is special for binding operators and must be 
 bool   exists 0 2     ; position 1 is special for binding operators and must be boolean or just a variable
 
 ;; inference rules
-cal; use $x = $x                                                      "equal-intro"    ; hard-coded in `kurt.py`
+; use $x = $x                                                      "equal-intro"    ; hard-coded in `kurt.py`
+use $A and $x = $y implies ($A // $x = $y)                       "equal-elim"     ; `$x` might be a subterm of `$A`, but must not contain bound vars of `$A`
+
+; assuming that the LHS of a subst must be a variable that is not assigned:
 use $A and $x = $y implies ($A // $x = $y)                       "equal-elim"
+use ($A // $x = $y) and $y = $x implies $A                       "equal-elim"
 
-use $A implies forall $x $A                                      "forall-intro"   ; `$x` doesn't have to appear in `$A`
-use forall $x $A implies ($A // $x=$t)                           "forall_elim"    ; we can plug any term in `$t`
+use $A implies forall $x $A                                      "forall-intro"   ; `$x` might appear in `$A` or not, i.e., no restriction
+use forall $x $A implies ($A // $x=$t)                           "forall_elim"    ; `$t` must not contain variables that are bound by `$A`
 
-use $A implies exists $x ($A // $t=$x)                           "exists_intro"   ; 
-;use (exists $x $A) implies ($A // $x=c)                                          ; here `c` must be a new constant
-;use (exists $x $A) and (($A // $x=$c) implies $B) implies $B     "exists_elim"
+use ($A // $x=$t) implies exists $x $A                           "exists_intro"   ; `$t` must not contain variables that are bound by `$A`
+use (exists $x $A) implies ($A // $x=c)                          "exists_elim"    ; 
+use (exists $x $A) and (($A // $x=c) implies $B) implies $B      "exists_elim"    ; `c` must be new
+use (exists $x $A) and (forall $x ($A implies $B)) implies $B
+

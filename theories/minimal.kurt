@@ -12,6 +12,6 @@ false            ; never load this theory, it is already hard-coded in `kurt.py`
 ; infix    //   3 3                               ; substitution of variables
 
 ;; inference rules
-; use $A implies $A                               ; restatement
-; use ($A implies $B) implies ($A implies $B)     ; impl-intro
-; use true                                        ; top-intro
+use $A implies $A                               "restatement"    ; possibly a special case of `impl-intro`
+use ($A implies $B) implies ($A implies $B)     "impl-intro"     ; the LHS is shown with a `proof`/`qed` block
+use true                                        "top-intro"
