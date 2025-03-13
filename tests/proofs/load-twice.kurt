@@ -2,9 +2,9 @@ show true
 proof
     load "modal"
     true
-qed
+qed                 ; remove the stuff loaded from "model"
 show true
 proof
-    load "modal"
+    load "modal"    ; should be alright
     true
 qed

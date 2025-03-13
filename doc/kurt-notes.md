@@ -520,47 +520,48 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 ## substitutions (subs) (2025-03-12)
 
-- semantics:
-  
+- `A // $x=a` is the formula that replaces all free occurrences of `$x` in `A` with `a`.
+
+- notation
         $A // $x = $a         ; easy-to-read notation with equality
         $A // $x := $a        ; easy-to-read notation with assignment
         bindop sub            ; substitution is also a binding operator, however, the first arg must be a variable
-        arity sub 3
+        arity sub 3           ; three inputs, a variable, a term to substitute, a term where something is replaced
         sub $x $a $A          ; notation without equality
 
-  - `A // $x=a` is the formula that replaces all free occurrences of `$x` in `A` with `a`.
+- i.e., only free occurrences of variables can be substituted
 
-  - i.e., only free occurrences of variables can be substituted
+- in `$A // $x=$a`, only `$A` and `$a` are free, `$x` is bound, so subs is a binding operator.
 
-  - in `$A // $x=$a`, only `$A` and `$a` are free, `$x` is bound, so subs is a binding operator.
-
-  - for `$A // $x=$a` there are two important requirements
+- for `$A // $x=$a` there are two important requirements
 
     1. the expression assigned to `$a` does not contain any bound variables of `$A`
     2. the expression assigned to `$a` does not contain `$x`
 
-  - req 1 is good, since it avoid destroying the inner workings of `$A`
+- req 1 is good, since it avoid destroying the inner workings of `$A`
 
-  - req 2 is limiting the flexibility, but allows us to formulate `exist-elim`
+- req 2 is limiting the flexibility, but allows us to formulate `exist-elim`:  
+
+  - by req 2 we can be sure that `$B // $x=$b` does not contain `$x` (because in `$B` potential appearance of `$x` are replaced by `$b` and `$b` does not contain `$x`.
 
   - however, req 2 makes it impossible to match `A//$x=$a` against the formula `A`, since we can not plug in `$x` for `$a`.
 
   - solution: use double-dollar variables for more flexibility:
 
-       $A // $$x = $a           ; now we can sub `$x` for `$a` (but not `$$x`)
+         $A // $$x = $a           ; now we can sub `$x` for `$a` (but not `$$x`)
 
-    let's reserve double-dollar variables for the most general inference rules.  the idea is similar to using _x variables in python
+    let's reserve double-dollar variables for the most general inference rules.  the idea is similar to using `_x` variables in python
 
-  - subs ordering
+- subs ordering
 
         ((A // $x=a) // $x=b)    ; which one happens first: always from the inside out
 
     1. before outer subs, apply inner subs
     2. the inner subs variable `$x` can not be replaced, since it must be a variable
 
-  - `A // ($x=a, $y=b)` is an abbreviation of `(A // $x=a) // $y=b`
+- `A // ($x=a, $y=b)` is an abbreviation of `(A // $x=a) // $y=b`
 
-  - see also <https://en.wikipedia.org/wiki/Lambda_calculus#Substitution> for a recursive definition of `sub`
+- see also <https://en.wikipedia.org/wiki/Lambda_calculus#Substitution> for a recursive definition of `sub`
 
 ## alternative notations that avoid equality
 
@@ -579,7 +580,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
       use $x = $x                                                      "equal-intro"
       use ($A // $$x = $a) and $a = $b implies ($A // $$x = $b)        "equal-elim"
 
-  the double dollar ensures that `$a` can also be substituted by `$x` (but not by `$$x`)
+  the double-dollar ensures that `$a` can also be substituted also by all single-dollar variables, e.g. `$x` (but not by `$$x`)
 
 - forall quantification
 
@@ -587,7 +588,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
       use forall $x ($A // $$x=$x) implies ($A // $$x=$a)              "forall_elim"    ; `$a` must not contain variables that are bound by `$A`
 
   here req 1 ensures that `$a` does not contain variables that are bound by `$A`.
-  note that `forall $x $A implies ($A // $x=$a)` is not sufficient, since
+  note that `forall $x $A implies ($A // $x=$a)` is not sufficient, since we can not match `$A//$x=$a` against `$A`
 
 - exist quantification
 
@@ -595,11 +596,44 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
   here req 1 ensures that `$a` does not contain variables that are bound by `$A`
 
-      use (exists $x ($A//$$x=$x)) and (forall $x (($A//$$x=$x) implies ($B//$x=$b))) implies $B    "exists_elim"    ; `$x` should not occur free in `$B`
-      use (exists $x ($A//$$x=$x)) and (($A//$$x=$x) implies ($B // $x=$b)) implies $B     "exists_elim"    ; `$x` should not occur free in `$B`
+      use (exists $x ($A//$$x=$x)) and (forall $x (($A//$$x=$x) implies ($B//$x=$b))) implies ($B//$x=$b)    "exists_elim"    ; `$x` should not occur free in `$B`
+      use (exists $x ($A//$$x=$x)) and (($A//$$x=$x) implies ($B // $x=$b)) implies ($B//$x=$b)              "exists_elim"    ; `$x` should not occur free in `$B`
 
-  two variants: the difficulty is that `$x` must not appear in `$B`.  This is ensured through req 2, since following it `$b` does not contain `$x`.  The double dollars ensure that we can use this formula for any single dollar variables.
+  two variants: the difficulty is that `$x` must not appear in the conclusion.  This is ensured through req 2, since it ensures that `$b` does not contain `$x`.  The double dollars ensure that we can use this formula for any single dollar variables.
 
 ## how to implement matching against substitutions (2025-03-13)
 
-- time for matching against substitutions!
+- time for matching against substitutions, e.g. `$A // $x=$a`
+
+- first of all: without outer substitutions the formula `$A // $x=$a` resolves to `$A` since there is no `$x` to replace.  however, for matching, we first assign `$A` and `a` and then apply the substitution `$x=$a`
+
+- before we can apply the substitution, we have to assign `$A` to something that possibly contains `$x`.
+
+- example:  match term `F x 17` against pattern `$A // $x=$a`
+
+  - there are five possibilities:
+
+        $A = F  x  17    $a = ?
+        $A = $x x  17    $a = F
+        $A = F  $x 17    $a = x
+        $A = F  x  $x    $a = 17
+        $A = $x          $a = F x 17
+
+    without matching other parts of an implication, we can not decide which to use
+
+  - however, we could iterate through all of them and try all other matchings of the other terms
+
+- example: match term `F 17 17` against pattern `$A // $x=$a`
+
+  - there are six possibilities:
+
+        $A = F  17  17    $a = ?
+        $A = $x 17  17    $a = F
+        $A = F  $x  17    $a = 17
+        $A = F  17  $x    $a = 17
+        $A = F  $x  $x    $a = 17
+        $A = $x           $a = F 17 17
+
+- probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it
+
+- how to generate all assignments

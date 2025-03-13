@@ -13,6 +13,11 @@ reason_indent  = 60                    # how much the reason is indented
 theory_path    = ['.', 'theories']     # default path for theories
 default_theory = 'theory.kurt'         # default theory
 
+debug_flag = False
+def debug(*s):
+    if debug_flag:
+        print(f'DEBUG: {' '.join(map(str, s))}', file=sys.stdout)
+
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
 # level2: parsing
@@ -23,6 +28,8 @@ default_theory = 'theory.kurt'         # default theory
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO when the matching against substitutions works, check what is the minimal amount of hard-coded rules in python
+# TODO get `load-twice.kurt` to run properly
 # TODO check that `minimal.kurt` is really hard-coded here
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
@@ -55,6 +62,8 @@ default_theory = 'theory.kurt'         # default theory
 # TODO format "latex", also allow custom latex formats
 # TODO keep the code below 1000 lines of code!  unlikely...
 # TODO add back the `formula-flags` from the `formula-flag` branch?  instead use string comments?
+# TODO use the Token.column information
+# TODO create test code for each possible KurtException
 
 ## all external libraries (let's keep the dependencies minimal)
 import sys          # sys.stdin, sys.stderr
@@ -135,7 +144,7 @@ class Formula:
         if self.comment is None:
             return ''
         else:
-            return f' ; {self.comment}'
+            return f' "{self.comment}"'
     
     def __str__(self):
         return f'{self.prefix_str()}{self.expr}{self.comment_str()}'
@@ -420,15 +429,9 @@ class KnowledgeBase():
         if self.parent is not None:
             yield from self.parent.all_theory()
 
-    def all_usable_implications(self):
+    def all_theory_expressions(self):
         for f in self.all_theory():
-            if is_implication(f.expr):
-                yield f
-
-    def all_usable_equations(self):
-        for f in self.all_theory():
-            if is_equation(f.expr):
-                yield f
+            yield f.expr
 
     def theory_str(self, keyword=None, op=None):
         s = self.parent.theory_str(keyword, op) if self.parent is not None else ''
@@ -856,9 +859,9 @@ def decorate_reason(mainstream, reason, filename, line):
 def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream):
     keyword = keyword_token.value
 
-    debug(f'keyword_token = {keyword_token}')
-    debug(f'args          = {args}')
-    debug(f'comment       = {comment}')
+    # debug(f'keyword_token = {keyword_token}')
+    # debug(f'args          = {args}')
+    # debug(f'comment       = {comment}')
 
     # GENERAL STUFF
     if keyword == 'help':
@@ -1101,7 +1104,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                     raise KurtException(f'ProofError: planned formula "{pf}" in current proof is unproven')
                 assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
                 pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
-                reason = impl_intro(pf.expr, kb, mainstream)      # this might generate a KurtException
+                reason = impl_intro(pf.expr, kb)      # this might generate a KurtException
                 kb = kb.parent                        # drop current level
                 f = Formula(pf.expr, line, filename, status=None, reason=reason)
                 kb.show.pop()                         # pop it now off the show stack, since it was proved
@@ -1138,7 +1141,6 @@ def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream
         args = []
         if not is_list(expr):
             expr = [expr]
-        debug(1, expr)
         for e in expr:
             match e:
                 case Token(label='SYMBOL', value=','):
@@ -1233,7 +1235,7 @@ def type_check_expression(expr, kb):
 # - list of rules with LHS and RHS
 # - check for an expr whether it matches the RHS (is the match unique)?  can we get the list of all matches?  use yield!
 # - using the match, instantiate the LHS and look for formulas in the theory until all formulas in the LHS are matched
-# - possibly there are hints to quickly find the right formulas of the LHS
+# - possibly there are hints to quickly find the matching formulas of the LHS
 # - record for the current expression the successful rule and the used formulas in the theory
 # - if we fail, raise a meaningful exception
 #
@@ -1245,12 +1247,6 @@ def type_check_expression(expr, kb):
 #   D
 # or written as a kurt formula
 #   A and B and C implies D
-
-debug_flag = False
-def debug(*s):
-    global debug_flag
-    if debug_flag:
-        print(f'DEBUG: {s}', file=sys.stdout)
 
 def log(s, reason, kb):
         indent = ' ' * (proof_indent * kb.level)
@@ -1275,26 +1271,26 @@ def log(s, reason, kb):
 # 2. search for A and B and C in the theory (with substitution applied)
 
 # this function is called when closing a block (via `qed` or using indentation)
-def impl_intro(expr, kb, mainstream):
+def impl_intro(expr, kb):
     
     # step 1: collect all assumptions of the current level
-    premise = [f.expr for f in kb.theory if f.status=='assume']
     if len(kb.theory) == 0:
         raise KurtException(f'ProofError: nothing was shown in the (sub-)proof')
     last_formula = kb.theory[-1]
+    premise = [f.expr for f in kb.theory if f.status=='assume']
     if last_formula.status != None:
         raise KurtException(f'ProofError: last formula in a (sub-)proof can not have `show`, `assume`, `use` status')
     conclusion = last_formula.expr        # last element is the conclusion
 
     # step 2: form a formula using the last formula in the current level
-    reason = 'by impl-intro (last proof)'
+    reason = 'by impl-intro (derived from last proof)'
     if len(premise) == 0:                  # just the conclusion (empty premise)
         result = conclusion
         reason = 'by last proof'
     else:
         if len(premise) == 1:              # premise is one formula
             premise = premise[0]
-        else:                              # premise is conjunctive
+        else:                              # premise is a conjunction
             premise = simplify([Token(label='SYMBOL', value='and')] + premise, kb)
         result = [Token(label='SYMBOL', value='implies'), premise, conclusion]   # construct implication
 
@@ -1304,9 +1300,12 @@ def impl_intro(expr, kb, mainstream):
             print(f'goal    {expr}', file=sys.stdout)
             print(f'derived {result}', file=sys.stdout)
         return reason
-    raise KurtException(f'ProofError: could not prove    {expr}\n            instead got        {result}')
+    else:
+        raise KurtException(f'ProofError: could not prove    {expr}\n            instead got        {result}')
 
 def apply_subst(e, subst, kb):
+    # does an instantaneous substitution, e.g.,:
+    #    apply_subst(x+y, {x:y, y:5}) = y+5
     match e:
         case Token(label='SYMBOL', value=v) if kb.is_var(v) and v in subst:
             return subst[v]
@@ -1315,114 +1314,94 @@ def apply_subst(e, subst, kb):
         case _:
             return e
 
-# `match_one` matches a single expression to a single pattern
-def match_one(pattern, expr, subst, kb):
-    assert isinstance(pattern, Token | list), f'BUG: `match_one` must be called with an expression as the pattern, not with a formula'
-    assert isinstance(expr,    Token | list), f'BUG: `match_one` must be called with an expression, not with a formula'
+# `match_expr` matches a single expression to a single pattern
+def match_expr(expr, pattern, subst, kb):
     # matches the `expr` to the `pattern` and extends the `subst` (substitutions/bindings)
     match pattern:
         case Token(label='SYMBOL', value=v) if kb.is_var(v):
-            if v in subst and not equal_expr(subst[v], expr):
-                return None          # can not match, since the variable had already a different assignment
-                                     # TODO: actually, we should try to merge `expr` and `subst[v]`
+            if v in subst:
+                if equal_expr(subst[v], expr):
+                    return subst
+                else:
+                    return None          # can not match, since the variable had already a different assignment
             else:
-                subst[v] = expr      # extend the substitution
+                subst[v] = expr          # extend the substitution
                 return subst
         case Token(label=l, value=v) if is_token(expr) and l==expr.label and v==expr.value:
             return subst
         case [*_] if is_list(expr) and len(pattern)==len(expr):
             for (p,e) in zip(pattern, expr):
                 p = apply_subst(p, subst, kb)
-                subst = match_one(p, e, subst, kb)
+                subst = match_expr(e, p, subst, kb)
                 if subst is None:
                     return None     # no match
             return subst
-    return None           # no match, so no `subst` dictionary
+        case _:
+            return None           # no match, so no `subst` dictionary
 
-# match_all matches a list of formulas to the theory
-def match_all(premises, subst, kb):
-    assert all([isinstance(p, Token | list) for p in premises]), f'BUG: `match_all` must be called with lists of expressions, not formulas'
-    match premises:
+# match a list of expression against the theory and grow the substitution
+def match_all_theory(exprs, subst, kb):
+    match exprs:
         case []:
             return subst     # done!
-        case [premise, *tail]:
-            premise = apply_subst(premise, subst, kb)
-            for candidate in kb.all_theory():    # iterate over all formulas
+        case [expr, *tail]:
+            expr = apply_subst(expr, subst, kb)
+            for candidate in kb.all_theory():           # iterate over all formulas
                 # we use `subst_tmp` to avoid overwriting `subst` for the `continue`
-                subst_tmp = match_one(candidate.expr, premise, subst, kb)
+                subst_tmp = match_expr(expr, candidate.expr, subst, kb)
                 if subst_tmp is None:
-                    continue   # no match of the `premise`
-                return match_all(tail, subst_tmp, kb)
-            return None
-    assert False, f'BUG: `match_all` must be called with a list'
+                    continue   # no match between `expr` and `candidate`, try the next one
+                return match_all_theory(tail, subst_tmp, kb)
+            return None        # could not find a match among the candidate `patterns`
+        case _:
+            assert False, f'BUG: `match_all` must be called with a list'
 
-def restatement(e, kb, filename, mainstream):
-    # use $A implies ($A // $x=$a, $y=$b, ...)       ; restatement
-    for previous in kb.all_theory():
-        previous_expr = previous.expr
-        subst = match_one(previous_expr, e, {}, kb)
-        if subst is not None:
-            if mainstream and previous.filename==filename:
-                reason = f'restatement of {previous.line}'
-            else:
-                reason = f'restatement of {os.path.basename(previous.filename)}:{previous.line}'
-            if len(subst)>0:
-                reason += f' with {subst}'
-            return reason
+def impl_elim(expr, implication, kb, filename, mainstream):
 
-def impl_elim(e, kb, filename, mainstream):
-    # use $A and ($A implies $B) implies $B          ; impl-elim
-    for implication in kb.all_usable_implications():
+    # assign `conclusion` and `premises`
+    if is_implication(implication.expr):                      # we have an implication with a premise
         conclusion = implication.expr[2]
-        subst = match_one(conclusion, e, {}, kb)
-        if subst is None:
-            continue   # no luck this time, try the next iteration
-        # match was found with conclusion, unpack the premises
         match implication.expr[1]:
             case [Token(label='SYMBOL', value='and'), *premises]:
-                pass    # assigned already `premises` in the case matching
+                pass                                          # assigned already `premises` in the case matching
             case premise:
-                premises = [premise]    # wrap a single premise in a list
-        # check the premises
-        subst = match_all(premises, subst, kb)
-        if subst is None:
-            continue   # no luck this time, try the next iteration
-        if kb.verbose:
-            msg = 'BINGO!'
-            msg += f'expression to prove: {expr_str(e, kb)}'
-            msg += f'implication used:    {implication.formula_str(kb)}'
-            msg += f'substitution used:   {subst}'
-            print(msg, file=sys.stdout)
-        if mainstream and implication.filename==filename:
-            reason = f'by {implication.line}'
-        else:
-            reason = f'by {os.path.basename(implication.filename)}:{implication.line}'
-        if implication.comment is not None:
-            reason += f' {implication.comment}'
-        return reason    # bingo!  found an implication
+                premises = [premise]                          # wrap a single premise in a list
+    else:                                                     # we have an "implication" with an empty premise (think of `true implies $A`)
+        conclusion = implication.expr
+        premises   = []
 
-def equal_elim(e, kb, filename, mainstream):
-    # use ($A // $x=$a) and $a=$b implies ($A // $x=$b)         ; equal_elim
-    print('FREE/BOUND', file=sys.stdout)
-    print(free_bound_vars(e, kb), file=sys.stdout)
-    return None   # not implemented
+    # match `conclusion` and `premises`
+    subst = match_expr(expr, conclusion, {}, kb)              # match the expression against the conclusion
+    if subst is None:
+        return None    # no luck this time
+    subst = match_all_theory(premises, subst, kb)             # match the premises against the theory
+    if subst is None:
+        return None    # no luck this time
+
+    # create meaning full `reason`
+    if kb.verbose:
+        msg = 'BINGO!'
+        msg += f'expression to prove: {expr_str(e, kb)}'
+        msg += f'implication used:    {expr_str(implication.expr, kb)}'
+        msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}'
+        msg += f'substitution used:   {subst}'
+        print(msg, file=sys.stdout)
+    restating = 'restating ' if len(premises) == 0 else ''
+    if mainstream and implication.filename==filename:
+        reason = f'by {restating}{implication.line}'
+    else:
+        reason = f'by {os.path.basename(implication.filename)}:{implication.line}'
+    if implication.comment is not None:
+        reason += f' {implication.comment}'
+    return reason    # bingo!  found an implication
 
 def derive_expr(e, kb, filename, mainstream):
 
-    # check whether we are restating an existing formula (possibly with a substitution)
-    reason = restatement(e, kb, filename, mainstream)
-    if reason is not None:
-        return reason
-
-    # check whether we can use an implication
-    reason = impl_elim(e, kb, filename, mainstream)
-    if reason is not None: 
-        return reason
-
-    # check whether we can use an equality
-    reason = equal_elim(e, kb, filename, mainstream)
-    if reason is not None:
-        return reason
+    # iterate over the previously proven formula that form the current theory
+    for proven_formula in kb.all_theory():
+        reason = impl_elim(e, proven_formula, kb, filename, mainstream)
+        if reason is not None: 
+            return reason
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
