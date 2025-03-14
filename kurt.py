@@ -28,6 +28,9 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
+# TODO substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
+# TODO `parse ( 12, 232 )` and `parse < 12, 32>` generates syntax errors.
 # TODO when the matching against substitutions works, check what is the minimal amount of hard-coded rules in python
 # TODO get `load-twice.kurt` to run properly
 # TODO check that `minimal.kurt` is really hard-coded here
@@ -1314,30 +1317,43 @@ def apply_subst(e, subst, kb):
         case _:
             return e
 
-# `match_expr` matches a single expression to a single pattern
 def match_expr(expr, pattern, subst, kb):
-    # matches the `expr` to the `pattern` and extends the `subst` (substitutions/bindings)
+    # matches `expr` to `pattern` and extends `subst`
     match pattern:
-        case Token(label='SYMBOL', value=v) if kb.is_var(v):
+        case Token(label='SYMBOL', value=v) if kb.is_var(v):     # variables
             if v in subst:
                 if equal_expr(subst[v], expr):
                     return subst
                 else:
-                    return None          # can not match, since the variable had already a different assignment
+                    return None          # match failed
             else:
                 subst[v] = expr          # extend the substitution
                 return subst
-        case Token(label=l, value=v) if is_token(expr) and l==expr.label and v==expr.value:
-            return subst
-        case [*_] if is_list(expr) and len(pattern)==len(expr):
-            for (p,e) in zip(pattern, expr):
+        case Token(label=l, value=v):                            # other symbols
+            if is_token(expr) and l==expr.label and v==expr.value:
+                return subst
+            else:
+                return None              # match failed
+        case [Token(label='SYMBOL', value='sub'),
+              Token(label='SYMBOL', value=v),
+              substituent,
+              schema], if kb.is_var(v):                          # substitution
+            return None
+        case [*_] if is_list(expr) and len(pattern)==len(expr):  # lists
+            for (e, p) in zip(expr, pattern):
                 p = apply_subst(p, subst, kb)
                 subst = match_expr(e, p, subst, kb)
                 if subst is None:
-                    return None     # no match
+                    return None          # match failed
             return subst
         case _:
-            return None           # no match, so no `subst` dictionary
+            return None                  # match failed
+
+def all_matching_subst(expr, pattern, subst, kb):
+    # the substitution operator leads to several matches
+    subst = match_expr(expr, pattern, subst, kb)
+    if subst is not None:
+        yield subst
 
 # match a list of expression against the theory and grow the substitution
 def match_all_theory(exprs, subst, kb):
@@ -1346,12 +1362,14 @@ def match_all_theory(exprs, subst, kb):
             return subst     # done!
         case [expr, *tail]:
             expr = apply_subst(expr, subst, kb)
-            for candidate in kb.all_theory():           # iterate over all formulas
-                # we use `subst_tmp` to avoid overwriting `subst` for the `continue`
-                subst_tmp = match_expr(expr, candidate.expr, subst, kb)
-                if subst_tmp is None:
-                    continue   # no match between `expr` and `candidate`, try the next one
-                return match_all_theory(tail, subst_tmp, kb)
+            # iterate over all formulas of the theory
+            for candidate in kb.all_theory():
+                # iterate over all possible substitution that create a match
+                for subst_cand in all_matching_subst(expr, candidate.expr, subst, kb):
+                    # try to match the rest of the expressions (the `tail`)
+                    subst_tmp = match_all_theory(tail, subst_cand, kb)
+                    if subst_tmp is not None:
+                        return subst_tmp    # match was found!  BINGO!
             return None        # could not find a match among the candidate `patterns`
         case _:
             assert False, f'BUG: `match_all` must be called with a list'

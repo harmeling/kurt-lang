@@ -563,6 +563,8 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - see also <https://en.wikipedia.org/wiki/Lambda_calculus#Substitution> for a recursive definition of `sub`
 
+- substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
+
 ## alternative notations that avoid equality
 
     A // $x=a          ; with equality, easy to understand
@@ -571,7 +573,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
     A // $x // a       ; inspired by s/foo/bar, even worse
     subs $x a A        ; function styled, probably the best, since it is tenary
 
-- however, before deciding on the most minimalistic notation, we should just use `A // $x = a`a
+- however, before deciding on the most minimalistic notation, we should just use `A // $x = a`
 
 ## how to formulate the quantifier and equality inference rules
 
@@ -613,11 +615,11 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
   - there are five possibilities:
 
-        $A = F  x  17    $a = ?
-        $A = $x x  17    $a = F
-        $A = F  $x 17    $a = x
-        $A = F  x  $x    $a = 17
-        $A = $x          $a = F x 17
+        $A = F  x  17     $a = ?
+        $A = $x x  17     $a = F
+        $A = F  $x 17     $a = x
+        $A = F  x  $x     $a = 17
+        $A = $x           $a = F x 17
 
     without matching other parts of an implication, we can not decide which to use
 
@@ -634,6 +636,20 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
         $A = F  $x  $x    $a = 17
         $A = $x           $a = F 17 17
 
-- probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it
+- example: match term `F 17 17 17` against pattern `$A // $x=$a`, i.e., `sub $x $a $A`
 
-- how to generate all assignments
+  - there are nine possibilities:
+
+        $A = F  17  17  17   $a = ?
+        $A = $x 17  17  17   $a = F
+        $A = F  $x  17  17   $a = 17
+        $A = F  17  $x  17   $a = 17
+        $A = F  17  17  $x   $a = 17
+        $A = F  $x  $x  17   $a = 17
+        $A = F  17  $x  $x   $a = 17
+        $A = F  $x  17  $x   $a = 17
+        $A = $x              $a = F 17 17 17
+
+- probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it, hopefully for concrete formulas that should be fine.
+
+- how to generate all assignments?
