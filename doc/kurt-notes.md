@@ -652,4 +652,21 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it, hopefully for concrete formulas that should be fine.
 
-- how to generate all assignments?
+## matching more thoughts (2025-03-17)
+
+- when substituting variables we have to ensure that we don't inject variables, that shouldn't be there:
+
+        matching expr against pattern
+
+- how to generate all assignments (2025-03-17)?
+
+- how to match an expression against a substitution?
+
+        sub $x $a $A      
+
+- how to match a substitution against a substitution?
+
+        sub $x $a $A matches against sub $y $b $B
+        if $a matches against $b,
+        and if $A matches against $B
+

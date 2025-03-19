@@ -28,6 +28,10 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO `def ($A // $x=$a) = sub $x $a $A` as a macro mechanism, i.e., just syntactically instead of `use`
+# TODO check whether we need more deep copy for stuff
+# TODO type checking for `sub $x $a $A` with free and bound variable check
+# TODO have `origin` (see class Token) also on the Formula level
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
 # TODO `parse ( 12, 232 )` and `parse < 12, 32>` generates syntax errors.
@@ -44,7 +48,7 @@ def debug(*s):
 # TODO show also the premises in the reasons
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
 #      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
-# TODO Q: is the match of `match_expr` always unique?  we are assuming it!
+# TODO Q: is the match of `match_exprs` always unique?  we are assuming it!
 # TODO turn `load_file` into a method of class KnowledgeBase
 # TODO allow outer forall block around implications
 # TODO put everything into a symbol table?  let's have it additionally.
@@ -75,6 +79,7 @@ if sys.version_info < (3, 10):
     exit(0)
 import os           # os.path.isfile
 import argparse     # argparse.ArgumentParser
+import copy         # copy.deepcopy
 import re           # re.compile, re.VERBOSE, re.MULTILINE
 import functools    # functools.cmp_to_key
 import readline     # readline.parse_and_bind, readline.add_history
@@ -473,11 +478,11 @@ initial_kb.add_brackets('(', ')')                      # round brackets for grou
 ## kurt lexer ##
 ################
 class Token:
-    def __init__(self, label, value, column=None, alias=None):
+    def __init__(self, label, value, column=None, origin=None):
         self.label  = label
         self.value  = value
         self.column = column
-        self.alias  = alias
+        self.origin = origin
     def __repr__(self):
         return f'({self.label} "{self.value}")'
     def __lt__(self, other):
@@ -504,11 +509,11 @@ def expr_sexpr(expr):                      # create s-expression
     match expr:
         case Token(label='STRING', value=v):
             return f'"{v}"'       # quotation marks
-        case Token(value=v, alias=alias):
-            if alias is None:
+        case Token(value=v, origin=origin):
+            if origin is None:
                 return str(v)
             else:
-                return str(alias)
+                return str(origin)
         case [*entries]:
             return f'({" ".join([expr_sexpr(e) for e in entries])})'
         case None:
@@ -677,11 +682,12 @@ class PG(object):                                 # a peekable generator
         return p
 
 # by replacing aliases as early as possible, we don't have to register the alias as infix, etc
+# we store the `origin` for string output
 def replace_alias(kb, token):
     if token.label == 'SYMBOL':
         t = kb.get_alias(token.value)
         if t is not None:
-            token.alias = token.value             # store for string generation
+            token.origin = token.value             # store for string generation
             token.value = t
     return token
 
@@ -1160,30 +1166,6 @@ def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream
 ## kurt type checking ##
 ########################
 
-def free_bound_vars(e, kb):
-    # return two dicts of the free and bound variables in expression `e`
-    match e:
-        case Token(label='SYMBOL', value=v) if kb.is_var(v):
-            return {v:None}, {}
-        case Token():
-            return {}, {}
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail] if kb.is_var(v) and kb.is_bindop(op):
-            fv, bv = free_bound_vars(tail, kb)
-            if v in fv:
-                del fv[v]      # remove from the free vars
-                bv[v] = None   # add to the bound vars
-            return fv, bv
-        case [*children]:
-            fv, bv = {}, {}
-            for child in children:
-                fv0, bv0 = free_bound_vars(child, kb)
-                fv.update(fv0)
-                bv.update(bv0)
-            return fv, bv
-        case []:
-            return {}, {}
-    assert False, f'BUG: did not match expression `{e}` in `free_bound_vars`'
-
 def bool_expr(expr, kb):
     match expr:
         case Token(label='SYMBOL', value=v) if kb.is_var(v):
@@ -1198,6 +1180,7 @@ def bool_expr(expr, kb):
 
 def type_check_expression(expr, kb):
     # this is for now hardcoded, should be part of the syntax definitions
+TODO    CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
     match expr:
         # binding operators such as `forall`, `exists`, `lim`, `int`
         case [Token(label='SYMBOL', value=op), *tail] if kb.is_bindop(op):
@@ -1306,100 +1289,292 @@ def impl_intro(expr, kb):
     else:
         raise KurtException(f'ProofError: could not prove    {expr}\n            instead got        {result}')
 
-def apply_subst(e, subst, kb):
-    # does an instantaneous substitution, e.g.,:
-    #    apply_subst(x+y, {x:y, y:5}) = y+5
-    match e:
-        case Token(label='SYMBOL', value=v) if kb.is_var(v) and v in subst:
-            return subst[v]
-        case [*children]:
+# apply substitution to free variables
+def apply_subst(expr, subst, kb):
+    match expr:
+
+        # a token of an (at least locally) free variable, that appears in subst
+        case Token(label='SYMBOL', value=free_v) if free_v in subst:
+            return subst[free_v]
+
+        # any other token is not modified
+        case Token():
+            return expr
+
+        # binding operators expression
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op) and bound_v in subst:
+            local_subst = subst.copy()                   # we need a local `subst`, since `bound_v` should not be changed
+            del local_subst[bound_v]                     # remove it from our local copy
+            return [expr[0], expr[1], *apply_subst(expr[2:], local_subst, kb)]
+
+        # recursively replace the children
+        case [*children] if len(children) > 0:
             return [apply_subst(child, subst, kb) for child in children]
-        case _:
-            return e
 
-def match_expr(expr, pattern, subst, kb):
-    # matches `expr` to `pattern` and extends `subst`
-    match pattern:
-        case Token(label='SYMBOL', value=v) if kb.is_var(v):     # variables
-            if v in subst:
-                if equal_expr(subst[v], expr):
-                    return subst
-                else:
-                    return None          # match failed
+    assert False, f'BUG: did not match expression `{expr}` in `apply_subst`'
+
+# def apply_subst(e, subst, kb):
+#     # does an instantaneous substitution, e.g.,:
+#     #    apply_subst(x+y, {x:y, y:5}) = y+5
+#     raise 'is this the function to call?  or better only restricted to free vars'
+#     match e:
+#         case Token(label='SYMBOL', value=v) if kb.is_var(v) and v in subst:
+#             return subst[v]
+#         case [*children]:
+#             return [apply_subst(child, subst, kb) for child in children]
+#         case _:
+#             return e
+
+# note that a variable can be free and bound at the same time in an expression
+def free_bound_vars(expr, kb):
+    # return two lists sets of the free and bound variables in expression `e`
+    match expr:
+
+        # the token of a variable is (for now) a free variable (until it is bound higher up in the AST)
+        case Token(label='SYMBOL', value=v) if kb.is_var(v):
+            return {v}, {}
+        
+        # any other token doesn't have free or bound variables
+        case Token():
+            return {}, {}
+        
+        # binding operators "bind" free variables
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op):
+            assert kb.is_var(bound_v), f'BUG: no variable after binding operator, should be check before'
+            fv, bv = free_bound_vars(tail, kb)
+            if bound_v in fv:           # `bound_v` appears freely in `tail`
+                fv.remove(bound_v)      # remove from the free vars
+            bv.add(bound_v)             # add to the bound vars (also if it wasn't a free variable)
+            return fv, bv
+        
+        # collect the free and bound variables in the children, covers also `e==[]`
+        case [*children]:
+            fv, bv = {}, {}
+            for child in children:
+                fv0, bv0 = free_bound_vars(child, kb)
+                fv.update(fv0)
+                bv.update(bv0)
+            return fv, bv
+        
+    assert False, f'BUG: did not match expression `{e}` in `free_bound_vars`'
+
+# new variable names just for internal use
+var_counter = 0
+def new_var_name():
+    global var_counter
+    var_counter += 1
+    return f'$@var{var_counter}'   # the `@` ensures that it is not a valid kurt variable
+
+# def rename_free_var(expr, old_free_v, new_free_v, kb):
+#     match expr:
+
+#         # a token of the free variable we are looking for
+#         case Token(label='SYMBOL', value=free_v) if free_v == old_free_v:
+#             new_expr = copy.deepcopy(expr)    # copy all meta infos, e.g. line, filename
+#             new_expr.value = new_free_v       # rename it
+#             return new_expr
+
+#         # any other token is not modified
+#         case Token():
+#             return expr
+
+#         # binding operators expression with the sought-after variable is ignored
+#         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op) and bound_v==free_v:
+#             return expr           # ignore the AST and do not recurse, since we are only replacing free instances
+
+#         # recursively replace the children
+#         case [*children] if len(children) > 0:
+#             return [rename_free_var(child, old_free_v, new_free_v, kb) for child in children]
+
+#     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
+
+# def rename_bound_var(expr, old_bound_v, new_bound_v, kb):
+#     match expr:
+
+#         # tokens are not modified here, but only in `rename_free_var` (since here we don't know whether they are free or bound)
+#         case Token():
+#             return expr
+        
+#         # binding operators expression with the sought-after variable will trigger `rename_free_var`
+#         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op) and bound_v==old_bound_v:
+#             return [expr[0], 
+#                     rename_free_var(expr[1], bound_v, new_bound_v),
+#                     *[rename_free_var(tail, bound_v, new_bound_v)]]
+        
+#         # recursively replace the children
+#         case [*children]:
+#             return [rename_bound_var(child, old_bound_v, new_bound_v, kb) for child in children]
+        
+#     assert False, f'BUG: did not match expression `{expr}` in `rename_bound_var`'
+
+# rename all vars in `expr` with generated names to avoid clashes with other expressions
+def rename_all_vars(expr, subst, kb):
+    # `subst` contains the replacements so far
+    match expr:
+
+        # a token of an (at least locally) free variable, that will be replaced either by a known sub or with a new name
+        case Token(label='SYMBOL', value=free_v):
+            if free_v in subst:
+                new_free_v = subst[free_v]
             else:
-                subst[v] = expr          # extend the substitution
-                return subst
-        case Token(label=l, value=v):                            # other symbols
-            if is_token(expr) and l==expr.label and v==expr.value:
-                return subst
+                new_free_v = new_var_name()
+                subst[free_v] = new_free_v
+            new_expr = copy.deepcopy(expr)    # copy all meta infos, e.g. line, filename
+            new_expr.value = new_free_v       # rename it
+            return new_expr, subst
+
+        # any other token is not modified
+        case Token():
+            return expr, subst
+
+        # binding operators expression
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op):
+            local_subst = subst.copy()                   # we need a local `subst`, since the bound var is only changed locally
+            new_bound_v = new_var_name()                 # in any case, `bound_v` gets a new name
+            local_subst[bound_v] = new_bound_v           # store it for usage in this case
+            new_expr, local_subst = rename_all_vars(expr[1:], local_subst, kb)
+            if bound_v in subst:
+                local_subst[bound_v] = subst[bound_v]    # reset the value to the outer value
             else:
-                return None              # match failed
-        case [Token(label='SYMBOL', value='sub'),
-              Token(label='SYMBOL', value=v),
-              substituent,
-              schema], if kb.is_var(v):                          # substitution
-            return None
-        case [*_] if is_list(expr) and len(pattern)==len(expr):  # lists
-            for (e, p) in zip(expr, pattern):
-                p = apply_subst(p, subst, kb)
-                subst = match_expr(e, p, subst, kb)
-                if subst is None:
-                    return None          # match failed
-            return subst
-        case _:
-            return None                  # match failed
+                del local_subst[bound_v]                 # else remove it
+            return [expr[0], *new_expr], local_subst
 
-def all_matching_subst(expr, pattern, subst, kb):
-    # the substitution operator leads to several matches
-    subst = match_expr(expr, pattern, subst, kb)
-    if subst is not None:
-        yield subst
+        # recursively replace the children
+        case [*children] if len(children) > 0:
+            new_expr = []
+            for child in children:
+                new_child, subst = rename_all_vars(child, subst, kb)
+                new_expr.append(new_child)
+            return new_expr, subst
 
-# match a list of expression against the theory and grow the substitution
+    assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
+
+def match_against_sub(expr, pattern, subst, kb):
+    subst_local = subst.copy()
+    raise 'not yet'
+
+    # find all combinations of `$a` and `$A` that match to `expr`
+
+
+# each "case" with a recursive call has to loop over all generated local substitutions
+# `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
+# this list is necessary for the `[*_]` case, i.e., for matching two lists
+def match_exprs(exprs_patterns, subst, kb):
+    match exprs_patterns:
+
+        case []:
+            yield subst     # we found a substitution
+
+        case [(expr, pattern), *tail]:
+            # matches `expr` to `pattern` and extends `subst`
+            match pattern:
+
+                # variable matching
+                case Token(label='SYMBOL', value=v) if kb.is_var(v):
+                    if v not in subst:
+                        new_subst = subst.copy()     # shallow copy
+                        new_subst[v] = expr          # extend the substitution
+                        yield from match_exprs(tail, new_subst, kb)
+                    elif equal_expr(subst[v], expr):
+                        yield from match_exprs(tail, subst, kb)
+
+                # symbol matching
+                case Token(label=l, value=v):
+                    if is_token(expr) and l==expr.label and v==expr.value:
+                        yield from match_exprs(tail, subst, kb)
+
+                # substitution rule: sub $x $a $A
+                case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=v),
+                    substituent, schema]:
+                    assert kb.is_var(v), f'BUG: substitution requires variable'
+                    pattern = apply_subst_to_free_vars(pattern, subst, kb)  # `x` is bound by `sub`, so not substituted
+                    yield from match_against_sub(expr, pattern, substituent, schema, subst, kb)
+
+                # other binding operator matching
+                case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *args] if kb.is_bindop(op):
+                    assert kb.is_var(v), f'BUG: binding operator requires variables, did the expression check failed'
+                    expr_tmp = copy.deepcopy(expr)
+                    match expr_tmp:
+                        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=w), *e_args] if kb.var(w):
+                            if v != w:
+                                # rename bound variable
+
+
+                # list matching
+                case [*_] if is_list(expr) and len(pattern)==len(expr):
+                    pattern_tmp = copy.deepcopy(pattern)
+                    pattern_tmp = [apply_subst_to_free_vars(p, subst, kb) for p in pattern_tmp]
+                    yield from match_exprs(list(zip(expr, pattern_tmp)) + tail, subst, kb)
+
+    # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
+    assert False, f'BUG: `match_exprs` did not cover all cases'
+
+# match a list of expressions against the theory and grow the substitution
 def match_all_theory(exprs, subst, kb):
     match exprs:
+
+        # we matched all `exprs`, done!
         case []:
-            return subst     # done!
+            return subst
+        
+        # still at least one to go
         case [expr, *tail]:
-            expr = apply_subst(expr, subst, kb)
+            # deep copy of `expr` is necessary, since `match_all_theory` will be called several times with the same `exprs` in `impl_elim`
+            expr_tmp = copy.deepcopy(expr)
+            expr_tmp = apply_subst_to_free_vars(expr_tmp, subst, kb)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
-                # iterate over all possible substitution that create a match
-                for subst_cand in all_matching_subst(expr, candidate.expr, subst, kb):
+                # rename free and bound variables of `candidate` to avoid clashes with `expr_tmp`
+                candidate_subst = copy.deepcopy(candidate.expr)
+                candidate_subst = rename_free_bound(candidate_subst, expr_tmp)
+
+                # iterate over all possible substitutions that create a match
+                for subst_cand in match_exprs([(expr_tmp, candidate_subst)], subst, kb):
                     # try to match the rest of the expressions (the `tail`)
-                    subst_tmp = match_all_theory(tail, subst_cand, kb)
-                    if subst_tmp is not None:
-                        return subst_tmp    # match was found!  BINGO!
+                    # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
+                    subst_cand = match_all_theory(tail, subst_cand, kb)
+                    if subst_cand is not None:
+                        return subst_cand    # match was found!  BINGO!
             return None        # could not find a match among the candidate `patterns`
+
+        # we calling `match_all_theory` wrongly, bug!
         case _:
             assert False, f'BUG: `match_all` must be called with a list'
 
 def impl_elim(expr, implication, kb, filename, mainstream):
 
     # assign `conclusion` and `premises`
-    if is_implication(implication.expr):                      # we have an implication with a premise
+    if is_implication(implication.expr):      # we have an implication with a premise
         conclusion = implication.expr[2]
         match implication.expr[1]:
+
+            # e.g., (A and B) implies C, then `premises = [A, B]`
             case [Token(label='SYMBOL', value='and'), *premises]:
-                pass                                          # assigned already `premises` in the case matching
+                pass                          # assigned already `premises` in the case matching
+
+            # e.g., A implies C, then `premises = [A]`
             case premise:
-                premises = [premise]                          # wrap a single premise in a list
-    else:                                                     # we have an "implication" with an empty premise (think of `true implies $A`)
+                premises = [premise]          # wrap a single premise in a list
+
+    else:   # "implication" with an empty premise (think of `true implies $A`)
         conclusion = implication.expr
         premises   = []
 
     # match `conclusion` and `premises`
-    subst = match_expr(expr, conclusion, {}, kb)              # match the expression against the conclusion
+    subst = None
+    # iterate over all possible substitutions of the `conclusion`
+    for subst in match_exprs([(expr, conclusion)], {}, kb):
+        # no copy of `subst` necessary, since the next iteration will overwrite
+        subst = match_all_theory(premises, subst, kb)
+        if subst is not None:
+            break           # bingo!  we found one
     if subst is None:
-        return None    # no luck this time
-    subst = match_all_theory(premises, subst, kb)             # match the premises against the theory
-    if subst is None:
-        return None    # no luck this time
+        return None         # no luck this time
 
     # create meaning full `reason`
     if kb.verbose:
         msg = 'BINGO!'
-        msg += f'expression to prove: {expr_str(e, kb)}'
+        msg += f'expression to prove: {expr_str(expr, kb)}'
         msg += f'implication used:    {expr_str(implication.expr, kb)}'
         msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}'
         msg += f'substitution used:   {subst}'
@@ -1415,7 +1590,7 @@ def impl_elim(expr, implication, kb, filename, mainstream):
 
 def derive_expr(e, kb, filename, mainstream):
 
-    # iterate over the previously proven formula that form the current theory
+    # iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
         reason = impl_elim(e, proven_formula, kb, filename, mainstream)
         if reason is not None: 
