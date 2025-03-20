@@ -641,14 +641,15 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
   - there are nine possibilities:
 
         $A = F  17  17  17   $a = ?
+        $A = $x              $a = F 17 17 17
         $A = $x 17  17  17   $a = F
         $A = F  $x  17  17   $a = 17
+        $A = F  $x  $x  17   $a = 17
+        $A = F  $x  $x  $x   $a = 17
+        $A = F  $x  17  $x   $a = 17
         $A = F  17  $x  17   $a = 17
         $A = F  17  17  $x   $a = 17
-        $A = F  $x  $x  17   $a = 17
         $A = F  17  $x  $x   $a = 17
-        $A = F  $x  17  $x   $a = 17
-        $A = $x              $a = F 17 17 17
 
 - probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it, hopefully for concrete formulas that should be fine.
 

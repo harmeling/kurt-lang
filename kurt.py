@@ -1443,12 +1443,17 @@ def rename_all_vars(expr, subst, kb):
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
 def match_against_sub(expr, pattern, tail, subst, kb):
+    # extract the parts
+    bound_v     = pattern[1].value
+    substituent = pattern[2]
+    schema      = pattern[3]
+
+    # find all combinations of `$a` and `$A` that match to `expr`
+
+
     pattern_local = copy.deepcopy(pattern)
     pattern_local = apply_subst(pattern_local, subst, kb)  # `v_p` is bound by `sub`, so not substituted
 
-    # DO THE MAGIC
-
-    # find all combinations of `$a` and `$A` that match to `expr`
 
 
     # finally, continue with the passed `tail`
