@@ -669,4 +669,3 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
         sub $x $a $A matches against sub $y $b $B
         if $a matches against $b,
         and if $A matches against $B
-
