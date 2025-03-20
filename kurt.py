@@ -28,7 +28,8 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# TODO    CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
+# TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
+# TODO check whether we need a version of `equal_expr` that allows bounded renaming
 # TODO check number of possible variable names
 # TODO `def ($A // $x=$a) = sub $x $a $A` as a macro mechanism, i.e., just syntactically instead of `use`
 # TODO check whether we need more deep copy for stuff
@@ -1278,8 +1279,8 @@ def impl_intro(expr, kb):
         if len(premise) == 1:              # premise is one formula
             premise = premise[0]
         else:                              # premise is a conjunction
-            premise = simplify([Token(label='SYMBOL', value='and')] + premise, kb)
-        result = [Token(label='SYMBOL', value='implies'), premise, conclusion]   # construct implication
+            premise = simplify([Token(label='SYMBOL', value='and')] + premise, kb)   # bring to normalform
+        result = [Token(label='SYMBOL', value='implies'), premise, conclusion]       # construct implication
 
     # step 3: compare against the planned expression `expr`
     if equal_expr(expr, result):
@@ -1348,6 +1349,10 @@ def free_bound_vars(expr, kb):
 
 # new variable names just for internal use
 var_counter = 0
+def reset_var_name_counter():
+    global var_counter
+    var_counter = 0
+
 def new_var_name():
     global var_counter
     var_counter += 1
@@ -1397,16 +1402,16 @@ def new_var_name():
 
 # rename all vars in `expr` with generated names to avoid clashes with other expressions
 def rename_all_vars(expr, subst, kb):
-    # `subst` contains the replacements so far
+    # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
-        # a token of an (at least locally) free variable, that will be replaced either by a known sub or with a new name
+        # a token of an (at least locally) free variable will be replaced either by a known sub or with a new name
         case Token(label='SYMBOL', value=free_v) if kb.is_var(free_v):
             if free_v in subst:
-                new_free_v = subst[free_v]
+                new_free_v = subst[free_v]    # replace with known substitution
             else:
-                new_free_v = new_var_name()
-                subst[free_v] = new_free_v
+                new_free_v = new_var_name()   # create new name
+                subst[free_v] = new_free_v    # and store it in the `subst`
             new_expr = copy.deepcopy(expr)    # copy all meta infos, e.g. line, filename
             new_expr.value = new_free_v       # rename it
             return new_expr, subst
@@ -1419,12 +1424,12 @@ def rename_all_vars(expr, subst, kb):
         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op):
             local_subst = subst.copy()                   # we need a local `subst`, since the bound var is only changed locally
             new_bound_v = new_var_name()                 # in any case, `bound_v` gets a new name
-            local_subst[bound_v] = new_bound_v           # store it for usage in this case
-            new_expr, local_subst = rename_all_vars(expr[1:], local_subst, kb)
+            local_subst[bound_v] = new_bound_v           # store it for usage in this case, possibly overwrite a previous value
+            new_expr, local_subst = rename_all_vars(expr[1:], local_subst, kb)   # includes the token of `bound_v`
             if bound_v in subst:
-                local_subst[bound_v] = subst[bound_v]    # reset the value to the outer value
+                local_subst[bound_v] = subst[bound_v]    # reset the value to the previous value, since `local_subst` will be returned
             else:
-                del local_subst[bound_v]                 # else remove it
+                del local_subst[bound_v]                 # else remove it, since it is elsewhere not used
             return [expr[0], *new_expr], local_subst
 
         # recursively replace the children
@@ -1437,12 +1442,17 @@ def rename_all_vars(expr, subst, kb):
 
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
-def match_against_sub(expr, pattern, subst, kb):
-    subst_local = subst.copy()
-    raise 'not yet'
+def match_against_sub(expr, pattern, tail, subst, kb):
+    pattern_local = copy.deepcopy(pattern)
+    pattern_local = apply_subst(pattern_local, subst, kb)  # `v_p` is bound by `sub`, so not substituted
+
+    # DO THE MAGIC
 
     # find all combinations of `$a` and `$A` that match to `expr`
 
+
+    # finally, continue with the passed `tail`
+    yield from match_exprs(tail, subst, kb)
 
 # each "case" with a recursive call has to loop over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
@@ -1460,9 +1470,9 @@ def match_exprs(exprs_patterns, subst, kb):
                 # variable matching
                 case Token(label='SYMBOL', value=v) if kb.is_var(v):
                     if v not in subst:
-                        new_subst = subst.copy()     # shallow copy
-                        new_subst[v] = expr          # extend the substitution
-                        yield from match_exprs(tail, new_subst, kb)
+                        subst_local = subst.copy()     # shallow copy
+                        subst_local[v] = expr          # extend the substitution
+                        yield from match_exprs(tail, subst_local, kb)
                     elif equal_expr(subst[v], expr):
                         yield from match_exprs(tail, subst, kb)
 
@@ -1471,31 +1481,34 @@ def match_exprs(exprs_patterns, subst, kb):
                     if is_token(expr) and l==expr.label and v==expr.value:
                         yield from match_exprs(tail, subst, kb)
 
-                # substitution rule: sub $x $a $A
-                case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=v),
-                    substituent, schema]:
-                    assert kb.is_var(v), f'BUG: substitution requires variable'
-                    pattern = apply_subst(pattern, subst, kb)  # `x` is bound by `sub`, so not substituted
-                    yield from match_against_sub(expr, pattern, substituent, schema, subst, kb)
-
-                # other binding operator matching
-                case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *args] if kb.is_bindop(op):
-                    assert kb.is_var(v), f'BUG: binding operator requires variables, did the expression check failed'
-                    expr_tmp = copy.deepcopy(expr)
-                    match expr_tmp:
-                        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=w), *e_args] if kb.var(w):
-                            if v != w:
-                                # rename bound variable
-                                pass # TODO
-
-                # list matching
+                # binding operator matching (rename bound variable)
+                case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if kb.is_bindop(op_p):
+                    if op_p == 'sub':
+                        # option 1: a pattern with a `sub` can match many expressions
+                        yield from match_against_sub(expr, pattern, tail, subst, kb)
+                    # option 2: additionally binding ops match against their matching binding ops
+                    match expr:
+                        case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
+                            if op_p==op_e and len(args_p)==len(args_e):
+                                if v_p != v_e:
+                                    # rename the bound variable
+                                    args_p_local = copy.deepcopy(args_p)
+                                    args_p_local = [apply_subst(arg, {v_p:v_e}, kb) for arg in args_p_local]
+                                yield from match_exprs(list(zip(args_e, args_p_local)) + tail)
+                                
+                # list matching TODO when should subst be applied?
                 case [*_] if is_list(expr) and len(pattern)==len(expr):
                     pattern_tmp = copy.deepcopy(pattern)
                     pattern_tmp = [apply_subst(p, subst, kb) for p in pattern_tmp]
                     yield from match_exprs(list(zip(expr, pattern_tmp)) + tail, subst, kb)
 
-    # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
-    assert False, f'BUG: `match_exprs` did not cover all cases'
+                case _:
+                    # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
+                    assert False, f'BUG: `match_exprs` did not cover all cases'
+
+        case _:
+            # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
+            assert False, f'BUG: `match_exprs` did not cover all cases'
 
 # match a list of expressions against the theory and grow the substitution
 def match_all_theory(exprs, subst, kb):
@@ -1508,16 +1521,17 @@ def match_all_theory(exprs, subst, kb):
         # still at least one to go
         case [expr, *tail]:
             # deep copy of `expr` is necessary, since `match_all_theory` will be called several times with the same `exprs` in `impl_elim`
-            expr_tmp = copy.deepcopy(expr)
-            expr_tmp = apply_subst(expr_tmp, subst, kb)
+            # and we have to apply the "growing" set of substitutions to it
+            expr_local = copy.deepcopy(expr)
+            expr_local = apply_subst(expr_local, subst, kb)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
-                # rename free and bound variables of `candidate` to avoid clashes with `expr_tmp`
-                candidate_subst = copy.deepcopy(candidate.expr)
-                candidate_subst = rename_all_vars(candidate_subst, kb)
+                # rename free and bound variables of `candidate` to avoid clashes with `expr_local`
+                candidate_expr = copy.deepcopy(candidate.expr)
+                candidate_expr = rename_all_vars(candidate_expr, kb)
 
                 # iterate over all possible substitutions that create a match
-                for subst_cand in match_exprs([(expr_tmp, candidate_subst)], subst, kb):
+                for subst_cand in match_exprs([(expr_local, candidate_expr)], subst, kb):
                     # try to match the rest of the expressions (the `tail`)
                     # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
                     subst_cand = match_all_theory(tail, subst_cand, kb)
@@ -1525,11 +1539,18 @@ def match_all_theory(exprs, subst, kb):
                         return subst_cand    # match was found!  BINGO!
             return None        # could not find a match among the candidate `patterns`
 
-        # we calling `match_all_theory` wrongly, bug!
-        case _:
-            assert False, f'BUG: `match_all` must be called with a list'
+    # we calling `match_all_theory` wrongly, bug!
+    assert False, f'BUG: `match_all_theory` did not cover all cases'
 
+# what is happening:
+# 0. deep copy `implication` and rename all its variables
+# 1. split `implication` into `conclusion` and `premises`
+# 2. match `expr` against `conclusion`
+# 3. match `premises` against the theory (which needs to be renamed as well)
 def impl_elim(expr, implication, kb, filename, mainstream):
+
+    # to avoid overflow in the counter variable
+    reset_var_name_counter()
 
     # deep copy and rename all variables
     # the renaming must happen before we cut the `implication` into pieces
