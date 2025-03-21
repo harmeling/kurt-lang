@@ -1381,7 +1381,7 @@ def impl_elim(expr, implication, kb, filename, mainstream):
     # create meaning full `reason`
     if kb.verbose:
         msg = 'BINGO!'
-        msg += f'expression to prove: {expr_str(e, kb)}'
+        msg += f'expression to prove: {expr_str(expr, kb)}'
         msg += f'implication used:    {expr_str(implication.expr, kb)}'
         msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}'
         msg += f'substitution used:   {subst}'
