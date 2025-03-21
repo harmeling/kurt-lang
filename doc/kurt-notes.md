@@ -245,13 +245,13 @@ This document collects notes while inventing the language.  There are many more 
          A
          ---
          B
-         ----------- ; implies_intro
+         ----------- ; implies-intro
          A implies B
 
-         ----------- ; equal_intro
+         ----------- ; equal-intro
          x = x
 
-         ----------- ; top_intro
+         ----------- ; top-intro
          true
 
          A
@@ -260,35 +260,35 @@ This document collects notes while inventing the language.  There are many more 
 
 - Rules without quantifier:
 
-         (A implies B) and A implies B                            ; implies_elim (modus ponens)
-         (true implies A) implies A                               ; top_elim
-         A(x) and x==y implies A(y)                               ; equal_elim
+         (A implies B) and A implies B                            ; implies-elim (modus ponens)
+         (true implies A) implies A                               ; top-elim
+         A(x) and x==y implies A(y)                               ; equal-elim
 
-         A and B implies A and B                                  ; and_intro
-         A and B implies A                                        ; and_elim
-         A and B implies B                                        ; and_elim
+         A and B implies A and B                                  ; and-intro
+         A and B implies A                                        ; and-elim
+         A and B implies B                                        ; and-elim
 
-         A implies A or B                                         ; or_intro
-         B implies A or B                                         ; or_intro
-         (A or B) and (A implies C) and (B implies C) implies C   ; or_elim
+         A implies A or B                                         ; or-intro
+         B implies A or B                                         ; or-intro
+         (A or B) and (A implies C) and (B implies C) implies C   ; or-elim
 
 
-         (A implies B) and (B implies A) implies (A iff B)        ; iff_intro
-         A iff B implies A implies B                              ; iff_elim
-         A iff B implies B implies A                              ; iff_elim
+         (A implies B) and (B implies A) implies (A iff B)        ; iff-intro
+         A iff B implies A implies B                              ; iff-elim
+         A iff B implies B implies A                              ; iff-elim
 
-         A and not A implies false                                ; bottom_intro
-         false implies A                                          ; bottom_elim
+         A and not A implies false                                ; bottom-intro
+         false implies A                                          ; bottom-elim
 
-         (A implies false) implies not A                          ; not_intro
-         not not A implies A                                      ; not_elim
+         (A implies false) implies not A                          ; not-intro
+         not not A implies A                                      ; not-elim
 
 - Rules with quantifier:
 
-         (var x) and A(x) implies forall x A(x)                      ; forall_intro
-         forall x A(x) implies A(t)                                  ; forall_elim
-         A(t) implies exists x A(x)                                  ; exists_intro
-         (exists x A(x)) and (var c) and (A(c) implies B) implies B  ; exists_elim
+         (var x) and A(x) implies forall x A(x)                      ; forall-intro
+         forall x A(x) implies A(t)                                  ; forall-elim
+         A(t) implies exists x A(x)                                  ; exists-intro
+         (exists x A(x)) and (var c) and (A(c) implies B) implies B  ; exists-elim
 
 - Rules for induction:
          A(0) and (forall n in Nat  A(n) implies A(n+1)) implies forall n in Nat  A(n)  ; induction
@@ -304,27 +304,27 @@ This document collects notes while inventing the language.  There are many more 
 
 - Let's try again to rewrite the relevant formulas:
 
-- "equal_elim" is easy to write:
+- "equal-elim" is easy to write:
 
-         A and x=y implies (A // x=y)                                ; equal_elim
+         A and x=y implies (A // x=y)                                ; equal-elim
 
-- "forall_intro"
+- "forall-intro"
 
-         A implies forall x A                            ; forall_intro
+         A implies forall x A                            ; forall-intro
 
   Here the `forall` on the RHS of the implication will ensure that `x` is a variable that is freely appearing in `A`.
 
-- "forall_elim"
+- "forall-elim"
 
-         forall x A implies (A // x=t)                               ; forall_elim
+         forall x A implies (A // x=t)                               ; forall-elim
 
-- "exists_intro"
+- "exists-intro"
 
-         (A // x=t) implies exists x A                               ; exists_intro
+         (A // x=t) implies exists x A                               ; exists-intro
 
-- "exists_elim"
+- "exists-elim"
 
-         (exists x A) and ((A // x=c) implies B) implies B  ; exists_elim
+         (exists x A) and ((A // x=c) implies B) implies B  ; exists-elim
 
 - "induction"
 
@@ -351,7 +351,7 @@ This document collects notes while inventing the language.  There are many more 
 
   I suggest that we do not allow this kind of syntactic sugar, since the ":" is already used for elements in sets.
 
-## impl_intro and proof/qed
+## impl-intro and proof/qed
 
 - Let's look at code!
 
@@ -398,7 +398,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - we need higher-order unification, do we?  or is first-order enough?
 
-## equal_elim
+## equal-elim
 
 - let's look at some example and solve it by hand
 
@@ -430,34 +430,34 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 ## Some rules have substitutions
 
-- equal_elim
+- equal-elim
 
-         ($A // $x=$s) and $s=$t implies ($A // $x=$t)         ; equal_elim
+         ($A // $x=$s) and $s=$t implies ($A // $x=$t)         ; equal-elim
 
   plan:
   - search theory that matches the goal formula up to a single term (possibly appearing repeatedly)
   - then $x is non-matching term (might appear several times)
 
-- "forall_intro"
+- "forall-intro"
 
-         $A implies forall $x $A                            ; forall_intro
+         $A implies forall $x $A                            ; forall-intro
 
   - it doesn't matter, whether $x appears in $A or not
   plan:
   - match first RHS then LHS, this should work already!
   -
 
-- "forall_elim"
+- "forall-elim"
 
-         forall x A implies (A // x=t)                               ; forall_elim
+         forall x A implies (A // x=t)                               ; forall-elim
 
-- "exists_intro"
+- "exists-intro"
 
-         (A // x=t) implies exists x A                               ; exists_intro
+         (A // x=t) implies exists x A                               ; exists-intro
 
-- "exists_elim"
+- "exists-elim"
 
-         (exists x A) and ((A // x=c) implies B) implies B  ; exists_elim
+         (exists x A) and ((A // x=c) implies B) implies B  ; exists-elim
 
 - "induction"
 
@@ -587,19 +587,20 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 - forall quantification
 
       use $A implies forall $x $A                                      "forall-intro"
-      use forall $x ($A // $$x=$x) implies ($A // $$x=$a)              "forall_elim"    ; `$a` must not contain variables that are bound by `$A`
+      use forall $x ($A // $$x=$x) implies ($A // $$x=$a)              "forall-elim"    ; `$a` must not contain variables that are bound by `$A`
 
   here req 1 ensures that `$a` does not contain variables that are bound by `$A`.
   note that `forall $x $A implies ($A // $x=$a)` is not sufficient, since we can not match `$A//$x=$a` against `$A`
 
 - exist quantification
 
-      use ($A // $$x=$a) implies exists $x ($A // $$x=$x)              "exists_intro"   ; `$a` must not contain variables that are bound by `$A`
+      use ($A // $$x=$a) implies exists $x ($A // $$x=$x)              "exists-intro"   ; `$a` must not contain variables that are bound by `$A`
 
   here req 1 ensures that `$a` does not contain variables that are bound by `$A`
 
-      use (exists $x ($A//$$x=$x)) and (forall $x (($A//$$x=$x) implies ($B//$x=$b))) implies ($B//$x=$b)    "exists_elim"    ; `$x` should not occur free in `$B`
-      use (exists $x ($A//$$x=$x)) and (($A//$$x=$x) implies ($B // $x=$b)) implies ($B//$x=$b)              "exists_elim"    ; `$x` should not occur free in `$B`
+      use (exists $x ($A//$$x=$x)) and (forall $x (($A//$$x=$x) implies ($B//$x=$b))) implies ($B//$x=$b)    "exists-elim"    ; `$x` should not occur free in `$B`
+      use (exists $x ($A//$$x=$x)) and (($A//$$x=$x) implies ($B//$x=$b)) implies ($B//$x=$b)                "exists-elim"    ; `$x` should not occur free in `$B`
+      use (exists $x $A and ($A implies ($B//$x=$b)) implies ($B//$x=$b)                                     "exists-elim"    ; `$x` should not occur free in `$B`
 
   two variants: the difficulty is that `$x` must not appear in the conclusion.  This is ensured through req 2, since it ensures that `$b` does not contain `$x`.  The double dollars ensure that we can use this formula for any single dollar variables.
 
@@ -636,37 +637,41 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
         $A = F  $x  $x    $a = 17
         $A = $x           $a = F 17 17
 
-- example: match term `F 17 17 17` against pattern `$A // $x=$a`, i.e., `sub $x $a $A`
+- probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it
 
-  - there are nine possibilities:
+- how to generate all assignments???
 
-        $A = F  17  17  17   $a = ?
-        $A = $x              $a = F 17 17 17
-        $A = $x 17  17  17   $a = F
-        $A = F  $x  17  17   $a = 17
-        $A = F  $x  $x  17   $a = 17
-        $A = F  $x  $x  $x   $a = 17
-        $A = F  $x  17  $x   $a = 17
-        $A = F  17  $x  17   $a = 17
-        $A = F  17  17  $x   $a = 17
-        $A = F  17  $x  $x   $a = 17
+      use $a = $a                                                                                     "equal-intro"    ; easy
+      use ($A // $$x = $a) and $a = $b implies ($A // $$x = $b)                                       "equal-elim"     ; `$a` and `$b` can be any terms
+      use ($A // $$x = $a) implies forall $x ($A // $$x = $x)                                         "forall-intro"   ; `$a` can be any term
+      ; CAREFUL: in "forall-intro" `$x` must not be assigned from outside, since it is bound, only `$A` and `$a` are assigned
+      use forall $x $A implies $A                                                                     "forall-elim"    ; `$a` must not contain variables that are bound by `$A`
+      use forall $x ($A // $$x=$x) implies ($A // $$x=$a)                                             "forall-elim"    ; `$a` must not contain variables that are bound by `$A`
+      use ($A // $$x=$a) implies exists $x ($A // $$x=$x)                                             "exists-intro"   ; `$a` must not contain variables that are bound by `$A`
+      use (exists $$x ($A//$$y=$$x)) and (($A//$$y=$$x) implies ($B//$$x=$b)) implies ($B//$$x=$b)    "exists-elim"    ; `$x` should not occur free in `$B`
+      ; CAREFUL: the latter is still not fully general, what about matching with a `$B` that contains `$x`
 
-- probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it, hopefully for concrete formulas that should be fine.
+- how to match:
 
-## matching more thoughts (2025-03-17)
+      - match `$A // $$x = $a` against ...
 
-- when substituting variables we have to ensure that we don't inject variables, that shouldn't be there:
+      - example 1: put all nodes of `f 17 17` into a list, iterate over that list
+        1.  `$A = f   17  17`
+        2.  `$A = $$x 17  17`     look for more `f` down the list (none found)
+        3.  `$A = f   $$x 17`     look for `17` down the list (one found)
+        3.1 `$A = f   $$x $$x`    alternative
+        4.  `$A = f   17  $$x`    look for more `17` down the list (none found)
 
-        matching expr against pattern
+      - example 2: put all nodes of `f 17 17 17` into a list, iterate over that list
+        0.  `$A = f   17  17  17 `   without using `$$x` and `$a`
+        1.  `$A = $$x`               `$a=f 17 17 17`, look for more `$$x` down the list (none found)
+        2.  `$A = $$x 17  17  17`    `$a=f`         , look for more `f` down the list (none found)
+        3.1 `$A = f   $$x 17  17`    `$a=17`        , look for `17` down the list (two found, iterate all 00, 01, 10, 11)
+        3.2 `$A = f   $$x $$x 17`    `$a=17`        , alternative
+        3.3 `$A = f   $$x 17  $$x`   `$a=17`        , alternative
+        3.4 `$A = f   $$x $$x $$x`   `$a=17`        , alternative
+        4.1 `$A = f   17  $$x 17`    `$a=17`        , look for more `17` down the list (one found)
+        4.1 `$A = f   17  $$x $$x`   `$a=17`        , alternative
+        5.  `$A = f   17  17  $$x`   `$a=17`        , look for more `17` down the list (none found)
 
-- how to generate all assignments (2025-03-17)?
-
-- how to match an expression against a substitution?
-
-        sub $x $a $A      
-
-- how to match a substitution against a substitution?
-
-        sub $x $a $A matches against sub $y $b $B
-        if $a matches against $b,
-        and if $A matches against $B
+      - to generate alternatives, call `find_next_along_the_tree` which yields twice if one is found (once with and once without)
