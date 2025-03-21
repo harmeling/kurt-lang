@@ -636,4 +636,15 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it
 
-- how to generate all assignments
+- how to generate all assignments???
+
+## simpler option (2025-03-21)
+
+- matching against `sub $x $a $A` is technically quite difficult.  let's try something simpler.
+
+- introduce special variables for formula schema
+
+      sub $x $a $A     ; substitute `$a` for `$x` in `$A`
+      scheme $x $a     ; special formula
+
+- however, still unclear!
