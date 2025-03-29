@@ -639,16 +639,15 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - probably a slow but simple implementation will iterate through these possibilities and try all other formulas, that's it
 
-- how to generate all assignments???
+- all rules, only `$A`, `$B`, `$a` and `$b` get assigned from the outside to any terms
 
-      use $a = $a                                                                                     "equal-intro"    ; easy
-      use ($A // $$x = $a) and $a = $b implies ($A // $$x = $b)                                       "equal-elim"     ; `$a` and `$b` can be any terms
-      use ($A // $$x = $a) implies forall $x ($A // $$x = $x)                                         "forall-intro"   ; `$a` can be any term
-      ; CAREFUL: in "forall-intro" `$x` must not be assigned from outside, since it is bound, only `$A` and `$a` are assigned
-      use forall $x $A implies $A                                                                     "forall-elim"    ; `$a` must not contain variables that are bound by `$A`
-      use forall $x ($A // $$x=$x) implies ($A // $$x=$a)                                             "forall-elim"    ; `$a` must not contain variables that are bound by `$A`
-      use ($A // $$x=$a) implies exists $x ($A // $$x=$x)                                             "exists-intro"   ; `$a` must not contain variables that are bound by `$A`
-      use (exists $$x ($A//$$y=$$x)) and (($A//$$y=$$x) implies ($B//$$x=$b)) implies ($B//$$x=$b)    "exists-elim"    ; `$x` should not occur free in `$B`
+      use $a = $a                                                                                     "equal-intro"
+      use ($A // $$x=$a) and $a = $b implies            ($A // $$x=$b)                                "equal-elim"
+      use ($A // $$x=$a)             implies  forall $x ($A // $$x=$x)                                "forall-intro"
+      use forall $x ($A // $$x=$x)   implies            ($A // $$x=$a)                                "forall-elim"
+      use ($A // $$x=$a)             implies  exists $x ($A // $$x=$x)                                "exists-intro"
+      use (exists $$x ($B//$$y=$$x)) and (($B//$$y=$$x) implies ($A//$$x=$a)) implies ($A//$$x=$a)    "exists-elim"
+
       ; CAREFUL: the latter is still not fully general, what about matching with a `$B` that contains `$x`
 
 - how to match:
@@ -675,3 +674,111 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
         5.  `$A = f   17  17  $$x`   `$a=17`        , look for more `17` down the list (none found)
 
       - to generate alternatives, call `find_next_along_the_tree` which yields twice if one is found (once with and once without)
+
+
+## Alternatives (2025-03-26)
+
+- Let's consider a simple axiom:
+
+      use ($A // $$x=$a) and $a = $b implies ($A // $$x=$b)                                           "equal-elim"
+
+- We first match the conclusion `($A // $$x=$b)`.
+
+- Option 1: `yield` all possible assignments for `$A` and `$b`.  This might be wasteful, since there might be not matching premises.
+
+- Option 2: Postpone the assignment of `$A` and first identify the other occurrences of `$A` among the premises.
+
+- The semantics of `($A // $$x=$b)` is "any formula with some location replaced by `$b`".
+
+## Again let's understand the formulas:
+
+- for `$A // $x=$a` there are two requirements
+
+    1. the expression assigned to `$a` does not contain any bound variables of `$A`
+    2. the expression assigned to `$a` does not contain `$x`
+
+- two substitution operators:
+
+      $A // $b       ;   substitute some occurrences of   a subterm of `$A`   in `$A` with `$b`
+      $A // $a = $b  ;   substitute some occurrences of   term `$a`           in `$A` with `$b`
+
+  - the location can appear once or several times depending on the needs of the matching formula.
+  - again: `$b` must not contain any bound variable of `$A` (is this really necessary?)
+
+- "equal-intro": easy, replace `$a` with any term
+
+      use $a = $a                                         "equal-intro"
+
+- "equal-elim": important, both `$a` and `$b` can be any term
+
+      use ($A // $a = $b) and $a = $b implies  $A         "equal-elim"
+
+  - note on LHS, we can replace *any* number of occurrences of `$a` by `$b`
+
+- "forall-intro": how about
+
+      use $A  implies  forall $x $A
+
+   where we must match `$A` and `$x`.  then for matching `$A` we must allow renaming of the free variable `$x` and other free variables
+
+- "forall-elim":  choose any subterm in `$A` for replacement by `$x`
+
+      use forall $x ($A // $x)  implies  $A                                "forall-elim"
+
+   note: all occurrences of the chosen subterm of `$A` must be replaced, otherwise, we could choose to replace `$y` in `$A` we get 
+
+      use forall $x $x=$x    implies $x=$y   ; wrong
+
+- "exists-intro": replace `$A` with a boolean term and `$a` can be any term
+
+      use ($A // $x=$a)             implies  exists $x $A                 "exists-intro"
+
+  note:
+        - `$x` is bound on both sides of the implication, this ensures that we replace the correct subterm
+        - on the LHS we must replace all occurrences of `$x` in `$A`
+
+- "exists-elim": replace `$A` and `$B` with boolean terms
+
+      use (exists $$x $B) and ($B implies $A)  implies  $A         "exists-elim"
+
+  the trick here is that double-dollar variables like `$$x` are only allowed in `use`, i.e.
+
+      - `$A` does not contain `$$x`
+      - also the corner cases where `$$x` does not appear in `$B` are fine
+
+## 2025-03-29
+
+- another attempt, only substitute variables
+
+      use $a = $a                                                         "equal-intro"
+      use ($A // $x = $a) and $a = $b          implies  ($A // $x = $b)   "equal-elim"
+      use $A                                   implies  forall $x $A      "forall-intro"
+      use forall $x $A                         implies  ($A // $x = $a)   "forall-elim"
+      use ($A // $x = $a)                      implies  exists $x $A      "exists-intro"
+      use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
+
+- this looks quite good, let's look into the details
+
+      use $a = $a                                                         "equal-intro"
+      ; substitute `$a`
+
+      use ($A // $x = $a) and $a = $b          implies  ($A // $x = $b)   "equal-elim"
+      ; iterate over all possibilities of the RHS, possibly first look for equations
+
+      use $A                                   implies  forall $x $A      "forall-intro"
+      ; substitute `$A` with renaming of the bound variable `$x`
+      ; then match LHS where the free variables in `$A` can be adjusted
+
+      use forall $x $A                         implies  ($A // $x = $a)   "forall-elim"
+      ; iterate over all possibilities of the RHS
+
+      use ($A // $x = $a)                      implies  exists $x $A      "exists-intro"
+      ; substitute `$A` with renaming of the bound variable `$x`
+
+      use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
+      ; note that `$$x` can not appear in `$A`
+
+- now we only have a single requirements for `$A // $x=$a`:
+
+    1. the expression assigned to `$a` does not contain any bound variables of `$A`
+

@@ -28,6 +28,8 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO add type information, add Final for constants, set `Python › Analysis: Type Checking Mode` to `basic`
+# TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=`
 # TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
 # TODO check whether we need a version of `equal_expr` that allows bounded renaming
 # TODO check number of possible variable names
@@ -933,6 +935,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=rbp)]:
                 kb.add_prefix(op, rbp)
             case _:
+                msg = create_usage(keyword_token.value, [[], ['STRING', 'INT']])
                 raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'postfix':
         match args:
@@ -1113,6 +1116,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                 if kb.level == 0:
                     raise KurtException(f'EvalError: no block to close')
                 if len(kb.show) > 0:                  # any planned formulas inside the current proof?
+                    pf = kb.show[-1]
                     raise KurtException(f'ProofError: planned formula "{pf}" in current proof is unproven')
                 assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
                 pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
