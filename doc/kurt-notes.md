@@ -761,24 +761,47 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
       use $a = $a                                                         "equal-intro"
       ; substitute `$a`
+      ; in other words: terms equal themselves
 
       use ($A // $x = $a) and $a = $b          implies  ($A // $x = $b)   "equal-elim"
       ; iterate over all possibilities of the RHS, possibly first look for equations
+      ; in other words: look for a formula where one term (or more copies of it) have been substituted
 
       use $A                                   implies  forall $x $A      "forall-intro"
       ; substitute `$A` with renaming of the bound variable `$x`
       ; then match LHS where the free variables in `$A` can be adjusted
+      ; in other words: look for a formula without the universal quantification
 
       use forall $x $A                         implies  ($A // $x = $a)   "forall-elim"
       ; iterate over all possibilities of the RHS
+      ; in other words: look for a formula that universally quantifies one of the terms (the `$a`) in `$A`
 
       use ($A // $x = $a)                      implies  exists $x $A      "exists-intro"
       ; substitute `$A` with renaming of the bound variable `$x`
+      ; in other words: look for a formula where the existentially bound variable `$x` is replaced by a term `$a`
 
       use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
       ; note that `$$x` can not appear in `$A`
+      ; in other words: look for other implications with premise that also appear elsewhere existentially quantified
 
 - now we only have a single requirements for `$A // $x=$a`:
 
-    1. the expression assigned to `$a` does not contain any bound variables of `$A`
+    1. the expression assigned to `$a` does not contain any bound variables of `$A`, 
+       more precisely:
+       - only free occurrences of `$x` in `$A` are replaced
+       - for each location of `$x` there is a certain set of bound variables in `$A`, that must not appear in `$a`
+       - alternatively, we could be more strict, not to allow any bound variables in `$A` to appear in `$a`
 
+- the axioms for quantifier
+
+      use $A                                   implies  forall $x $A      "forall-intro"
+      use forall $x $A                         implies  ($A // $x = $a)   "forall-elim"
+      use ($A // $x = $a)                      implies  exists $x $A      "exists-intro"
+      use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
+
+- the axioms for equality
+
+      use $a = $a                                                         "equal-intro"
+      use ($A // $x = $a) and $a = $b          implies  ($A // $x = $b)   "equal-elim"
+
+- next topic: syntactic sugar

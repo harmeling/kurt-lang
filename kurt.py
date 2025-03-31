@@ -28,6 +28,7 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO allow boolean expressions for the bound variable for some variable binding operators
 # TODO add type information, add Final for constants, set `Python › Analysis: Type Checking Mode` to `basic`
 # TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=`
 # TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
@@ -1307,7 +1308,7 @@ def apply_subst(expr, subst, kb):
         case Token():
             return expr
 
-        # in binding operators expression the bound variable is not replaced by the substitution
+        # in binding operator expressions the bound variable is not replaced by the substitution
         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op) and bound_v in subst:
             local_subst = subst.copy()                   # we need a local `subst`, since `bound_v` should not be changed
             del local_subst[bound_v]                     # remove it from our local copy
@@ -1409,7 +1410,7 @@ def rename_all_vars(expr, subst, kb):
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
-        # a token of an (at least locally) free variable will be replaced either by a known sub or with a new name
+        # a token of an at least locally free variable will be replaced either by a known sub or with a new name
         case Token(label='SYMBOL', value=free_v) if kb.is_var(free_v):
             if free_v in subst:
                 new_free_v = subst[free_v]    # replace with known substitution
@@ -1447,13 +1448,16 @@ def rename_all_vars(expr, subst, kb):
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
 def match_against_sub(expr, pattern, tail, subst, kb):
+    # the pattern is a term `sub bound_v substituent schema`
     # extract the parts
     bound_v     = pattern[1].value
-    substituent = pattern[2]
-    schema      = pattern[3]
+    substituent = pattern[2]         # called `$a` in the following
+    schema      = pattern[3]         # called `$A` in the following
 
     # find all combinations of `$a` and `$A` that match to `expr`
+    TODO
 
+    # match `$A` with `expr`
 
     pattern_local = copy.deepcopy(pattern)
     pattern_local = apply_subst(pattern_local, subst, kb)  # `v_p` is bound by `sub`, so not substituted
@@ -1493,9 +1497,9 @@ def match_exprs(exprs_patterns, subst, kb):
                 # binding operator matching (rename bound variable)
                 case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if kb.is_bindop(op_p):
                     if op_p == 'sub':
-                        # option 1: a pattern with a `sub` can match many expressions
+                        # optionally: a pattern with a `sub` can match many expressions
                         yield from match_against_sub(expr, pattern, tail, subst, kb)
-                    # option 2: additionally binding ops match against their matching binding ops
+                    # in any case: additionally binding ops match against their matching binding ops
                     match expr:
                         case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
                             if op_p==op_e and len(args_p)==len(args_e):
