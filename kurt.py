@@ -4,14 +4,38 @@
 # the kurt programming language for proof writing and checking
 # developed by Stefan Harmeling (2016-2025)
 
-# config
+## all external libraries (let's keep the dependencies minimal)
+import sys          # sys.stdin, sys.stderr
+if sys.version_info < (3, 10):
+    print("Python 3.10 or newer is required, since we are using Python's `match`!  Sorry about that!", file=sys.stderr)
+    exit(0)
+import os           # os.path.[isfile, dirname, abspath, join, basename, split, expanduser, exists]
+import argparse     # argparse.ArgumentParser
+import copy         # copy.deepcopy
+import re           # re.[compile, VERBOSE, MULTILINE]
+import functools    # functools.cmp_to_key
+import readline     # readline.[parse_and_bind, add_history, read_history_file, write_history_file]
+import atexit       # atexit.register
+
+# config: general information
 version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
+
+# config: the indentation for the different blocks
 md_indent      = 7                     # ignore all lines not starting with `md_indent` many spaces
 proof_indent   = 4                     # how much to indent for a `proof` block
 reason_indent  = 60                    # how much the reason is indented
-theory_path    = ['.', 'theories']     # default path for theories
-default_theory = 'theory.kurt'         # default theory
+
+# config: the symbols for the most basic logical operators
+impl_symbol    = 'implies'             # symbol for implication
+sub_symbol     = 'sub'                 # symbol for substitution
+and_symbol     = 'and'                 # symbol for and
+eq_symbol      = '='                   # symbol for equality
+
+# config: the default theory and default path
+default_theory = 'theory.kurt'                                                   # default theory
+this_file_path = os.path.dirname(os.path.abspath(__file__))                      # path of THIS file
+theory_path    = ['.', 'theories', os.path.join(this_file_path, 'theories')]     # default path for theories
 
 debug_flag = False
 def debug(*s):
@@ -28,12 +52,13 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
 # TODO add type information, add Final for constants, set `Python › Analysis: Type Checking Mode` to `basic`
-# TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=`
+# TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=` and `sub`
 # TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
 # TODO check whether we need a version of `equal_expr` that allows bounded renaming
-# TODO check number of possible variable names
+# TODO check number of possible variable names, use letters to be safe
 # TODO `def ($A // $x=$a) = sub $x $a $A` as a macro mechanism, i.e., just syntactically instead of `use`
 # TODO check whether we need more deep copy for stuff
 # TODO type checking for `sub $x $a $A` with free and bound variable check
@@ -77,19 +102,6 @@ def debug(*s):
 # TODO add back the `formula-flags` from the `formula-flag` branch?  instead use string comments?
 # TODO use the Token.column information
 # TODO create test code for each possible KurtException
-
-## all external libraries (let's keep the dependencies minimal)
-import sys          # sys.stdin, sys.stderr
-if sys.version_info < (3, 10):
-    print("Python 3.10 or newer is required, since we are using Python's `match`!  Sorry about that!", file=sys.stderr)
-    exit(0)
-import os           # os.path.isfile
-import argparse     # argparse.ArgumentParser
-import copy         # copy.deepcopy
-import re           # re.compile, re.VERBOSE, re.MULTILINE
-import functools    # functools.cmp_to_key
-import readline     # readline.parse_and_bind, readline.add_history
-import atexit       # atexit.register
 
 class KurtException(Exception):
     def __init__(self, msg, column=None, line=None, filename=None, short=False):
@@ -1447,6 +1459,9 @@ def rename_all_vars(expr, subst, kb):
 
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
+def generate_all_combinations(expr, pattern):
+    pass
+
 def match_against_sub(expr, pattern, tail, subst, kb):
     # the pattern is a term `sub bound_v substituent schema`
     # extract the parts
@@ -1455,14 +1470,12 @@ def match_against_sub(expr, pattern, tail, subst, kb):
     schema      = pattern[3]         # called `$A` in the following
 
     # find all combinations of `$a` and `$A` that match to `expr`
-    TODO
+    for (a, A) in generate_all_combinations(expr, pattern):
+        yield ...
 
     # match `$A` with `expr`
-
     pattern_local = copy.deepcopy(pattern)
     pattern_local = apply_subst(pattern_local, subst, kb)  # `v_p` is bound by `sub`, so not substituted
-
-
 
     # finally, continue with the passed `tail`
     yield from match_exprs(tail, subst, kb)
@@ -1742,6 +1755,13 @@ def find_file(fname, path):
             return cand
     return None
 
+def find_file(fname, path):
+    for p in path:
+        cand = os.path.join(p, fname)
+        if os.path.isfile(cand):
+            return cand
+    return None
+
 def parse_args():
     parser = argparse.ArgumentParser(description=f'a simple proof assistant ({made_by})')
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
@@ -1761,7 +1781,7 @@ def main():
     debug_flag = args.debug
 
     # readline history
-    readline_history_file = os.path.expanduser("~/.kurt_history")
+    readline_history_file = os.path.expanduser("~/.kurt_history")         # should work on all platforms
     if os.path.exists(readline_history_file):
         readline.read_history_file(readline_history_file)                 # restore history
     atexit.register(readline.write_history_file, readline_history_file)   # register for automatic saving
@@ -1775,6 +1795,7 @@ def main():
     # theory path
     if args.path is not None:
         theory_path[1] = args.path   # overwrite the default 'theory'
+    print(f'Using theory path: {theory_path}', file=sys.stdout)
 
     # by default load `default_theory` or nothing
     theory_filename = find_file(default_theory, theory_path)
