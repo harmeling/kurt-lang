@@ -805,3 +805,15 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
       use ($A // $x = $a) and $a = $b          implies  ($A // $x = $b)   "equal-elim"
 
 - next topic: syntactic sugar
+
+## 2025-04-02 matching against `sub`
+
+- if the `expr` is some `sub` expression itself, we are not substituting, since we want to infer that exact expression with the `sub` operator
+
+- let's assume that `pattern` is some `sub` expression
+
+        expr    = anything
+        pattern = sub $x $a $A
+        pattern = sub $x expr_a $A
+        pattern = sub $x $a expr_A
+        pattern = sub $x expr_a expr_A

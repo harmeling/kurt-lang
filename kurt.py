@@ -52,6 +52,7 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
 # TODO add type information, add Final for constants, set `Python › Analysis: Type Checking Mode` to `basic`
@@ -1459,26 +1460,67 @@ def rename_all_vars(expr, subst, kb):
 
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
-def generate_all_combinations(expr, pattern):
-    pass
+def generate_all_combinations(expr, var_x):
+    raise f'not yet'
+
+def subst_copy(expr, var_x, expr_a):
+    # create a deep copy of `expr`
+    match expr:
+        case [*children]:
+            return [subst_copy(child, var_x, expr_a) for child in children]
+        case _:
+            if equal_expr(expr, expr_a):
+                # we found the `expr_a`, let's return just a Token with `var_x`
+                return Token(label='SYMBOL', value=var_x)
+            else:
+                return copy.deepcopy(expr)
 
 def match_against_sub(expr, pattern, tail, subst, kb):
-    # the pattern is a term `sub bound_v substituent schema`
-    # extract the parts
-    bound_v     = pattern[1].value
-    substituent = pattern[2]         # called `$a` in the following
-    schema      = pattern[3]         # called `$A` in the following
+    match pattern:
+        # `sub $x $a $A`
+        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
+            if kb.is_var(var_x) and kb.is_var(var_a) and kb.is_var(var_A):
 
-    # find all combinations of `$a` and `$A` that match to `expr`
-    for (a, A) in generate_all_combinations(expr, pattern):
-        yield ...
+            # find all combinations of `$a` and `$A` that match to `expr`, where in `$A` there will be `var_a` at the right node
+            for (expr_a, expr_A) in generate_all_combinations(expr, var_x):
+                subst_local = subst.copy()
+                subst_local[var_a] = expr_a                          # store the found substitutions
+                subst_local[var_A] = expr_A                          # store the found substitutions
+                yield from match_exprs(tail, subst_local, kb)
 
-    # match `$A` with `expr`
-    pattern_local = copy.deepcopy(pattern)
-    pattern_local = apply_subst(pattern_local, subst, kb)  # `v_p` is bound by `sub`, so not substituted
+        # `sub $x $a expr_A`
+        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
+            if kb.is_var(var_x) and kb.is_var(var_a):
+            # match `expr` against `expr_A` and allow to replace `$x` in `expr_A` with anything
+            subst_local = subst.copy()     # shallow copy
+            if var_x in subst_local:
+                del subst_local[var_x]                               # remove the current meaning of `$x`
+            # we can freely choose what to put for `$x`, however, we can only choose once
+            for subst_cand in match_exprs((expr, expr_A), subst_local, kb):
+                if var_x in subst_local:                             # did we assign anything to `$x`?
+                    assert var_a not in subst_local, f'BUG: is this a bug?  `$a` should not appear in `$A` after renaming'
+                    subst_local[var_a] = subst_local[var_x]          # reassign the result to `$a`
+                    del subst_local[var_x]                           # remove the assignment to the locally bound variable `$x`
+                yield from match_exprs(tail, subst_cand, kb)
 
-    # finally, continue with the passed `tail`
-    yield from match_exprs(tail, subst, kb)
+        # `sub $x expr_a $A`
+        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
+            if kb.is_var(var_x) and kb.is_var(var_A):
+            expr_A = subst_copy(expr, var_x, expr_a)                 # construct `$A` (called `expr_A`) by putting `$x` into `expr` everywhere we find `expr_a`
+            subst_local = subst.copy()                               # shallow copy
+            subst_local[var_A] = expr_A                              # store the constructed `$A`
+            yield from match_exprs(tail, subst_local, kb)
+
+        # `sub $x expr_a expr_A`
+        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if kb.is_var(x):
+            subst_local = subst.copy()     # shallow copy
+            subst_local[var_x] = expr_a
+            yield from match_exprs([(expr, expr_A), *tail], subst_local, kb)
+
+        # else case
+        case _:
+            # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
+            assert False, f'BUG: `match_against_sub` did not cover all cases'
 
 # each "case" with a recursive call has to loop over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
@@ -1501,6 +1543,8 @@ def match_exprs(exprs_patterns, subst, kb):
                         yield from match_exprs(tail, subst_local, kb)
                     elif equal_expr(subst[v], expr):
                         yield from match_exprs(tail, subst, kb)
+                    else:
+                        pass                           # no match possible, since `v` already assigned otherwise
 
                 # symbol matching
                 case Token(label=l, value=v):
@@ -1510,7 +1554,7 @@ def match_exprs(exprs_patterns, subst, kb):
                 # binding operator matching (rename bound variable)
                 case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if kb.is_bindop(op_p):
                     if op_p == 'sub':
-                        # optionally: a pattern with a `sub` can match many expressions
+                        # optionally: a pattern with a `sub` is special and possibly matches many expressions
                         yield from match_against_sub(expr, pattern, tail, subst, kb)
                     # in any case: additionally binding ops match against their matching binding ops
                     match expr:
