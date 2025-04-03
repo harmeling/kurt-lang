@@ -1361,7 +1361,7 @@ def log(s: str, reason: str|None, kb: KnowledgeBase) -> None:
 # 2. search for A and B and C in the theory (with substitution applied)
 
 # this function is called when closing a block (via `qed` or using indentation)
-def impl_intro(expr, kb):
+def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
     
     # step 1: collect all assumptions of the current level
     if len(kb.theory) == 0:
@@ -1394,7 +1394,9 @@ def impl_intro(expr, kb):
         raise KurtException(f'ProofError: could not prove    {expr}\n            instead got        {result}')
 
 # apply substitution to free variables
-def apply_subst(expr, subst, kb):
+Subst: TypeAlias = dict[str, Expr]
+
+def apply_subst(expr: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
     match expr:
 
         # a token of an (at least locally) free variable, that appears in subst
@@ -1406,10 +1408,12 @@ def apply_subst(expr, subst, kb):
             return expr
 
         # in binding operator expressions the bound variable is not replaced by the substitution
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op) and bound_v in subst:
-            local_subst = subst.copy()                   # we need a local `subst`, since `bound_v` should not be changed
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op) and bound_v in subst:
+            local_subst: Subst = subst.copy()                   # we need a local `subst`, since `bound_v` should not be changed
             del local_subst[bound_v]                     # remove it from our local copy
-            return [expr[0], expr[1], *apply_subst(expr[2:], local_subst, kb)]
+            expr2: Expr = apply_subst(expr[2:], local_subst, kb)
+            assert isinstance(expr2, list)
+            return [expr[0], expr[1], *expr2]
 
         # recursively replace the children
         case [*children] if len(children) > 0:
@@ -1418,29 +1422,31 @@ def apply_subst(expr, subst, kb):
     assert False, f'BUG: did not match expression `{expr}` in `apply_subst`'
 
 # note that a variable can be free and bound at the same time in an expression
-def free_bound_vars(expr, kb):
+def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
     # return two lists sets of the free and bound variables in expression `e`
     match expr:
 
         # the token of a variable is (for now) a free variable (until it is bound higher up in the AST)
-        case Token(label='SYMBOL', value=v) if kb.is_var(v):
-            return {v}, {}
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
+            return set([v]), set()
         
         # any other token doesn't have free or bound variables
         case Token():
-            return {}, {}
+            return set(), set()
         
         # binding operators "bind" free variables
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
             fv, bv = free_bound_vars(tail, kb)
             if bound_v in fv:           # `bound_v` appears freely in `tail`
                 fv.remove(bound_v)      # remove from the free vars, since in `expr` it is bound
+            assert isinstance(bound_v, str)
             bv.add(bound_v)             # add to the bound vars (also if it wasn't a free variable, i.e., didn't appear in `tail`)
             return fv, bv
         
         # collect the free and bound variables in the children, covers also `e==[]`
         case [*children]:
-            fv, bv = {}, {}
+            fv: set[str] = set()
+            bv: set[str] = set()
             for child in children:
                 fv0, bv0 = free_bound_vars(child, kb)
                 fv.update(fv0)
@@ -1451,31 +1457,31 @@ def free_bound_vars(expr, kb):
 
 # new variable names just for internal use
 var_counter = 0
-def reset_var_name_counter():
+def reset_var_name_counter() -> None:
     global var_counter
     var_counter = 0
 
-def new_var_name():
+def new_var_name() -> str:
     global var_counter
     var_counter += 1
     return f'$@var{var_counter}'   # the `@` ensures that it is not a valid kurt variable
 
 # rename all vars in `expr` with generated names to avoid clashes with other expressions
-def rename_all_vars(expr, subst, kb):
+def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
     debug(expr)
     debug(subst)
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
         # a token of an at least locally free variable will be replaced either by a known sub or with a new name
-        case Token(label='SYMBOL', value=free_v) if kb.is_var(free_v):
+        case Token(label='SYMBOL', value=free_v) if isinstance(free_v, str) and kb.is_var(free_v):
             if free_v in subst:
-                new_free_v = subst[free_v]    # replace with known substitution
+                new_expr = subst[free_v]                 # replace with known substitution
             else:
-                new_free_v = new_var_name()   # create new name
-                subst[free_v] = new_free_v    # and store it in the `subst`
-            new_expr = copy.deepcopy(expr)    # copy all meta infos, e.g. line, filename
-            new_expr.value = new_free_v       # rename it
+                new_free_v = new_var_name()         # create new variable token
+                new_expr = copy.deepcopy(expr)    # copy all meta infos, e.g. line, filename
+                new_expr.value = new_free_v              # rename it
+                subst[free_v] = new_expr                 # and store it in the `subst`
             return new_expr, subst
 
         # any other token is not modified
@@ -1483,15 +1489,20 @@ def rename_all_vars(expr, subst, kb):
             return expr, subst
 
         # binding operators expression
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op):
-            local_subst = subst.copy()                   # we need a local `subst`, since the bound var is only changed locally
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
             new_bound_v = new_var_name()                 # in any case, `bound_v` gets a new name
-            local_subst[bound_v] = new_bound_v           # store it for usage in this case, possibly overwrite a previous value
+            assert isinstance(expr[1], Token)
+            new_bound_v_expr = copy.deepcopy(expr[1])
+            new_bound_v_expr.value = new_bound_v
+            local_subst = subst.copy()                   # we need a local `subst`, since the bound var is only changed locally
+            assert isinstance(bound_v, str)
+            local_subst[bound_v] = new_bound_v_expr           # store it for usage in this case, possibly overwrite a previous value
             new_expr, local_subst = rename_all_vars(expr[1:], local_subst, kb)   # includes the token of `bound_v`
             if bound_v in subst:
                 local_subst[bound_v] = subst[bound_v]    # reset the value to the previous value, since `local_subst` will be returned
             else:
                 del local_subst[bound_v]                 # else remove it, since it is elsewhere not used
+            assert isinstance(new_expr, list)
             return [expr[0], *new_expr], local_subst
 
         # recursively replace the children
@@ -1504,7 +1515,7 @@ def rename_all_vars(expr, subst, kb):
 
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
-def generate_all_combinations(expr, token_x, expr_a=None):
+def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None) -> Iterator[tuple[Expr|None, Expr]]:
     # generate all `($a, $A)` such that `expr = sub $x $a $A`
     if expr_a is None:
         # we still have full flexibility choosing `expr_a`
@@ -1520,6 +1531,7 @@ def generate_all_combinations(expr, token_x, expr_a=None):
         if len(expr) > 0:
             for (cand_a, cand_A_0) in generate_all_combinations(expr[0], token_x, expr_a):
                 for (cand_cand_a, cand_A_tail) in generate_all_combinations(expr[1:], token_x, cand_a):
+                    assert isinstance(cand_A_tail, list)
                     yield cand_cand_a, [cand_A_0, *cand_A_tail]
         else:
             yield expr_a, []
