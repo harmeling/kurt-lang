@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 ## kurt.py
 # the kurt programming language for proof writing and checking
@@ -16,10 +17,9 @@ import re           # re.[compile, VERBOSE, MULTILINE]
 import functools    # functools.cmp_to_key
 import readline     # readline.[parse_and_bind, add_history, read_history_file, write_history_file]
 import atexit       # atexit.register
-import itertools    # itertools.product
 
-# from typing import  Union, TypeAlias
-# expr: TypeAlias = list["expr"] | Token
+from dataclasses import dataclass
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern
 
 # config: general information
 version        = 0.1
@@ -37,12 +37,12 @@ and_symbol     = 'and'                 # symbol for and
 eq_symbol      = '='                   # symbol for equality
 
 # config: the default theory and default path
-default_theory = 'theory.kurt'                                                   # default theory
-this_file_path = os.path.dirname(os.path.abspath(__file__))                      # path of THIS file
-theory_path    = ['.', 'theories', os.path.join(this_file_path, 'theories')]     # default path for theories
+default_theory: str    = 'theory.kurt'                                                   # default theory
+this_file_path: str    = os.path.dirname(os.path.abspath(__file__))                      # path of THIS file
+theory_path: list[str] = ['.', 'theories', os.path.join(this_file_path, 'theories')]     # default path for theories
 
 debug_flag = False
-def debug(*s):
+def debug(*s) -> None:
     if debug_flag:
         print(f'DEBUG: {' '.join(map(str, s))}', file=sys.stdout)
 
@@ -110,16 +110,16 @@ def debug(*s):
 # TODO create test code for each possible KurtException
 
 class KurtException(Exception):
-    def __init__(self, msg, column=None, line=None, filename=None, short=False):
-        self.msg      = msg
-        self.column   = column
-        self.lin      = line
-        self.filename = filename
-        self.short    = short
+    def __init__(self, msg:str, column:int|None=None, line:int|None=None, filename:str|None=None, short:bool=False) -> None:
+        self.msg: str           = msg
+        self.column: int|None   = column
+        self.lin: int|None      = line
+        self.filename: str|None = filename
+        self.short: bool        = short
 
 ## the syntax is stored in a hierarchical knowledge base called `KnowledgeBase`
-format_options = ['sexpr', 'normal']            # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
-keywords = {
+format_options: list[Format] = ['sexpr', 'normal']         # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
+keywords: dict[str, str] = {
     'help':        'print this help',
     'parse':       'parse a string and print its representation',
     'format':      'choose print representation, i.e. one of "sexpr", "normal"',
@@ -151,141 +151,196 @@ keywords = {
     'proof':       'start a block and open a new level to prove the last planned formula',
     'qed':         'end a block, pop one level and finish the proof of the last planned formula',
     }
-keywords_with_parsing = ['use', 'assume', 'show']
+keywords_with_parsing: list[str] = ['use', 'assume', 'show']
 
-# formulas and rules
+# types
+Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
+Value:  TypeAlias = str | int | float
+Format: TypeAlias = Literal['sexpr', 'normal']
+Status: TypeAlias = Literal['use', 'assume', 'show'] | None
+
+@dataclass
+class Token:
+    label: Label
+    value: Value
+    column: int | None = None
+    origin: Value | None = None
+
+    def __lt__(self, other: Token) -> bool:
+        return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
+
 class Formula:
-    next_id = 0
-    def __init__(self, expr, line, filename, status, reason=None, comment=None):
-        self.expr     = expr               # expression of the formula
-        self.line     = line               # line of this formula
-        self.filename = filename           # file of this formula
-        self.status   = status             # one of 'use', 'assume', 'show', None (for derived)
-        self.reason   = reason             # the reason why it is true
-        self.comment  = comment            # basically, a label of the formula
-        self.id       = Formula.next_id    # a unique id for every formula
+    next_id: int = 0
+    def __init__(self, expr:Expr, line:int, filename:str, status:Status, reason:str|None=None, comment:str|None=None):
+        self.expr: Expr           = expr               # expression of the formula
+        self.line: int            = line               # line of this formula
+        self.filename: str        = filename           # file of this formula
+        self.status: Status       = status             # one of 'use', 'assume', 'show', None (for derived)
+        self.reason: str | None   = reason             # the reason why it is true
+        self.comment: str | None  = comment            # basically, a label of the formula
+        self.id: int              = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
 
-    def prefix_str(self):
-        s = ''
+    def prefix_str(self) -> str:
+        s: str = ''
         if self.status is not None:
             s += f'{self.status} '
         return s
     
-    def comment_str(self):
+    def comment_str(self) -> str:
         if self.comment is None:
             return ''
         else:
             return f' "{self.comment}"'
     
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.prefix_str()}{self.expr}{self.comment_str()}'
 
-    def formula_str(self, kb):
+    def formula_str(self, kb: KnowledgeBase) -> str:
         return f'{self.prefix_str()}{expr_str(self.expr, kb)}'
 
-class Rule:
-    next_id = 0
-    def __init__(self, lhs, rhs, source_id):
-        self.lhs       = lhs               # starting expression
-        self.rhs       = rhs               # goal expression
-        self.source_id = source_id         # formula id that implied this rule
-        self.id        = Rule.next_id      # a unique id for every rule
-        Rule.next_id += 1
+# expression
+# not a class itself, instead just a type alias
+Expr: TypeAlias = list["Expr"] | Token
+
+# a useful tool for parsing:
+T = TypeVar('T')
+class PeekableGenerator(Generic[T]):                 # a peekable generator
+    def __init__(self, gen: Iterator[T]) -> None:
+        self.gen: Iterator[T] = gen                  # the generator
+        self.eog: bool        = False                # end-of-generator, are we done yet?
+        self.peek: T | None   = None                 # initial peek is None
+        self.__next__()                              # possibly modifies self.eog
+    def __iter__(self) -> PeekableGenerator[T]:
+        return self
+    def __next__(self) -> T:
+        if self.eog:
+            raise StopIteration
+        assert self.peek is not None, f'BUG in PeekableGenerator'
+        p: T = self.peek                             # the peek gets returned
+        try:
+            self.peek = next(self.gen)               # update the peek
+        except StopIteration:                        # delay the exception until the next 'next'-call
+            self.peek = None                         # nothing to peek anymore
+            self.eog = True                          # next call __next__ triggers the exception
+        return p
 
 # hierarchical knowledge base
 # the level is increased inside blocks and files
 # dropping a level drops also all local definitions
-class KnowledgeBase():
-    def __init__(self, parent=None, verbose=False):
+Nud: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Token], Expr]
+Led: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Expr, Token], Expr]
+
+class KnowledgeBase:
+    def __init__(self, parent:KnowledgeBase|None=None, verbose:bool=False) -> None:
         # general
-        self.parent   = parent
-        self.level    = 0 if parent is None else parent.level + 1
-        self.libs     = []        # the filenames of loaded libraries
+        self.parent: KnowledgeBase|None = parent
+        self.level: int            = 0 if parent is None else parent.level + 1
+        self.libs: list[str]       = []        # the filenames of loaded libraries
 
         # syntax
-        self.infix    = {}        # left and right binding powers of infix operators
-        self.postfix  = {}        # left binding power of postfix operator
-        self.prefix   = {}        # right binding power of prefix operator
-        self.brackets = {}        # keys are right brackets, values are left brackets
-        self.arity    = {}        # for non-zero arities
-        self.bindop   = {}        # for variable binding operators
-        self.flat     = {}        # for declaring a flat operator, i.e. ($a + $b) + $c = $a + $b + $c
-        self.sym      = {}        # for declaring a symmetric operator, i.e. $a + $b = $b + $a
-        self.nud      = {}        # null denotation, entries are functions for parsing expressions
-        self.led      = {}        # left denotation, entries are functions for parsing infix expressions
-        self.lbp      = {}        # left binding power
-        self.rbp      = {}        # right binding power
-        self.bool     = {}        # dict of symbols declared to have boolean output
-        self.var      = {}        # dict of variables with unused values
-        self.const    = {}        # dict of constants with unused values
-        self.alias    = {}        # dict of alias pointing to the original
+        self.infix:    dict[str, tuple[int,int]] = {}     # left and right binding powers of infix operators
+        self.postfix:  dict[str, int]            = {}     # left binding power of postfix operator
+        self.prefix:   dict[str, int]            = {}     # right binding power of prefix operator
+        self.brackets: dict[str, str]            = {}     # keys are right brackets, values are left brackets
+        self.arity:    dict[str, int]            = {}     # for non-zero arities
+        self.bindop:   set[str]                  = set()  # for variable binding operators
+        self.flat:     set[str]                  = set()  # for declaring a flat operator, i.e. ($a + $b) + $c = $a + $b + $c
+        self.sym:      set[str]                  = set()  # for declaring a symmetric operator, i.e. $a + $b = $b + $a
+        self.lbp:      dict[str, int]            = {}     # left binding power
+        self.rbp:      dict[str, int]            = {}     # right binding power
+        self.bool:     dict[str, list[int]]      = {}     # dict of symbols declared to have boolean output
+        self.var:      set[str]                  = set()  # dict of variables with unused values
+        self.const:    set[str]                  = set()  # dict of constants with unused values
+        self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
+        self.nud:      dict[str, Nud]            = {}     # null denotation, entries are functions for parsing expressions
+        self.led:      dict[str, Led]            = {}     # left denotation, entries are functions for parsing infix expressions
 
         # theory
-        self.theory   = []        # list of formulas (axioms added by 'use', 
-                                  #                   assumptions added by 'assume',
-                                  #                   and derived formulas)
-        self.show     = []        # lists of formulas to show
+        self.theory: list[Formula] = []        # list of formulas (axioms added by 'use', 
+                                               #                   assumptions added by 'assume',
+                                               #                   and derived formulas)
+        self.show:   list[Formula] = []        # lists of formulas to show
 
         # misc
-        self.format   = format_options[1] if parent is None else parent.format  # how formulas look in the shell
-        self.verbose  = verbose if parent is None else parent.verbose           # extra information or not
+        self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
+        self.verbose: bool  = verbose if parent is None else parent.verbose           # extra information or not
 
-    def entry_str(self, keyword, key, value):
+    def entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix "{key}" {value}'
-        elif keyword == 'infix':    return f'infix "{key}" {value[0]} {value[1]}'
+        elif keyword == 'infix':    
+            if isinstance(value, tuple) and len(value) == 2:
+                return f'infix "{key}" {value[0]} {value[1]}'
+            assert False, f'BUG!  Unexpected value for `infix`, got {value}'
         elif keyword == 'postfix':  return f'postfix "{key}" {value}'
         elif keyword == 'brackets': return f'brackets "{value}" "{key}"'
         elif keyword == 'arity':    return f'arity "{key}" {value}'
         elif keyword == 'flat':     return f'flat "{key}"'
         elif keyword == 'sym':      return f'sym "{key}"'
         elif keyword == 'bindop':   return f'bindop "{key}"'
-        elif keyword == 'bool':     return f'bool "{key}" {' '.join(map(str, value))}'
+        elif keyword == 'bool':     
+            if isinstance(value, list):
+                return f'bool "{key}" {' '.join(map(str, value))}'
+            assert False, f'BUG!  Unexpected value for `bool`, got {value}'
         elif keyword == 'var':      return f'var "{key}"'
         elif keyword == 'const':    return f'const "{key}"'
         elif keyword == 'alias':    return f'alias "{key}" "{value}"'
         else: assert False, f'BUG: unknown keyword, got {keyword}'
 
-    def dict_str(self, some_dict, keyword):
-        return '\n'.join([self.entry_str(keyword, key, some_dict[key]) for key in some_dict])
+    def dict_or_set_str(self, some_dict_or_set: dict[str,str]|dict[str,int]|dict[str,tuple[int,int]]|dict[str,list[int]]|set[str], keyword: str) -> str:
+        if isinstance(some_dict_or_set, dict):
+            return '\n'.join([self.entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set])
+        else:
+            return '\n'.join([self.entry_str(keyword, key) for key in some_dict_or_set])
 
     # SYNTAX RELATED
-    def syntax_str(self):
-        s = self.parent.syntax_str() if self.parent is not None else ''
+    def syntax_str(self) -> str:
+        s: str = self.parent.syntax_str() if self.parent is not None else ''
         s += f'; syntax: declarations on level {self.level}\n'
-        s += self.dict_str(self.prefix,   'prefix')
-        s += self.dict_str(self.infix,    'infix')
-        s += self.dict_str(self.postfix,  'postfix')
-        s += self.dict_str(self.arity,    'arity')
-        s += self.dict_str(self.bindop,   'bindop')
-        s += self.dict_str(self.brackets, 'brackets')
-        s += self.dict_str(self.flat,     'flat')
-        s += self.dict_str(self.sym,      'sym')
-        s += self.dict_str(self.bool,     'bool')
+        s += self.dict_or_set_str(self.prefix,   'prefix')
+        s += self.dict_or_set_str(self.infix,    'infix')
+        s += self.dict_or_set_str(self.postfix,  'postfix')
+        s += self.dict_or_set_str(self.arity,    'arity')
+        s += self.dict_or_set_str(self.bindop,   'bindop')
+        s += self.dict_or_set_str(self.brackets, 'brackets')
+        s += self.dict_or_set_str(self.flat,     'flat')
+        s += self.dict_or_set_str(self.sym,      'sym')
+        s += self.dict_or_set_str(self.bool,     'bool')
         return s
 
-    is_infix   = lambda self, s: s in self.infix   or (self.parent is not None and self.parent.is_infix(s))
-    is_prefix  = lambda self, s: s in self.prefix  or (self.parent is not None and self.parent.is_prefix(s))
-    is_postfix = lambda self, s: s in self.postfix or (self.parent is not None and self.parent.is_postfix(s))
-    is_bindop  = lambda self, s: s in self.bindop  or (self.parent is not None and self.parent.is_bindop(s))
-    is_flat    = lambda self, s: s in self.flat    or (self.parent is not None and self.parent.is_flat(s))
-    is_sym     = lambda self, s: s in self.sym     or (self.parent is not None and self.parent.sym(s))
-    is_var     = lambda self, s: s in self.var     or (self.parent is not None and self.parent.is_var(s)) or s[0]=='$'   # constant vs variable symbols (variables start with '$')
-    is_const   = lambda self, s: s in self.const   or (self.parent is not None and self.parent.is_const(s))
-    is_alias   = lambda self, s: s in self.alias   or (self.parent is not None and self.parent.is_alias(s))
+    def is_infix(self, s: str) -> bool:
+        return s in self.infix   or (self.parent is not None and self.parent.is_infix(s))
+    def is_prefix(self, s: str) -> bool:
+        return s in self.prefix  or (self.parent is not None and self.parent.is_prefix(s))
+    def is_postfix(self, s: str) -> bool:
+        return s in self.postfix or (self.parent is not None and self.parent.is_postfix(s))
+    def is_bindop(self, s: str) -> bool:
+        return s in self.bindop  or (self.parent is not None and self.parent.is_bindop(s))
+    def is_flat(self, s: str) -> bool:
+        return s in self.flat    or (self.parent is not None and self.parent.is_flat(s))
+    def is_sym(self, s: str) -> bool:
+        return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
+    def is_var(self, s: str) -> bool:
+        return s in self.var     or (self.parent is not None and self.parent.is_var(s)) or s[0]=='$'   # constant vs variable symbols (variables start with '$')
+    def is_const(self, s: str) -> bool:
+        return s in self.const   or (self.parent is not None and self.parent.is_const(s))
+    def is_alias(self, s: str) -> bool:
+        return s in self.alias   or (self.parent is not None and self.parent.is_alias(s))
 
-    def bool_sig(self, s):   # get the bool signature
+    def bool_sig(self, s: str) -> list[int]:   # get the bool signature
         if s in self.bool:
             return self.bool[s]
         if self.parent is None:
             return []
         return self.parent.bool_sig(s)
 
-    is_bracket = lambda self, s: s in self.brackets.values() or s in self.brackets.keys() or (self.parent is not None and self.parent.is_bracket(s))
+    def is_bracket(self, s: str) -> bool:
+        return s in self.brackets.values() or s in self.brackets.keys() or (self.parent is not None and self.parent.is_bracket(s))
 
-    is_operator = lambda self, s: self.is_prefix(s) or self.is_infix(s) or self.is_postfix(s) or self.is_bracket(s)
+    def is_operator(self, s: str) -> bool:
+        return self.is_prefix(s) or self.is_infix(s) or self.is_postfix(s) or self.is_bracket(s)
 
-    def get_arity(self, fun):
+    def get_arity(self, fun: str) -> int:
         if fun in self.arity:
             return self.arity[fun]
         elif self.parent is not None:
@@ -293,7 +348,7 @@ class KnowledgeBase():
         else:
             return 0
 
-    def get_alias(self, s):
+    def get_alias(self, s: str) -> str | None:
         if s in self.alias:
             return self.alias[s]
         elif self.parent is not None:
@@ -301,7 +356,7 @@ class KnowledgeBase():
         else:
             return None
 
-    def get_load_level(self, fname):
+    def get_load_level(self, fname: str) -> int | None:
         if fname in self.libs:
             return self.level
         elif self.parent is not None:
@@ -309,7 +364,7 @@ class KnowledgeBase():
         else:
             return None
 
-    def add_arity(self, fun, a):
+    def add_arity(self, fun: str, a: int) -> None:
         if self.is_prefix(fun):
             raise KurtException(f'EvalError: arity of prefix operators is one and can not be set')
         if self.is_postfix(fun):
@@ -323,21 +378,21 @@ class KnowledgeBase():
         self.add_const(fun)
         self.arity[fun] = a
 
-    def find_symbol(self, op):
+    def find_symbol(self, op: str) -> str:
         if self.is_prefix(op):    return 'prefix'
         elif self.is_infix(op):   return 'infix'
         elif self.is_postfix(op): return 'postfix'
         elif self.is_bracket(op): return 'bracket'
         else: assert False, f'BUG: call "find_symbol" only for existing symbols'
 
-    def add_prefix(self, op, rbp):
+    def add_prefix(self, op: str, rbp: int) -> None:
         if self.is_operator(op) and not self.is_infix(op):    # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol "{op}" already exist as {self.find_symbol(op)}')
         self.add_const(op)
         self.prefix[op] = rbp
         self.nud[op] = lambda ts, kb, op_token: [op_token, parse_expression(ts, kb, rbp)]
 
-    def add_infix(self, op, lbp, rbp):
+    def add_infix(self, op: str, lbp: int, rbp: int) -> None:
         if self.is_operator(op) and not self.is_prefix(op):   # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol "{op}" already exist as {self.find_symbol(op)}')
         self.add_const(op)
@@ -345,36 +400,38 @@ class KnowledgeBase():
         self.led[op] = lambda ts, kb, left, op_token: [op_token, left, parse_expression(ts, kb, rbp)]
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
-    def add_postfix(self, op, lbp):
+    def add_postfix(self, op: str, lbp: int) -> None:
         if self.is_operator(op):
             raise KurtException(f'EvalError: symbol "{op}" already exist as {self.find_symbol(op)}')
         self.add_const(op)
         self.postfix[op] = lbp                                # to nicely list all operators
-        self.led[op] = lambda ts, kb, left, op_token: [op_token, left]
+        def led(_ts: PeekableGenerator, _kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
+            return [op_token, left]
+        self.led[op] = led
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
-    def add_bindop(self, fun):
+    def add_bindop(self, fun: str) -> None:
         if fun not in self.arity:
             raise KurtException(f'EvalError: before declaring symbol "{fun}" as variable binding, you must set its arity')
         if self.arity[fun] < 2:
             raise KurtException(f'EvalError: arity of binding operators must be at least 2')
-        self.bindop[fun] = None
+        self.bindop.add(fun)
 
-    def add_flat(self, op):
+    def add_flat(self, op: str) -> None:
         if not self.is_infix(op):
             raise KurtException(f'EvalError: operator "{op}" must be infix operator to declare flatness')
         if self.is_flat(op):
             raise KurtException(f'EvalError: operator "{op}" is already declared "flat"')
-        self.flat[op] = None
+        self.flat.add(op)
 
-    def add_sym(self, op):
+    def add_sym(self, op) -> None:
         if not self.is_infix(op):
             raise KurtException(f'EvalError: operator "{op}" must be infix operator to declare symmetry')
         if self.is_sym(op):
             raise KurtException(f'EvalError: operator "{op}" is already declared "sym"')
-        self.sym[op] = None
+        self.sym.add(op)
 
-    def add_brackets(self, lbracket, rbracket):
+    def add_brackets(self, lbracket, rbracket) -> None:
         if self.is_operator(lbracket):
             raise KurtException(f'EvalError: symbol "{lbracket}" already exist as {self.find_symbol(lbracket)}')
         if self.is_operator(rbracket):
@@ -382,27 +439,27 @@ class KnowledgeBase():
         self.add_const(lbracket)
         self.add_const(rbracket)
         self.brackets[rbracket] = lbracket    # to list the brackets (not used for parsing)
-        def nud(ts, kb, _):
-            expr = parse_expression(ts, kb, 0)
-            token = next(ts)
+        def nud(ts: PeekableGenerator, kb: KnowledgeBase, _t: Token) -> Expr:
+            expr: Expr = parse_expression(ts, kb, 0)
+            token: Token = next(ts)
             if token.value != rbracket: 
-                raise KurtException(f'SyntaxError: expected "{rbracket}"', token.column)
+                raise KurtException(f'SyntaxError: expected "{rbracket}"', column=token.column)
             token.value = f'{lbracket} {rbracket}'    # use a value that can not come from the tokenizer
             return [token, expr]
         self.nud[lbracket] = nud
         self.lbp[rbracket] = bracket_lbp
 
-    def add_var(self, s):
+    def add_var(self, s: str) -> None:
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol "{s}" is already a constant')
-        self.var[s] = None        # add a key with value None
+        self.var.add(s)
 
-    def add_const(self, s):
+    def add_const(self, s: str) -> None:
         if self.is_var(s):
             raise KurtException(f'EvalError: symbol "{s}" is already a variable or starts with $')
-        self.const[s] = None      # add a key with value None
+        self.const.add(s)
 
-    def add_alias(self, s, t):
+    def add_alias(self, s: str, t: str) -> None:
         if self.is_var(s):
             raise KurtException(f'EvalError: symbol "{s}" is already a variable or starts with $')
         if self.is_const(s):
@@ -411,7 +468,7 @@ class KnowledgeBase():
             raise KurtException(f'EvalError: symbol "{t}" must be either a variable or a constant')
         self.alias[s] = t         # add a key `s` with value `t`
 
-    def add_bool(self, s, v):
+    def add_bool(self, s: str, v: list[int]) -> None:
         if len(self.bool_sig(s)) > 0:
             raise KurtException(f'EvalError: symbol "{s}" is already declared bool')
         if not (self.is_const(s) or self.is_var(s)):
@@ -420,25 +477,29 @@ class KnowledgeBase():
             raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
         self.bool[s] = v          # add a key with value the tuple of positions that are bool
 
-    def get_nud(self, token):
+    def get_nud(self, token: Token) -> Nud:
         if token.label == 'SYMBOL':
             if token.value in self.nud:
                 return self.nud[token.value]
             elif self.parent is not None:
                 return self.parent.get_nud(token)
-        return lambda ts, kb, t: t   # the default
+        def nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
+            return t
+        return nud   # the default
 
-    def get_led(self, token):
+    def get_led(self, token: Token) -> Led:
         if token.label == 'SYMBOL':
             if token.value in self.led:
                 return self.led[token.value]
             elif self.parent is not None:
                 return self.parent.get_led(token)
         elif token.label == 'STRING':
-            return lambda ts, kb, left, op_token: [op_token, left]   # same as for postfix
-        raise KurtException(f'SyntaxError: infix or postfix operator expected, got {self.value}', token.column)
+            def led(ts: PeekableGenerator, kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
+                return [op_token, left]
+            return led              # same as for postfix
+        raise KurtException(f'SyntaxError: infix or postfix operator expected, got {token.value}', token.column)
 
-    def get_lbp(self, token):
+    def get_lbp(self, token: Token|None) -> int:
         if token is None:
             raise KurtException(f'SyntaxError: expression expected, got end of line')
         if token.label == 'SYMBOL':
@@ -454,42 +515,44 @@ class KnowledgeBase():
         return space_lbp             # this is used for 'f x y'
 
     # THEORY RELATED
-    def all_theory(self):
+    def all_theory(self) -> Iterator[Formula]:
         # iterate over all levels
         for f in reversed(self.theory):
             yield f
         if self.parent is not None:
             yield from self.parent.all_theory()
 
-    def all_theory_expressions(self):
+    def all_theory_expressions(self) -> Iterator[Expr]:
         for f in self.all_theory():
             yield f.expr
 
-    def theory_str(self, keyword=None, op=None):
-        s = self.parent.theory_str(keyword, op) if self.parent is not None else ''
+    def theory_str(self, keyword:str|None=None, op:str|None=None) -> str:
+        s: str = self.parent.theory_str(keyword, op) if self.parent is not None else ''
         s += f'; on level {self.level}\n'
         for f in self.theory:
-            if (keyword is None and op is None) or (keyword==f.status) or is_op_expr(f.expr, op):
+            if (keyword is None and op is None) or (keyword==f.status):
+                s += f'{f.formula_str(self)}\n'
+            elif op is not None and is_op_expr(f.expr, op):
                 s += f'{f.formula_str(self)}\n'
         return s
 
-    def show_str(self):
-        s = self.parent.show_str() if self.parent is not None else ''
+    def show_str(self) -> str:
+        s: str = self.parent.show_str() if self.parent is not None else ''
         s += f'; on level {self.level}\n'
         for f in self.show:
             s += f'{f.formula_str(self)}\n'
         return s
 
 # some important constants for the parser
-bracket_lbp = 0                               # left binding power of brackets
-end_lbp     = 0                               # left binding power of end of input line
-string_lbp  = 1                               # left binding power of strings
-space_op    = ' '                             # must be something that is never returned from the tokenizer
-space_lbp   = 22                              # left binding power: stronger than '='
-space_rbp   = 22                              # right binding power: stronger than '='
+bracket_lbp: int = 0                               # left binding power of brackets
+end_lbp:     int = 0                               # left binding power of end of input line
+string_lbp:  int = 1                               # left binding power of strings
+space_op:    str = ' '                             # must be something that is never returned from the tokenizer
+space_lbp:   int = 22                              # left binding power: stronger than '='
+space_rbp:   int = 22                              # right binding power: stronger than '='
 
 # create initial knowledge base
-initial_kb = KnowledgeBase()
+initial_kb: KnowledgeBase = KnowledgeBase()
 initial_kb.add_infix("//", 3, 3)                       # substitution of variables
 initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
 initial_kb.add_infix('=', 20, 20)                      # equality with lower binding power than space, equality is left-associative
@@ -501,35 +564,23 @@ initial_kb.add_brackets('(', ')')                      # round brackets for grou
 ################
 ## kurt lexer ##
 ################
-class Token:
-    def __init__(self, label, value, column=None, origin=None):
-        self.label  = label
-        self.value  = value
-        self.column = column
-        self.origin = origin
-    def __repr__(self):
-        return f'({self.label} "{self.value}")'
-    def __lt__(self, other):
-        return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
 
 ## expressions
 # an expression is either a token or a list of expressions
 # instead of creating a class for expressions, we use the following functions
-is_token = lambda expr: isinstance(expr, Token)
-is_list  = lambda expr: isinstance(expr, list)
 
-def expr_str(expr, kb):
+def expr_str(expr: Expr, kb: KnowledgeBase) -> str:
     if kb.format == 'sexpr':
         return expr_sexpr(expr)
     elif kb.format == 'normal':
-        s = expr_normal(expr, kb)
+        s: str = expr_normal(expr, kb)
         if s[0] == '(' and s[-1] == ')':
             s = s[1:-1]         # the brackets are useful during construction, but on the top level we have to omit them
         return s
     else:
         assert False, f'BUG: unknown expression format, got {kb.format}'
 
-def expr_sexpr(expr):                      # create s-expression
+def expr_sexpr(expr: Expr) -> str:                      # create s-expression
     match expr:
         case Token(label='STRING', value=v):
             return f'"{v}"'       # quotation marks
@@ -544,23 +595,23 @@ def expr_sexpr(expr):                      # create s-expression
             return ''
     assert False, f'BUG: unknown expression, got {expr}'
 
-def expr_normal(expr, kb, rbp=0):          # create raw input expression
+def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression
     match expr:
         case Token():
             return expr_sexpr(expr)            # reuse implementation from expr_sexpr
         case [e0]:
             return expr_normal(e0, kb)
-        case [Token(label='SYMBOL', value=a), e1] if kb.is_prefix(a):
+        case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_prefix(a):
             return f'({a} {expr_normal(e1, kb)})'
-        case [Token(label='SYMBOL', value=a), e1] if kb.is_postfix(a):
+        case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_postfix(a):
             return f'({expr_normal(e1, kb)} {a})'
         case [e0, e1]:
             return f'{expr_normal(e0, kb)} {expr_normal(e1, kb)}'
-        case [Token(label='SYMBOL', value=a), e1, e2] if kb.is_infix(a):
+        case [Token(label='SYMBOL', value=a), e1, e2] if isinstance(a, str) and kb.is_infix(a):
             return f'({expr_normal(e1, kb)} {a} {expr_normal(e2, kb)})'
         case [Token(label='SYMBOL', value=a), e1, e2]:
             return f'({a} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
-        case [Token(label='SYMBOL', value=a), *tail] if kb.is_flat(a):
+        case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_flat(a):
             return f'({f' {a} '.join([expr_normal(e, kb) for e in tail])})'
         case [*tail]:
             return f'({" ".join([expr_normal(e, kb) for e in tail])})'
@@ -568,27 +619,34 @@ def expr_normal(expr, kb, rbp=0):          # create raw input expression
             return ''
     assert False, f'BUG: unknown expression, got {expr}'
 
-def is_op_expr(e, op):
-    return is_list(e) and is_token(e[0]) and e[0].value==op
+def is_op_expr(e: Expr, op: str) -> bool:
+    match e:
+        case [Token(label='SYMBOL', value=v), *_]:
+            return v == op
+        case _:
+            return False
 
-is_equation    = lambda expr: is_op_expr(expr, '=')
-is_implication = lambda expr: is_op_expr(expr, 'implies')
+def is_equation(expr: Expr) -> bool:
+    return is_op_expr(expr, '=')
 
-def equal_expr(t1, t2):                                  # equality for expressions
+def is_implication(expr: Expr) -> bool:
+    return is_op_expr(expr, 'implies')
+
+def equal_expr(t1: Expr, t2: Expr) -> bool:                               # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
-    if is_token(t1) and is_token(t2):                         # compare tokens
+    if isinstance(t1, Token) and isinstance(t2, Token):                         # compare tokens
         return t1.label==t2.label and t1.value==t2.value
-    elif is_list(t1) and is_list(t2) and len(t1)==len(t2):    # compare lists
+    elif isinstance(t1, list) and isinstance(t2, list) and len(t1)==len(t2):    # compare lists
         return all([equal_expr(a, b) for (a,b) in zip(t1, t2)])
     else:                                                     # token and list are always non-equal
         return False
 
-def compare_expr(t1, t2):                                # "less than" for expressions
-    if is_token(t1) and is_list(t2):
+def compare_expr(t1: Expr, t2: Expr) -> int:                                # "less than" for expressions
+    if isinstance(t1, Token) and isinstance(t2, list):
         return -1                                        # e.g. 17 < [1,2]
-    elif is_list(t1) and is_token(t2):
+    elif isinstance(t1, list) and isinstance(t2, Token):
         return 1                                         # e.g. [1,2] < 17
-    elif is_token(t1) and is_token(t2):
+    elif isinstance(t1, Token) and isinstance(t2, Token):
         if t1 < t2:
             return -1
         elif t1 > t1:
@@ -596,7 +654,7 @@ def compare_expr(t1, t2):                                # "less than" for expre
         else:
             return 0
     else:
-        assert is_list(t1) and is_list(t2), f'BUG: expression is either a list or token'
+        assert isinstance(t1, list) and isinstance(t2, list), f'BUG: expression is either a list or token'
         if len(t1) < len(t2):
             return -1
         elif len(t1) > len(t2):
@@ -609,7 +667,7 @@ def compare_expr(t1, t2):                                # "less than" for expre
                 return c
             return 0
 
-def simplify(expr, kb):
+def simplify(expr: Expr, kb: KnowledgeBase) -> Expr:
     if expr is None:
         return None
     for op in kb.flat:
@@ -618,12 +676,12 @@ def simplify(expr, kb):
     return expr
 
 # special tokens that are made for the parser and sometimes artificially generated
-space_token = Token('SYMBOL', ' ')      # for expressions like 'f x'
-end_token   = Token('END', '')          # for the end of a string
+space_token: Token = Token('SYMBOL', ' ')      # for expressions like 'f x'
+end_token:   Token = Token('END', '')          # for the end of a string
 
 # scanner based on regular expressions (let's support unicode!)
 # note that the ordering of the expressions here is important
-scanner = re.compile(r'''
+scanner: Pattern[str] = re.compile(r'''
   (?P<COMMENT> [;].*$)                      | # comments, e.g. ; this is a comment
   (?P<FLOAT>   [0-9]+\.[0-9]+)              | # floating point literals, e.g. 3.14
   (?P<INT> [0-9]+)                          | # integer literals, e.g. 17
@@ -643,17 +701,19 @@ scanner = re.compile(r'''
 # \f form feed
 # \v vertical tab
 
-def scan_string(input_line):
+def scan_string(input_line: str) -> Iterator[Token]:
 
     # setup current location
-    lastpos = 0        # for calculating the column number, update after a newline
+    lastpos: int = 0        # for calculating the column number, update after a newline
     for match in scanner.finditer(input_line):
         
         # extract the information from the match
-        label  = match.lastgroup           # name of the group
-        value  = match.groupdict()[label]  # the value, somewhat complicated code, but necessary for counting the indents
-        pos    = match.start()             # position in s
-        column = pos - lastpos             # column of the match
+        assert match.lastgroup is not None, f'BUG in the scanner'
+        assert match.lastgroup in ('SYMBOL', 'INT', 'FLOAT', 'STRING')
+        label:  Label = match.lastgroup           # name of the group
+        value:  Value = match.groupdict()[label]  # the value, somewhat complicated code, but necessary for counting the indents
+        pos:    int   = match.start()             # position in s
+        column: int   = pos - lastpos             # column of the match
 
         # create tokens
         if   label == 'COMMENT':           # remove leading semicolon and space at beginning and end
@@ -661,12 +721,14 @@ def scan_string(input_line):
         elif label == 'WHITE':
             continue                       # whitespace is ignored
         elif label == 'SYMBOL':
+            assert isinstance(value, str)
             yield Token(label, value, column + len(value))
         elif label == 'INT':
-            yield Token(label, int(value), column + len(value))
+            yield Token(label, int(value), column + len(str(value)))
         elif label == 'FLOAT':
-            yield Token(label, float(value), column + len(value))
+            yield Token(label, float(value), column + len(str(value)))
         elif label == 'STRING':
+            assert isinstance(value, str)
             yield Token(label, value[1:-1], column + len(value))
         elif label == 'NEWLINE': 
             assert False, f'BUG: newlines not allowed in "input_line"'
@@ -686,29 +748,11 @@ def scan_string(input_line):
 # https://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/
 # https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 
-class PG(object):                                 # a peekable generator
-    def __init__(self, gen):
-        self.gen  = gen                           # the generator
-        self.eog  = False                         # end-of-generator, are we done yet?
-        self.peek = None                          # initial peek is None
-        self.__next__()                           # possibly modifies self.eog
-    def __iter__(self):
-        return self
-    def __next__(self):
-        if self.eog:
-            raise StopIteration
-        p = self.peek                             # the peek gets returned
-        try:
-            self.peek = next(self.gen)            # update the peek
-        except StopIteration:                     # delay the exception until the next 'next'-call
-            self.peek = None                      # nothing to peek anymore
-            self.eog = True                       # next call __next__ triggers the exception
-        return p
-
 # by replacing aliases as early as possible, we don't have to register the alias as infix, etc
 # we store the `origin` for string output
-def replace_alias(kb, token):
+def replace_alias(kb: KnowledgeBase, token: Token) -> Token:
     if token.label == 'SYMBOL':
+        assert isinstance(token.value, str)
         t = kb.get_alias(token.value)
         if t is not None:
             token.origin = token.value             # store for string generation
@@ -716,41 +760,42 @@ def replace_alias(kb, token):
     return token
 
 # the heart of the Pratt parser (calls 'led' and 'nud' implemented elsewhere in this file)
-def parse_expression(ts, kb, rbp):
-    t = next(ts)                                  # get next token
-    t = replace_alias(kb, t)                      # replace alias
-    nud = kb.get_nud(t)                           # get the correct 'nud' function
-    left = nud(ts, kb, t)                         # nud == "null denotation"
-    peek_lbp = kb.get_lbp(ts.peek)                # peek at lbp of the next token
+def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr:
+    t: Token = next(ts)                           # get next token
+    t: Token = replace_alias(kb, t)               # replace alias
+    nud: Nud = kb.get_nud(t)                      # get the correct 'nud' function
+    left: Expr = nud(ts, kb, t)                   # nud == "null denotation"
+    peek_lbp: int = kb.get_lbp(ts.peek)           # peek at lbp of the next token
     while rbp < peek_lbp:                         # is the next operator binding more strongly?
         if peek_lbp == space_rbp:                 # not another operator but another expression
-            t = space_token                       # insert special token for expression like 'f x'
+            t: Token = space_token                # insert special token for expression like 'f x'
         else:                                     # peek_lbp is larger or smaller than space_rbp
-            t = next(ts)                          # get next token
-        led = kb.get_led(t)                       # get the correct 'led' function
-        left = led(ts, kb, left, t)               # led == "left denotation"
-        peek_lbp = kb.get_lbp(ts.peek)            # update peek_lbp for the iteration
+            t: Token = next(ts)                   # get next token
+        led: Led = kb.get_led(t)                  # get the correct 'led' function
+        left: Expr = led(ts, kb, left, t)         # led == "left denotation"
+        peek_lbp: int = kb.get_lbp(ts.peek)       # update peek_lbp for the iteration
     return left                                   # return the accumulated expression
 
-def sort_symmetric_ops(kb, expr):                        # symmetric operators can sort their args
-    if is_list(expr):
+def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                        # symmetric operators can sort their args
+    if isinstance(expr, list):
         expr = [sort_symmetric_ops(kb, e) for e in expr] # start inside
-        if is_token(expr[0]) and expr[0].label == 'SYMBOL' and expr[0].value in kb.sym:
+        if isinstance(expr[0], Token) and expr[0].label == 'SYMBOL' and expr[0].value in kb.sym:
             expr = [expr[0]] + sorted(expr[1:], key=functools.cmp_to_key(compare_expr))
         return expr
-    elif is_token(expr):
+    elif isinstance(expr, Token):
         return expr
     else:
         assert False, f'BUG: expression must be list or Token, got {expr}'
 
-def flatten_op(flat_op, expr):                                # flatten nested 'op'-expressions
+def flatten_op(flat_op: str, expr: Expr) -> Expr:                                # flatten nested 'op'-expressions
     # e.g. [',', 17, [',', 42, 100]] --> [',', 17, 42, 100]
     match expr:
         case [Token(label='SYMBOL', value=op), *tail] if op==flat_op:
-            e = [expr[0]]
+            e: Expr = [expr[0]]
             for child in tail:
-                ee = flatten_op(flat_op, child)
+                ee: Expr = flatten_op(flat_op, child)
                 if is_op_expr(ee, flat_op):
+                    assert isinstance(ee, list) and len(ee) > 1
                     e.extend(ee[1:])
                 else:
                     e.append(ee)
@@ -761,15 +806,17 @@ def flatten_op(flat_op, expr):                                # flatten nested '
             return expr
     assert False, f'BUG: expression must be list or Token, got {expr}'
 
-def group_by_arity(expr, kb):
+def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
     # input: `expr` which is a list of functions and arguments
     # output: `e` which is properly group and the `tail` which is the rest of non-eaten arguments
     match expr:
-        case [Token(label='SYMBOL', value=op), *tail] if (arity:=kb.get_arity(op)) > 0:
-            e = [expr[0]]                                       # the new expression
+        case [Token(label='SYMBOL', value=op), *tail] if isinstance(op, str) and ((arity:=kb.get_arity(op)) > 0):
+            e: Expr = [expr[0]]                                       # the new expression
             for i in range(1, arity+1):
                 if len(tail) == 0:
                     raise KurtException(f'EvalError: not enough arguments for "{op}"')
+                ei: Expr
+                tail: list[Expr]
                 ei, tail = group_by_arity(tail, kb)             # let the next one eat as many expr as it needs
                 e.append(ei)
             return e, tail
@@ -778,7 +825,7 @@ def group_by_arity(expr, kb):
         case _:
             assert False, f'BUG: `group_by_arity` must be called with a list of expressions'
 
-def process_arity(expr, kb):
+def process_arity(expr: Expr, kb: KnowledgeBase) -> Expr:
     # we assume that `flatten_op` for `op=' '` has been called just before
     # calls `group_by_arity` for each ' ' operator
     match expr:
@@ -788,12 +835,13 @@ def process_arity(expr, kb):
             expr, tail = group_by_arity(tail, kb)
             if len(tail) > 0:
                 expr = [expr] + tail         # extra arguments (might be there for keywords!)
+    assert isinstance(expr, list)
     return [process_arity(e, kb) for e in expr]
 
-def remove_round_brackets(expr):
-    if is_token(expr):
+def remove_round_brackets(expr: Expr) -> Expr:
+    if isinstance(expr, Token):
         return expr
-    elif is_list(expr):
+    elif isinstance(expr, list):
         if is_op_expr(expr, '( )'):
             return remove_round_brackets(expr[1])
         else:
@@ -801,7 +849,7 @@ def remove_round_brackets(expr):
     else:
         assert False, f'BUG: list or Token expected, got {expr}'
 
-def check_no_keyword(expr):
+def check_no_keyword(expr: Expr) -> None:
     match expr:
         case Token(label='SYMBOL', value=v) if v in keywords:
             raise KurtException(f'SyntaxError: keywords not allowed inside expressions', expr.column)
@@ -811,7 +859,7 @@ def check_no_keyword(expr):
         case _:
             pass
 
-def check_expr_comment(expr, kb):            # check [expr] [comment]
+def check_expr_comment(expr: Expr, kb) -> tuple[Expr, str|None]:            # check [expr] [comment]
     # cases:
     #   x=9  "eq 1"
     #   true
@@ -829,9 +877,10 @@ def check_expr_comment(expr, kb):            # check [expr] [comment]
         case _:
             assert False, f'BUG: list or Token expected, got {expr}'
     check_no_keyword(tail)             # don't check the `keyword` and the `comment`
+    assert isinstance(comment, str)
     return tail, comment
 
-def post_process(kb, expr):
+def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str|None]:
     expr = flatten_op(' ', expr)                           # flatten all space operators
     expr = process_arity(expr, kb)                         # turns space operators into function calls according to arities
     expr = remove_round_brackets(expr)                     # remove round brackets for grouping
@@ -839,7 +888,9 @@ def post_process(kb, expr):
     expr = simplify(expr, kb)                              # simplify the formula using flatness and symmetry
     return expr, comment
 
-def parse_tokenstream(ts, kb):                             # gets a peekable token stream
+def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, Expr, str|None]:                             # gets a peekable token stream
+    assert isinstance(ts.peek, Token)
+    keyword_token: Token | None
     if ts.peek.label == 'SYMBOL' and ts.peek.value in keywords:
         keyword_token = next(ts)                           # remove a keyword right away early
     else:
@@ -847,6 +898,8 @@ def parse_tokenstream(ts, kb):                             # gets a peekable tok
     if ts.peek.label == 'END': 
         return keyword_token, [], None                     # empty token stream
     if keyword_token is None or keyword_token.value in keywords_with_parsing:
+        expr: Expr
+        comment: str|None
         expr          = parse_expression(ts, kb, 0)        # parse expression
         expr, comment = post_process(kb, expr)             # turn spaces into calls, symmetry, flatness
         type_check_expression(expr, kb)                    # (some) type checking
@@ -856,8 +909,8 @@ def parse_tokenstream(ts, kb):                             # gets a peekable tok
     return keyword_token, expr, comment
 
 ## kurt eval
-def create_usage(keyword, arg_labels):
-    s = ''
+def create_usage(keyword: str, arg_labels: list[list[Label]]) -> str:
+    s: str = ''
     for arg_label in arg_labels:
         s += f'    {keyword}'
         for l in arg_label:
@@ -865,32 +918,34 @@ def create_usage(keyword, arg_labels):
         s += f'\n'
     return s
 
-def check_args(keyword_token, expr, arg_labels):
-    # e.g. 'check_args(keyword_token, expr, [[], ['SYMBOL', 'INT']], ['list', 'add'])
-    # where [] implies none is possible
-    # where ['SYMBOL', 'INT'] implies two args with symbol and integer are possible as well
-    msg = create_usage(keyword_token.value, arg_labels)
-    for arg_label in arg_labels:
-        if len(expr) == len(arg_label):
-            for (e, l) in zip(expr, arg_label):
-                if l != 'EXPR':                    # expressions are fine as they are
-                    if not is_token(e) or e.label != l:
-                        raise KurtException(f'EvalError: wrong argument types, possible is:\n{msg}', e.column)
-            return       # we found a correct number of arguments and checked all labels
-    if ['EXPR'] not in arg_labels:
-        raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+# def check_args(keyword_token: Token, expr: Expr, arg_labels: list[list[Label]]) -> None:
+#     # e.g. 'check_args(keyword_token, expr, [[], ['SYMBOL', 'INT']], ['list', 'add'])
+#     # where [] implies none is possible
+#     # where ['SYMBOL', 'INT'] implies two args with symbol and integer are possible as well
+#     msg = create_usage(str(keyword_token.value), arg_labels)
+#     for arg_label in arg_labels:
+#         assert isinstance(expr, list)
+#         if len(expr) == len(arg_label):
+#             for (e, l) in zip(expr, arg_label):
+#                 if l != 'EXPR':                    # expressions are fine as they are
+#                     if not isinstance(e, Token) or e.label != l:
+#                         raise KurtException(f'EvalError: wrong argument types, possible is:\n{msg}')
+#             return       # we found a correct number of arguments and checked all labels
+#     if ['EXPR'] not in arg_labels:
+#         raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
 
-def strip_keyword(s, column):
+def strip_keyword(s: str, column: int) -> str:
     return s[(1+column):]                  # get rid of the keyword at the beginning
 
-def decorate_reason(mainstream, reason, filename, line):
+def decorate_reason(mainstream: bool, reason: str, filename: str, line: int) -> str:
     if mainstream:
         return f'{line} {reason}'
     else:
         return f'{os.path.basename(filename)}:{line} {reason}'
 
-def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream):
+def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
+    assert isinstance(keyword, str)
 
     # debug(f'keyword_token = {keyword_token}')
     # debug(f'args          = {args}')
@@ -906,17 +961,18 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
     elif keyword == 'load':
         current_path, _ = os.path.split(filename)    # search first at the current path
         match args:
-            case [Token(label='STRING', value=filename)]:
-                kb, _ = load_file(filename, kb, path=[current_path]+theory_path, mainstream=False)
+            case [Token(label='STRING', value=fname)]:
+                assert isinstance(fname, str)
+                kb = load_file(fname, kb, path=[current_path]+theory_path, mainstream=False)[0]
             case _:
                 raise KurtException(f'ParseError: "{keyword}" takes a string for the filename', keyword_token.column)
     elif keyword == 'parse':
         match args:
             case []:
-                msg = ''
+                msg: str = ''
             case [*expr_list]:
-                tokenlist = expr_list + [end_token]           # add end token for parse_expression
-                ts = PG((t for t in tokenlist))               # turn list into peekable generator
+                tokenlist: Expr = expr_list + [end_token]           # add end token for parse_expression
+                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))               # turn list into peekable generator
                 expr = parse_expression(ts, kb, 0)            # parse the tokenlist
                 expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
                 msg = f'{expr_str(expr, kb)}'
@@ -950,116 +1006,137 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
     elif keyword == 'prefix':
         match args:
             case []:
-                print(kb.dict_str(kb.prefix, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.prefix, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=rbp)]:
+                assert isinstance(op, str)
+                assert isinstance(rbp, int)
                 kb.add_prefix(op, rbp)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING', 'INT']])
+                msg = create_usage(keyword, [[], ['STRING', 'INT']])
                 raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'postfix':
         match args:
             case []:
-                print(kb.dict_str(kb.postfix, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.postfix, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp)]:
+                assert isinstance(op, str)
+                assert isinstance(lbp, int)
                 kb.add_postfix(op, lbp)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING', 'INT']])
+                msg = create_usage(keyword, [[], ['STRING', 'INT']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'infix':
         match args:
             case []:
-                print(kb.dict_str(kb.infix, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.infix, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp), Token(label='INT', value=rbp)]:
+                assert isinstance(op, str)
+                assert isinstance(lbp, int)
+                assert isinstance(rbp, int)
                 kb.add_infix(op, lbp, rbp)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING', 'INT', 'INT']])
+                msg = create_usage(keyword, [[], ['STRING', 'INT', 'INT']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'arity':
         match args:
             case []:
-                print(kb.dict_str(kb.arity, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.arity, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=arity)]:
+                assert isinstance(op, str)
+                assert isinstance(arity, int)
                 kb.add_arity(op, arity)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING', 'INT']])
+                msg = create_usage(keyword, [[], ['STRING', 'INT']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'brackets':
         match args:
             case []:
-                print(kb.dict_str(kb.brackets, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.brackets, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=lbracket), Token(label='STRING'|'SYMBOL', value=rbracket)]:
                 kb.add_brackets(lbracket, rbracket)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING', 'STRING']])
+                msg = create_usage(keyword, [[], ['STRING', 'STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'bindop':
         match args:
             case []:
-                print(kb.dict_str(kb.bindop, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.bindop, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op)]:
+                assert isinstance(op, str)
                 kb.add_bindop(op)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING']])
+                msg = create_usage(keyword, [[], ['STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'flat':
         match args:
             case []:
-                print(kb.dict_str(kb.flat, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.flat, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op)]:
+                assert isinstance(op, str)
                 kb.add_flat(op)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING']])
+                msg = create_usage(keyword, [[], ['STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'sym':
         match args:
             case []:
-                print(kb.dict_str(kb.sym, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.sym, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op)]:
                 kb.add_sym(op)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING']])
+                msg = create_usage(keyword, [[], ['STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'bool':
         match args:
             case []:
-                print(kb.dict_str(kb.bool, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.bool, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op)]:
+                assert isinstance(op, str)
                 kb.add_bool(op, [0])
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a)]:
+                assert isinstance(op, str)
+                assert isinstance(a, int)
                 kb.add_bool(op, [a])
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b)]:
+                assert isinstance(op, str)
+                assert isinstance(a, int) and isinstance(b, int)
                 kb.add_bool(op, [a, b])
             case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b), Token(label='INT', value=c)]:
+                assert isinstance(op, str)
+                assert isinstance(a, int) and isinstance(b, int) and isinstance(c, int)
                 kb.add_bool(op, [a, b, c])
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING', 'INT'], ['STRING', 'INT', 'INT'], ['STRING', 'INT', 'INT', 'INT']])
+                msg = create_usage(keyword, [[], ['STRING', 'INT'], ['STRING', 'INT', 'INT'], ['STRING', 'INT', 'INT', 'INT']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'var':
         match args:
             case []:
-                print(kb.dict_str(kb.var, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.var, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op)]:
+                assert isinstance(op, str)
                 kb.add_var(op)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING']])
+                msg = create_usage(keyword, [[], ['STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'const':
         match args:
             case []:
-                print(kb.dict_str(kb.const, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.const, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=op)]:
+                assert isinstance(op, str)
                 kb.add_const(op)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING']])
+                msg = create_usage(keyword, [[], ['STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'alias':
         match args:
             case []:
-                print(kb.dict_str(kb.alias, keyword), file=sys.stdout)
+                print(kb.dict_or_set_str(kb.alias, keyword), file=sys.stdout)
             case [Token(label='STRING'|'SYMBOL', value=s), Token(label='STRING'|'SYMBOL', value=t)]:
+                assert isinstance(s, str) and isinstance(t, str)
                 kb.add_alias(s, t)
             case _:
-                msg = create_usage(keyword_token.value, [[], ['STRING', 'STRING']])
+                msg = create_usage(keyword, [[], ['STRING', 'STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
 
     # THEORY AND PROOF RELATED
@@ -1068,21 +1145,21 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
             case []:
                 print(kb.theory_str(), file=sys.stdout)
             case _:
-                msg = create_usage(keyword_token.value, [[]])
+                msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == "equations":
         match args:
             case []:
                 print(kb.theory_str(op='='), file=sys.stdout)
             case _:
-                msg = create_usage(keyword_token.value, [[]])
+                msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == "implications":
         match args:
             case []:
                 print(kb.theory_str(op='implies'), file=sys.stdout)
             case _:
-                msg = create_usage(keyword_token.value, [[]])
+                msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword in ['use', 'assume']:
         match args:
@@ -1094,6 +1171,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                     reason += f' {comment}'
                 if not bool_expr(expr, kb):
                     raise KurtException(f'EvalError: must evaluate to boolean')
+                assert keyword in ('use', 'assume')
                 f = Formula(expr, line, filename, status=keyword, reason=reason, comment=comment)
                 kb.theory.append(f)
                 if mainstream:
@@ -1127,7 +1205,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                     log('proof', None, kb)
                 kb = KnowledgeBase(kb)                # add a new level/scope to the knowledgebase
             case _:
-                msg = create_usage(keyword_token.value, [[]])
+                msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'qed':                    # closes the last block (scope)
         match args:
@@ -1137,6 +1215,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                 if len(kb.show) > 0:                  # any planned formulas inside the current proof?
                     pf = kb.show[-1]
                     raise KurtException(f'ProofError: planned formula "{pf}" in current proof is unproven')
+                assert kb.parent is not None, f'BUG: we should be one level up'
                 assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
                 pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
                 reason = impl_intro(pf.expr, kb)      # this might generate a KurtException
@@ -1149,7 +1228,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
                     reason = decorate_reason(mainstream, reason, filename, line)
                     log(f.formula_str(kb), reason, kb)
             case _:
-                msg = create_usage(keyword_token.value, [[]])
+                msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
@@ -1157,7 +1236,7 @@ def eval_keyword_expression(keyword_token, args, comment, kb, line, filename, ma
     # finally return the possibly modified knowledgebase
     return kb
 
-def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream):
+def eval_expression(keyword_token: Token, expr: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     if keyword_token is None:
         # expression without keyword: try to derive the formula and add it to the theory
         if expr==[]:
@@ -1174,7 +1253,7 @@ def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream
     else:
         # iterate over the expr to allow ',' in keyword expressions
         args = []
-        if not is_list(expr):
+        if not isinstance(expr, list):
             expr = [expr]
         for e in expr:
             match e:
@@ -1192,23 +1271,23 @@ def eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream
 ## kurt type checking ##
 ########################
 
-def bool_expr(expr, kb):
+def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
     match expr:
-        case Token(label='SYMBOL', value=v) if kb.is_var(v):
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
             return True                    # variables are potentially boolean
-        case Token(label='SYMBOL', value=v) if not kb.is_var(v):
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and not kb.is_var(v):
             return 0 in kb.bool_sig(v)
         case [Token(label='SYMBOL', value='//'), *tail]:
             return bool_expr(tail[0], kb)
-        case [Token(label='SYMBOL', value=v), *_] if not kb.is_var(v):
+        case [Token(label='SYMBOL', value=v), *_] if isinstance(v, str) and not kb.is_var(v):
             return 0 in kb.bool_sig(v)
     return False
 
-def type_check_expression(expr, kb):
+def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
     # this is for now hardcoded, should be part of the syntax definitions
     match expr:
         # binding operators such as `forall`, `exists`, `lim`, `int`
-        case [Token(label='SYMBOL', value=op), *tail] if kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), *tail] if isinstance(op, str) and kb.is_bindop(op):
             if len(tail) < 2:
                 raise KurtException(f'TypeError: arity of binding operator must be at least two')
             if 1 in kb.bool_sig(op):
@@ -1217,7 +1296,7 @@ def type_check_expression(expr, kb):
                 if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
                     raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean')
             match tail[0]:
-                case Token(label='SYMBOL', value=v) if kb.is_var(v):
+                case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
                     pass
                 case [*cond]:
                     if not bool_expr(cond, kb):
@@ -1234,7 +1313,7 @@ def type_check_expression(expr, kb):
         # arity > 0: prefix, postfix, infix, ...
         case [Token(label='SYMBOL', value=op), *tail]:
             for idx in range(1, len(tail)+1):
-                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
+                if isinstance(op, str) and idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
                     raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean, but is  `{tail[idx-1]}`')
             for e in tail:
                 type_check_expression(e, kb)
@@ -1259,8 +1338,8 @@ def type_check_expression(expr, kb):
 # or written as a kurt formula
 #   A and B and C implies D
 
-def log(s, reason, kb):
-        indent = ' ' * (proof_indent * kb.level)
+def log(s: str, reason: str|None, kb: KnowledgeBase) -> None:
+        indent: str = ' ' * (proof_indent * kb.level)
         if reason is None:
             print(indent+s, file=sys.stdout)
         else:
@@ -1522,7 +1601,7 @@ def match_exprs(exprs_patterns, subst, kb):
 
                 # symbol matching
                 case Token(label=l, value=v):
-                    if is_token(expr) and l==expr.label and v==expr.value:
+                    if isinstance(expr, Token) and l==expr.label and v==expr.value:
                         yield from match_exprs(tail, subst, kb)
 
                 # binding operator matching (rename bound variable)
@@ -1541,7 +1620,7 @@ def match_exprs(exprs_patterns, subst, kb):
                                 yield from match_exprs(list(zip(args_e, args_p_local)) + tail)
                                 
                 # list matching TODO when should subst be applied?
-                case [*_] if is_list(expr) and len(pattern)==len(expr):
+                case [*_] if isinstance(expr, list) and len(pattern)==len(expr):
                     pattern_tmp = copy.deepcopy(pattern)
                     pattern_tmp = [apply_subst(p, subst, kb) for p in pattern_tmp]
                     yield from match_exprs(list(zip(expr, pattern_tmp)) + tail, subst, kb)
@@ -1661,7 +1740,7 @@ def derive_expr(e, kb, filename, mainstream):
 
 def scan_parse_check_eval(input_line, kb, line, filename, mainstream=False):
     try:
-        ts   = PG(scan_string(input_line))                                                   # lexer
+        ts   = PeekableGenerator(scan_string(input_line))                                                   # lexer
         keyword_token, expr, comment = parse_tokenstream(ts, kb)                             # parser
         kb   = eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
     except KurtException as e:
