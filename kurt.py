@@ -16,6 +16,10 @@ import re           # re.[compile, VERBOSE, MULTILINE]
 import functools    # functools.cmp_to_key
 import readline     # readline.[parse_and_bind, add_history, read_history_file, write_history_file]
 import atexit       # atexit.register
+import itertools    # itertools.product
+
+# from typing import  Union, TypeAlias
+# expr: TypeAlias = list["expr"] | Token
 
 # config: general information
 version        = 0.1
@@ -52,6 +56,7 @@ def debug(*s):
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO `generate_all_combinations` produce `$A` with only one `$x` or more?
 # TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
@@ -1376,50 +1381,10 @@ def new_var_name():
     var_counter += 1
     return f'$@var{var_counter}'   # the `@` ensures that it is not a valid kurt variable
 
-# def rename_free_var(expr, old_free_v, new_free_v, kb):
-#     match expr:
-
-#         # a token of the free variable we are looking for
-#         case Token(label='SYMBOL', value=free_v) if free_v == old_free_v:
-#             new_expr = copy.deepcopy(expr)    # copy all meta infos, e.g. line, filename
-#             new_expr.value = new_free_v       # rename it
-#             return new_expr
-
-#         # any other token is not modified
-#         case Token():
-#             return expr
-
-#         # binding operators expression with the sought-after variable is ignored
-#         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op) and bound_v==free_v:
-#             return expr           # ignore the AST and do not recurse, since we are only replacing free instances
-
-#         # recursively replace the children
-#         case [*children] if len(children) > 0:
-#             return [rename_free_var(child, old_free_v, new_free_v, kb) for child in children]
-
-#     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
-
-# def rename_bound_var(expr, old_bound_v, new_bound_v, kb):
-#     match expr:
-
-#         # tokens are not modified here, but only in `rename_free_var` (since here we don't know whether they are free or bound)
-#         case Token():
-#             return expr
-        
-#         # binding operators expression with the sought-after variable will trigger `rename_free_var`
-#         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if kb.is_bindop(op) and bound_v==old_bound_v:
-#             return [expr[0], 
-#                     rename_free_var(expr[1], bound_v, new_bound_v),
-#                     *[rename_free_var(tail, bound_v, new_bound_v)]]
-        
-#         # recursively replace the children
-#         case [*children]:
-#             return [rename_bound_var(child, old_bound_v, new_bound_v, kb) for child in children]
-        
-#     assert False, f'BUG: did not match expression `{expr}` in `rename_bound_var`'
-
 # rename all vars in `expr` with generated names to avoid clashes with other expressions
 def rename_all_vars(expr, subst, kb):
+    debug(expr)
+    debug(subst)
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
@@ -1460,20 +1425,25 @@ def rename_all_vars(expr, subst, kb):
 
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
-def generate_all_combinations(expr, var_x):
-    raise f'not yet'
-
-def subst_copy(expr, var_x, expr_a):
-    # create a deep copy of `expr`
-    match expr:
-        case [*children]:
-            return [subst_copy(child, var_x, expr_a) for child in children]
-        case _:
-            if equal_expr(expr, expr_a):
-                # we found the `expr_a`, let's return just a Token with `var_x`
-                return Token(label='SYMBOL', value=var_x)
-            else:
-                return copy.deepcopy(expr)
+def generate_all_combinations(expr, token_x, expr_a=None):
+    # generate all `($a, $A)` such that `expr = sub $x $a $A`
+    if expr_a is None:
+        # we still have full flexibility choosing `expr_a`
+        yield None, expr            # $a=None, $A = expr
+        yield expr, token_x         # $a=expr, $A = $x
+    else:
+        # `expr_a` has been chosen elsewhere, so we can not modify it
+        yield expr_a, expr          # `expr` must not contain `token_x`
+        if equal_expr(expr, expr_a):
+            yield expr, token_x     # luckily, `expr` equals `expr_a`
+    # if `expr` is a list, recursively build up the expression
+    if isinstance(expr, list):
+        if len(expr) > 0:
+            for (cand_a, cand_A_0) in generate_all_combinations(expr[0], token_x, expr_a):
+                for (cand_cand_a, cand_A_tail) in generate_all_combinations(expr[1:], token_x, cand_a):
+                    yield cand_cand_a, [cand_A_0, *cand_A_tail]
+        else:
+            yield expr_a, []
 
 def match_against_sub(expr, pattern, tail, subst, kb):
     match pattern:
@@ -1481,11 +1451,23 @@ def match_against_sub(expr, pattern, tail, subst, kb):
         case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
             if kb.is_var(var_x) and kb.is_var(var_a) and kb.is_var(var_A):
 
-            # find all combinations of `$a` and `$A` that match to `expr`, where in `$A` there will be `var_a` at the right node
-            for (expr_a, expr_A) in generate_all_combinations(expr, var_x):
+            # find all combinations of `$a` and `$A` that match to `expr`
+            token_x = pattern[1]
+            for (expr_a, expr_A) in generate_all_combinations(expr, token_x):
                 subst_local = subst.copy()
-                subst_local[var_a] = expr_a                          # store the found substitutions
-                subst_local[var_A] = expr_A                          # store the found substitutions
+                subst_local[var_a] = expr_a                          # store the found substitutions for `$a`
+                subst_local[var_A] = expr_A                          # store the found substitutions for `$A`
+                yield from match_exprs(tail, subst_local, kb)
+
+        # `sub $x expr_a $A`
+        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
+            if kb.is_var(var_x) and kb.is_var(var_A):
+
+            # find all variations of `$A` that match to `expr`
+            token_x = pattern[1]
+            for (expr_a, expr_A) in generate_all_combinations(expr, token_x, expr_a):
+                subst_local = subst.copy()                               # shallow copy
+                subst_local[var_A] = expr_A                              # store the constructed `$A`
                 yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x $a expr_A`
@@ -1503,16 +1485,8 @@ def match_against_sub(expr, pattern, tail, subst, kb):
                     del subst_local[var_x]                           # remove the assignment to the locally bound variable `$x`
                 yield from match_exprs(tail, subst_cand, kb)
 
-        # `sub $x expr_a $A`
-        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
-            if kb.is_var(var_x) and kb.is_var(var_A):
-            expr_A = subst_copy(expr, var_x, expr_a)                 # construct `$A` (called `expr_A`) by putting `$x` into `expr` everywhere we find `expr_a`
-            subst_local = subst.copy()                               # shallow copy
-            subst_local[var_A] = expr_A                              # store the constructed `$A`
-            yield from match_exprs(tail, subst_local, kb)
-
         # `sub $x expr_a expr_A`
-        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if kb.is_var(x):
+        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if kb.is_var(var_x):
             subst_local = subst.copy()     # shallow copy
             subst_local[var_x] = expr_a
             yield from match_exprs([(expr, expr_A), *tail], subst_local, kb)
@@ -1625,9 +1599,10 @@ def impl_elim(expr, implication, kb, filename, mainstream):
     # deep copy and rename all variables
     # the renaming must happen before we cut the `implication` into pieces
     implication = copy.deepcopy(implication)
-    implication = rename_all_vars(implication, {}, kb)
+    implication = rename_all_vars(implication.expr, {}, kb)
 
     # assign `conclusion` and `premises`
+    debug(implication)
     if is_implication(implication.expr):      # we have an implication with a premise
         conclusion = implication.expr[2]
         match implication.expr[1]:
@@ -1676,6 +1651,7 @@ def derive_expr(e, kb, filename, mainstream):
 
     # iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
+        debug('proven_formula', proven_formula)
         reason = impl_elim(e, proven_formula, kb, filename, mainstream)
         if reason is not None: 
             return reason
