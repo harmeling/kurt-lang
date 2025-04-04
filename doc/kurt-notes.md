@@ -817,3 +817,34 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
         pattern = sub $x expr_a $A
         pattern = sub $x $a expr_A
         pattern = sub $x expr_a expr_A
+
+## 2025-04-04 example
+
+        use x = 17
+        use f x
+        use ((sub $x $a $A) and ($a = $b)) implies (sub $x $b $A)
+        f 17
+
+- how to prove this?
+
+- step 1:  match `f 17` against one of the conclusions of the theory
+  - here we match against `sub $x $b $A`
+  - this leads to substitution `subst` for `$b` and `$A`, e.g.,
+
+        { $A=f $x, $b=17 }
+
+- step 2:  take the premises and apply the `subst`
+  - premises after substitution
+
+       sub $x $a (f $x)
+       $a = 17
+
+- step 3: match theory against the premises (NOT the other way around)
+  - let's match the theory against the premises
+  - match `x = 17` against `$a = 17` to extend `subst` with `$a=x`
+  - apply `subst` to obtain
+
+       sub $x x (f $x)
+
+- step 4: match theory against this
+  - either find a theory formula with `sub` or transform it to `f x`

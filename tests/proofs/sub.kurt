@@ -5,3 +5,4 @@ use g 17 17
 use h 17 42
 use a 17 17 17
 find sub $x $a $A
+;;; Proof checked.

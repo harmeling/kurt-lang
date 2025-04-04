@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 ## kurt.py
-# the kurt programming language for proof writing and checking
-# developed by Stefan Harmeling (2016-2025)
+# kurt - a programming language for proof writing and checking
+# (c) 2025 Stefan Harmeling
+# licensed under the MIT License
 
 ## all external libraries (let's keep the dependencies minimal)
 import sys          # sys.stdin, sys.stderr
@@ -1539,7 +1540,6 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, 
 
 def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
     # generate all `($a, $A)` such that `expr = sub $x $a $A`
-    #debug(expr, token_x, expr_a)
     if isinstance(expr, list) and len(expr) == 0:
         yield expr_a, []      # yield once and finish
     else:
@@ -1548,16 +1548,11 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None
                 yield expr, token_x         # $a=expr, $A = $x
         if isinstance(expr, list):
             for (cand_a, cand_A_0) in generate_all_combinations(expr[0], token_x, expr_a):
-                debug(1556, expr[0], cand_a, cand_A_0)
                 for (cand_cand_a, cand_A_tail) in generate_all_combinations(expr[1:], token_x, cand_a, partial=True):
-                    debug(1558, cand_cand_a, cand_A_tail)
-                    if isinstance(cand_A_tail, list):
-                        yield cand_cand_a, [cand_A_0, *cand_A_tail]
-                    else:
-                        yield cand_cand_a, [cand_A_0, cand_A_tail]
+                    assert isinstance(cand_A_tail, list)
+                    yield cand_cand_a, [cand_A_0, *cand_A_tail]
         else:
             yield expr_a, expr            # $a=expr_a, $A = expr
-
 
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
     match pattern:
@@ -1569,7 +1564,6 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             token_x = pattern[1]
             assert isinstance(token_x, Token)
             for (expr_a, expr_A) in generate_all_combinations(expr, token_x):
-                #debug(1574, expr_a, expr_A)
                 subst_local = subst.copy()
                 if expr_a is not None:
                     subst_local[var_a] = expr_a                          # store the found substitutions for `$a`
@@ -1673,8 +1667,10 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
             # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
             assert False, f'BUG: `match_exprs` did not cover all cases for {exprs_patterns}'
 
-# match a list of expressions against the theory and grow the substitution
+# match the theory against a a list of expressions (not the other way around) and grow the substitution
 def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subst | None:
+    #debug('exprs', exprs)
+    #debug('subst', subst)
     match exprs:
 
         # we matched all `exprs`, done!
@@ -1687,12 +1683,15 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subs
             # and we have to apply the "growing" set of substitutions to it
             expr_local: Expr = copy.deepcopy(expr)
             expr_local: Expr = apply_subst(expr_local, subst, kb)
+            debug('subst', subst)
+            debug('expr_local', expr_local)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
                 # rename free and bound variables of `candidate` to avoid clashes with `expr_local`
                 candidate_expr = rename_all_vars(copy.deepcopy(candidate.expr), {}, kb)[0]
                 # iterate over all possible substitutions that create a match
-                for subst_cand in match_exprs([(expr_local, candidate_expr)], subst, kb):
+                for subst_cand in match_exprs([(candidate_expr, expr_local)], subst, kb):
+                    debug('inner', candidate_expr, expr_local)
                     # try to match the rest of the expressions (the `tail`)
                     # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
                     subst_cand: Subst | None = match_all_theory(tail, subst_cand, kb)
@@ -1706,8 +1705,8 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subs
 # what is happening:
 # 0. deep copy `implication` and rename all its variables
 # 1. split `implication` into `conclusion` and `premises`
-# 2. match `expr` against `conclusion`
-# 3. match `premises` against the theory (which needs to be renamed as well)
+# 2. match `expr` against `conclusion` of a theory implication
+# 3. match theory against the `premises` (not the other way around)
 def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str, mainstream: bool) -> str | None:
 
     # to avoid overflow in the counter variable
@@ -1742,7 +1741,6 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
     subst = None
     # iterate over all possible substitutions of the `conclusion`
     for subst in match_exprs([(expr, conclusion)], {}, kb):
-        debug('expr', expr, 'conclusion', conclusion, 'premises', premises)
         # no copy of `subst` necessary, since the next iteration will overwrite
         subst = match_all_theory(premises, subst, kb)
         if subst is not None:

@@ -34,3 +34,7 @@ Then just check it on the shell:
     Proof checked.
 
 Happy proving!
+
+## License
+
+[MIT](./LICENSE) © 2025 Stefan Harmeling
