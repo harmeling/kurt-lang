@@ -8,3 +8,4 @@ proof
     load "modal"    ; should be alright
     true
 qed
+;;; Proof checked.
