@@ -1,16 +1,6 @@
 ; example: and-intro
-;load "propositional"
-;; syntax
-infix  and     16 16  ; logical and
-infix  implies 13 12  ; logical implies, right associative (since 13>12)
-flat   and            ; (a and b) and c  iff  a and b and c
-sym    and            ; a and b  iff  b and a
-bool   and     0 1 2  ; and and its inputs have type bool
-bool   implies 0 1 2  ; and and its inputs have type bool
-
 use $A and $B implies $A and $B                                     "and-intro"
-bool I   ; declare `I` as constant and boolean
-bool J   ; declare `J` as constant and boolean
+bool I, J
 use I
 use J
 I and J

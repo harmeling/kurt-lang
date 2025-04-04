@@ -17,6 +17,7 @@ import re           # re.[compile, VERBOSE, MULTILINE]
 import functools    # functools.cmp_to_key
 import readline     # readline.[parse_and_bind, add_history, read_history_file, write_history_file]
 import atexit       # atexit.register
+import inspect      # inspect.stack
 
 from dataclasses import dataclass
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern, TextIO
@@ -45,7 +46,8 @@ theory_path: list[str] = ['.', 'theories', os.path.join(this_file_path, 'theorie
 debug_flag = False
 def debug(*s) -> None:
     if debug_flag:
-        print(f'DEBUG: {' '.join(map(str, s))}', file=sys.stdout)
+        caller = inspect.stack()[1].function
+        print(f'DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
 
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
@@ -57,7 +59,7 @@ def debug(*s) -> None:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# TODO `generate_all_combinations` produce `$A` with only one `$x` or more?
+# 
 # TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
@@ -564,11 +566,14 @@ initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is f
 initial_kb.add_infix("//", 3, 3)                       # substitution of variables
 initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
 initial_kb.add_infix(impl_symbol, 13, 12)              # implies
+initial_kb.add_infix(and_symbol, 16, 16)               # and
 initial_kb.add_infix(eq_symbol, 20, 20)                # equality with lower binding power than space, equality is left-associative
 initial_kb.add_bool(eq_symbol, [0])                    # equalities are true or false, but the inputs can be anything
 initial_kb.add_bool(true_symbol, [0])
 initial_kb.add_bool(impl_symbol, [0, 1, 2])
+initial_kb.add_bool(and_symbol, [0, 1, 2])
 initial_kb.add_flat(',')                               # flatness of comma operator
+initial_kb.add_flat('and')                             # flatness of and
 initial_kb.add_brackets('(', ')')                      # round brackets for grouping
 
 ################
@@ -955,10 +960,6 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line: int) -> 
 def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
-
-    # debug(f'keyword_token = {keyword_token}')
-    # debug(f'args          = {args}')
-    # debug(f'comment       = {comment}')
 
     # GENERAL STUFF
     if keyword == 'help':
@@ -1400,7 +1401,7 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
             print(f'derived {result}', file=sys.stdout)
         return reason
     else:
-        raise KurtException(f'ProofError: could not prove    {expr}\n            instead got        {result}')
+        raise KurtException(f'ProofError: could not prove    {expr_str(expr, kb)}\n            instead got        {expr_str(result, kb)}')
 
 # apply substitution to free variables
 Subst: TypeAlias = dict[str, Expr]
@@ -1477,8 +1478,6 @@ def new_var_name() -> str:
 
 # rename all vars in `expr` with generated names to avoid clashes with other expressions
 def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
-    debug(expr)
-    debug(subst)
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
@@ -1651,16 +1650,13 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                     pattern_tmp = [apply_subst(p, subst, kb) for p in pattern_tmp]
                     yield from match_exprs(list(zip(expr, pattern_tmp)) + tail, subst, kb)
 
-                case _:
-                    # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
-                    assert False, f'BUG: `match_exprs` did not cover all cases'
-
         case _:
             # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
-            assert False, f'BUG: `match_exprs` did not cover all cases'
+            assert False, f'BUG: `match_exprs` did not cover all cases for {exprs_patterns}'
 
 # match a list of expressions against the theory and grow the substitution
 def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subst | None:
+    debug(exprs)
     match exprs:
 
         # we matched all `exprs`, done!
@@ -1673,11 +1669,11 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subs
             # and we have to apply the "growing" set of substitutions to it
             expr_local: Expr = copy.deepcopy(expr)
             expr_local: Expr = apply_subst(expr_local, subst, kb)
+            debug('expr_local', expr_local)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
                 # rename free and bound variables of `candidate` to avoid clashes with `expr_local`
                 candidate_expr = rename_all_vars(copy.deepcopy(candidate.expr), {}, kb)[0]
-
                 # iterate over all possible substitutions that create a match
                 for subst_cand in match_exprs([(expr_local, candidate_expr)], subst, kb):
                     # try to match the rest of the expressions (the `tail`)
@@ -1688,7 +1684,7 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subs
             return None        # could not find a match among the candidate `patterns`
 
     # we calling `match_all_theory` wrongly, bug!
-    assert False, f'BUG: `match_all_theory` did not cover all cases'
+    assert False, f'BUG: `match_all_theory` did not cover all cases for {exprs}'
 
 # what is happening:
 # 0. deep copy `implication` and rename all its variables
@@ -1706,7 +1702,6 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
     implication_expr: Expr = rename_all_vars(implication.expr, {}, kb)[0]
 
     # assign `conclusion` and `premises`
-    debug(implication_expr)
     if is_implication(implication_expr):      # we have an implication with a premise
         assert isinstance(implication_expr, list)
         conclusion: Expr = implication_expr[2]
@@ -1723,6 +1718,9 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
     else:   # "implication" with an empty premise (think of `true implies $A`)
         conclusion = implication_expr
         premises   = []
+
+    debug('con', conclusion)
+    debug('pre', premises)
 
     # match `conclusion` and `premises`
     subst = None
@@ -1760,7 +1758,6 @@ def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> 
 
     # iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
-        debug('proven_formula', proven_formula)
         reason: str | None = impl_elim(e, proven_formula, kb, filename, mainstream)
         if reason is not None: 
             return reason
@@ -1918,7 +1915,9 @@ def main() -> None:
     # theory path
     if args.path is not None:
         theory_path[1] = args.path   # overwrite the default 'theory'
-    print(f'Using theory path: {theory_path}', file=sys.stdout)
+
+    if kb.verbose:
+        print(f'Using theory path: {theory_path}', file=sys.stdout)
 
     # by default load `default_theory` or nothing
     theory_filename = find_file(default_theory, theory_path)
