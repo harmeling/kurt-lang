@@ -36,10 +36,10 @@ alias  contradiction false
 ; (the commented out axioms are implemented in `kurt.py`
 
 ;; builtin
-; use $A implies $A                                                 "restatement"
+; use $A implies $A                 "restatement" ; special case of "impl-elim"
 ; use ($A implies $B) implies ($A implies $B)                       "impl-intro"
 ; use ($A implies $B) and $A implies $B                             "impl-elim"
-; use true                                                            "top-intro"
+; use true                                                          "top-intro"
 
 use $A and $B implies $A and $B                                     "and-intro"
 use $A and $B implies $A                                            "and-elim"
@@ -54,11 +54,9 @@ use ($A iff $B) implies ($A implies $B)                             "iff-elim"
 use ($A iff $B) implies ($B implies $A)                             "iff-elim"
 
 use (true implies $A) implies $A                                    "top-elim"
-;; top-intro has zero premises (which is equal to true)
 
 use $A and not $A implies false                                     "bottom-intro"
 use false implies $A                                                "bottom-elim"
-;; bottom-elim is the same as "ex false quodlibet"
 
 use ($A implies false) implies not $A                               "not-intro"
 use not not $A implies $A                                           "not-elim"

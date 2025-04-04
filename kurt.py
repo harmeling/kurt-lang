@@ -80,7 +80,6 @@ def debug(*s) -> None:
 # TODO check that `minimal.kurt` is really hard-coded here
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
-# TODO do we need `restatement` or can we use it as a special case of `equal-elim`.
 # TODO create an initial version and start working on the branch
 # TODO have keywords: `free` and `bound`
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.

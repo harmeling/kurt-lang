@@ -3,6 +3,3 @@
 ;; inference rules
 use $a = $a                                               "equal-intro"
 use (sub $x $a $A) and $a = $b  implies  (sub $x $b $A)   "equal-elim"
-
-;; definitions
-;;def ($A // $x = $t) = sub $x ($t) ($A)             ; new notation for substitutions based on equations

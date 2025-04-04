@@ -3,6 +3,5 @@ load "equality"
 bool f 0
 use x = 17
 use f(x)
-theory
 f(17)
 ;;; Proof checked.
