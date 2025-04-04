@@ -20,7 +20,7 @@ import atexit       # atexit.register
 import inspect      # inspect.stack
 
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern, TextIO
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern, TextIO, Final
 
 # config: general information
 version        = 0.1
@@ -32,11 +32,11 @@ proof_indent   = 4                     # how much to indent for a `proof` block
 reason_indent  = 60                    # how much the reason is indented
 
 # config: the symbols for the most basic logical operators
-impl_symbol    = 'implies'             # symbol for implication
-sub_symbol     = 'sub'                 # symbol for substitution
-and_symbol     = 'and'                 # symbol for and
-eq_symbol      = '='                   # symbol for equality
-true_symbol    = 'true'                # symbol for true
+IMPL_SYMBOL: str = 'implies'             # symbol for implication
+SUB_SYMBOL:  str = 'sub'                 # symbol for substitution
+AND_SYMBOL:  str = 'and'                 # symbol for and
+EQ_SYMBOL:   str = '='                   # symbol for equality
+TRUE_SYMBOL: str = 'true'                # symbol for true
 
 # config: the default theory and default path
 default_theory: str    = 'theory.kurt'                                                   # default theory
@@ -59,11 +59,9 @@ def debug(*s) -> None:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# 
 # TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
-# TODO add type information, add Final for constants, set `Python › Analysis: Type Checking Mode` to `basic`
 # TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=` and `sub`
 # TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
 # TODO check whether we need a version of `equal_expr` that allows bounded renaming
@@ -557,21 +555,21 @@ bracket_lbp: int = 0                               # left binding power of brack
 end_lbp:     int = 0                               # left binding power of end of input line
 string_lbp:  int = 1                               # left binding power of strings
 space_op:    str = ' '                             # must be something that is never returned from the tokenizer
-space_lbp:   int = 22                              # left binding power: stronger than eq_symbol
-space_rbp:   int = 22                              # right binding power: stronger than eq_symbol
+space_lbp:   int = 22                              # left binding power: stronger than EQ_SYMBOL
+space_rbp:   int = 22                              # right binding power: stronger than EQ_SYMBOL
 
 # create initial knowledge base
 initial_kb: KnowledgeBase = KnowledgeBase()
 initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is for expression like `f x`
 initial_kb.add_infix("//", 3, 3)                       # substitution of variables
 initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
-initial_kb.add_infix(impl_symbol, 13, 12)              # implies
-initial_kb.add_infix(and_symbol, 16, 16)               # and
-initial_kb.add_infix(eq_symbol, 20, 20)                # equality with lower binding power than space, equality is left-associative
-initial_kb.add_bool(eq_symbol, [0])                    # equalities are true or false, but the inputs can be anything
-initial_kb.add_bool(true_symbol, [0])
-initial_kb.add_bool(impl_symbol, [0, 1, 2])
-initial_kb.add_bool(and_symbol, [0, 1, 2])
+initial_kb.add_infix(IMPL_SYMBOL, 13, 12)              # implies
+initial_kb.add_infix(AND_SYMBOL, 16, 16)               # and
+initial_kb.add_infix(EQ_SYMBOL, 20, 20)                # equality with lower binding power than space, equality is left-associative
+initial_kb.add_bool(EQ_SYMBOL, [0])                    # equalities are true or false, but the inputs can be anything
+initial_kb.add_bool(TRUE_SYMBOL, [0])
+initial_kb.add_bool(IMPL_SYMBOL, [0, 1, 2])
+initial_kb.add_bool(AND_SYMBOL, [0, 1, 2])
 initial_kb.add_flat(',')                               # flatness of comma operator
 initial_kb.add_flat('and')                             # flatness of and
 initial_kb.add_brackets('(', ')')                      # round brackets for grouping
@@ -642,10 +640,10 @@ def is_op_expr(e: Expr, op: str) -> bool:
             return False
 
 def is_equation(expr: Expr) -> bool:
-    return is_op_expr(expr, eq_symbol)
+    return is_op_expr(expr, EQ_SYMBOL)
 
 def is_implication(expr: Expr) -> bool:
-    return is_op_expr(expr, impl_symbol)
+    return is_op_expr(expr, IMPL_SYMBOL)
 
 def equal_expr(t1: Expr, t2: Expr) -> bool:                               # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
@@ -1160,14 +1158,14 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
     elif keyword == "equations":
         match args:
             case []:
-                print(kb.theory_str(op=eq_symbol), file=sys.stdout)
+                print(kb.theory_str(op=EQ_SYMBOL), file=sys.stdout)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == "implications":
         match args:
             case []:
-                print(kb.theory_str(op=impl_symbol), file=sys.stdout)
+                print(kb.theory_str(op=IMPL_SYMBOL), file=sys.stdout)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
@@ -1391,8 +1389,8 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
         if len(premise) == 1:              # premise is one formula
             premise = premise[0]
         else:                              # premise is a conjunction
-            premise = simplify([Token(label='SYMBOL', value=and_symbol)] + premise, kb)   # bring to normalform
-        result = [Token(label='SYMBOL', value=impl_symbol), premise, conclusion]       # construct implication
+            premise = simplify([Token(label='SYMBOL', value=AND_SYMBOL)] + premise, kb)   # bring to normalform
+        result = [Token(label='SYMBOL', value=IMPL_SYMBOL), premise, conclusion]       # construct implication
 
     # step 3: compare against the planned expression `expr`
     if equal_expr(expr, result):
@@ -1547,7 +1545,7 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
     match pattern:
         # `sub $x $a $A`
-        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
+        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
             if isinstance(var_x, str) and isinstance(var_a, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_a) and kb.is_var(var_A):
 
             # find all combinations of `$a` and `$A` that match to `expr`
@@ -1561,7 +1559,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 yield subst_local
 
         # `sub $x expr_a $A`
-        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
+        case [Token(label='SYMBOL', value=SUB_SYMBOL), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
             if isinstance(var_x, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_A):
 
             # find all variations of `$A` that match to `expr`
@@ -1573,7 +1571,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x $a expr_A`
-        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
+        case [Token(label='SYMBOL', value=SUB_SYMBOL), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
             if isinstance(var_x, str) and isinstance(var_a, str) and kb.is_var(var_x) and kb.is_var(var_a):
             # match `expr` against `expr_A` and allow to replace `$x` in `expr_A` with anything
             subst_local = subst.copy()     # shallow copy
@@ -1588,7 +1586,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 yield from match_exprs(tail, subst_cand, kb)
 
         # `sub $x expr_a expr_A`
-        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if isinstance(var_x, str) and kb.is_var(var_x):
+        case [Token(label='SYMBOL', value=SUB_SYMBOL), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if isinstance(var_x, str) and kb.is_var(var_x):
             subst_local = subst.copy()     # shallow copy
             subst_local[var_x] = expr_a
             yield from match_exprs([(expr, expr_A), *tail], subst_local, kb)
@@ -1629,7 +1627,7 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
 
                 # binding operator matching (rename bound variable)
                 case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
-                    if op_p == sub_symbol:
+                    if op_p == SUB_SYMBOL:
                         # optionally: a pattern with a `sub` is special and possibly matches many expressions
                         yield from match_against_sub(expr, pattern, tail, subst, kb)
                     # in any case: additionally binding ops match against their matching binding ops
@@ -1656,7 +1654,6 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
 
 # match a list of expressions against the theory and grow the substitution
 def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subst | None:
-    debug(exprs)
     match exprs:
 
         # we matched all `exprs`, done!
@@ -1669,7 +1666,6 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subs
             # and we have to apply the "growing" set of substitutions to it
             expr_local: Expr = copy.deepcopy(expr)
             expr_local: Expr = apply_subst(expr_local, subst, kb)
-            debug('expr_local', expr_local)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
                 # rename free and bound variables of `candidate` to avoid clashes with `expr_local`
@@ -1705,27 +1701,28 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
     if is_implication(implication_expr):      # we have an implication with a premise
         assert isinstance(implication_expr, list)
         conclusion: Expr = implication_expr[2]
+        debug('foo', implication_expr[1])
         match implication_expr[1]:
 
             # e.g., (A and B) implies C, then `premises = [A, B]`
-            case [Token(label='SYMBOL', value=and_symbol), *premises]:
+            case [Token(label='SYMBOL', value=v), *premises] if v==AND_SYMBOL:
                 pass                          # assigned already `premises` in the case matching
 
             # e.g., A implies C, then `premises = [A]`
-            case premise:
-                premises: list[Expr] = [premise]          # wrap a single premise in a list
-
+            case _:
+                premises: list[Expr] = [implication_expr[1]]          # wrap a single premise in a list
     else:   # "implication" with an empty premise (think of `true implies $A`)
         conclusion = implication_expr
         premises   = []
 
-    debug('con', conclusion)
-    debug('pre', premises)
+    #debug('con', conclusion)
+    #debug('pre', premises)
 
     # match `conclusion` and `premises`
     subst = None
     # iterate over all possible substitutions of the `conclusion`
     for subst in match_exprs([(expr, conclusion)], {}, kb):
+        debug('expr', expr, 'conclusion', conclusion, 'premises', premises)
         # no copy of `subst` necessary, since the next iteration will overwrite
         subst = match_all_theory(premises, subst, kb)
         if subst is not None:
@@ -1753,7 +1750,7 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
 def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
 
     # first handle "top-intro"
-    if isinstance(e, Token) and e.label=='SYMBOL' and e.value==true_symbol:
+    if isinstance(e, Token) and e.label=='SYMBOL' and e.value==TRUE_SYMBOL:
         return 'by top-intro'
 
     # iterate over the previously proven formulas that form the current theory

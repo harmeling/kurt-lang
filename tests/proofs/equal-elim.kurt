@@ -1,7 +1,6 @@
 ; example: equal-elim TODO
-load "all.kurt"
+load "equality"
 bool f 0
-use ($A and $a=$b) implies ($A // $a=$b)     "equal-elim"
 use x = 17
 use f(x)
 f(17)

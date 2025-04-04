@@ -1,14 +1,11 @@
 ; equality
 
-;; syntax
-infix =  20 20                                     ; equality is left associative
-bool  =                                            ; equalities are true or false
-sym   =                                            ; equalities are symmetric
-infix //  3  3                                     ; notation for substitution of variables
-
 ;; inference rules
-use $x = $x                                        "equal-intro"
-use (A // $x=$a) and $a=$b  implies  (A // $x=$b)  "equal-elim"
+use $a = $a                                               "equal-intro"
+use (sub $x $a $A) and $a = $b  implies  (sub $x $b $A)   "equal-elim"
+
+;;use $x = $x                                        "equal-intro"
+;;use (A // $x=$a) and $a=$b  implies  (A // $x=$b)  "equal-elim"
 
 ;; definitions
-use ($A // $x = $t) = sub $x ($t) ($A)             ; new notation for substitution based on equations
+;;use ($A // $x = $t) = sub $x ($t) ($A)             ; new notation for substitution based on equations
