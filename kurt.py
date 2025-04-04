@@ -28,16 +28,17 @@ version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
 
 # config: the indentation for the different blocks
-md_indent      = 7                     # ignore all lines not starting with `md_indent` many spaces
-proof_indent   = 4                     # how much to indent for a `proof` block
-reason_indent  = 60                    # how much the reason is indented
+md_indent      = 7             # ignore all lines not starting with `md_indent` many spaces
+proof_indent   = 4             # how much to indent for a `proof` block
+reason_indent  = 60            # how much the reason is indented
 
 # config: the symbols for the most basic logical operators
-IMPL_SYMBOL: str = 'implies'             # symbol for implication
-SUB_SYMBOL:  str = 'sub'                 # symbol for substitution
-AND_SYMBOL:  str = 'and'                 # symbol for and
-EQ_SYMBOL:   str = '='                   # symbol for equality
-TRUE_SYMBOL: str = 'true'                # symbol for true
+IMPL_SYMBOL:  str = 'implies'  # symbol for implication
+SUB_SYMBOL:   str = 'sub'      # symbol for substitution
+AND_SYMBOL:   str = 'and'      # symbol for and
+TRUE_SYMBOL:  str = 'true'     # symbol for true
+COMMA_SYMBOL: str = ','        # comma operator
+SPACE_SYMBOL: str = ' '        # must be something that is never returned from the tokenizer
 
 # config: the default theory and default path
 default_theory: str    = 'theory.kurt'                                                   # default theory
@@ -552,30 +553,26 @@ class KnowledgeBase:
         return s
 
 # some important constants for the parser
-bracket_lbp: int = 0                               # left binding power of brackets
-end_lbp:     int = 0                               # left binding power of end of input line
-string_lbp:  int = 1                               # left binding power of strings
-space_op:    str = ' '                             # must be something that is never returned from the tokenizer
-space_lbp:   int = 22                              # left binding power: stronger than EQ_SYMBOL
-space_rbp:   int = 22                              # right binding power: stronger than EQ_SYMBOL
+bracket_lbp:  int = 0          # left binding power of brackets
+end_lbp:      int = 0          # left binding power of end of input line
+string_lbp:   int = 1          # left binding power of strings
+space_lbp:    int = 22         # left  binding power: stronger than '=' (defined in equality.kurt)
+space_rbp:    int = 22         # right binding power: stronger than '=' (defined in equality.kurt)
 
 # create initial knowledge base
 initial_kb: KnowledgeBase = KnowledgeBase()
-initial_kb.add_arity(SUB_SYMBOL, 3)
-initial_kb.add_bindop(SUB_SYMBOL)
-initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is for expression like `f x`
-initial_kb.add_infix("//", 3, 3)                       # substitution of variables
-initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
-initial_kb.add_infix(IMPL_SYMBOL, 13, 12)              # implies
-initial_kb.add_infix(AND_SYMBOL, 16, 16)               # and
-initial_kb.add_infix(EQ_SYMBOL, 20, 20)                # equality with lower binding power than space, equality is left-associative
-initial_kb.add_bool(EQ_SYMBOL, [0])                    # equalities are true or false, but the inputs can be anything
-initial_kb.add_bool(TRUE_SYMBOL, [0])
-initial_kb.add_bool(IMPL_SYMBOL, [0, 1, 2])
-initial_kb.add_bool(AND_SYMBOL, [0, 1, 2])
-initial_kb.add_flat(',')                               # flatness of comma operator
-initial_kb.add_flat('and')                             # flatness of and
-initial_kb.add_brackets('(', ')')                      # round brackets for grouping
+initial_kb.add_infix (COMMA_SYMBOL, 5, 5)                  # comma is infix with low binding power
+initial_kb.add_flat  (COMMA_SYMBOL)                        # comma op is flat
+initial_kb.add_infix (SPACE_SYMBOL, space_lbp, space_rbp)  # space op is for fn like `f x`
+initial_kb.add_bool  (TRUE_SYMBOL, [0])                    # true is bool
+initial_kb.add_arity (SUB_SYMBOL, 3)                       # sub takes three args
+initial_kb.add_bindop(SUB_SYMBOL)                          # sub is a binding operator
+initial_kb.add_infix (IMPL_SYMBOL, 13, 12)                 # implies infix operator
+initial_kb.add_bool  (IMPL_SYMBOL, [0, 1, 2])              # implies is bool with bool input
+initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and infix operator
+initial_kb.add_bool  (AND_SYMBOL, [0, 1, 2])               # and is bool with bool inputs
+initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
+initial_kb.add_brackets('(', ')')                          # round brackets for grouping
 
 ################
 ## kurt lexer ##
@@ -1737,11 +1734,13 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
     #debug('pre', premises)
 
     # match `conclusion` and `premises`
-    subst = None
+    subst: Subst|None = None
     # iterate over all possible substitutions of the `conclusion`
-    for subst in match_exprs([(expr, conclusion)], {}, kb):
+    for subst_local in match_exprs([(expr, conclusion)], {}, kb):
+        debug('subst_local', subst_local)
         # no copy of `subst` necessary, since the next iteration will overwrite
-        subst = match_all_theory(premises, subst, kb)
+        subst = match_all_theory(premises, subst_local, kb)
+        debug('subst', subst)
         if subst is not None:
             break           # bingo!  we found one
     if subst is None:
@@ -1749,10 +1748,11 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
 
     # create meaning full `reason`
     if kb.verbose:
-        msg = 'BINGO!'
-        msg += f'expression to prove: {expr_str(expr, kb)}'
-        msg += f'implication used:    {expr_str(implication.expr, kb)}'
-        msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}'
+        msg = 'BINGO!\n'
+        msg += f'expression to prove: {expr_str(expr, kb)}\n'
+        msg += f'implication used:    {expr_str(implication_expr, kb)}\n'
+        msg += f'conclusion used:     {expr_str(conclusion, kb)}\n'
+        msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}\n'
         msg += f'substitution used:   {subst}'
         print(msg, file=sys.stdout)
     restating: str = 'restating ' if len(premises) == 0 else ''

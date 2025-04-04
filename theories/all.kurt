@@ -1,4 +1,5 @@
 ; syntax for many tasks
 load "first-order"     ; loads "propositional" as well
+load "equality"
 load "set"
 load "arithmetic"

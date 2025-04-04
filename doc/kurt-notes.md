@@ -848,3 +848,5 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - step 4: match theory against this
   - either find a theory formula with `sub` or transform it to `f x`
+
+- current problem:  `kurt -dv tests/proofs/forall.kurt`

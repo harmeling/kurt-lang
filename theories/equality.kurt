@@ -1,5 +1,9 @@
 ; equality
 
+;; syntax
+infix = 20 20  ; lower binding power than space, equality is left-associative
+bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
+
 ;; inference rules
 use $a = $a                                               "equal-intro"
 use (sub $x $a $A) and $a = $b  implies  (sub $x $b $A)   "equal-elim"
