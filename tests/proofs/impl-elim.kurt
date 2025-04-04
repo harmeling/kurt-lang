@@ -1,5 +1,4 @@
 ; example: impl-elim (aka modus ponens)
-load "all"
 bool A, B, C, D
 use A
 use A implies B

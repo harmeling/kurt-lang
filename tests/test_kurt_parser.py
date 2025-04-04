@@ -11,7 +11,7 @@ class Test_Parsing(unittest.TestCase):
         for i in range(len(examples)):
             (input_line, _, true_output) = examples[i]               # pick input, parsed
             try:
-                ts = kurt.PG(kurt.scan_string(input_line))           # peekable token stream
+                ts = kurt.PeekableGenerator(kurt.scan_string(input_line))           # peekable token stream
                 _, pt, _ = kurt.parse_tokenstream(ts, kb)            # parse tree
                 output = kurt.expr_str(pt, kb)
             except Exception as e:

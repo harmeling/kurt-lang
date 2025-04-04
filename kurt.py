@@ -19,7 +19,7 @@ import readline     # readline.[parse_and_bind, add_history, read_history_file, 
 import atexit       # atexit.register
 
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern, TextIO
 
 # config: general information
 version        = 0.1
@@ -35,6 +35,7 @@ impl_symbol    = 'implies'             # symbol for implication
 sub_symbol     = 'sub'                 # symbol for substitution
 and_symbol     = 'and'                 # symbol for and
 eq_symbol      = '='                   # symbol for equality
+true_symbol    = 'true'                # symbol for true
 
 # config: the default theory and default path
 default_theory: str    = 'theory.kurt'                                                   # default theory
@@ -111,11 +112,11 @@ def debug(*s) -> None:
 
 class KurtException(Exception):
     def __init__(self, msg:str, column:int|None=None, line:int|None=None, filename:str|None=None, short:bool=False) -> None:
-        self.msg: str           = msg
-        self.column: int|None   = column
-        self.lin: int|None      = line
+        self.msg:      str      = msg
+        self.column:   int|None = column
+        self.line:     int|None = line
         self.filename: str|None = filename
-        self.short: bool        = short
+        self.short:    bool     = short
 
 ## the syntax is stored in a hierarchical knowledge base called `KnowledgeBase`
 format_options: list[Format] = ['sexpr', 'normal']         # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
@@ -166,6 +167,9 @@ class Token:
     column: int | None = None
     origin: Value | None = None
 
+    def __repr__(self) -> str:
+        return f'({self.label} "{self.value}")'
+
     def __lt__(self, other: Token) -> bool:
         return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
 
@@ -210,20 +214,23 @@ class PeekableGenerator(Generic[T]):                 # a peekable generator
         self.gen: Iterator[T] = gen                  # the generator
         self.eog: bool        = False                # end-of-generator, are we done yet?
         self.peek: T | None   = None                 # initial peek is None
-        self.__next__()                              # possibly modifies self.eog
+        self._advance()                              # possibly modifies self.eog
     def __iter__(self) -> PeekableGenerator[T]:
         return self
     def __next__(self) -> T:
         if self.eog:
             raise StopIteration
-        assert self.peek is not None, f'BUG in PeekableGenerator'
-        p: T = self.peek                             # the peek gets returned
+        assert self.peek is not None
+        current: T = self.peek
+        self._advance()
+        return current
+    def _advance(self) -> None:
         try:
             self.peek = next(self.gen)               # update the peek
         except StopIteration:                        # delay the exception until the next 'next'-call
             self.peek = None                         # nothing to peek anymore
             self.eog = True                          # next call __next__ triggers the exception
-        return p
+
 
 # hierarchical knowledge base
 # the level is increased inside blocks and files
@@ -439,7 +446,7 @@ class KnowledgeBase:
         self.add_const(lbracket)
         self.add_const(rbracket)
         self.brackets[rbracket] = lbracket    # to list the brackets (not used for parsing)
-        def nud(ts: PeekableGenerator, kb: KnowledgeBase, _t: Token) -> Expr:
+        def nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
             expr: Expr = parse_expression(ts, kb, 0)
             token: Token = next(ts)
             if token.value != rbracket: 
@@ -548,16 +555,19 @@ bracket_lbp: int = 0                               # left binding power of brack
 end_lbp:     int = 0                               # left binding power of end of input line
 string_lbp:  int = 1                               # left binding power of strings
 space_op:    str = ' '                             # must be something that is never returned from the tokenizer
-space_lbp:   int = 22                              # left binding power: stronger than '='
-space_rbp:   int = 22                              # right binding power: stronger than '='
+space_lbp:   int = 22                              # left binding power: stronger than eq_symbol
+space_rbp:   int = 22                              # right binding power: stronger than eq_symbol
 
 # create initial knowledge base
 initial_kb: KnowledgeBase = KnowledgeBase()
+initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is for expression like `f x`
 initial_kb.add_infix("//", 3, 3)                       # substitution of variables
 initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
-initial_kb.add_infix('=', 20, 20)                      # equality with lower binding power than space, equality is left-associative
-initial_kb.add_bool('=', [0])                          # equalities are true or false, but the inputs can be anything
-initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is for expression like `f x`
+initial_kb.add_infix(impl_symbol, 13, 12)              # implies
+initial_kb.add_infix(eq_symbol, 20, 20)                # equality with lower binding power than space, equality is left-associative
+initial_kb.add_bool(eq_symbol, [0])                    # equalities are true or false, but the inputs can be anything
+initial_kb.add_bool(true_symbol, [0])
+initial_kb.add_bool(impl_symbol, [0, 1, 2])
 initial_kb.add_flat(',')                               # flatness of comma operator
 initial_kb.add_brackets('(', ')')                      # round brackets for grouping
 
@@ -627,10 +637,10 @@ def is_op_expr(e: Expr, op: str) -> bool:
             return False
 
 def is_equation(expr: Expr) -> bool:
-    return is_op_expr(expr, '=')
+    return is_op_expr(expr, eq_symbol)
 
 def is_implication(expr: Expr) -> bool:
-    return is_op_expr(expr, 'implies')
+    return is_op_expr(expr, impl_symbol)
 
 def equal_expr(t1: Expr, t2: Expr) -> bool:                               # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
@@ -708,9 +718,8 @@ def scan_string(input_line: str) -> Iterator[Token]:
     for match in scanner.finditer(input_line):
         
         # extract the information from the match
-        assert match.lastgroup is not None, f'BUG in the scanner'
-        assert match.lastgroup in ('SYMBOL', 'INT', 'FLOAT', 'STRING')
-        label:  Label = match.lastgroup           # name of the group
+        assert match.lastgroup is not None
+        label:  str   = match.lastgroup           # name of the group
         value:  Value = match.groupdict()[label]  # the value, somewhat complicated code, but necessary for counting the indents
         pos:    int   = match.start()             # position in s
         column: int   = pos - lastpos             # column of the match
@@ -867,6 +876,7 @@ def check_expr_comment(expr: Expr, kb) -> tuple[Expr, str|None]:            # ch
     comment = None
     match expr:
         case [Token(label='STRING', value=comment), *tail]:  # comments are parsed like very low binding postfix operators
+            assert isinstance(comment, str)
             if len(tail) == 1:
                 tail = tail[0]
         case [*tail]:
@@ -877,7 +887,6 @@ def check_expr_comment(expr: Expr, kb) -> tuple[Expr, str|None]:            # ch
         case _:
             assert False, f'BUG: list or Token expected, got {expr}'
     check_no_keyword(tail)             # don't check the `keyword` and the `comment`
-    assert isinstance(comment, str)
     return tail, comment
 
 def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str|None]:
@@ -959,7 +968,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case _:
                 raise KurtException(f'ParseError: "{keyword}" does not take arguments', keyword_token.column)
     elif keyword == 'load':
-        current_path, _ = os.path.split(filename)    # search first at the current path
+        current_path: str = os.path.split(filename)[0]    # search first at the current path
         match args:
             case [Token(label='STRING', value=fname)]:
                 assert isinstance(fname, str)
@@ -1150,14 +1159,14 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
     elif keyword == "equations":
         match args:
             case []:
-                print(kb.theory_str(op='='), file=sys.stdout)
+                print(kb.theory_str(op=eq_symbol), file=sys.stdout)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == "implications":
         match args:
             case []:
-                print(kb.theory_str(op='implies'), file=sys.stdout)
+                print(kb.theory_str(op=impl_symbol), file=sys.stdout)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
@@ -1236,7 +1245,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
     # finally return the possibly modified knowledgebase
     return kb
 
-def eval_expression(keyword_token: Token, expr: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
+def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     if keyword_token is None:
         # expression without keyword: try to derive the formula and add it to the theory
         if expr==[]:
@@ -1302,7 +1311,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
                     if not bool_expr(cond, kb):
                         raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean, got {cond}')
                     # check existence of a free variable
-                    fv, _ = free_bound_vars(cond, kb)
+                    fv: set[str] = free_bound_vars(cond, kb)[0]
                     if len(fv) == 0:
                         raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
                 case _:
@@ -1381,8 +1390,8 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
         if len(premise) == 1:              # premise is one formula
             premise = premise[0]
         else:                              # premise is a conjunction
-            premise = simplify([Token(label='SYMBOL', value='and')] + premise, kb)   # bring to normalform
-        result = [Token(label='SYMBOL', value='implies'), premise, conclusion]       # construct implication
+            premise = simplify([Token(label='SYMBOL', value=and_symbol)] + premise, kb)   # bring to normalform
+        result = [Token(label='SYMBOL', value=impl_symbol), premise, conclusion]       # construct implication
 
     # step 3: compare against the planned expression `expr`
     if equal_expr(expr, result):
@@ -1536,40 +1545,43 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None
         else:
             yield expr_a, []
 
-def match_against_sub(expr, pattern, tail, subst, kb):
+def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
     match pattern:
         # `sub $x $a $A`
-        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
-            if kb.is_var(var_x) and kb.is_var(var_a) and kb.is_var(var_A):
+        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
+            if isinstance(var_x, str) and isinstance(var_a, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_a) and kb.is_var(var_A):
 
             # find all combinations of `$a` and `$A` that match to `expr`
             token_x = pattern[1]
+            assert isinstance(token_x, Token)
             for (expr_a, expr_A) in generate_all_combinations(expr, token_x):
                 subst_local = subst.copy()
-                subst_local[var_a] = expr_a                          # store the found substitutions for `$a`
+                if expr_a is not None:
+                    subst_local[var_a] = expr_a                          # store the found substitutions for `$a`
                 subst_local[var_A] = expr_A                          # store the found substitutions for `$A`
-                yield from match_exprs(tail, subst_local, kb)
+                yield subst_local
 
         # `sub $x expr_a $A`
-        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
-            if kb.is_var(var_x) and kb.is_var(var_A):
+        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
+            if isinstance(var_x, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_A):
 
             # find all variations of `$A` that match to `expr`
             token_x = pattern[1]
+            assert isinstance(token_x, Token)
             for (expr_a, expr_A) in generate_all_combinations(expr, token_x, expr_a):
                 subst_local = subst.copy()                               # shallow copy
                 subst_local[var_A] = expr_A                              # store the constructed `$A`
                 yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x $a expr_A`
-        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
-            if kb.is_var(var_x) and kb.is_var(var_a):
+        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
+            if isinstance(var_x, str) and isinstance(var_a, str) and kb.is_var(var_x) and kb.is_var(var_a):
             # match `expr` against `expr_A` and allow to replace `$x` in `expr_A` with anything
             subst_local = subst.copy()     # shallow copy
             if var_x in subst_local:
                 del subst_local[var_x]                               # remove the current meaning of `$x`
             # we can freely choose what to put for `$x`, however, we can only choose once
-            for subst_cand in match_exprs((expr, expr_A), subst_local, kb):
+            for subst_cand in match_exprs([(expr, expr_A)], subst_local, kb):
                 if var_x in subst_local:                             # did we assign anything to `$x`?
                     assert var_a not in subst_local, f'BUG: is this a bug?  `$a` should not appear in `$A` after renaming'
                     subst_local[var_a] = subst_local[var_x]          # reassign the result to `$a`
@@ -1577,7 +1589,7 @@ def match_against_sub(expr, pattern, tail, subst, kb):
                 yield from match_exprs(tail, subst_cand, kb)
 
         # `sub $x expr_a expr_A`
-        case [Token(label='SYMBOL', value='sub'), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if kb.is_var(var_x):
+        case [Token(label='SYMBOL', value=sub_symbol), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if isinstance(var_x, str) and kb.is_var(var_x):
             subst_local = subst.copy()     # shallow copy
             subst_local[var_x] = expr_a
             yield from match_exprs([(expr, expr_A), *tail], subst_local, kb)
@@ -1590,7 +1602,7 @@ def match_against_sub(expr, pattern, tail, subst, kb):
 # each "case" with a recursive call has to loop over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
-def match_exprs(exprs_patterns, subst, kb):
+def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
     match exprs_patterns:
 
         case []:
@@ -1601,7 +1613,7 @@ def match_exprs(exprs_patterns, subst, kb):
             match pattern:
 
                 # variable matching
-                case Token(label='SYMBOL', value=v) if kb.is_var(v):
+                case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
                     if v not in subst:
                         subst_local = subst.copy()     # shallow copy
                         subst_local[v] = expr          # extend the substitution
@@ -1617,8 +1629,8 @@ def match_exprs(exprs_patterns, subst, kb):
                         yield from match_exprs(tail, subst, kb)
 
                 # binding operator matching (rename bound variable)
-                case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if kb.is_bindop(op_p):
-                    if op_p == 'sub':
+                case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
+                    if op_p == sub_symbol:
                         # optionally: a pattern with a `sub` is special and possibly matches many expressions
                         yield from match_against_sub(expr, pattern, tail, subst, kb)
                     # in any case: additionally binding ops match against their matching binding ops
@@ -1628,8 +1640,10 @@ def match_exprs(exprs_patterns, subst, kb):
                                 if v_p != v_e:
                                     # rename the bound variable
                                     args_p_local = copy.deepcopy(args_p)
-                                    args_p_local = [apply_subst(arg, {v_p:v_e}, kb) for arg in args_p_local]
-                                yield from match_exprs(list(zip(args_e, args_p_local)) + tail)
+                                    v_e_expr = expr[1]
+                                    assert isinstance(v_p, str)
+                                    args_p_local = [apply_subst(arg, {v_p:v_e_expr}, kb) for arg in args_p_local]
+                                yield from match_exprs(list(zip(args_e, args_p_local)) + tail, subst, kb)
                                 
                 # list matching TODO when should subst be applied?
                 case [*_] if isinstance(expr, list) and len(pattern)==len(expr):
@@ -1646,7 +1660,7 @@ def match_exprs(exprs_patterns, subst, kb):
             assert False, f'BUG: `match_exprs` did not cover all cases'
 
 # match a list of expressions against the theory and grow the substitution
-def match_all_theory(exprs, subst, kb):
+def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subst | None:
     match exprs:
 
         # we matched all `exprs`, done!
@@ -1657,19 +1671,18 @@ def match_all_theory(exprs, subst, kb):
         case [expr, *tail]:
             # deep copy of `expr` is necessary, since `match_all_theory` will be called several times with the same `exprs` in `impl_elim`
             # and we have to apply the "growing" set of substitutions to it
-            expr_local = copy.deepcopy(expr)
-            expr_local = apply_subst(expr_local, subst, kb)
+            expr_local: Expr = copy.deepcopy(expr)
+            expr_local: Expr = apply_subst(expr_local, subst, kb)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
                 # rename free and bound variables of `candidate` to avoid clashes with `expr_local`
-                candidate_expr = copy.deepcopy(candidate.expr)
-                candidate_expr = rename_all_vars(candidate_expr, kb)
+                candidate_expr = rename_all_vars(copy.deepcopy(candidate.expr), {}, kb)[0]
 
                 # iterate over all possible substitutions that create a match
                 for subst_cand in match_exprs([(expr_local, candidate_expr)], subst, kb):
                     # try to match the rest of the expressions (the `tail`)
                     # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
-                    subst_cand = match_all_theory(tail, subst_cand, kb)
+                    subst_cand: Subst | None = match_all_theory(tail, subst_cand, kb)
                     if subst_cand is not None:
                         return subst_cand    # match was found!  BINGO!
             return None        # could not find a match among the candidate `patterns`
@@ -1682,7 +1695,7 @@ def match_all_theory(exprs, subst, kb):
 # 1. split `implication` into `conclusion` and `premises`
 # 2. match `expr` against `conclusion`
 # 3. match `premises` against the theory (which needs to be renamed as well)
-def impl_elim(expr, implication, kb, filename, mainstream):
+def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str, mainstream: bool) -> str | None:
 
     # to avoid overflow in the counter variable
     reset_var_name_counter()
@@ -1690,24 +1703,25 @@ def impl_elim(expr, implication, kb, filename, mainstream):
     # deep copy and rename all variables
     # the renaming must happen before we cut the `implication` into pieces
     implication = copy.deepcopy(implication)
-    implication = rename_all_vars(implication.expr, {}, kb)
+    implication_expr: Expr = rename_all_vars(implication.expr, {}, kb)[0]
 
     # assign `conclusion` and `premises`
-    debug(implication)
-    if is_implication(implication.expr):      # we have an implication with a premise
-        conclusion = implication.expr[2]
-        match implication.expr[1]:
+    debug(implication_expr)
+    if is_implication(implication_expr):      # we have an implication with a premise
+        assert isinstance(implication_expr, list)
+        conclusion: Expr = implication_expr[2]
+        match implication_expr[1]:
 
             # e.g., (A and B) implies C, then `premises = [A, B]`
-            case [Token(label='SYMBOL', value='and'), *premises]:
+            case [Token(label='SYMBOL', value=and_symbol), *premises]:
                 pass                          # assigned already `premises` in the case matching
 
             # e.g., A implies C, then `premises = [A]`
             case premise:
-                premises = [premise]          # wrap a single premise in a list
+                premises: list[Expr] = [premise]          # wrap a single premise in a list
 
     else:   # "implication" with an empty premise (think of `true implies $A`)
-        conclusion = implication.expr
+        conclusion = implication_expr
         premises   = []
 
     # match `conclusion` and `premises`
@@ -1738,22 +1752,27 @@ def impl_elim(expr, implication, kb, filename, mainstream):
         reason += f' {implication.comment}'
     return reason    # bingo!  found an implication
 
-def derive_expr(e, kb, filename, mainstream):
+def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
+
+    # first handle "top-intro"
+    if isinstance(e, Token) and e.label=='SYMBOL' and e.value==true_symbol:
+        return 'by top-intro'
 
     # iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
         debug('proven_formula', proven_formula)
-        reason = impl_elim(e, proven_formula, kb, filename, mainstream)
+        reason: str | None = impl_elim(e, proven_formula, kb, filename, mainstream)
         if reason is not None: 
             return reason
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
 
-def scan_parse_check_eval(input_line, kb, line, filename, mainstream=False):
+def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
     try:
         ts   = PeekableGenerator(scan_string(input_line))                                                   # lexer
-        keyword_token, expr, comment = parse_tokenstream(ts, kb)                             # parser
+        
+        keyword_token, expr, comment = parse_tokenstream(ts, kb)       # parser
         kb   = eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
     except KurtException as e:
         e.filename = filename
@@ -1761,7 +1780,7 @@ def scan_parse_check_eval(input_line, kb, line, filename, mainstream=False):
         raise e
     return kb
 
-def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
+def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> tuple[KnowledgeBase, bool]:
     # files are always loaded into level
     level = kb.level       # save current level
     if not filename.endswith('.kurt'):
@@ -1798,7 +1817,7 @@ def load_file(filename, kb, markdown=False, path=theory_path, mainstream=False):
 ## commandline interface ##
 ###########################
 
-def prompt(level, line, continued=False):
+def prompt(level: int, line: int, continued: bool=False) -> str:
     s = '> ' * level
     if continued:
         s += f'...[{line}] '                        # line continuation
@@ -1806,7 +1825,7 @@ def prompt(level, line, continued=False):
         s += f'!!![{line}] '                        # the bangs mean "show!"
     return s
 
-def read_eval_loop(input_stream, kb, markdown=False, mainstream=False):
+def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False):
     success   = True
     is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
     line       = 1
@@ -1859,21 +1878,14 @@ def read_eval_loop(input_stream, kb, markdown=False, mainstream=False):
             break
     return kb, success
 
-def find_file(fname, path):
+def find_file(fname: str, path: list[str]) -> str | None:
     for p in path:
         cand = os.path.join(p, fname)
         if os.path.isfile(cand):
             return cand
     return None
 
-def find_file(fname, path):
-    for p in path:
-        cand = os.path.join(p, fname)
-        if os.path.isfile(cand):
-            return cand
-    return None
-
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=f'a simple proof assistant ({made_by})')
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
     parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading `filename`')
@@ -1883,7 +1895,7 @@ def parse_args():
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
     return parser.parse_args()
 
-def main():
+def main() -> None:
     args = parse_args()
     print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
 
@@ -1912,7 +1924,7 @@ def main():
     theory_filename = find_file(default_theory, theory_path)
     if theory_filename is not None:
         try:
-            kb, _ = load_file(theory_filename, kb, mainstream=False)
+            kb: KnowledgeBase = load_file(theory_filename, kb, mainstream=False)[0]
         except KurtException as e:
             print(e.msg, file=sys.stderr)
 
@@ -1930,7 +1942,7 @@ def main():
 
     # read-eval-print loop
     if args.interactive:
-        kb, _ = read_eval_loop(sys.stdin, kb, mainstream=True)
+        kb : KnowledgeBase = read_eval_loop(sys.stdin, kb, mainstream=True)[0]
     exit(0)
 
 if __name__ == "__main__":
