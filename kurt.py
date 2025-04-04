@@ -142,7 +142,7 @@ keywords: dict[str, str] = {
     'alias':       'add some aliases for a symbol',
 
     'theory':      'print all formulas',
-    'equations':   'print all equations',
+    'find':        'print all formulas that match a pattern',
     'implications':'print all implications',
 
     # formulas
@@ -639,9 +639,6 @@ def is_op_expr(e: Expr, op: str) -> bool:
         case _:
             return False
 
-def is_equation(expr: Expr) -> bool:
-    return is_op_expr(expr, EQ_SYMBOL)
-
 def is_implication(expr: Expr) -> bool:
     return is_op_expr(expr, IMPL_SYMBOL)
 
@@ -968,16 +965,19 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 raise KurtException(f'ParseError: "{keyword}" does not take arguments', keyword_token.column)
     elif keyword == 'load':
         current_path: str = os.path.split(filename)[0]    # search first at the current path
+        local_path = theory_path
+        if len(current_path) > 0:
+            local_path = [current_path] + local_path
         match args:
             case [Token(label='STRING', value=fname)]:
                 assert isinstance(fname, str)
-                kb = load_file(fname, kb, path=[current_path]+theory_path, mainstream=False)[0]
+                kb = load_file(fname, kb, path=local_path, mainstream=False)[0]
             case _:
                 raise KurtException(f'ParseError: "{keyword}" takes a string for the filename', keyword_token.column)
     elif keyword == 'parse':
         match args:
             case []:
-                msg: str = ''
+                pass
             case [*expr_list]:
                 tokenlist: Expr = expr_list + [end_token]           # add end token for parse_expression
                 ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))               # turn list into peekable generator
@@ -986,9 +986,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 msg = f'{expr_str(expr, kb)}'
                 if comment is not None:
                     msg += f' "{comment}"'
+                print(msg, file=sys.stdout)
             case _:
                 assert f'BUG: `args` must be a list'
-        print(msg, file=sys.stdout)
     elif keyword == 'format':
         match args:
             case []:
@@ -1155,13 +1155,23 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    elif keyword == "equations":
+    elif keyword == 'find':
         match args:
             case []:
-                print(kb.theory_str(op=EQ_SYMBOL), file=sys.stdout)
+                pass
+            case [*expr_list]:
+                tokenlist: Expr = expr_list + [end_token]           # add end token for parse_expression
+                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))               # turn list into peekable generator
+                expr: Expr
+                expr = parse_expression(ts, kb, 0)            # parse the tokenlist
+                expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
+                for candidate in kb.all_theory():
+                    # iterate over all possible substitutions that create a match
+                    for subst_cand in match_exprs([(candidate.expr, expr)], {}, kb):
+                        subst_str = 'with ' + ', '.join([f'{var}={expr_str(subst_cand[var], kb)}' for var in subst_cand])
+                        log(expr_str(candidate.expr, kb), subst_str, kb)
             case _:
-                msg = create_usage(keyword, [[]])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+                assert f'BUG: wrong args for `find`'
     elif keyword == "implications":
         match args:
             case []:

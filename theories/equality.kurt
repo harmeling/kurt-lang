@@ -4,8 +4,5 @@
 use $a = $a                                               "equal-intro"
 use (sub $x $a $A) and $a = $b  implies  (sub $x $b $A)   "equal-elim"
 
-;;use $x = $x                                        "equal-intro"
-;;use (A // $x=$a) and $a=$b  implies  (A // $x=$b)  "equal-elim"
-
 ;; definitions
-;;use ($A // $x = $t) = sub $x ($t) ($A)             ; new notation for substitution based on equations
+;;def ($A // $x = $t) = sub $x ($t) ($A)             ; new notation for substitutions based on equations
