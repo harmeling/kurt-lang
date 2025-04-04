@@ -59,6 +59,7 @@ def debug(*s) -> None:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO `find (sub $x $b $A)` should match many things
 # TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
@@ -1304,6 +1305,9 @@ def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
 def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
     # this is for now hardcoded, should be part of the syntax definitions
     match expr:
+        # substitutions can be anything
+        case [Token(label='SYMBOL', value=SUB_SYMBOL), *_]:
+            pass
         # binding operators such as `forall`, `exists`, `lim`, `int`
         case [Token(label='SYMBOL', value=op), *tail] if isinstance(op, str) and kb.is_bindop(op):
             if len(tail) < 2:
