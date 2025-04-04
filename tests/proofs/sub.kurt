@@ -1,0 +1,7 @@
+arity f 1, g 2, h 2, a 3
+bool f, g, h, a
+use f 17
+use g 17 17
+use h 17 42
+use a 17 17 17
+find sub $x $a $A

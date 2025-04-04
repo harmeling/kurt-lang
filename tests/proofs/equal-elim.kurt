@@ -3,19 +3,6 @@ load "equality"
 bool f 0
 use x = 17
 use f(x)
+theory
 f(17)
-
-; $a = x
-; $b = 17
-; $A = f($a)
-;
-; search strategy
-; substitutions are only allowed on the RHS of implications
-; how to match against substitutions
-; 1. iterate over all equations (backwards through the theory)
-; 2. is the LHS or the RHS a subterm?
-; 3. if yes replace the RHS (or LHS respectively) and search for the formula
-; this should work for equation!
-
-
 ;;; Proof checked.

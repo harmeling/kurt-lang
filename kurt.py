@@ -561,6 +561,8 @@ space_rbp:   int = 22                              # right binding power: strong
 
 # create initial knowledge base
 initial_kb: KnowledgeBase = KnowledgeBase()
+initial_kb.add_arity(SUB_SYMBOL, 3)
+initial_kb.add_bindop(SUB_SYMBOL)
 initial_kb.add_infix(space_op, space_lbp, space_rbp)   # the space operator is for expression like `f x`
 initial_kb.add_infix("//", 3, 3)                       # substitution of variables
 initial_kb.add_infix(',', 5, 5)                        # comma with binding power 1
@@ -1535,26 +1537,27 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, 
 
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
-def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None) -> Iterator[tuple[Expr|None, Expr]]:
+def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
     # generate all `($a, $A)` such that `expr = sub $x $a $A`
-    if expr_a is None:
-        # we still have full flexibility choosing `expr_a`
-        yield None, expr            # $a=None, $A = expr
-        yield expr, token_x         # $a=expr, $A = $x
+    #debug(expr, token_x, expr_a)
+    if isinstance(expr, list) and len(expr) == 0:
+        yield expr_a, []      # yield once and finish
     else:
-        # `expr_a` has been chosen elsewhere, so we can not modify it
-        yield expr_a, expr          # `expr` must not contain `token_x`
-        if equal_expr(expr, expr_a):
-            yield expr, token_x     # luckily, `expr` equals `expr_a`
-    # if `expr` is a list, recursively build up the expression
-    if isinstance(expr, list):
-        if len(expr) > 0:
+        if expr_a is None or equal_expr(expr, expr_a):
+            if not partial:
+                yield expr, token_x         # $a=expr, $A = $x
+        if isinstance(expr, list):
             for (cand_a, cand_A_0) in generate_all_combinations(expr[0], token_x, expr_a):
-                for (cand_cand_a, cand_A_tail) in generate_all_combinations(expr[1:], token_x, cand_a):
-                    assert isinstance(cand_A_tail, list)
-                    yield cand_cand_a, [cand_A_0, *cand_A_tail]
+                debug(1556, expr[0], cand_a, cand_A_0)
+                for (cand_cand_a, cand_A_tail) in generate_all_combinations(expr[1:], token_x, cand_a, partial=True):
+                    debug(1558, cand_cand_a, cand_A_tail)
+                    if isinstance(cand_A_tail, list):
+                        yield cand_cand_a, [cand_A_0, *cand_A_tail]
+                    else:
+                        yield cand_cand_a, [cand_A_0, cand_A_tail]
         else:
-            yield expr_a, []
+            yield expr_a, expr            # $a=expr_a, $A = expr
+
 
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
     match pattern:
@@ -1566,6 +1569,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             token_x = pattern[1]
             assert isinstance(token_x, Token)
             for (expr_a, expr_A) in generate_all_combinations(expr, token_x):
+                #debug(1574, expr_a, expr_A)
                 subst_local = subst.copy()
                 if expr_a is not None:
                     subst_local[var_a] = expr_a                          # store the found substitutions for `$a`
@@ -1614,12 +1618,14 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
 def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
+    ##debug(exprs_patterns)
     match exprs_patterns:
 
         case []:
             yield subst     # we found a substitution
 
         case [(expr, pattern), *tail]:
+            ##debug(pattern)
             # matches `expr` to `pattern` and extends `subst`
             match pattern:
 
@@ -1641,6 +1647,7 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
 
                 # binding operator matching (rename bound variable)
                 case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
+                    ##debug('foo', pattern)
                     if op_p == SUB_SYMBOL:
                         # optionally: a pattern with a `sub` is special and possibly matches many expressions
                         yield from match_against_sub(expr, pattern, tail, subst, kb)
@@ -1715,7 +1722,6 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
     if is_implication(implication_expr):      # we have an implication with a premise
         assert isinstance(implication_expr, list)
         conclusion: Expr = implication_expr[2]
-        debug('foo', implication_expr[1])
         match implication_expr[1]:
 
             # e.g., (A and B) implies C, then `premises = [A, B]`
@@ -1752,7 +1758,7 @@ def impl_elim(expr: Expr, implication: Formula, kb: KnowledgeBase, filename: str
         msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}'
         msg += f'substitution used:   {subst}'
         print(msg, file=sys.stdout)
-    restating = 'restating ' if len(premises) == 0 else ''
+    restating: str = 'restating ' if len(premises) == 0 else ''
     if mainstream and implication.filename==filename:
         reason = f'by {restating}{implication.line}'
     else:

@@ -1,6 +1,0 @@
-arity "f" 2
-infix "+" 12 12
-format sexpr
-parse f 1 f 2 3
-parse f 1 2 3
-foo

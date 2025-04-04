@@ -1,9 +1,6 @@
 ; simple modus ponens proof
 load "propositional"
-const "A"
-const "B"
-bool "A"
-bool "B"
+bool A, B
 use A implies B
 use A
 B
