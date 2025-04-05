@@ -1661,10 +1661,10 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                                 
                 # list matching TODO when should subst be applied?
                 case [*_] if isinstance(expr, list) and len(pattern)==len(expr):
-                    pattern_tmp = copy.deepcopy(pattern)
-                    pattern_tmp = [apply_subst(p, subst, kb) for p in pattern_tmp]
-                    yield from match_exprs(list(zip(expr, pattern_tmp)) + tail, subst, kb)
-
+                    #pattern_tmp = copy.deepcopy(pattern)
+                    #pattern_tmp = [apply_subst(p, subst, kb) for p in pattern_tmp]
+                    #yield from match_exprs(list(zip(expr, pattern_tmp)) + tail, subst, kb)
+                    yield from match_exprs(list(zip(expr, pattern)) + tail, subst, kb)
         case _:
             # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
             assert False, f'BUG: `match_exprs` did not cover all cases for {exprs_patterns}'
