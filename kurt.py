@@ -1593,10 +1593,10 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 del subst_local[var_x]                               # remove the current meaning of `$x`
             # we can freely choose what to put for `$x`, however, we can only choose once
             for subst_cand in match_exprs([(expr, expr_A)], subst_local, kb):
-                if var_x in subst_local:                             # did we assign anything to `$x`?
-                    assert var_a not in subst_local, f'BUG: is this a bug?  `$a` should not appear in `$A` after renaming'
-                    subst_local[var_a] = subst_local[var_x]          # reassign the result to `$a`
-                    del subst_local[var_x]                           # remove the assignment to the locally bound variable `$x`
+                if var_x in subst_cand:                             # did we assign anything to `$x`?
+                    assert var_a not in subst_cand, f'BUG: is this a bug?  `$a` should not appear in `$A` after renaming'
+                    subst_cand[var_a] = subst_cand[var_x]          # reassign the result to `$a`
+                    del subst_cand[var_x]                           # remove the assignment to the locally bound variable `$x`
                 yield from match_exprs(tail, subst_cand, kb)
 
         # `sub $x expr_a expr_A`
