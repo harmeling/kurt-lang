@@ -675,7 +675,6 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
       - to generate alternatives, call `find_next_along_the_tree` which yields twice if one is found (once with and once without)
 
-
 ## Alternatives (2025-03-26)
 
 - Let's consider a simple axiom:
@@ -690,7 +689,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - The semantics of `($A // $$x=$b)` is "any formula with some location replaced by `$b`".
 
-## Again let's understand the formulas:
+## Again let's understand the formulas
 
 - for `$A // $x=$a` there are two requirements
 
@@ -725,7 +724,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
       use forall $x ($A // $x)  implies  $A                                "forall-elim"
 
-   note: all occurrences of the chosen subterm of `$A` must be replaced, otherwise, we could choose to replace `$y` in `$A` we get 
+   note: all occurrences of the chosen subterm of `$A` must be replaced, otherwise, we could choose to replace `$y` in `$A` we get
 
       use forall $x $x=$x    implies $x=$y   ; wrong
 
@@ -786,7 +785,7 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
 
 - now we only have a single requirements for `$A // $x=$a`:
 
-    1. the expression assigned to `$a` does not contain any bound variables of `$A`, 
+    1. the expression assigned to `$a` does not contain any bound variables of `$A`,
        more precisely:
        - only free occurrences of `$x` in `$A` are replaced
        - for each location of `$x` there is a certain set of bound variables in `$A`, that must not appear in `$a`
@@ -839,10 +838,10 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
        sub $x $a (f $x)
        $a = 17
 
-- step 3: match theory against the premises (NOT the other way around)
+- step 3: match theory against the premises (NOT the other way around) and extend the substitution
   - let's match the theory against the premises
   - match `x = 17` against `$a = 17` to extend `subst` with `$a=x`
-  - apply `subst` to obtain
+  - apply `subst` to the remaining premise to obtain
 
        sub $x x (f $x)
 
