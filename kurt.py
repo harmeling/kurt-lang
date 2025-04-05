@@ -799,7 +799,7 @@ def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                  
         assert False, f'BUG: expression must be list or Token, got {expr}'
 
 def flatten_op(flat_op: str, expr: Expr) -> Expr:                                # flatten nested 'op'-expressions
-    # e.g. [KurtSymbol.COMMA, 17, [KurtSymbol.COMMA, 42, 100]] --> [KurtSymbol.COMMA, 17, 42, 100]
+    # e.g. [',', 17, [',', 42, 100]] --> [',', 17, 42, 100]
     match expr:
         case [Token(label='SYMBOL', value=op), *tail] if op==flat_op:
             e: Expr = [expr[0]]
@@ -837,8 +837,8 @@ def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
             assert False, f'BUG: `group_by_arity` must be called with a list of expressions'
 
 def process_arity(expr: Expr, kb: KnowledgeBase) -> Expr:
-    # we assume that `flatten_op` for `op=KurtSymbol.SPACE` has been called just before
-    # calls `group_by_arity` for each KurtSymbol.SPACE operator
+    # we assume that `flatten_op` for `op=' ' has been called just before
+    # calls `group_by_arity` for each ' ' operator
     match expr:
         case Token():
             return expr
@@ -1271,7 +1271,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
             log(f.formula_str(kb), reason, kb)
         return kb
     else:
-        # iterate over the expr to allow KurtSymbol.COMMA in keyword expressions
+        # iterate over the expr to allow ',' in keyword expressions
         args = []
         if not isinstance(expr, list):
             expr = [expr]
@@ -1731,6 +1731,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
             # e.g., A implies C, then `premises = [A]`
             case _:
                 premises: list[Expr] = [formula_expr[1]]          # wrap a single premise in a list
+
     else:   # "implication" with an empty premise (think of `true implies $A`)
         conclusion = formula_expr
         premises   = []
