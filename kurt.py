@@ -1570,7 +1570,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 if expr_a is not None:
                     subst_local[var_a] = expr_a                          # store the found substitutions for `$a`
                 subst_local[var_A] = expr_A                          # store the found substitutions for `$A`
-                yield subst_local
+                yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x expr_a $A`
         case [Token(label='SYMBOL', value=KurtSymbol.SUB), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
