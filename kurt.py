@@ -41,6 +41,8 @@ class KurtSymbol(str, Enum):
     TRUE  = 'true'        # true
     COMMA = ','           # listing stuff
     SPACE = ' '           # function application
+    def __str__(self):
+        return self.value
 
 # config: the default theory and default path
 default_theory: str    = 'theory.kurt'                                                   # default theory
@@ -308,15 +310,15 @@ class KnowledgeBase:
     def syntax_str(self) -> str:
         s: str = self.parent.syntax_str() if self.parent is not None else ''
         s += f'; syntax: declarations on level {self.level}\n'
-        s += self.dict_or_set_str(self.prefix,   'prefix')
-        s += self.dict_or_set_str(self.infix,    'infix')
-        s += self.dict_or_set_str(self.postfix,  'postfix')
-        s += self.dict_or_set_str(self.arity,    'arity')
-        s += self.dict_or_set_str(self.bindop,   'bindop')
-        s += self.dict_or_set_str(self.brackets, 'brackets')
-        s += self.dict_or_set_str(self.flat,     'flat')
-        s += self.dict_or_set_str(self.sym,      'sym')
-        s += self.dict_or_set_str(self.bool,     'bool')
+        s += self.dict_or_set_str(self.prefix,   'prefix') + '\n'
+        s += self.dict_or_set_str(self.infix,    'infix') + '\n'
+        s += self.dict_or_set_str(self.postfix,  'postfix') + '\n'
+        s += self.dict_or_set_str(self.arity,    'arity') + '\n'
+        s += self.dict_or_set_str(self.bindop,   'bindop') + '\n'
+        s += self.dict_or_set_str(self.brackets, 'brackets') + '\n'
+        s += self.dict_or_set_str(self.flat,     'flat') + '\n'
+        s += self.dict_or_set_str(self.sym,      'sym') + '\n'
+        s += self.dict_or_set_str(self.bool,     'bool') + '\n'
         return s
 
     def is_infix(self, s: str) -> bool:
