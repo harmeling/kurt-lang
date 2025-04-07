@@ -34,15 +34,12 @@ proof_indent   =  4       # how much to indent for a `proof` block
 reason_indent  = 60       # how much the reason is indented
 
 # config: the basic symbols of the kurt language as constants
-class KurtSymbol(str, Enum):
-    AND   = 'and'         # conjunction (used for premises)
-    IMPL  = 'implies'     # implication 
-    SUB   = 'sub'         # substitution
-    TRUE  = 'true'        # true
-    COMMA = ','           # listing stuff
-    SPACE = ' '           # function application
-    def __str__(self):
-        return self.value
+AND_SYMBOL   = 'and'         # conjunction (used for premises)
+IMPL_SYMBOL  = 'implies'     # implication 
+SUB_SYMBOL   = 'sub'         # substitution
+TRUE_SYMBOL  = 'true'        # true
+COMMA_SYMBOL = ','           # listing stuff
+SPACE_SYMBOL = ' '           # function application
 
 # config: the default theory and default path
 default_theory: str    = 'theory.kurt'                                                   # default theory
@@ -565,18 +562,18 @@ space_rbp:    int = 22         # right binding power: stronger than '=' (defined
 
 # create initial knowledge base
 initial_kb: KnowledgeBase = KnowledgeBase()
-initial_kb.add_infix (KurtSymbol.COMMA, 5, 5)                  # comma is infix with low binding power
-initial_kb.add_flat  (KurtSymbol.COMMA)                        # comma op is flat
-initial_kb.add_infix (KurtSymbol.SPACE, space_lbp, space_rbp)  # space op is for fn like `f x`
-initial_kb.add_bool  (KurtSymbol.TRUE, [0])                    # true is bool
-initial_kb.add_arity (KurtSymbol.SUB, 3)                       # sub takes three args
-initial_kb.add_bindop(KurtSymbol.SUB)                          # sub is a binding operator
-initial_kb.add_infix (KurtSymbol.IMPL, 13, 12)                 # implies infix operator
-initial_kb.add_bool  (KurtSymbol.IMPL, [0, 1, 2])              # implies is bool with bool input
-initial_kb.add_infix (KurtSymbol.AND, 16, 16)                  # and infix operator
-initial_kb.add_bool  (KurtSymbol.AND, [0, 1, 2])               # and is bool with bool inputs
-initial_kb.add_flat  (KurtSymbol.AND)                          # and is flat
-initial_kb.add_brackets('(', ')')                               # round brackets for grouping
+initial_kb.add_infix (COMMA_SYMBOL, 5, 5)                  # comma is infix with low binding power
+initial_kb.add_flat  (COMMA_SYMBOL)                        # comma op is flat
+initial_kb.add_infix (SPACE_SYMBOL, space_lbp, space_rbp)  # space op is for fn like `f x`
+initial_kb.add_bool  (TRUE_SYMBOL, [0])                    # true is bool
+initial_kb.add_arity (SUB_SYMBOL, 3)                       # sub takes three args
+initial_kb.add_bindop(SUB_SYMBOL)                          # sub is a binding operator
+initial_kb.add_infix (IMPL_SYMBOL, 13, 12)                 # implies infix operator
+initial_kb.add_bool  (IMPL_SYMBOL, [0, 1, 2])              # implies is bool with bool input
+initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and infix operator
+initial_kb.add_bool  (AND_SYMBOL, [0, 1, 2])               # and is bool with bool inputs
+initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
+initial_kb.add_brackets('(', ')')                          # round brackets for grouping
 
 ################
 ## kurt lexer ##
@@ -644,7 +641,7 @@ def is_op_expr(e: Expr, op: str) -> bool:
             return False
 
 def is_implication(expr: Expr) -> bool:
-    return is_op_expr(expr, KurtSymbol.IMPL)
+    return is_op_expr(expr, IMPL_SYMBOL)
 
 def equal_expr(t1: Expr, t2: Expr) -> bool:                               # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
@@ -690,8 +687,8 @@ def simplify(expr: Expr, kb: KnowledgeBase) -> Expr:
     return expr
 
 # special tokens that are made for the parser and sometimes artificially generated
-space_token: Token = Token('SYMBOL', KurtSymbol.SPACE)  # for expressions like 'f x'
-end_token:   Token = Token('END', '')                    # for the end of a string
+space_token: Token = Token('SYMBOL', SPACE_SYMBOL)  # for expressions like 'f x'
+end_token:   Token = Token('END', '')               # for the end of a string
 
 # scanner based on regular expressions (let's support unicode!)
 # note that the ordering of the expressions here is important
@@ -844,7 +841,7 @@ def process_arity(expr: Expr, kb: KnowledgeBase) -> Expr:
     match expr:
         case Token():
             return expr
-        case [Token(label='SYMBOL', value=KurtSymbol.SPACE), *tail]:
+        case [Token(label='SYMBOL', value=v), *tail] if v==SPACE_SYMBOL:
             expr, tail = group_by_arity(tail, kb)
             if len(tail) > 0:
                 expr = [expr] + tail         # extra arguments (might be there for keywords!)
@@ -894,7 +891,7 @@ def check_expr_comment(expr: Expr, kb) -> tuple[Expr, str|None]:            # ch
     return tail, comment
 
 def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str|None]:
-    expr = flatten_op(KurtSymbol.SPACE, expr)                   # flatten all space operators
+    expr = flatten_op(SPACE_SYMBOL, expr)                        # flatten all space operators
     expr = process_arity(expr, kb)                               # turns space operators into function calls according to arities
     expr = remove_round_brackets(expr)                           # remove round brackets for grouping
     expr, comment = check_expr_comment(expr, kb)     # check and split `expr` and `comment`
@@ -1179,7 +1176,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
     elif keyword == "implications":
         match args:
             case []:
-                print(kb.theory_str(op=KurtSymbol.IMPL), file=sys.stdout)
+                print(kb.theory_str(op=IMPL_SYMBOL), file=sys.stdout)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
@@ -1279,7 +1276,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
             expr = [expr]
         for e in expr:
             match e:
-                case Token(label='SYMBOL', value=KurtSymbol.COMMA):
+                case Token(label='SYMBOL', value=v) if v==COMMA_SYMBOL:
                     if len(args) == 0:
                         raise KurtException(f'ParseError: nothing to separate with a comma, comma can not be used with `use`, `assume`, `show`, etc.')
                     kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
@@ -1299,7 +1296,7 @@ def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
             return True                    # variables are potentially boolean
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and not kb.is_var(v):
             return 0 in kb.bool_sig(v)
-        case [Token(label='SYMBOL', value=KurtSymbol.SUB), *tail]:
+        case [Token(label='SYMBOL', value=v), *tail] if v==SUB_SYMBOL:
             return bool_expr(tail[2], kb)
         case [Token(label='SYMBOL', value=v), *_] if isinstance(v, str) and not kb.is_var(v):
             return 0 in kb.bool_sig(v)
@@ -1310,7 +1307,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
     match expr:
 
         # substitutions can be anything
-        case [Token(label='SYMBOL', value=KurtSymbol.SUB), *_]:
+        case [Token(label='SYMBOL', value=v), *_] if v==SUB_SYMBOL:
             pass
 
         # binding operators such as `forall`, `exists`, `lim`, `int`
@@ -1410,8 +1407,8 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
         if len(premise) == 1:              # premise is one formula
             premise = premise[0]
         else:                              # premise is a conjunction
-            premise = simplify([Token(label='SYMBOL', value=KurtSymbol.AND)] + premise, kb)   # bring to normalform
-        result = [Token(label='SYMBOL', value=KurtSymbol.IMPL), premise, conclusion]       # construct implication
+            premise = simplify([Token(label='SYMBOL', value=AND_SYMBOL)] + premise, kb)   # bring to normalform
+        result = [Token(label='SYMBOL', value=IMPL_SYMBOL), premise, conclusion]       # construct implication
 
     # step 3: compare against the planned expression `expr`
     if equal_expr(expr, result):
@@ -1559,9 +1556,10 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None
             yield expr_a, expr            # $a=expr_a, $A = expr
 
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
+    assert isinstance(pattern, list) and len(pattern) == 4 and isinstance(pattern[0], Token) and pattern[0].value == SUB_SYMBOL
     match pattern:
         # `sub $x $a $A`
-        case [Token(label='SYMBOL', value=KurtSymbol.SUB), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
+        case [_, Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
             if isinstance(var_x, str) and isinstance(var_a, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_a) and kb.is_var(var_A):
 
             # find all combinations of `$a` and `$A` that match to `expr`
@@ -1575,7 +1573,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x expr_a $A`
-        case [Token(label='SYMBOL', value=KurtSymbol.SUB), Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
+        case [_, Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
             if isinstance(var_x, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_A):
 
             # find all variations of `$A` that match to `expr`
@@ -1587,7 +1585,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x $a expr_A`
-        case [Token(label='SYMBOL', value=KurtSymbol.SUB), Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
+        case [_, Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
             if isinstance(var_x, str) and isinstance(var_a, str) and kb.is_var(var_x) and kb.is_var(var_a):
             # match `expr` against `expr_A` and allow to replace `$x` in `expr_A` with anything
             subst_local = subst.copy()     # shallow copy
@@ -1602,7 +1600,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
                 yield from match_exprs(tail, subst_cand, kb)
 
         # `sub $x expr_a expr_A`
-        case [Token(label='SYMBOL', value=KurtSymbol.SUB), Token(label='SYMBOL', value=var_x), expr_a, expr_A] if isinstance(var_x, str) and kb.is_var(var_x):
+        case [_, Token(label='SYMBOL', value=var_x), expr_a, expr_A] if isinstance(var_x, str) and kb.is_var(var_x):
             subst_local = subst.copy()     # shallow copy
             subst_local[var_x] = expr_a
             yield from match_exprs([(expr, expr_A), *tail], subst_local, kb)
@@ -1646,7 +1644,7 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                 # binding operator matching (rename bound variable)
                 case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
                     ##debug('foo', pattern)
-                    if op_p == KurtSymbol.SUB:
+                    if op_p == SUB_SYMBOL:
                         # optionally: a pattern with a `sub` is special and possibly matches many expressions
                         yield from match_against_sub(expr, pattern, tail, subst, kb)
                     # in any case: additionally binding ops match against their matching binding ops
@@ -1727,7 +1725,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         conclusion: Expr = formula_expr[2]
         match formula_expr[1]:
             # e.g., (A and B) implies C, then `premises = [A, B]`
-            case [Token(label='SYMBOL', value=KurtSymbol.AND), *premises]:
+            case [Token(label='SYMBOL', value=v), *premises] if v == AND_SYMBOL:
                 pass                          # assigned already `premises` in the case matching
 
             # e.g., A implies C, then `premises = [A]`
@@ -1775,7 +1773,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
 def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
 
     # first handle "top-intro"
-    if isinstance(e, Token) and e.label=='SYMBOL' and e.value==KurtSymbol.TRUE:
+    if isinstance(e, Token) and e.label=='SYMBOL' and e.value==TRUE_SYMBOL:
         return 'by top-intro'
 
     # iterate over the previously proven formulas that form the current theory and try "impl-elim"
