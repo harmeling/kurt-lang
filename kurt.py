@@ -1539,7 +1539,7 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, 
 
     assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
 
-def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None=None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
+def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
     # generate all `($a, $A)` such that `expr = sub $x $a $A`
     if isinstance(expr, list) and len(expr) == 0:
         yield expr_a, []      # yield once and finish
@@ -1561,49 +1561,68 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         # `sub $x $a $A`
         case [_, Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), Token(label='SYMBOL', value=var_A)] \
             if isinstance(var_x, str) and isinstance(var_a, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_a) and kb.is_var(var_A):
-
             # find all combinations of `$a` and `$A` that match to `expr`
             token_x = pattern[1]
             assert isinstance(token_x, Token)
-            for (expr_a, expr_A) in generate_all_combinations(expr, token_x):
-                subst_local = subst.copy()
+            for (expr_a, expr_A) in generate_all_combinations(expr, token_x, expr_a=None):
+                subst_with_x = subst.copy()         # shallow copy
                 if expr_a is not None:
-                    subst_local[var_a] = expr_a                          # store the found substitutions for `$a`
-                subst_local[var_A] = expr_A                          # store the found substitutions for `$A`
-                yield from match_exprs(tail, subst_local, kb)
+                    subst_with_x[var_x] = expr_a
+                for subst_local in match_exprs([(expr, expr_A)], subst_with_x, kb):
+                    subst_local[var_A] = expr_A               # store the found substitutions for `$A`
+                    if expr_a is not None:
+                        subst_local[var_a] = expr_a           # store the found substitutions for `$a`
+                    if var_x in subst:
+                        subst_local[var_x] = subst[var_x]     # set the value for `$x` back to its old value
+                    else:
+                        del subst_local[var_x]                # otherwise remove it
+                    yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x expr_a $A`
         case [_, Token(label='SYMBOL', value=var_x), expr_a, Token(label='SYMBOL', value=var_A)] \
             if isinstance(var_x, str) and isinstance(var_A, str) and kb.is_var(var_x) and kb.is_var(var_A):
-
             # find all variations of `$A` that match to `expr`
             token_x = pattern[1]
             assert isinstance(token_x, Token)
-            for (expr_a, expr_A) in generate_all_combinations(expr, token_x, expr_a):
-                subst_local = subst.copy()                               # shallow copy
-                subst_local[var_A] = expr_A                              # store the constructed `$A`
-                yield from match_exprs(tail, subst_local, kb)
+            for (_, expr_A) in generate_all_combinations(expr, token_x, expr_a):
+                subst_with_x = subst.copy()        # shallow copy
+                subst_with_x[var_x] = expr_a
+                for subst_local in match_exprs([(expr, expr_A)], subst_with_x, kb):
+                    subst_local[var_A] = expr_A                     # store the constructed `$A`
+                    if var_x in subst:
+                        subst_local[var_x] = subst[var_x]           # set the value for `$x` back to its old value
+                    else:
+                        del subst_local[var_x]                      # otherwise remove it
+                    yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x $a expr_A`
         case [_, Token(label='SYMBOL', value=var_x), Token(label='SYMBOL', value=var_a), expr_A] \
             if isinstance(var_x, str) and isinstance(var_a, str) and kb.is_var(var_x) and kb.is_var(var_a):
             # match `expr` against `expr_A` and allow to replace `$x` in `expr_A` with anything
-            subst_local = subst.copy()     # shallow copy
-            if var_x in subst_local:
-                del subst_local[var_x]                               # remove the current meaning of `$x`
-            # we can freely choose what to put for `$x`, however, we can only choose once
-            for subst_cand in match_exprs([(expr, expr_A)], subst_local, kb):
-                if var_x in subst_cand:                             # did we assign anything to `$x`?
-                    assert var_a not in subst_cand, f'BUG: is this a bug?  `$a` should not appear in `$A` after renaming'
-                    subst_cand[var_a] = subst_cand[var_x]          # reassign the result to `$a`
-                    del subst_cand[var_x]                           # remove the assignment to the locally bound variable `$x`
-                yield from match_exprs(tail, subst_cand, kb)
+            subst_without_x = subst.copy()         # shallow copy for a `subst` without `$x`
+            if var_x in subst_without_x:
+                del subst_without_x[var_x]                          # remove the current value of `$x`
+            # we can freely choose what to put for `$x`
+            for subst_local in match_exprs([(expr, expr_A)], subst_without_x, kb):
+                if var_x in subst_local:                            # did we assign anything to `$x`?
+                    assert var_a not in subst_local, f'BUG: is this a bug?  `$a` should not appear in `$A` after renaming'
+                    subst_local[var_a] = subst_local[var_x]         # reassign the result to `$a` to the local value of `$x`
+                if var_x in subst:
+                    subst_local[var_x] = subst[var_x]           # set the value for `$x` back to its old value
+                else:
+                    del subst_local[var_x]                      # otherwise remove it
+                yield from match_exprs(tail, subst_local, kb)
 
         # `sub $x expr_a expr_A`
         case [_, Token(label='SYMBOL', value=var_x), expr_a, expr_A] if isinstance(var_x, str) and kb.is_var(var_x):
-            subst_local = subst.copy()     # shallow copy
-            subst_local[var_x] = expr_a
-            yield from match_exprs([(expr, expr_A), *tail], subst_local, kb)
+            subst_w_x = subst.copy()               # shallow copy for a `subst` with `$x`
+            subst_w_x[var_x] = expr_a
+            for subst_local in match_exprs([(expr, expr_A)], subst_w_x, kb):
+                if var_x in subst:
+                    subst_local[var_x] = subst[var_x]               # set the value for `$x` back to its old value
+                else:
+                    del subst_local[var_x]                          # remove it
+                yield from match_exprs(tail, subst_local, kb)
 
         # else case
         case _:
@@ -1651,20 +1670,17 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                     match expr:
                         case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
                             if op_p==op_e and len(args_p)==len(args_e):
+                                subst_local = copy.deepcopy(subst)
                                 if v_p != v_e:
-                                    # rename the bound variable
-                                    args_p_local = copy.deepcopy(args_p)
-                                    v_e_expr = expr[1]
                                     assert isinstance(v_p, str)
-                                    args_p_local = [apply_subst(arg, {v_p:v_e_expr}, kb) for arg in args_p_local]
-                                yield from match_exprs(list(zip(args_e, args_p_local)) + tail, subst, kb)
+                                    assert v_p not in subst_local    # due to renaming this should be true
+                                    subst_local[v_p] = expr[1]                         # rename the bound variable
+                                yield from match_exprs(list(zip(args_e, args_p)) + tail, subst_local, kb)
                                 
                 # list matching TODO when should subst be applied?
                 case [*_] if isinstance(expr, list) and len(pattern)==len(expr):
-                    #pattern_tmp = copy.deepcopy(pattern)
-                    #pattern_tmp = [apply_subst(p, subst, kb) for p in pattern_tmp]
-                    #yield from match_exprs(list(zip(expr, pattern_tmp)) + tail, subst, kb)
                     yield from match_exprs(list(zip(expr, pattern)) + tail, subst, kb)
+
         case _:
             # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
             assert False, f'BUG: `match_exprs` did not cover all cases for {exprs_patterns}'
@@ -1689,25 +1705,23 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subs
             debug('expr_local', expr_local)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
-                # rename free and bound variables of `candidate` to avoid clashes with `expr_local`
-                candidate_expr = rename_all_vars(copy.deepcopy(candidate.expr), {}, kb)[0]
                 # iterate over all possible substitutions that create a match
-                for subst_cand in match_exprs([(candidate_expr, expr_local)], subst, kb):
-                    debug('inner', candidate_expr, expr_local)
+                for subst_cand in match_exprs([(candidate.expr, expr_local)], subst, kb):
+                    debug('inner', candidate.expr, expr_local)
                     # try to match the rest of the expressions (the `tail`)
                     # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
-                    subst_cand: Subst | None = match_all_theory(tail, subst_cand, kb)
-                    if subst_cand is not None:
-                        return subst_cand    # match was found!  BINGO!
+                    subst_cand_cand: Subst | None = match_all_theory(tail, subst_cand, kb)
+                    if subst_cand_cand is not None:
+                        return subst_cand_cand    # match was found!  BINGO!
             return None        # could not find a match among the candidate `patterns`
 
     # we calling `match_all_theory` wrongly, bug!
     assert False, f'BUG: `match_all_theory` did not cover all cases for {exprs}'
 
 # what is happening:
-# 0. deep copy `implication` and rename all its variables
-# 1. split `implication` into `conclusion` and `premises`
-# 2. match `expr` against `conclusion` of a theory implication
+# 0. deep copy `proven_formula` and rename all its variables
+# 1. split `proven_formula` into `conclusion` and `premises`
+# 2. match `expr` against `conclusion`
 # 3. match theory against the `premises` (not the other way around)
 def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: str, mainstream: bool) -> str | None:
 
@@ -1716,7 +1730,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
 
     # deep copy and rename all variables
     # the renaming must happen before we cut the `implication` into pieces
-    formula = copy.deepcopy(proven_formula)
+    formula: Formula   = copy.deepcopy(proven_formula)
     formula_expr: Expr = rename_all_vars(formula.expr, {}, kb)[0]
 
     # assign `conclusion` and `premises`
@@ -1772,11 +1786,11 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
 
 def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
 
-    # first handle "top-intro"
+    # "top-intro"
     if isinstance(e, Token) and e.label=='SYMBOL' and e.value==TRUE_SYMBOL:
         return 'by top-intro'
 
-    # iterate over the previously proven formulas that form the current theory and try "impl-elim"
+    # "impl-elim": iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
         reason: str | None = impl_elim(e, proven_formula, kb, filename, mainstream)
         if reason is not None: 
