@@ -1555,6 +1555,9 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, par
         else:
             yield expr_a, expr            # $a=expr_a, $A = expr
 
+def match_against_sub2(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
+    pass
+
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
     assert isinstance(pattern, list) and len(pattern) == 4 and isinstance(pattern[0], Token) and pattern[0].value == SUB_SYMBOL
     match pattern:
