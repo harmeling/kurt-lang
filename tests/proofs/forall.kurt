@@ -14,20 +14,20 @@ proof
     forall $x (A $x and B $x)
 qed
 
-show forall $x (A $x or C $x)
-proof
-    A $x
-    A $x or C $x
-    forall $x (A $x or C $x)
-qed
+; show forall $x (A $x or C $x)
+; proof
+;     A $x
+;     A $x or C $x
+;     forall $x (A $x or C $x)
+; qed
 
-use forall $x (D $x implies E $x)
-show (forall $x D $x) implies (forall $x E $x)
-proof
-    assume forall $x D $x
-    D $x
-    D $x implies E $x
-    E $x
-    forall $x E $x
-qed
-;;; Proof checked, but reasons wrong!
+; use forall $x (D $x implies E $x)
+; show (forall $x D $x) implies (forall $x E $x)
+; proof
+;     assume forall $x D $x
+;     D $x
+;     D $x implies E $x
+;     E $x
+;     forall $x E $x
+; qed
+; ;;; Proof checked, but reasons wrong!

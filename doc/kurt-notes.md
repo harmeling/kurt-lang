@@ -849,3 +849,44 @@ Source: <https://en.wikipedia.org/wiki/Unification_(computer_science)>
   - either find a theory formula with `sub` or transform it to `f x`
 
 - current problem:  `kurt -dv tests/proofs/forall.kurt`
+
+## 2025-04-10 sneaky cases
+
+Working on `tests/proofs/forall.kurt` we have:
+
+    use (forall $x $@var1) implies (sub $x $@var2 $@var1) "forall-elim"
+    use forall $x B $x
+    A $x
+
+Now we can prove `A $x` just by the following substitution:
+
+    {$@var1: $x, $@var2: A $x, $x: B $x}
+
+which turns the formula above into:
+
+    (forall $x (B $x)) implies (sub $x (A $x) $x)
+
+which is by resolving the substitution:
+
+    (forall $x (B $x)) implies (A $x)
+
+However, we made some illegal substitutions!
+
+Ok, the problem is already here:
+
+     use f $z
+     use f $x
+     find sub $x $a $A
+
+How should we match `f $z` against `sub $x $a $A`:
+
+     { $A = f $z }
+     { $A = $x, $a = f $z }
+     { $A = f $x, $a = $z }
+     { $A = $x $z, $a = f }
+
+How should we match `f $x` against `sub $x $a $A`:
+
+     { $A = f $x, $a = $x }
+     { $A = $x, $a = f $x }
+

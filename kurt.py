@@ -62,7 +62,8 @@ def debug(*s) -> None:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# TODO try `kurt tests/proofs/forall.kurt`, the reasons are all wrong
+# TODO write test code for `generate_all_combinations`
+# TODO put lots of negative proof examples in to `tests/proofs` as well
 # TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
@@ -1654,10 +1655,12 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                         case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
                             if op_p==op_e and len(args_p)==len(args_e):
                                 subst_local = subst.copy()
-                                if v_p != v_e:
-                                    assert isinstance(v_p, str)
-                                    assert v_p not in subst_local    # due to renaming this should be true
-                                    subst_local[v_p] = expr[1]                         # rename the bound variable
+                                assert isinstance(v_p, str)
+                                # case 1: v_p == v_e
+                                #   block `v_p` from being assigned
+                                # case 2: v_p != v_e
+                                #   replace `v_p` with `v_e`
+                                subst_local[v_p] = expr[1]
                                 yield from match_exprs(list(zip(args_e, args_p)) + tail, subst_local, kb)
                                 
                 # list matching TODO when should subst be applied?
@@ -1670,8 +1673,6 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
 
 # match the theory against a a list of expressions (not the other way around) and grow the substitution
 def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subst | None:
-    debug(exprs)
-    debug(subst)
     match exprs:
 
         # we matched all `exprs`, done!
@@ -1732,6 +1733,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
 
     # match `conclusion` and `premises`
     subst: Subst|None = None
+    debug(formula_expr)
     # iterate over all possible substitutions of the `conclusion`
     for subst_local in match_exprs([(expr, conclusion)], {}, kb):
         debug('1', subst_local)
