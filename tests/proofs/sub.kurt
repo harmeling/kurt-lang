@@ -6,6 +6,6 @@ bool f, g, h, a
 ; use a 17 17 17
 ; use sub $z $b $B
 use f $z
-use f $x
+;use f $x
 find sub $x $a $A
 ;;; Proof checked.

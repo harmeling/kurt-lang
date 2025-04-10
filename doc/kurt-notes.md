@@ -887,6 +887,5 @@ How should we match `f $z` against `sub $x $a $A`:
 
 How should we match `f $x` against `sub $x $a $A`:
 
-     { $A = f $x, $a = $x }
+     { $A = f $x }
      { $A = $x, $a = f $x }
-

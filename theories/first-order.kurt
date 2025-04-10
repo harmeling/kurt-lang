@@ -13,3 +13,17 @@ use $A                                   implies  forall $x $A      "forall-intr
 use forall $x $A                         implies  sub $x $a $A      "forall-elim"
 use sub $x $a $A                         implies  exists $x $A      "exists-intro"
 use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
+
+;; requirements
+; - for "forall-elim" and "exists-intro":
+;   - `$a` doesn't contain freely any variables that are bound in `$A`
+; - for "exists-elim":
+;   - `$A` must not contain any variables with double dollar
+
+;; maybe, always use double-dollar variables in axiom schemata
+; use $A                                    implies  forall $$x $A      "forall-intro"
+; use forall $$x $A                         implies  sub $$x $a $A      "forall-elim"
+; use sub $$x $a $A                         implies  exists $$x $A      "exists-intro"
+; use (exists $$x $B) and ($B implies $A)   implies  $A                 "exists-elim"
+; i.e., formulas with single-dollar variables can be matched against `sub $$x $a $A` to avoid problems
+; however, maybe this is not a problem at all, and we just have to be more careful with `generate_all_combinations`

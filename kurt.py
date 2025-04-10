@@ -1543,7 +1543,18 @@ def rename_free_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr,
 def is_sub(expr):
     return isinstance(expr, list) and len(expr)==4 and isinstance(expr[0], Token) and expr[0].label=='SYMBOL' and expr[0].value=='sub'
 
+# NEXT
+# write test code for this
+# then reimplement it
+# think about the restrictions that we must have in order to make the inference rules for quantifier to work
+# requirements:
+#   use forall $x $A                         implies  sub $x $a $A      "forall-elim"
+#   use sub $x $a $A                         implies  exists $x $A      "exists-intro"
+# $a must not contain any bound variables of $A
+
 def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
+    # INFO: this is the only place that can call `yield` several times per function call
+
     # generate all `($a, $A)` such that `expr = sub $x $a $A`
     if isinstance(expr, list) and len(expr) == 0:
         yield expr_a, []      # yield once and finish
@@ -1904,11 +1915,38 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
+    parser.add_argument('-t', '--test',         action='store_true', help=f'run unit tests and exit')
     return parser.parse_args()
+
+def run_tests() -> None:
+    # run all tests in the `tests` directory
+    test_dir = os.path.join(os.path.dirname(__file__), 'tests')
+    if not os.path.isdir(test_dir):
+        print(f'No test directory found at {test_dir}', file=sys.stderr)
+        exit(1)
+    # the test files begin with 'test_' and end with '.py'
+    test_files = [os.path.join(test_dir, f) for f in os.listdir(test_dir) if f.endswith('.py') and f.startswith('test_')]
+    if len(test_files) == 0:
+        print(f'No test files found in {test_dir}', file=sys.stderr)
+        exit(1)
+    # run all test files
+    for test_file in test_files:
+        print(f'Running tests in {test_file}', file=sys.stdout)
+        # run the test file
+        # call `unittest.main()` for each test file
+        # this will run all tests in the file and exit
+        # with the result of the last test
+        exec(open(test_file).read(), {'__name__': '__main__', '__file__': test_file})
+
 
 def main() -> None:
     args = parse_args()
     print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
+
+    # run unit tests?
+    if args.test:
+        run_tests()
+        exit(0)
 
     # debug flag?
     global debug_flag
