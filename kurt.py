@@ -62,7 +62,7 @@ def debug(*s) -> None:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# TODO `find (sub $x $b $A)` should match many things
+# TODO try `kurt tests/proofs/forall.kurt`, the reasons are all wrong
 # TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
@@ -171,7 +171,8 @@ class Token:
     origin: Value | None = None
 
     def __repr__(self) -> str:
-        return f'({self.label} "{self.value}")'
+        return f'{self.value}'
+        #return f'({self.label} "{self.value}")'
 
     def __lt__(self, other: Token) -> bool:
         return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
@@ -1750,9 +1751,10 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         msg = 'BINGO!\n'
         msg += f'expression to prove: {expr_str(expr, kb)}\n'
         msg += f'proven formula used:    {expr_str(formula_expr, kb)}\n'
-        msg += f'conclusion used:     {expr_str(conclusion, kb)}\n'
-        msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}\n'
-        msg += f'substitution used:   {subst}'
+        #msg += f'conclusion used:     {expr_str(conclusion, kb)}\n'
+        #msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}\n'
+        msg += f'substitution used:   '
+        msg += '{' + ', '.join([f'{var}: {expr_str(subst[var], kb)}' for var in subst]) + '}'
         print(msg, file=sys.stdout)
     restating: str = 'restating ' if len(premises) == 0 else ''
     if mainstream and formula.filename==filename:

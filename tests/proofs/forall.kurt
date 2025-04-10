@@ -30,4 +30,4 @@ proof
     E $x
     forall $x E $x
 qed
-;;; Proof checked.
+;;; Proof checked, but reasons wrong!

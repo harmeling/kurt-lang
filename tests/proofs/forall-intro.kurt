@@ -1,4 +1,4 @@
-; example: forall-intro TODO
+; example: forall-intro
 load "first-order"
 bool  prime
 arity prime 1        ; expects one argument
