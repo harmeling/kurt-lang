@@ -1918,35 +1918,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-t', '--test',         action='store_true', help=f'run unit tests and exit')
     return parser.parse_args()
 
-def run_tests() -> None:
-    # run all tests in the `tests` directory
-    test_dir = os.path.join(os.path.dirname(__file__), 'tests')
-    if not os.path.isdir(test_dir):
-        print(f'No test directory found at {test_dir}', file=sys.stderr)
-        exit(1)
-    # the test files begin with 'test_' and end with '.py'
-    test_files = [os.path.join(test_dir, f) for f in os.listdir(test_dir) if f.endswith('.py') and f.startswith('test_')]
-    if len(test_files) == 0:
-        print(f'No test files found in {test_dir}', file=sys.stderr)
-        exit(1)
-    # run all test files
-    for test_file in test_files:
-        print(f'Running tests in {test_file}', file=sys.stdout)
-        # run the test file
-        # call `unittest.main()` for each test file
-        # this will run all tests in the file and exit
-        # with the result of the last test
-        exec(open(test_file).read(), {'__name__': '__main__', '__file__': test_file})
-
-
 def main() -> None:
     args = parse_args()
     print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
-
-    # run unit tests?
-    if args.test:
-        run_tests()
-        exit(0)
 
     # debug flag?
     global debug_flag
