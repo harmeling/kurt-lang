@@ -172,8 +172,7 @@ class Token:
 
     def __repr__(self) -> str:
         return f'{self.value}'
-        #return f'({self.label} "{self.value}")'
-
+    
     def __lt__(self, other: Token) -> bool:
         return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
 
@@ -1605,21 +1604,12 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         all_combinations = generate_one_combination(a, p_A)
 
     for (expr_a, expr_A) in all_combinations:
-        subst_tmp: Subst = subst.copy()               # shallow copy
-        if expr_a is not None:
-            subst_tmp[var_x] = expr_a                 # assign `$x`
-        elif var_x in subst_tmp:
-            del subst_tmp[var_x]                      # locally bound `$x` is not yet assigned
-        for subst_local in match_exprs([(expr, expr_A)], subst_tmp, kb):
-            if var_A is not None and var_A not in subst_local:
-                subst_local[var_A] = expr_A           # store the found substitutions for `$A`
-            if var_a is not None and expr_a is not None:
-                subst_local[var_a] = expr_a           # store the found substitutions for `$a`
-            if var_x in subst:
-                subst_local[var_x] = subst[var_x]     # set the value for `$x` back to its old value
-            elif var_x in subst_local:
-                del subst_local[var_x]                # otherwise remove it
-            yield from match_exprs(tail, subst_local, kb)
+        # we don't have to match `expr` against `expr_A` since `all_combinations` ensure that they match
+        if var_A is not None and var_A not in subst:
+            subst[var_A] = expr_A           # store the found substitutions for `$A`
+        if var_a is not None and expr_a is not None:
+            subst[var_a] = expr_a           # store the found substitutions for `$a`
+        yield from match_exprs(tail, subst, kb)
 
 # each "case" with a recursive call has to loop over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
@@ -1636,8 +1626,11 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
 
                 # variable matching
                 case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
-                    if v not in subst:
-                        subst_local = subst.copy()     # shallow copy
+                    if equal_expr(pattern, expr):
+                        # don't extend `subst`, if the variables match already
+                        yield from match_exprs(tail, subst, kb)
+                    elif v not in subst:
+                        subst_local: Subst = subst.copy()     # shallow copy
                         subst_local[v] = expr          # extend the substitution
                         yield from match_exprs(tail, subst_local, kb)
                     elif equal_expr(subst[v], expr):
@@ -1677,6 +1670,8 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
 
 # match the theory against a a list of expressions (not the other way around) and grow the substitution
 def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subst | None:
+    debug(exprs)
+    debug(subst)
     match exprs:
 
         # we matched all `exprs`, done!
@@ -1739,8 +1734,10 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     subst: Subst|None = None
     # iterate over all possible substitutions of the `conclusion`
     for subst_local in match_exprs([(expr, conclusion)], {}, kb):
+        debug('1', subst_local)
         # no copy of `subst` necessary, since the next iteration will overwrite
         subst = match_all_theory(premises, subst_local, kb)
+        debug('2', subst)
         if subst is not None:
             break           # bingo!  we found one
     if subst is None:

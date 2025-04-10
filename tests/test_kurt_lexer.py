@@ -7,7 +7,8 @@ class Test_Lexing(unittest.TestCase):
         for i in range(len(examples)):
             (input_line, true_output, _) = examples[i]  # pick input, lexed
             try:
-                output = str(list(kurt.scan_string(input_line)))  # peekable token stream
+                result = kurt.scan_string(input_line)  # peekable token stream
+                output = '[' + ', '.join([f'({t.label} "{t.value}")' for t in result]) + ']'
             except Exception as e:
                 output = (str(e).split('\n'))[-1]    # this could be the desired result
             with self.subTest(msg=input_line, i=i):
