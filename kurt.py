@@ -203,6 +203,9 @@ class Formula:
     def __str__(self) -> str:
         return f'{self.prefix_str()}{self.expr}{self.comment_str()}'
 
+    def __repr__(self) -> str:
+        return str(self)
+
     def formula_str(self, kb: KnowledgeBase) -> str:
         return f'{self.prefix_str()}{expr_str(self.expr, kb)}'
 
@@ -1491,8 +1494,10 @@ def new_var_name() -> str:
     var_counter += 1
     return f'$@var{var_counter}'   # the `@` ensures that it is not a valid kurt variable
 
-# rename all vars in `expr` with generated names to avoid clashes with other expressions
-def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
+# rename free vars in `expr` with generated names to avoid clashes with other expressions
+# this is necessary, because free variables are implicitly universally bound per formula,
+# i.e., there meaning should be shared between formulas
+def rename_free_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
@@ -1513,26 +1518,22 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, 
 
         # binding operators expression
         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
-            new_bound_v = new_var_name()                 # in any case, `bound_v` gets a new name
-            assert isinstance(expr[1], Token)
-            new_bound_v_expr = copy.deepcopy(expr[1])
-            new_bound_v_expr.value = new_bound_v
-            local_subst = subst.copy()                   # we need a local `subst`, since the bound var is only changed locally
+            # the bound variable is not renamed
+            local_subst: Subst = subst.copy()  # we need a local `subst`, since the bound var is shadowing locally the `subst`
             assert isinstance(bound_v, str)
-            local_subst[bound_v] = new_bound_v_expr           # store it for usage in this case, possibly overwrite a previous value
-            new_expr, local_subst = rename_all_vars(expr[1:], local_subst, kb)   # includes the token of `bound_v`
+            if bound_v in local_subst:
+                del local_subst[bound_v]                 # remove it from the substitution for local use
+            new_expr, local_subst = rename_free_vars(expr[2:], local_subst, kb)
             if bound_v in subst:
                 local_subst[bound_v] = subst[bound_v]    # reset the value to the previous value, since `local_subst` will be returned
-            else:
-                del local_subst[bound_v]                 # else remove it, since it is elsewhere not used
             assert isinstance(new_expr, list)
-            return [expr[0], *new_expr], local_subst
+            return [expr[0], expr[1], *new_expr], local_subst
 
         # recursively replace the children
         case [*children] if len(children) > 0:
             new_expr = []
             for child in children:
-                new_child, subst = rename_all_vars(child, subst, kb)
+                new_child, subst = rename_free_vars(child, subst, kb)
                 new_expr.append(new_child)
             return new_expr, subst
 
@@ -1714,7 +1715,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     # deep copy and rename all variables
     # the renaming must happen before we cut the `implication` into pieces
     formula: Formula   = copy.deepcopy(proven_formula)
-    formula_expr: Expr = rename_all_vars(formula.expr, {}, kb)[0]
+    formula_expr: Expr = rename_free_vars(formula.expr, {}, kb)[0]
 
     # assign `conclusion` and `premises`
     if is_implication(formula_expr):      # we have an implication with a premise
