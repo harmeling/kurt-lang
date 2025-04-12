@@ -1787,13 +1787,12 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         log('', f'  expression to prove: {expr_str(expr, kb)}', kb)
         log('', f'  formula used: {expr_str(formula_expr, kb)}', kb)
         log('',  '  substitution: {' + ', '.join([f'{var}: `{expr_str(subst[var], kb)}`' for var in subst]) + '}', kb)
-    restating: str = 'restating ' if len(premises) == 0 else ''
-    formula_str = formula_ref(formula, filename, mainstream)
-    reason = f'by {restating}{formula_str}'
-    if len(premises) > 0:
-        premises_str = ', '.join([formula_ref(premise, filename, mainstream) for premise in premises_formulas])
-        reason += f' with {premises_str}'
-
+    reason: str = f'by '
+    if len(premises) == 0:
+        reason += f'restating '
+    else:
+        reason += ', '.join([formula_ref(premise, filename, mainstream) for premise in premises_formulas]) + ', '
+    reason += f'{formula_ref(formula, filename, mainstream)}'
     return reason    # bingo!  found an implication
 
 def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
