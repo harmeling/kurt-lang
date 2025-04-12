@@ -889,3 +889,23 @@ How should we match `f $x` against `sub $x $a $A`:
 
      { $A = f $x }
      { $A = $x, $a = f $x }
+
+## 2025-04-12
+
+- in formulas like
+
+    forall $x $A
+    sub $x $a $A
+
+  we are not allowed to rename the bound variable `$x`, because it might appear in `$A` which could appear elsewhere as well.
+
+- free variables can (and sometimes should) be renamed on a formula level, since they are implicitly universally quantified
+
+- however bound variables must not be renamed, since they might appear in variables such as `$A` below:
+
+    use $A                                   implies  forall $x $A      "forall-intro"
+    use forall $x $A                         implies  sub $x $a $A      "forall-elim"
+    use sub $x $a $A                         implies  exists $x $A      "exists-intro"
+    use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
+
+- e.g. renaming `$x` in "exists-intro" in the LHS makes the whole formula wrong, since `$x` might appear in `$A` which appears also on the RHS.

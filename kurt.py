@@ -62,7 +62,8 @@ def debug(*s) -> None:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# TODO write test code for `generate_all_combinations`
+# TODO `find sub $x $a forall $z $A`, does this one work?  where the formula for the substitution is nested
+# TODO remove `const` and `var`, instead always use `$` for variables, maybe not, first look at the example proofs
 # TODO put lots of negative proof examples in to `tests/proofs` as well
 # TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
@@ -78,15 +79,11 @@ def debug(*s) -> None:
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
 # TODO `parse ( 12, 232 )` and `parse < 12, 32>` generates syntax errors.
-# TODO when the matching against substitutions works, check what is the minimal amount of hard-coded rules in python
-# TODO get `load-twice.kurt` to run properly
 # TODO check that `minimal.kurt` is really hard-coded here
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
-# TODO possibly we just need a better `impl_elim` that takes into account equations (i.e., equality of terms), then we don't need `equal-elim`
 # TODO create an initial version and start working on the branch
 # TODO have keywords: `free` and `bound`
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
-# TODO next: implement `equal_elim`
 # TODO show also the premises in the reasons
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
 #      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
@@ -100,8 +97,6 @@ def debug(*s) -> None:
 #                          https://terrytao.wordpress.com/2023/11/18/formalizing-the-proof-of-pfr-in-lean4-using-blueprint-a-short-tour/
 # TODO organize the implications as a dictionary of lists with the top-level operator of RHS as the key
 # TODO implement 'nonassoc', this could then be checked in 'post_process'
-# TODO have a useful exception, if we load a file twice
-### LATER/MAYBE
 # TODO integration:    `int x in (0, 1)  f(x)
 # TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
@@ -1170,6 +1165,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 expr: Expr
                 expr = parse_expression(ts, kb, 0)            # parse the tokenlist
                 expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
+                expr = rename_all_vars(expr, {}, kb)[0]       # rename all variables
                 for candidate in kb.all_theory():
                     # iterate over all possible substitutions that create a match
                     for subst_cand in match_exprs([(candidate.expr, expr)], {}, kb):
@@ -1495,10 +1491,19 @@ def new_var_name() -> str:
     var_counter += 1
     return f'$@var{var_counter}'   # the `@` ensures that it is not a valid kurt variable
 
-# rename free vars in `expr` with generated names to avoid clashes with other expressions
-# this is necessary, because free variables are implicitly universally bound per formula,
-# i.e., there meaning should be shared between formulas
-def rename_free_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
+# ALL variables are renamed on the formula level
+# * rename free vars in `expr` with generated names to avoid clashes with other expressions
+#   this is necessary, because free variables are implicitly universally bound per formula,
+#   i.e., their meaning should be shared between formulas
+# * renaming bound variables:
+#   we should never rename bound variables only locally, since they might appear in free variables, example:
+#      forall $x $A  implies  sub $x $a $A      "forall-elim"
+#   if we rename `$x` on the RHS of the implication we get:
+#      forall $z $A  implies  sub $x $a $A      "forall-elim"
+#   which might be wrong
+#   however, renaming bound variables globally is fine, since it enables requirement (1) in `generate_all_combinations`
+#   so the renaming of bound variables makes also "exists-elim" possible
+def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
@@ -1517,45 +1522,48 @@ def rename_free_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr,
         case Token():
             return expr, subst
 
-        # binding operators expression
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
-            # the bound variable is not renamed
-            local_subst: Subst = subst.copy()  # we need a local `subst`, since the bound var is shadowing locally the `subst`
-            assert isinstance(bound_v, str)
-            if bound_v in local_subst:
-                del local_subst[bound_v]                 # remove it from the substitution for local use
-            new_expr, local_subst = rename_free_vars(expr[2:], local_subst, kb)
-            if bound_v in subst:
-                local_subst[bound_v] = subst[bound_v]    # reset the value to the previous value, since `local_subst` will be returned
-            assert isinstance(new_expr, list)
-            return [expr[0], expr[1], *new_expr], local_subst
-
         # recursively replace the children
         case [*children] if len(children) > 0:
             new_expr = []
             for child in children:
-                new_child, subst = rename_free_vars(child, subst, kb)
+                new_child, subst = rename_all_vars(child, subst, kb)
                 new_expr.append(new_child)
             return new_expr, subst
 
-    assert False, f'BUG: did not match expression `{expr}` in `rename_free_var`'
+    assert False, f'BUG: did not match expression `{expr}` in `rename_all_vars`'
 
 def is_sub(expr):
     return isinstance(expr, list) and len(expr)==4 and isinstance(expr[0], Token) and expr[0].label=='SYMBOL' and expr[0].value=='sub'
 
-# NEXT
-# write test code for this
-# then reimplement it
-# think about the restrictions that we must have in order to make the inference rules for quantifier to work
-# requirements:
-#   use forall $x $A                         implies  sub $x $a $A      "forall-elim"
-#   use sub $x $a $A                         implies  exists $x $A      "exists-intro"
-# $a must not contain any bound variables of $A
+# check that `expr_a` does not contain freely any variables that are bound at the locations of `token_x` in `expr_A`
+# that's quite complicated, so instead we check whether they are among the bound variables of `expr_A`
+def bound_var_safe(expr: Expr, token_x: Token, expr_a: Expr|None, expr_A: Expr, kb: KnowledgeBase) -> bool:
+    debug('expr=', expr, ', token_x=', token_x, ', expr_a=', expr_a, ', expr_A=', expr_A)
+    if expr_a is None:
+        return True
+    else:
+        [free, _] = free_bound_vars(expr_a, kb)
+        [_, bound] = free_bound_vars(expr_A, kb)
+        debug('success', free, bound)
+        return free.isdisjoint(bound)
 
-def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
-    # INFO: this is the only place that can call `yield` several times per function call
-
+# INFO: there are two places that can call `yield` several times per function call
+# - `generate_all_combinations`
+# - binding operator case in `match_exprs`
+def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, kb: KnowledgeBase) -> Iterator[tuple[Expr|None, Expr]]:
     # generate all `($a, $A)` such that `expr = sub $x $a $A`
+    # however, two requirements:
+    # (1) `$x` does not appear in `expr` as a free or bound variable, this is ensured by renaming bound variables
+    # (2) `$a` does not contain freely any variables that are bound in `$A` (actually only bound at the locations of `$x`
+    [free, bound] = free_bound_vars(expr, kb)
+    var_x = token_x.value
+    assert var_x not in free and var_x not in bound, f'BUG: `{var_x}` must not appear in `{expr}`'
+    for (expr_a, expr_A) in generate_all_combinations_rec(expr, token_x, expr_a):
+        if bound_var_safe(expr, token_x, expr_a, expr_A, kb):     # requirement (2)
+            debug(expr_a, expr_A)
+            yield (expr_a, expr_A)
+
+def generate_all_combinations_rec(expr: Expr, token_x: Token, expr_a: Expr|None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
     if isinstance(expr, list) and len(expr) == 0:
         yield expr_a, []      # yield once and finish
     else:
@@ -1563,8 +1571,8 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, par
             if not partial and not is_sub(expr):
                 yield expr, token_x         # $a=expr, $A = $x
         if isinstance(expr, list):
-            for (cand_a, cand_A_0) in generate_all_combinations(expr[0], token_x, expr_a):
-                for (cand_cand_a, cand_A_tail) in generate_all_combinations(expr[1:], token_x, cand_a, partial=True):
+            for (cand_a, cand_A_0) in generate_all_combinations_rec(expr[0], token_x, expr_a):
+                for (cand_cand_a, cand_A_tail) in generate_all_combinations_rec(expr[1:], token_x, cand_a, partial=True):
                     assert isinstance(cand_A_tail, list)
                     yield cand_cand_a, [cand_A_0, *cand_A_tail]
         else:
@@ -1610,9 +1618,18 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         if var_A in subst:
             all_combinations = generate_one_combination(a, subst[var_A])    # `$A` was already assigned earlier
         else:
-            all_combinations = generate_all_combinations(expr, token_x, a)
+            all_combinations = generate_all_combinations(expr, token_x, a, kb)
     else:
         var_A = None
+        # TODO: in this case we should do something more sophisticated, since we could have
+        #       arity F 1
+        #       sub $x $a F $A
+        # where we should be creative with `$A` as well, i.e., we should go on with matching, but keeping in mind we can use `sub $x`
+        # i.e., go on with matching against:  `F sub $x $a $A`
+        # what about
+        #       arity G 2
+        #       sub $x $a G $A $B
+        # that should be a problem, however, `generate_all_combinations` must be a bit more sophisticated
         all_combinations = generate_one_combination(a, p_A)
 
     for (expr_a, expr_A) in all_combinations:
@@ -1723,7 +1740,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     # deep copy and rename all variables
     # the renaming must happen before we cut the `implication` into pieces
     formula: Formula   = copy.deepcopy(proven_formula)
-    formula_expr: Expr = rename_free_vars(formula.expr, {}, kb)[0]
+    formula_expr: Expr = rename_all_vars(formula.expr, {}, kb)[0]
 
     # assign `conclusion` and `premises`
     if is_implication(formula_expr):      # we have an implication with a premise

@@ -1,34 +1,82 @@
 import unittest
-from kurt import Token, generate_all_combinations
+import copy
+from kurt import Token, generate_all_combinations, initial_kb
 
+# each example looks like this:
+#   [expr, 
+#    [list of possible outputs of generate_all_combinations]]
 examples = [
-     # f 17
+    # f 17
     [[Token(label='SYMBOL', value='f'), Token(label='INT', value='17')], 
-     ['([f, 17], $x)', '(f, [$x, 17])', '(17, [f, $x])', '(None, [f, 17])']],
-     # g 17 17
+     ['([f, 17], $@1)',
+      '(f, [$@1, 17])',
+      '(17, [f, $@1])',
+      '(None, [f, 17])']],
+
+    # g 17 17
     [[Token(label='SYMBOL', value='g'), Token(label='INT', value='17'), Token(label='INT', value='17')],
-        ['([g, 17, 17], $x)', '(g, [$x, 17, 17])', '(17, [g, $x, $x])', '(17, [g, $x, 17])',
-        '(17, [g, 17, $x])', '(None, [g, 17, 17])']],
-        # h 17 42
+     ['([g, 17, 17], $@1)',
+      '(g, [$@1, 17, 17])',
+      '(17, [g, $@1, $@1])',
+      '(17, [g, $@1, 17])',
+      '(17, [g, 17, $@1])',
+      '(None, [g, 17, 17])']],
+
+    # h 17 42
     [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='42')],
-        ['([h, 17, 42], $x)', '(h, [$x, 17, 42])', '(17, [h, $x, 42])', '(42, [h, 17, $x])',
-        '(None, [h, 17, 42])']],
-        # h 17 42 17
+     ['([h, 17, 42], $@1)',
+      '(h, [$@1, 17, 42])',
+      '(17, [h, $@1, 42])',
+      '(42, [h, 17, $@1])',
+      '(None, [h, 17, 42])']],
+
+    # h 17 42 17
     [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='42'), Token(label='INT', value='17')],
-        ['([h, 17, 42, 17], $x)', '(h, [$x, 17, 42, 17])', '(17, [h, $x, 42, 17])',
-        '(42, [h, 17, $x, 17])', '(17, [h, 17, 42, $x])', '(17, [h, $x, 42, $x])', '(None, [h, 17, 42, 17])']],
-        # h 17 17 17 
+     ['([h, 17, 42, 17], $@1)',
+      '(h, [$@1, 17, 42, 17])',
+      '(17, [h, $@1, 42, 17])',
+      '(42, [h, 17, $@1, 17])',
+      '(17, [h, 17, 42, $@1])',
+      '(17, [h, $@1, 42, $@1])',
+      '(None, [h, 17, 42, 17])']],
+
+    # h 17 17 17 
     [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='17'), Token(label='INT', value='17')],
-        ['([h, 17, 17, 17], $x)', '(h, [$x, 17, 17, 17])', '(17, [h, $x, 17, 17])',
-        '(17, [h, 17, $x, 17])', '(17, [h, 17, 17, $x])', '(17, [h, $x, 17, $x])',
-        '(17, [h, 17, $x, $x])', '(17, [h, $x, $x, 17])', '(17, [h, $x, $x, $x])', '(None, [h, 17, 17, 17])']],
-        # h $z
+     ['([h, 17, 17, 17], $@1)',
+      '(h, [$@1, 17, 17, 17])',
+      '(17, [h, $@1, 17, 17])',
+      '(17, [h, 17, $@1, 17])',
+      '(17, [h, 17, 17, $@1])',
+      '(17, [h, $@1, 17, $@1])',
+      '(17, [h, 17, $@1, $@1])',
+      '(17, [h, $@1, $@1, 17])',
+      '(17, [h, $@1, $@1, $@1])',
+      '(None, [h, 17, 17, 17])']],
+
+    # h $z
     [[Token(label='SYMBOL', value='h'), Token(label='SYMBOL', value='$z')],
-        ['([h, $z], $x)', '(h, [$x, $z])', '($z, [h, $x])', '(None, [h, $z])']],
-        # h $x
+     ['([h, $z], $@1)',
+      '(h, [$@1, $z])',
+      '($z, [h, $@1])',
+      '(None, [h, $z])']],
+
+    # h $x
     [[Token(label='SYMBOL', value='h'), Token(label='SYMBOL', value='$x')],
-        ['([h, $x], $x)', '(None, [h, $x])']],
-        # more examples where we check that $a does not contain any bound variables of $A
+     ['([h, $x], $@1)',
+      '(h, [$@1, $x])',
+      '($x, [h, $@1])',
+      '(None, [h, $x])']],
+
+    # more examples where we check that $a does not contain freely any bound variables of $A
+    # forall $z f $z
+    [[Token(label='SYMBOL', value='forall'), Token(label='SYMBOL', value='$z'), [Token(label='SYMBOL', value='f'), Token(label='SYMBOL', value='$z')]],
+     ['(None, [forall, $z, [f, $z]])',
+      '(forall, [$@1, $z, [f, $z]])',
+      #'($z, [forall, $@1, [f, $@1]])',   # not possible, since $z appears bound in $A
+      #'([f, $z], [forall, $z, $@1])',    # not possible, (same reason)
+      '(f, [forall, $z, [$@1, $z]])',
+      '([forall, $z, [f, $z]], $@1)',]]
+
      ]
 
 class Test_Combinations(unittest.TestCase):
@@ -37,8 +85,10 @@ class Test_Combinations(unittest.TestCase):
             input = examples[i][0]
             true_output: list[str] = examples[i][1]
             try:
-                token_x = Token(label='SYMBOL', value='$x')
-                result = generate_all_combinations(input, token_x, expr_a=None)
+                token_x = Token(label='SYMBOL', value='$@1')   # use a variable name that doesn't appear in the examples
+                # the renaming is usually done elsewhere
+                kb = copy.deepcopy(initial_kb)
+                result = generate_all_combinations(input, token_x, None, kb)
                 output = [str(r) for r in result]
             except Exception as e:
                 output = (str(e).split('\n'))[-1]    # this could be the desired result

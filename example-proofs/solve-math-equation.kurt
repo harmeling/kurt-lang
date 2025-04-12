@@ -1,0 +1,14 @@
+; solve math equation
+load "arithmetic"
+false ; NOT YET
+
+; find all solutions of 2^x + 8^x = 130
+; https://www.youtube.com/watch?v=lJrI7OwqXVQ
+
+use 2^x + 8^x = 130
+2^x + (2^3)^x = 130         ; 8 = 2^3
+2^x + (2^x)^3 = 130         ; (2^a)^b = (2^b)^a
+use y = 2^x                 ; define new constant
+y + y^3 = 130               ; plug-in constant
+y + y^3 - 130 = 0           ; -130
+y*(1+y^2) - 5*(1+5^2) = 0
