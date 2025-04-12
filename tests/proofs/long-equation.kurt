@@ -1,0 +1,10 @@
+; long-equation.kurt
+;
+; simple equation with indentation
+load "equality"
+use a=b
+use b=c
+show a=c
+a = b          ; just a = b
+  = c          ; gets transformed into a = c
+;;; Proof checked.
