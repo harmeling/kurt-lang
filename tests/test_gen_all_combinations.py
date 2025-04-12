@@ -72,7 +72,7 @@ examples = [
     [[Token(label='SYMBOL', value='forall'), Token(label='SYMBOL', value='$z'), [Token(label='SYMBOL', value='f'), Token(label='SYMBOL', value='$z')]],
      ['(None, [forall, $z, [f, $z]])',
       '(forall, [$@1, $z, [f, $z]])',
-      #'($z, [forall, $@1, [f, $@1]])',   # not possible, since $z appears bound in $A
+      '($z, [forall, $@1, [f, $@1]])',
       #'([f, $z], [forall, $z, $@1])',    # not possible, (same reason)
       '(f, [forall, $z, [$@1, $z]])',
       '([forall, $z, [f, $z]], $@1)',]]

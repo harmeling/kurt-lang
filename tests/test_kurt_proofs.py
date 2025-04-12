@@ -31,7 +31,9 @@ class Test_Proving(unittest.TestCase):
                     _, success = kurt.load_file(fname, kb, mainstream=True)
                     if success:
                         print('Proof checked.', file=sys.stdout)
-                    actual_last_line = str_last_line(captured_stdout.getvalue())
+                        actual_last_line = str_last_line(captured_stdout.getvalue())
+                    else:
+                        actual_last_line = str_last_line(captured_stderr.getvalue())
                     self.assertEqual(actual_last_line, true_last_line)
                 except kurt.KurtException as e:
                     print(e.msg, file=sys.stderr)

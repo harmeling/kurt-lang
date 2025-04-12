@@ -1165,11 +1165,18 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 expr: Expr
                 expr = parse_expression(ts, kb, 0)            # parse the tokenlist
                 expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
-                expr = rename_all_vars(expr, {}, kb)[0]       # rename all variables
+                expr_alt, subst = rename_all_vars(expr, {}, kb)       # rename all variables
+                subst_back: dict[str, str] = {}
+                for k in subst.keys():
+                    v = subst[k]
+                    if isinstance(v, Token) and isinstance(v.value, str):
+                        subst_back[v.value] = k
                 for candidate in kb.all_theory():
                     # iterate over all possible substitutions that create a match
-                    for subst_cand in match_exprs([(candidate.expr, expr)], {}, kb):
-                        subst_str = 'with ' + ', '.join([f'{var}={expr_str(subst_cand[var], kb)}' for var in subst_cand])
+                    for subst_cand in match_exprs([(candidate.expr, expr_alt)], {}, kb):
+                        subst_str = f'{expr_str(expr, kb)} '
+                        subst_str += 'with ' 
+                        subst_str += ', '.join([f'{subst_back[var]}={expr_str(subst_cand[var], kb)}' for var in subst_cand])
                         log(expr_str(candidate.expr, kb), subst_str, kb)
             case _:
                 assert f'BUG: wrong args for `find`'
@@ -1398,7 +1405,7 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
     conclusion = last_formula.expr        # last element is the conclusion
 
     # step 2: form a formula using the last formula in the current level
-    reason = 'by impl-intro (derived from last proof)'
+    reason = 'by "impl-intro" (derived from last proof)'
     if len(premise) == 0:                  # just the conclusion (empty premise)
         result = conclusion
         reason = 'by last proof'
@@ -1538,14 +1545,12 @@ def is_sub(expr):
 # check that `expr_a` does not contain freely any variables that are bound at the locations of `token_x` in `expr_A`
 # that's quite complicated, so instead we check whether they are among the bound variables of `expr_A`
 def bound_var_safe(expr: Expr, token_x: Token, expr_a: Expr|None, expr_A: Expr, kb: KnowledgeBase) -> bool:
-    debug('expr=', expr, ', token_x=', token_x, ', expr_a=', expr_a, ', expr_A=', expr_A)
     if expr_a is None:
         return True
     else:
-        [free, _] = free_bound_vars(expr_a, kb)
-        [_, bound] = free_bound_vars(expr_A, kb)
-        debug('success', free, bound)
-        return free.isdisjoint(bound)
+        [free_a, _] = free_bound_vars(expr_a, kb)
+        [free_A, bound_A] = free_bound_vars(expr_A, kb)
+        return free_a.isdisjoint(free_A.union(bound_A))
 
 # INFO: there are two places that can call `yield` several times per function call
 # - `generate_all_combinations`
@@ -1560,7 +1565,6 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, kb:
     assert var_x not in free and var_x not in bound, f'BUG: `{var_x}` must not appear in `{expr}`'
     for (expr_a, expr_A) in generate_all_combinations_rec(expr, token_x, expr_a):
         if bound_var_safe(expr, token_x, expr_a, expr_A, kb):     # requirement (2)
-            debug(expr_a, expr_A)
             yield (expr_a, expr_A)
 
 def generate_all_combinations_rec(expr: Expr, token_x: Token, expr_a: Expr|None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
@@ -1633,12 +1637,13 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         all_combinations = generate_one_combination(a, p_A)
 
     for (expr_a, expr_A) in all_combinations:
+        subst_local = copy.deepcopy(subst)
         # we don't have to match `expr` against `expr_A` since `all_combinations` ensure that they match
-        if var_A is not None and var_A not in subst:
-            subst[var_A] = expr_A           # store the found substitutions for `$A`
+        if var_A is not None and var_A not in subst_local:
+            subst_local[var_A] = expr_A           # store the found substitutions for `$A`
         if var_a is not None and expr_a is not None:
-            subst[var_a] = expr_a           # store the found substitutions for `$a`
-        yield from match_exprs(tail, subst, kb)
+            subst_local[var_a] = expr_a           # store the found substitutions for `$a`
+        yield from match_exprs(tail, subst_local, kb)
 
 # each "case" with a recursive call has to loop over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
@@ -1700,12 +1705,12 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
             assert False, f'BUG: `match_exprs` did not cover all cases for {exprs_patterns}'
 
 # match the theory against a a list of expressions (not the other way around) and grow the substitution
-def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subst | None:
+def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tuple[Subst | None, list[Formula]]:
     match exprs:
 
         # we matched all `exprs`, done!
         case []:
-            return subst
+            return subst, []
         
         # still at least one to go
         case [expr, *tail]:
@@ -1719,13 +1724,20 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> Subs
                 for subst_cand in match_exprs([(candidate.expr, expr_local)], subst, kb):
                     # try to match the rest of the expressions (the `tail`)
                     # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
-                    subst_cand_cand: Subst | None = match_all_theory(tail, subst_cand, kb)
+                    subst_cand_cand, found_tail = match_all_theory(tail, subst_cand, kb)
                     if subst_cand_cand is not None:
-                        return subst_cand_cand    # match was found!  BINGO!
-            return None        # could not find a match among the candidate `patterns`
+                        return subst_cand_cand, [candidate, *found_tail]   # match was found!  BINGO!
+            return None, []       # could not find a match among the candidate `patterns`
 
     # we calling `match_all_theory` wrongly, bug!
     assert False, f'BUG: `match_all_theory` did not cover all cases for {exprs}'
+
+# create a good reference string for a formula `f`
+def formula_ref(f: Formula, filename: str, mainstream: bool) -> str:
+    if mainstream and f.filename==filename:
+        return f'{f.line}' if f.comment is None else f'"{f.comment}"'
+    else:
+        return f'{os.path.basename(f.filename)}:{f.line}' if f.comment is None else f'"{f.comment}"'
 
 # what is happening:
 # 0. deep copy `proven_formula` and rename all its variables
@@ -1761,35 +1773,27 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
 
     # match `conclusion` and `premises`
     subst: Subst|None = None
-    debug(formula_expr)
     # iterate over all possible substitutions of the `conclusion`
     for subst_local in match_exprs([(expr, conclusion)], {}, kb):
-        debug('1', subst_local)
         # no copy of `subst` necessary, since the next iteration will overwrite
-        subst = match_all_theory(premises, subst_local, kb)
-        debug('2', subst)
+        subst, premises_formulas = match_all_theory(premises, subst_local, kb)
         if subst is not None:
             break           # bingo!  we found one
     if subst is None:
         return None         # no luck this time
 
-    # create meaning full `reason`
+    # create meaningful `reason`
     if kb.verbose:
-        msg = 'BINGO!\n'
-        msg += f'expression to prove: {expr_str(expr, kb)}\n'
-        msg += f'proven formula used:    {expr_str(formula_expr, kb)}\n'
-        #msg += f'conclusion used:     {expr_str(conclusion, kb)}\n'
-        #msg += f'premises used:       {[expr_str(premise, kb) for premise in premises]}\n'
-        msg += f'substitution used:   '
-        msg += '{' + ', '.join([f'{var}: {expr_str(subst[var], kb)}' for var in subst]) + '}'
-        print(msg, file=sys.stdout)
+        log('', f'  expression to prove: {expr_str(expr, kb)}', kb)
+        log('', f'  formula used: {expr_str(formula_expr, kb)}', kb)
+        log('',  '  substitution: {' + ', '.join([f'{var}: `{expr_str(subst[var], kb)}`' for var in subst]) + '}', kb)
     restating: str = 'restating ' if len(premises) == 0 else ''
-    if mainstream and formula.filename==filename:
-        reason = f'by {restating}{formula.line}'
-    else:
-        reason = f'by {os.path.basename(formula.filename)}:{formula.line}'
-    if formula.comment is not None:
-        reason += f' {formula.comment}'
+    formula_str = formula_ref(formula, filename, mainstream)
+    reason = f'by {restating}{formula_str}'
+    if len(premises) > 0:
+        premises_str = ', '.join([formula_ref(premise, filename, mainstream) for premise in premises_formulas])
+        reason += f' with {premises_str}'
+
     return reason    # bingo!  found an implication
 
 def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
@@ -1848,8 +1852,6 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
                 s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
             raise KurtException(f'{s}\n\nEvalError: inside "{fname}" not all promised formulas were proved.')
         kb.libs.append(fname)
-    else:
-        raise KurtException(f'EvalError: inside "{fname}"', short=True)
     return kb, success
 
 ###########################
