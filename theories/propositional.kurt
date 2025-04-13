@@ -19,7 +19,16 @@ bool   or      0 1 2  ; and and its inputs have type bool
 infix  iff     10 10  ; logical if-and-only-if
 bool   iff     0 1 2  ; and and its inputs have type bool
 bool   false          ; false has type bool
+alias  ¬ not
+alias  ∧ and
+alias  ∨ or
+alias  ⊤ true
+alias  top true
+alias  ⊥ false
+alias  bottom false
 alias  contradiction false
+alias  ⇔ iff
+alias  ⇒ implies
 
 ;; inference rules
 ;

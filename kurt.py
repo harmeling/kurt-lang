@@ -6,6 +6,10 @@ from __future__ import annotations
 # (c) 2025 Stefan Harmeling
 # licensed under the MIT License
 
+# for profiling run:
+# python -m cProfile -o kurt.prof kurt.py
+# python -m cProfile -s time kurt.py tests/proofs/group.kurt
+
 ## all external libraries (let's keep the dependencies minimal)
 import sys          # sys.stdin, sys.stderr
 if sys.version_info < (3, 10):
@@ -13,12 +17,12 @@ if sys.version_info < (3, 10):
     exit(0)
 import os           # os.path.[isfile, dirname, abspath, join, basename, split, expanduser, exists]
 import argparse     # argparse.ArgumentParser
-import copy         # copy.deepcopy
-import re           # re.[compile, VERBOSE, MULTILINE]
+import re           # re.[compile, sub, VERBOSE, MULTILINE]
 import functools    # functools.cmp_to_key
 import readline     # readline.[parse_and_bind, add_history, read_history_file, write_history_file]
 import atexit       # atexit.register
 import inspect      # inspect.stack
+import replacements # replace_latex_syntax
 
 from dataclasses import dataclass
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern, TextIO, Final
@@ -62,10 +66,15 @@ def debug(*s) -> None:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
+# TODO special unicode operators
+# TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
+# TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
+# TODO run profiling
+# TODO other ideas for speedup: 
+# #    1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
+#      2. Use a tree fingerprint or identity system to detect when actual cloning is needed.
 # TODO `find sub $x $a forall $z $A`, does this one work?  where the formula for the substitution is nested
-# TODO remove `const` and `var`, instead always use `$` for variables, maybe not, first look at the example proofs
 # TODO put lots of negative proof examples in to `tests/proofs` as well
-# TODO think about all `_local` variables with `.copy` or `.deepcopy`: are they really needed?
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
 # TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=` and `sub`
@@ -73,10 +82,8 @@ def debug(*s) -> None:
 # TODO check whether we need a version of `equal_expr` that allows bounded renaming
 # TODO check number of possible variable names, use letters to be safe
 # TODO `def ($A // $x=$a) = sub $x $a $A` as a macro mechanism, i.e., just syntactically instead of `use`
-# TODO check whether we need more deep copy for stuff
 # TODO type checking for `sub $x $a $A` with free and bound variable check
 # TODO have `origin` (see class Token) also on the Formula level
-# TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
 # TODO `parse ( 12, 232 )` and `parse < 12, 32>` generates syntax errors.
 # TODO check that `minimal.kurt` is really hard-coded here
@@ -84,10 +91,8 @@ def debug(*s) -> None:
 # TODO create an initial version and start working on the branch
 # TODO have keywords: `free` and `bound`
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
-# TODO show also the premises in the reasons
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
 #      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
-# TODO Q: is the match of `match_exprs` always unique?  we are assuming it!
 # TODO turn `load_file` into a method of class KnowledgeBase
 # TODO allow outer forall block around implications
 # TODO put everything into a symbol table?  let's have it additionally.
@@ -100,7 +105,6 @@ def debug(*s) -> None:
 # TODO integration:    `int x in (0, 1)  f(x)
 # TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
-# TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block
 # TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
 # TODO maybe not: do automatic line continuation if more tokens are required, e.g. after '+'
 # TODO format "latex", also allow custom latex formats
@@ -108,6 +112,7 @@ def debug(*s) -> None:
 # TODO add back the `formula-flags` from the `formula-flag` branch?  instead use string comments?
 # TODO use the Token.column information
 # TODO create test code for each possible KurtException
+# TODO add syntactic sugar for case distinctions
 
 class KurtException(Exception):
     def __init__(self, msg:str, column:int|None=None, line:int|None=None, filename:str|None=None, short:bool=False) -> None:
@@ -172,10 +177,19 @@ class Token:
     def __lt__(self, other: Token) -> bool:
         return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
 
+def clone_token(expr: Token, new_value: Value|None=None) -> Token:
+    return Token(
+        label  = expr.label,
+        value  = expr.value if new_value is None else new_value,
+        column = expr.column,
+        origin = expr.origin
+    )
+
 class Formula:
     next_id: int = 0
-    def __init__(self, expr:Expr, line:int, filename:str, status:Status, reason:str|None=None, comment:str|None=None):
+    def __init__(self, expr:Expr, line:int, filename:str, status:Status, reason:str|None, comment:str|None, kb: KnowledgeBase):
         self.expr: Expr           = expr               # expression of the formula
+        self.renamed_expr: Expr   = rename_all_vars(expr, {}, kb)[0]
         self.line: int            = line               # line of this formula
         self.filename: str        = filename           # file of this formula
         self.status: Status       = status             # one of 'use', 'assume', 'show', None (for derived)
@@ -208,6 +222,16 @@ class Formula:
 # expression
 # not a class itself, instead just a type alias
 Expr: TypeAlias = list["Expr"] | Token
+
+def deepcopy_expr(expr: Expr) -> Expr:
+    if isinstance(expr, Token):
+        # Use shallow copy or clone to retain metadata if needed
+        return clone_token(expr)
+    elif isinstance(expr, list):
+        # Recursively copy the sub-expressions
+        return [deepcopy_expr(e) for e in expr]
+    else:
+        assert False, f'Never reach this case!'
 
 # a useful tool for parsing:
 T = TypeVar('T')
@@ -689,21 +713,27 @@ def simplify(expr: Expr, kb: KnowledgeBase) -> Expr:
 space_token: Token = Token('SYMBOL', SPACE_SYMBOL)  # for expressions like 'f x'
 end_token:   Token = Token('END', '')               # for the end of a string
 
+# extract all special symbols from the replacement values
+SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(replacements.REPLACEMENTS.values()))))
+
 # scanner based on regular expressions (let's support unicode!)
 # note that the ordering of the expressions here is important
-scanner: Pattern[str] = re.compile(r'''
-  (?P<COMMENT> [;].*$)                      | # comments, e.g. ; this is a comment
-  (?P<FLOAT>   [0-9]+\.[0-9]+)              | # floating point literals, e.g. 3.14
-  (?P<INT> [0-9]+)                          | # integer literals, e.g. 17
-  (?P<STRING>  ["][^"]*["])                 | # string literals
-  (?P<SYMBOL>  [$]*[^\W\d]\w*               | # symbols 1: identifiers and alphanumeric symbols, they never start with a digit
-               [()]                         | # symbols 2: round brackets for grouping
-               [,]                          | # symbols 3: comma for lists
-               [:=+\-*/.#&^%'@∈!<>{}[\]_]+) | # symbols 4: non-alphanumeric operator symbols, e.g. ++
-  (?P<NEWLINE> [\n])                        | # newline, just for getting the line right
-  (?P<WHITE>   [^\S\n\r]+)                  | # white space but not newline and colleagues (otherwise the line counting is not right)
-  (?P<ERROR>   .)                             # anything else is a scanning error, are there any?
+scanner: re.Pattern = re.compile(fr'''
+  (?P<COMMENT> [;].*$)                           | # comments
+  (?P<FLOAT>   [0-9]+\.[0-9]+)                   | # floating point literals
+  (?P<INT>     [0-9]+)                           | # integer literals
+  (?P<STRING>  ["][^"]*["])                      | # string literals
+  (?P<SYMBOL>  [$]*[^\W\d]\w*                    | # symbols 1: identifiers
+               [()]                              | # symbols 2: round brackets
+               [,]                               | # symbols 3: comma
+               [:=+\-*/.#&^%'@∈!<>{{}}[\]_]+     | # symbols 4: standard operators including literal {{ }}
+               [{re.escape(SPECIAL_SYMBOLS)}]+)  | # symbols 5: logic, Greek and other math symbols
+  (?P<NEWLINE> [\n])                             | # newline
+  (?P<WHITE>   [^\S\n\r]+)                       | # whitespace (not newline)
+  (?P<ERROR>   .)                                  # anything else is an error
 ''', re.VERBOSE | re.MULTILINE)
+# notes:
+# since we are using an `f-string` for the regex, we have to escape the curly brackets
 # common white space:
 # \t tab
 # \n newline
@@ -1198,7 +1228,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 if not bool_expr(expr, kb):
                     raise KurtException(f'EvalError: must evaluate to boolean')
                 assert keyword in ('use', 'assume')
-                f = Formula(expr, line, filename, status=keyword, reason=reason, comment=comment)
+                f = Formula(expr, line, filename, status=keyword, reason=reason, comment=comment, kb=kb)
                 kb.theory.append(f)
                 if mainstream:
                     reason = decorate_reason(mainstream, reason, filename, line)
@@ -1212,7 +1242,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case [expr] | [*expr]:
                 if not bool_expr(expr, kb):
                     raise KurtException(f'EvalError: must evaluate to boolean')
-                f = Formula(expr, line, filename, status='show', comment=comment)  # syntactic sugar for theorem, proposition, lemma
+                f = Formula(expr, line, filename, status='show', reason=None, comment=comment, kb=kb)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
                 if mainstream:
                     reason = decorate_reason(mainstream, 'claim', filename, line)
@@ -1246,7 +1276,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
                 reason = impl_intro(pf.expr, kb)      # this might generate a KurtException
                 kb = kb.parent                        # drop current level
-                f = Formula(pf.expr, line, filename, status=None, reason=reason)
+                f = Formula(pf.expr, line, filename, status=None, reason=reason, comment=None, kb=kb)
                 kb.show.pop()                         # pop it now off the show stack, since it was proved
                 kb.theory.append(f)                   # add a copy to the theory
                 if mainstream:
@@ -1270,7 +1300,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
         if not bool_expr(expr, kb):
             raise KurtException(f'EvalError: must evaluate to boolean')
         reason = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
-        f = Formula(expr, line, filename, status=None, reason=reason)
+        f = Formula(expr, line, filename, status=None, reason=reason, comment=None, kb=kb)
         kb.theory.append(f)                         # add it to the knowledge base
         if mainstream:
             reason = decorate_reason(mainstream, reason, filename, line)
@@ -1520,9 +1550,8 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, 
                 new_expr = subst[free_v]                 # replace with known substitution
             else:
                 new_free_v = new_var_name()         # create new variable token
-                new_expr = copy.deepcopy(expr)    # copy all meta infos, e.g. line, filename
-                new_expr.value = new_free_v              # rename it
-                subst[free_v] = new_expr                 # and store it in the `subst`
+                new_expr = clone_token(expr, new_free_v)   # create a new token
+                subst[free_v] = new_expr
             return new_expr, subst
 
         # any other token is not modified
@@ -1637,7 +1666,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         all_combinations = generate_one_combination(a, p_A)
 
     for (expr_a, expr_A) in all_combinations:
-        subst_local = copy.deepcopy(subst)
+        subst_local = subst.copy()
         # we don't have to match `expr` against `expr_A` since `all_combinations` ensure that they match
         if var_A is not None and var_A not in subst_local:
             subst_local[var_A] = expr_A           # store the found substitutions for `$A`
@@ -1715,8 +1744,8 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
         # still at least one to go
         case [expr, *tail]:
             # deep copy of `expr` is necessary, since `match_all_theory` will be called several times with the same `exprs` in `impl_elim`
-            # and we have to apply the "growing" set of substitutions to it
-            expr_local: Expr = copy.deepcopy(expr)
+            # and we have to apply the various substitutions to it, which might change from call to call
+            expr_local: Expr = deepcopy_expr(expr)
             expr_local: Expr = apply_subst(expr_local, subst, kb)
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
@@ -1749,10 +1778,8 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     # to avoid overflow in the counter variable
     reset_var_name_counter()
 
-    # deep copy and rename all variables
-    # the renaming must happen before we cut the `implication` into pieces
-    formula: Formula   = copy.deepcopy(proven_formula)
-    formula_expr: Expr = rename_all_vars(formula.expr, {}, kb)[0]
+    # continue with the renamed variant of `proven_formula` that is generated during the construction of it
+    formula_expr: Expr = proven_formula.renamed_expr
 
     # assign `conclusion` and `premises`
     if is_implication(formula_expr):      # we have an implication with a premise
@@ -1792,7 +1819,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         reason += f'restating '
     else:
         reason += ', '.join([formula_ref(premise, filename, mainstream) for premise in premises_formulas]) + ', '
-    reason += f'{formula_ref(formula, filename, mainstream)}'
+    reason += f'{formula_ref(proven_formula, filename, mainstream)}'
     return reason    # bingo!  found an implication
 
 def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
@@ -1877,7 +1904,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
         try:
             if not is_file:
                 prompt_text = prompt(kb.level, line, continued)
-                new_line = input(prompt_text).rstrip()  # automatically uses readline
+                new_line = input(prompt_text).rstrip()     # uses readline
+                new_line = replacements.replace_latex_syntax(new_line)  # automatic replacements
             else:
                 new_line = input_stream.readline()
                 if not new_line:

@@ -7,6 +7,8 @@ arity  exists 2       ; existential quantification
 bindop forall, exists
 bool   forall 0 2     ; position 1 is special for binding operators and must be boolean or just a variable
 bool   exists 0 2     ; position 1 is special for binding operators and must be boolean or just a variable
+alias  ∃ exists
+alias  ∀ forall
 
 ;; inference rules
 use $A                                  implies  forall $x $A      "forall-intro"

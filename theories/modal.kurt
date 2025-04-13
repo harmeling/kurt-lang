@@ -1,3 +1,9 @@
 ; modal logic
+load "propostional"
 prefix b 20, d 20          ; box and diamond
 bool b, d
+
+use d $A iff not d not $A
+\not 
+
+\not 
