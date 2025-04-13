@@ -22,7 +22,6 @@ import functools    # functools.cmp_to_key
 import readline     # readline.[parse_and_bind, add_history, read_history_file, write_history_file]
 import atexit       # atexit.register
 import inspect      # inspect.stack
-import replacements # replace_latex_syntax
 
 from dataclasses import dataclass
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern, TextIO, Final
@@ -55,6 +54,123 @@ def debug(*s) -> None:
     if debug_flag:
         caller = inspect.stack()[1].function
         print(f'DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
+
+## some pretty replacement of latex style symbols with unicode characters
+REPLACEMENTS = {
+    # propositional logic
+    "\\not":     "¬",
+    "\\neg":     "¬",
+    "\\and":     "∧",
+    "\\or":      "∨",
+    "\\iff":     "⇔",
+    "\\implies": "⇒",
+    "\\bottom":  "⊥",
+    "\\top":     "⊤",
+
+    # first order logic
+    "\\forall":  "∀",
+    "\\exists":  "∃",
+
+    # modal logic
+    "\\box":     "□",      # necessity
+    "\\b":       "□",
+    "\\diamond": "◇",      # possibility
+    "\\d":       "◇",
+
+    # set theory
+    "\\infty": "∞",        # infinity
+    "\\in": "∈",           # element of
+    "\\notin": "∉",        # not element of
+    "\\subset": "⊂",       # proper subset
+    "\\subseteq": "⊆",     # subset or equal
+    "\\supset": "⊃",       # proper superset
+    "\\supseteq": "⊇",     # superset or equal
+    "\\cap": "∩",          # intersection
+    "\\cup": "∪",          # union
+    "\\emptyset": "∅",     # empty set
+    "\\equiv": "≡",        # equivalence
+    "\\leq": "≤",          # less than or equal
+    "\\geq": "≥",          # greater than or equal
+
+    # small Greek letters
+    "\\alpha":   "α",
+    "\\beta":    "β",
+    "\\gamma":   "γ",
+    "\\delta":   "δ",
+    "\\epsilon": "ε",
+    "\\zeta":    "ζ",
+    "\\eta":     "η",
+    "\\theta":   "θ",
+    "\\iota":    "ι",
+    "\\kappa":   "κ",
+    "\\lambda":  "λ",
+    "\\mu":      "μ",
+    "\\nu":      "ν",
+    "\\xi":      "ξ",
+    "\\omicron": "ο",
+    "\\pi":      "π",
+    "\\rho":     "ρ",
+    "\\sigma":   "σ",
+    "\\tau":     "τ",
+    "\\upsilon": "υ",
+    "\\phi":     "φ",
+    "\\chi":     "χ",
+    "\\psi":     "ψ",
+    "\\omega":   "ω",
+
+    # capital Greek letters
+    "\\Alpha":   "Α",
+    "\\Beta":    "Β",
+    "\\Gamma":   "Γ",
+    "\\Delta":   "Δ",
+    "\\Epsilon": "Ε",
+    "\\Zeta":    "Ζ",
+    "\\Eta":     "Η",
+    "\\Theta":   "Θ",
+    "\\Iota":    "Ι",
+    "\\Kappa":   "Κ",
+    "\\Lambda":  "Λ",
+    "\\Mu":      "Μ",
+    "\\Nu":      "Ν",
+    "\\Xi":      "Ξ",
+    "\\Omicron": "Ο",
+    "\\Pi":      "Π",
+    "\\Rho":     "Ρ",
+    "\\Sigma":   "Σ",
+    "\\Tau":     "Τ",
+    "\\Upsilon": "Υ",
+    "\\Phi":     "Φ",
+    "\\Chi":     "Χ",
+    "\\Psi":     "Ψ",
+    "\\Omega":   "Ω"
+}
+
+# for the scanner
+SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(REPLACEMENTS.values()))))
+
+# Precompiled regex to match all \commands
+COMMAND_RE = re.compile(r'\\[a-zA-Z]+')
+
+# Optional: precompute the unique symbol characters used in replacements
+REPLACEMENT_SYMBOLS = ''.join(set(REPLACEMENTS.values()))
+REPLACEMENT_SYMBOLS_RE = re.compile(
+    rf'([{re.escape(REPLACEMENT_SYMBOLS)}])(  +| )'
+)
+
+def replace_latex_syntax(line: str) -> str:
+    def command_replacer(match):
+        command = match.group(0)
+        return REPLACEMENTS.get(command, command)
+
+    # Step 1: Replace all \commands
+    line = COMMAND_RE.sub(command_replacer, line)
+
+    # Step 2: Postprocess spacing
+    # Replace double+ spaces after symbol → one space
+    # Replace single space after symbol → no space
+    line = REPLACEMENT_SYMBOLS_RE.sub(lambda m: m.group(1) + (' ' if m.group(2).startswith('  ') else ''), line)
+
+    return line
 
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
@@ -714,7 +830,7 @@ space_token: Token = Token('SYMBOL', SPACE_SYMBOL)  # for expressions like 'f x'
 end_token:   Token = Token('END', '')               # for the end of a string
 
 # extract all special symbols from the replacement values
-SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(replacements.REPLACEMENTS.values()))))
+SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(REPLACEMENTS.values()))))
 
 # scanner based on regular expressions (let's support unicode!)
 # note that the ordering of the expressions here is important
@@ -1905,7 +2021,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
             if not is_file:
                 prompt_text = prompt(kb.level, line, continued)
                 new_line = input(prompt_text).rstrip()     # uses readline
-                new_line = replacements.replace_latex_syntax(new_line)  # automatic replacements
+                new_line = replace_latex_syntax(new_line)  # automatic replacements
             else:
                 new_line = input_stream.readline()
                 if not new_line:

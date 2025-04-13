@@ -1,0 +1,4 @@
+; proof-not-false.kurt
+load "propositional"
+false implies false
+not false
