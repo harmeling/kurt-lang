@@ -56,7 +56,7 @@ def debug(*s) -> None:
         print(f'DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
 
 ## some pretty replacement of latex style symbols with unicode characters
-REPLACEMENTS = {
+REPLACEMENTS: dict[str, str] = {
     # propositional logic
     "\\not":     "¬",
     "\\neg":     "¬",
@@ -148,29 +148,14 @@ REPLACEMENTS = {
 # for the scanner
 SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(REPLACEMENTS.values()))))
 
-# Precompiled regex to match all \commands
-COMMAND_RE = re.compile(r'\\[a-zA-Z]+')
-
-# Optional: precompute the unique symbol characters used in replacements
-REPLACEMENT_SYMBOLS = ''.join(set(REPLACEMENTS.values()))
-REPLACEMENT_SYMBOLS_RE = re.compile(
-    rf'([{re.escape(REPLACEMENT_SYMBOLS)}])(  +| )'
-)
+# match any known command inside the string (even if joined to other text)
+COMMAND_RE = re.compile('|'.join(re.escape(k) for k in sorted(REPLACEMENTS, key=len, reverse=True)))
 
 def replace_latex_syntax(line: str) -> str:
-    def command_replacer(match):
+    def command_replacer(match: re.Match) -> str:
         command = match.group(0)
-        return REPLACEMENTS.get(command, command)
-
-    # Step 1: Replace all \commands
-    line = COMMAND_RE.sub(command_replacer, line)
-
-    # Step 2: Postprocess spacing
-    # Replace double+ spaces after symbol → one space
-    # Replace single space after symbol → no space
-    line = REPLACEMENT_SYMBOLS_RE.sub(lambda m: m.group(1) + (' ' if m.group(2).startswith('  ') else ''), line)
-
-    return line
+        return REPLACEMENTS.get(command) or command
+    return COMMAND_RE.sub(command_replacer, line)
 
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
