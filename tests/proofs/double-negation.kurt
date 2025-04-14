@@ -1,0 +1,14 @@
+load "propositional"
+bool p
+show p implies not not p
+proof
+    assume p
+    show not p implies false
+    proof
+        assume not p
+        p and (not p)
+        contradiction
+    qed
+    not not p
+qed
+;;; Proof checked.

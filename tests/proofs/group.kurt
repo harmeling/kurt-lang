@@ -5,8 +5,6 @@ load "equality"
 infix  +  60 60           ; binary plus
 prefix -     80           ; unary minus
 
-var x, y, z
-
 ; group axioms
 use (x + y) + z = x + (y + z)       "G1" ; associativity
 use 0 + x = x                       "G2" ; neutral element

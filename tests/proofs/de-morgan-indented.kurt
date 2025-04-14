@@ -1,0 +1,66 @@
+; de Morgan's law
+load "propositional"
+bool p, q       ; constants
+
+; axioms
+use p ∨ ¬p         "excluded-middle"
+
+; first law
+show ¬(p∧q) ≡ ¬p ∨ ¬q    "de-morgan"
+proof
+    ; show  ¬(p∧q) ⇒ ¬p ∨ ¬q
+    assume ¬(p∧q)
+        assume p
+
+            assume q
+                p and q
+                ⊥
+            ¬ q
+            ¬p ∨ ¬q
+        assume ¬p
+            ¬p ∨ ¬q
+        ¬p ∨ ¬q
+    ; show ¬p ∨ ¬q ⇒ ¬(p∧q)
+    assume ¬p ∨ ¬q
+        assume ¬p
+            assume p∧q
+                p
+                ⊥
+            ¬(p∧q)
+        assume ¬q
+            assume p∧q
+                q
+                ⊥
+            ¬(p∧q)
+        ¬(p∧q)
+    ¬(p∧q) ≡ ¬p ∨ ¬q
+qed
+
+;; second law
+show ¬(p∨q) ≡ ¬p ∧ ¬q        "de-morgan"
+proof
+    ; show ¬(p∨q) ⇒ ¬p ∧ ¬q
+    assume ¬(p∨q)
+        assume p
+            p ∨ q
+            ⊥
+        ¬p
+        assume q
+            p ∨ q
+            ⊥
+        ¬q
+        ¬p ∧ ¬q
+    ; show ¬p ∧ ¬q ⇒ ¬(p∨q)
+    assume ¬p ∧ ¬q
+        assume p∨q
+            assume p
+                ¬p
+                ⊥
+            assume q
+                ¬q
+                ⊥
+            ⊥
+        ¬(p∨q)
+    ¬(p∨q) ≡ ¬p ∧ ¬q
+qed
+;;; Proof checked.

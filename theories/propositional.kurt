@@ -28,6 +28,7 @@ alias  ⊥ false
 alias  bottom false
 alias  contradiction false
 alias  ⇔ iff
+alias  ≡ iff
 alias  ⇒ implies
 
 ;; inference rules

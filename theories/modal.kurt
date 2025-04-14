@@ -3,12 +3,13 @@ load "propositional"
 prefix b 20, d 20          ; box and diamond
 bool b, d
 var A, B
-use ◇A iff ¬◇¬A
-use ◇p ∨ ◇q ⇔ ◇ (p ∨ q)
-use □p ∧ □q ⇔ □ (p ∧ q)
+use ◇ A ≡ ¬ □ ¬A
+use □ A ≡ ¬ ◇ ¬A
+use ◇ p ∨ ◇ q ≡ ◇ (p ∨ q)
+use □ p ∧ □ q ≡ □ (p ∧ q)
 
 ; system K
-use □(p⇒q)⇒(□p⇒□q)    "K"
+use □ (p ⇒ q) ⇒ (□ p ⇒ □ q)    "K"
 
 ; system T
-use p⇒◇p
+use p ⇒ ◇ p

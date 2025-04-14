@@ -31,3 +31,4 @@ qed
 ;   have hq : q := h₁ hp      -- From p → q and p, we get q
 ;   h₂ hq                     -- But ¬q is given, contradiction
 
+;;; Proof checked.

@@ -63,6 +63,7 @@ REPLACEMENTS: dict[str, str] = {
     "\\and":     "∧",
     "\\or":      "∨",
     "\\iff":     "⇔",
+    "\\equiv":   "≡",
     "\\implies": "⇒",
     "\\bottom":  "⊥",
     "\\top":     "⊤",
@@ -167,7 +168,19 @@ def replace_latex_syntax(line: str) -> str:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# TODO special unicode operators
+# TODO indentation for the proof block:
+#      assume p
+#             q
+#      p implies q
+# translates to
+#      show p implies q
+#      proof
+#          q
+#      qed
+# however, the assume is even nicer, once the assumption is not indented anymore, "impl-intro"
+# is automatically triggered and `p implies q` is added to the theory
+# TODO with indentation, we can also do the following, `let` statement and equation chains
+# TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 # TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO run profiling
@@ -256,6 +269,7 @@ keywords: dict[str, str] = {
     'show':        'plan to prove a formula',
     'proof':       'start a block and open a new level to prove the last planned formula',
     'qed':         'end a block, pop one level and finish the proof of the last planned formula',
+    'break':       'end a block, pop one level and do not finish the proof of the last planned formula',
     }
 keywords_with_parsing: list[str] = ['use', 'assume', 'show']
 
@@ -739,9 +753,9 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
         case [e0]:
             return expr_normal(e0, kb)
         case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_prefix(a):
-            return f'({a} {expr_normal(e1, kb)})'
+            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)})'
         case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_postfix(a):
-            return f'({expr_normal(e1, kb)} {a})'
+            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)})'
         case [e0, e1]:
             return f'{expr_normal(e0, kb)} {expr_normal(e1, kb)}'
         case [Token(label='SYMBOL', value=a), e1, e2] if isinstance(a, str) and kb.is_infix(a):
@@ -1363,7 +1377,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                     raise KurtException(f'EvalError: no block to close')
                 if len(kb.show) > 0:                  # any planned formulas inside the current proof?
                     pf = kb.show[-1]
-                    raise KurtException(f'ProofError: planned formula "{pf}" in current proof is unproven')
+                    raise KurtException(f'ProofError: planned formula "{expr_str(pf.expr, kb)}" in current proof is unproven')
                 assert kb.parent is not None, f'BUG: we should be one level up'
                 assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
                 pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
@@ -1376,6 +1390,22 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                     log('qed', None, kb)
                     reason = decorate_reason(mainstream, reason, filename, line)
                     log(f.formula_str(kb), reason, kb)
+            case _:
+                msg = create_usage(keyword, [[]])
+                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+    elif keyword == 'break':                    # closes the last block (scope) without proving the last formula
+        match args:
+            case []:
+                if kb.level == 0:
+                    raise KurtException(f'EvalError: no block to close')
+                if len(kb.show) > 0:                  # any planned formulas inside the current proof?
+                    pf = kb.show[-1]
+                    raise KurtException(f'ProofError: planned formula "{pf}" in current proof is unproven')
+                assert kb.parent is not None, f'BUG: we should be one level up'
+                assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
+                kb = kb.parent                        # drop current level
+                if mainstream:
+                    log('break', None, kb)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
@@ -1895,9 +1925,13 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     subst: Subst|None = None
     # iterate over all possible substitutions of the `conclusion`
     for subst_local in match_exprs([(expr, conclusion)], {}, kb):
-        # no copy of `subst` necessary, since the next iteration will overwrite
+        # search all premises
         subst, premises_formulas = match_all_theory(premises, subst_local, kb)
-        if subst is not None:
+        if subst is None:
+            # alternative search for the conjunction of the premises
+            conjunction: Expr = [Token(label='SYMBOL', value=AND_SYMBOL), *premises]
+            subst, premises_formulas = match_all_theory([conjunction], subst_local, kb)
+        else:
             break           # bingo!  we found one
     if subst is None:
         return None         # no luck this time
@@ -1905,7 +1939,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     # create meaningful `reason`
     if kb.verbose:
         log('', f'  expression to prove: {expr_str(expr, kb)}', kb)
-        log('', f'  formula used: {expr_str(formula_expr, kb)}', kb)
+        log('', f'  formula used: {expr_str(proven_formula.expr, kb)}', kb)
         log('',  '  substitution: {' + ', '.join([f'{var}: `{expr_str(subst[var], kb)}`' for var in subst]) + '}', kb)
     reason: str = f'by '
     if len(premises) == 0:
@@ -1964,7 +1998,7 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
         # checks after closing the file
         if kb.level != level:
             kb.level = level       # set levels back before raising the exception
-            raise KurtException(f'\nEvalError: inside "{fname}" not all blocks closed, missing "end"?')
+            raise KurtException(f'\nEvalError: inside "{fname}" not all blocks closed, missing "qed"?')
         if len(kb.show) != 0:
             s = '\nNot shown:\n'
             for f in kb.show:
