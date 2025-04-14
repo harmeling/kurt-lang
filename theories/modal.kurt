@@ -1,5 +1,5 @@
 ; modal logic
-load "propostional"
+load "propositional"
 prefix b 20, d 20          ; box and diamond
 bool b, d
 var A, B

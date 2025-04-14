@@ -25,6 +25,7 @@
         "Metamath",
         "Milner",
         "nonassoc",
+        "noncomputable",
         "notin",
         "peekable",
         "Pohlers",

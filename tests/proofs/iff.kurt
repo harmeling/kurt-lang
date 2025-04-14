@@ -1,0 +1,14 @@
+load "propositional"
+bool p
+
+; what to show
+show p iff p
+proof
+    show p implies p
+    proof
+        assume p
+        p
+    qed
+    p iff p
+qed
+;;; Proof checked.

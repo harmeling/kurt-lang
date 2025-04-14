@@ -358,7 +358,6 @@ class PeekableGenerator(Generic[T]):                 # a peekable generator
             self.peek = None                         # nothing to peek anymore
             self.eog = True                          # next call __next__ triggers the exception
 
-
 # hierarchical knowledge base
 # the level is increased inside blocks and files
 # dropping a level drops also all local definitions
@@ -842,7 +841,7 @@ scanner: re.Pattern = re.compile(fr'''
 # \f form feed
 # \v vertical tab
 
-def scan_string(input_line: str) -> Iterator[Token]:
+def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
 
     # setup current location
     lastpos: int = 0        # for calculating the column number, update after a newline
@@ -862,7 +861,12 @@ def scan_string(input_line: str) -> Iterator[Token]:
             continue                       # whitespace is ignored
         elif label == 'SYMBOL':
             assert isinstance(value, str)
-            yield Token(label, value, column + len(value))
+            alias:  str | None = kb.get_alias(value)
+            origin: str | None = None
+            if alias is not None:
+                origin = value             # store for string generation
+                value  = alias
+            yield Token(label, value, column + len(value), origin)
         elif label == 'INT':
             yield Token(label, int(value), column + len(str(value)))
         elif label == 'FLOAT':
@@ -888,21 +892,9 @@ def scan_string(input_line: str) -> Iterator[Token]:
 # https://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/
 # https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 
-# by replacing aliases as early as possible, we don't have to register the alias as infix, etc
-# we store the `origin` for string output
-def replace_alias(kb: KnowledgeBase, token: Token) -> Token:
-    if token.label == 'SYMBOL':
-        assert isinstance(token.value, str)
-        t = kb.get_alias(token.value)
-        if t is not None:
-            token.origin = token.value             # store for string generation
-            token.value = t
-    return token
-
 # the heart of the Pratt parser (calls 'led' and 'nud' implemented elsewhere in this file)
 def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr:
     t: Token = next(ts)                           # get next token
-    t: Token = replace_alias(kb, t)               # replace alias
     nud: Nud = kb.get_nud(t)                      # get the correct 'nud' function
     left: Expr = nud(ts, kb, t)                   # nud == "null denotation"
     peek_lbp: int = kb.get_lbp(ts.peek)           # peek at lbp of the next token
@@ -1345,6 +1337,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                     raise KurtException(f'EvalError: must evaluate to boolean')
                 f = Formula(expr, line, filename, status='show', reason=None, comment=comment, kb=kb)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
+                debug(f)
                 if mainstream:
                     reason = decorate_reason(mainstream, 'claim', filename, line)
                     if comment is not None:
@@ -1940,7 +1933,7 @@ def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> 
 
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
     try:
-        ts   = PeekableGenerator(scan_string(input_line))                                                   # lexer
+        ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
         
         keyword_token, expr, comment = parse_tokenstream(ts, kb)       # parser
         kb   = eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation

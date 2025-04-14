@@ -1,0 +1,14 @@
+; example: proof by contradiction
+load "propositional"
+bool  G, H
+use G implies false
+show not G
+proof
+    show G implies false
+    proof
+        assume G
+        contradiction
+    qed
+    not G
+qed
+;;; Proof checked.
