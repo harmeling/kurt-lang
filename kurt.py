@@ -730,7 +730,7 @@ def expr_sexpr(expr: Expr) -> str:                      # create s-expression
             return f'({" ".join([expr_sexpr(e) for e in entries])})'
         case None:
             return ''
-    assert False, f'BUG: unknown expression, got {expr}'
+    assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
 
 def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression
     match expr:
@@ -745,16 +745,16 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
         case [e0, e1]:
             return f'{expr_normal(e0, kb)} {expr_normal(e1, kb)}'
         case [Token(label='SYMBOL', value=a), e1, e2] if isinstance(a, str) and kb.is_infix(a):
-            return f'({expr_normal(e1, kb)} {a} {expr_normal(e2, kb)})'
+            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)} {expr_normal(e2, kb)})'
         case [Token(label='SYMBOL', value=a), e1, e2]:
-            return f'({a} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
+            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
         case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_flat(a):
-            return f'({f' {a} '.join([expr_normal(e, kb) for e in tail])})'
+            return f'({f' {expr_normal(expr[0], kb)} '.join([expr_normal(e, kb) for e in tail])})'
         case [*tail]:
             return f'({" ".join([expr_normal(e, kb) for e in tail])})'
         case None:
             return ''
-    assert False, f'BUG: unknown expression, got {expr}'
+    assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
 
 def is_op_expr(e: Expr, op: str) -> bool:
     match e:
@@ -917,7 +917,7 @@ def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                  
     elif isinstance(expr, Token):
         return expr
     else:
-        assert False, f'BUG: expression must be list or Token, got {expr}'
+        assert False, f'BUG: expression must be list or Token, got {expr_str(expr, kb)}'
 
 def flatten_op(flat_op: str, expr: Expr) -> Expr:                                # flatten nested 'op'-expressions
     # e.g. [',', 17, [',', 42, 100]] --> [',', 17, 42, 100]
@@ -936,7 +936,7 @@ def flatten_op(flat_op: str, expr: Expr) -> Expr:                               
             return [flatten_op(flat_op, e) for e in expr]
         case Token():
             return expr
-    assert False, f'BUG: expression must be list or Token, got {expr}'
+    assert False, f'BUG: expression must be list or Token, got {expr_str(expr, kb)}'
 
 def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
     # input: `expr` which is a list of functions and arguments
@@ -979,7 +979,7 @@ def remove_round_brackets(expr: Expr) -> Expr:
         else:
             return [remove_round_brackets(e) for e in expr]
     else:
-        assert False, f'BUG: list or Token expected, got {expr}'
+        assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
 
 def check_no_keyword(expr: Expr) -> None:
     match expr:
@@ -1008,7 +1008,7 @@ def check_expr_comment(expr: Expr, kb) -> tuple[Expr, str|None]:            # ch
         case Token():
             tail = expr
         case _:
-            assert False, f'BUG: list or Token expected, got {expr}'
+            assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
     check_no_keyword(tail)             # don't check the `keyword` and the `comment`
     return tail, comment
 
@@ -1337,7 +1337,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                     raise KurtException(f'EvalError: must evaluate to boolean')
                 f = Formula(expr, line, filename, status='show', reason=None, comment=comment, kb=kb)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
-                debug(f)
                 if mainstream:
                     reason = decorate_reason(mainstream, 'claim', filename, line)
                     if comment is not None:
@@ -1449,7 +1448,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
                 assert False, f'BUG: there should not be `1` in kb.bool for binding operators'
             for idx in range(2, len(tail)+1):
                 if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
-                    raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean')
+                    raise KurtException(f'TypeError: arg {idx} of `{expr_str(expr, kb)}` must be boolean')
             match tail[0]:
                 case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
                     pass
@@ -1470,7 +1469,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
         case [Token(label='SYMBOL', value=op), *tail]:
             for idx in range(1, len(tail)+1):
                 if isinstance(op, str) and idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
-                    raise KurtException(f'TypeError: arg {idx} of `{expr}` must be boolean, but is  `{tail[idx-1]}`')
+                    raise KurtException(f'TypeError: arg {idx} of `{expr_str(expr, kb)}` must be boolean, but is  `{expr_str(tail[idx-1], kb)}`')
             for e in tail:
                 type_check_expression(e, kb)
 
@@ -1543,8 +1542,8 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
     # step 3: compare against the planned expression `expr`
     if equal_expr(expr, result):
         if kb.verbose:
-            print(f'goal    {expr}', file=sys.stdout)
-            print(f'derived {result}', file=sys.stdout)
+            print(f'goal    {expr_str(expr, kb)}',   file=sys.stdout)
+            print(f'derived {expr_str(result, kb)}', file=sys.stdout)
         return reason
     else:
         raise KurtException(f'ProofError: could not prove    {expr_str(expr, kb)}\n            instead got        {expr_str(result, kb)}')
@@ -1575,7 +1574,7 @@ def apply_subst(expr: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
         case [*children] if len(children) > 0:
             return [apply_subst(child, subst, kb) for child in children]
 
-    assert False, f'BUG: did not match expression `{expr}` in `apply_subst`'
+    assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `apply_subst`'
 
 # note that a variable can be free and bound at the same time in an expression
 def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
@@ -1609,7 +1608,7 @@ def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
                 bv.update(bv0)
             return fv, bv
         
-    assert False, f'BUG: did not match expression `{expr}` in `free_bound_vars`'
+    assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `free_bound_vars`'
 
 # new variable names just for internal use
 var_counter = 0
@@ -1660,7 +1659,7 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, 
                 new_expr.append(new_child)
             return new_expr, subst
 
-    assert False, f'BUG: did not match expression `{expr}` in `rename_all_vars`'
+    assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `rename_all_vars`'
 
 def is_sub(expr):
     return isinstance(expr, list) and len(expr)==4 and isinstance(expr[0], Token) and expr[0].label=='SYMBOL' and expr[0].value=='sub'
@@ -1685,7 +1684,7 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, kb:
     # (2) `$a` does not contain freely any variables that are bound in `$A` (actually only bound at the locations of `$x`
     [free, bound] = free_bound_vars(expr, kb)
     var_x = token_x.value
-    assert var_x not in free and var_x not in bound, f'BUG: `{var_x}` must not appear in `{expr}`'
+    assert var_x not in free and var_x not in bound, f'BUG: `{var_x}` must not appear in `{expr_str(expr, kb)}`'
     for (expr_a, expr_A) in generate_all_combinations_rec(expr, token_x, expr_a):
         if bound_var_safe(expr, token_x, expr_a, expr_A, kb):     # requirement (2)
             yield (expr_a, expr_A)
