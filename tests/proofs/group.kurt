@@ -13,7 +13,7 @@ use 0 + x = x                       "G2" ; neutral element
 use -x + x = 0                      "G3" ; left inverse
 
 ; left inverse is also the right inverse
-show x + -x = 0                     ; G4 right inverse
+show x + -x = 0                     "G4" ; right inverse
 proof
     -(x + -x) + (x + -x)              = 0   ; by G3
     -(x + -x) + (x + (0 + -x))        = 0   ; by G2
@@ -27,7 +27,7 @@ proof
 qed
 
 ; left neutral is also right neutral
-show x + 0 = x                      ; G5 right neutral
+show x + 0 = x                      "G5" ; right neutral
 proof
     x + 0 = x + (-x + x)       ; by G3
     x + 0 = (x + -x) + x       ; by G1
