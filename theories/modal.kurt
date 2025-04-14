@@ -2,8 +2,13 @@
 load "propostional"
 prefix b 20, d 20          ; box and diamond
 bool b, d
+var A, B
+use ◇A iff ¬◇¬A
+use ◇p ∨ ◇q ⇔ ◇ (p ∨ q)
+use □p ∧ □q ⇔ □ (p ∧ q)
 
-use d $A iff not d not $A
-\not 
+; system K
+use □(p⇒q)⇒(□p⇒□q)    "K"
 
-\not 
+; system T
+use p⇒◇p
