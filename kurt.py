@@ -841,7 +841,7 @@ scanner: re.Pattern = re.compile(fr'''
                [()]                              | # symbols 2: round brackets
                [,]                               | # symbols 3: comma
                [:=+\-*/.#&^%'@∈!<>{{}}[\]_]+     | # symbols 4: standard operators including literal {{ }}
-               [{re.escape(SPECIAL_SYMBOLS)}]+)  | # symbols 5: logic, Greek and other math symbols
+               [{re.escape(SPECIAL_SYMBOLS)}])   | # symbols 5: logic, Greek and other math symbols (always single char)
   (?P<NEWLINE> [\n])                             | # newline
   (?P<WHITE>   [^\S\n\r]+)                       | # whitespace (not newline)
   (?P<ERROR>   .)                                  # anything else is an error
@@ -1451,6 +1451,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
 ########################
 
 def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
+    debug(expr)
     match expr:
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
             return True                    # variables are potentially boolean

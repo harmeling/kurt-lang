@@ -1,14 +1,27 @@
 load "propositional"
 bool p
-show p implies not not p
+show p ⇒ ¬¬p
 proof
     assume p
-    show not p implies false
+    show ¬p ⇒ ⊥
     proof
-        assume not p
-        p and (not p)
+        assume ¬p
+        p ∧ ¬p
         contradiction
     qed
-    not not p
+    ¬¬p
 qed
+
+;; indentation version
+;show p ⇒ ¬¬p
+;proof
+;    assume p
+;        assume ¬p
+;            p ∧ ¬p
+;            contradiction
+;        ¬p ⇒ ⊥
+;        ¬¬p
+;qed
+
 ;;; Proof checked.
+
