@@ -105,3 +105,32 @@ The Kurt programming language is a made to write down and automatically check si
 - A variable is *free* in a term if it is not bound by a variable binding operator.
 
 To be continued!
+
+## 2025-04-17
+
+### difference between prefix and function
+
+    !!![2] prefix f 17
+    !!![3] arity g 1
+    !!![4] parse g 1 8
+    g 1 8
+    !!![5] format sexpr
+    !!![6] parse g 1 8
+    ((g 1) 8)
+    !!![7] parse f 1 8
+    (f (1 8))
+    !!![8] prefix h 25
+    !!![9] parse h 1 8
+    ((h 1) 8)
+
+- so `arity` defines a function with a fixed lbp and rbp, while `prefix` allows us to choose the `rbp`.
+
+- use `prefix` if you want stronger or weaker rbp than space
+
+### definitions via 'def' (how are they different from `use` and `alias`?
+
+- `alias` is replaced in the scanner, i.e., they do not require an inference step
+- `def` is replaced in the parser, i.e., they require an inference step
+- definitions are equalities or equivalences (which is equality on bool)
+- how can we have definitions without equalities? no!
+- 'def' are very much 'use'

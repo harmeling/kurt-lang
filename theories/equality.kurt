@@ -6,4 +6,3 @@ bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
 
 ;; inference rules
 use $a = $a                                               "equal-intro"
-use (sub $x $a $A) and $a = $b  implies  (sub $x $b $A)   "equal-elim"

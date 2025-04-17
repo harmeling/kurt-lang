@@ -167,7 +167,12 @@ def replace_latex_syntax(line: str) -> str:
 ## links
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
-### NEXT
+### NEXT BIG TOPICS:
+# 1. indentation, have `begin` and `end` primitive and use it for `proof` and also for `assume` (haskell 'offside' rule)
+# 2. how to prove forall statements, i.e. variables vs constant results, look at proof of excluded middle
+# 3. local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
+# 4. comments, separation options:   (A) comments `;`, separation `|` or `::`, (B) comments `--`, separation `;`
+
 # TODO indentation for the proof block:
 #      assume p
 #             q
@@ -184,6 +189,7 @@ def replace_latex_syntax(line: str) -> str:
 # TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO run profiling
+# TODO what is the difference between `arity f 1` and `prefix f 1`?  
 # TODO other ideas for speedup: 
 # #    1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
 #      2. Use a tree fingerprint or identity system to detect when actual cloning is needed.
@@ -265,19 +271,20 @@ keywords: dict[str, str] = {
 
     # formulas
     'use':         'use a formula without proof as a axiom',
+    'def':         'define something using an equation or equivalence',
     'assume':      'assume a formula',
     'show':        'plan to prove a formula',
     'proof':       'start a block and open a new level to prove the last planned formula',
     'qed':         'end a block, pop one level and finish the proof of the last planned formula',
     'break':       'end a block, pop one level and do not finish the proof of the last planned formula',
     }
-keywords_with_parsing: list[str] = ['use', 'assume', 'show']
+keywords_with_parsing: list[str] = ['use', 'assume', 'def', 'show']
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
 Value:  TypeAlias = str | int | float
 Format: TypeAlias = Literal['sexpr', 'normal']
-Status: TypeAlias = Literal['use', 'assume', 'show'] | None
+Status: TypeAlias = Literal['use', 'assume', 'show', 'def'] | None
 
 @dataclass
 class Token:
@@ -780,7 +787,7 @@ def is_op_expr(e: Expr, op: str) -> bool:
 def is_implication(expr: Expr) -> bool:
     return is_op_expr(expr, IMPL_SYMBOL)
 
-def equal_expr(t1: Expr, t2: Expr) -> bool:                               # equality for expressions
+def equal_expr(t1: Expr, t2: Expr) -> bool:                                     # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
     if isinstance(t1, Token) and isinstance(t2, Token):                         # compare tokens
         return t1.label==t2.label and t1.value==t2.value
@@ -1120,7 +1127,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))               # turn list into peekable generator
                 expr = parse_expression(ts, kb, 0)            # parse the tokenlist
                 expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
-                msg = f'{expr_str(expr, kb)}'
+                msg = f'{expr_sexpr(expr)}'
                 if comment is not None:
                     msg += f' "{comment}"'
                 print(msg, file=sys.stdout)
@@ -1324,17 +1331,23 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    elif keyword in ['use', 'assume']:
+    elif keyword in ['use', 'assume', 'def']:
         match args:
             case []:
                 print(kb.theory_str(keyword=keyword), file=sys.stdout)
             case [expr] | [*expr]:
-                reason = {'use': 'axiom', 'assume': 'assumption'}[keyword]
+                reason = {'use': 'axiom', 'assume': 'assumption', 'def': 'definition'}[keyword]
                 if comment is not None:
                     reason += f' {comment}'
                 if not bool_expr(expr, kb):
-                    raise KurtException(f'EvalError: must evaluate to boolean')
-                assert keyword in ('use', 'assume')
+                    raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
+                assert keyword in ('use', 'assume', 'def')
+                if keyword == 'def':
+                    match expr:
+                        case [Token(label='SYMBOL', value=op), *tail] if op in ['=', 'iff']:
+                            pass
+                        case _:
+                            raise KurtException(f'EvalError: `def` only allowed for `=` and `iff`, got "{expr_str(expr, kb)}"')
                 f = Formula(expr, line, filename, status=keyword, reason=reason, comment=comment, kb=kb)
                 kb.theory.append(f)
                 if mainstream:
