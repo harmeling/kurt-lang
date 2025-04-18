@@ -8,6 +8,8 @@
 ; flat   and            ; (a and b) and c  iff  a and b and c
 ; sym    and            ; a and b  iff  b and a
 ; bool   true           ; true has type bool
+; alias  ⊤ true
+; alias  ⇒ implies
 
 ;; syntax
 prefix not        18  ; logical not
@@ -22,14 +24,10 @@ bool   false          ; false has type bool
 alias  ¬ not
 alias  ∧ and
 alias  ∨ or
-alias  ⊤ true
-alias  top true
 alias  ⊥ false
-alias  bottom false
 alias  contradiction false
 alias  ⇔ iff
 alias  ≡ iff
-alias  ⇒ implies
 
 ;; inference rules
 ;

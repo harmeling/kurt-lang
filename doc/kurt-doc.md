@@ -134,3 +134,62 @@ To be continued!
 - definitions are equalities or equivalences (which is equality on bool)
 - how can we have definitions without equalities? no!
 - 'def' are very much 'use'
+
+### indentation
+
+- an equation chain like
+
+    x = 17
+      = 42
+      = 13
+
+- desugars to
+
+    x = 17
+    x = 42
+    x = 13
+
+- for a chain we have an order of operations
+
+    chain =, <=, <
+    chain =, >=, >
+    chain iff, if
+    chain iff, implies
+
+- so, e.g.
+
+    x < y
+      = z
+
+  desugars to
+
+    x < y
+    x < z
+
+- so if there is at least `<` in the chain we get `<` for the remaining ones.
+
+### line continuation (2025-04-18)
+
+- a line can be only with a line continuation symbol `\` continued
+
+- the reason is that lines are the important primitive, i.e., proofs are proven line by line
+
+### chains
+
+- chains do require indentation!  You can not do this:
+
+    x = 18
+    = 20       ; that's wrong!
+    = 30
+
+- but they can have:
+
+    x = 18
+      = 20
+      = 30
+
+- so if we have a line starting with an infix operator it creates a chain with the previous
+
+- when a chain starts we have to check whether the infix operator is compatible with the other operators of the chain
+
+- chains must start with an indent token

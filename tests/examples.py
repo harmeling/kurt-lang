@@ -145,14 +145,14 @@ examples = [
     # this should not work
     ("a +",
      '[(SYMBOL "a"), (SYMBOL "+"), (END "")]',
-     "SyntaxError: expression expected, got end of line"),
+     "SyntaxError: expression expected by an infix or prefix operator, got end of line"),
     # this should not work
     ("a * b c +",
      '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "+"), (END "")]',
-     "SyntaxError: expression expected, got end of line"),
+     "SyntaxError: expression expected by an infix or prefix operator, got end of line"),
     # this should not work
     ("a b +",
      '[(SYMBOL "a"), (SYMBOL "b"), (SYMBOL "+"), (END "")]',
-     "SyntaxError: expression expected, got end of line")
+     "SyntaxError: expression expected by an infix or prefix operator, got end of line")
 ]
 

@@ -175,7 +175,7 @@ def replace_latex_syntax(line: str) -> str:
 
 # TODO indentation for the proof block:
 #      assume p
-#             q
+#         q
 #      p implies q
 # translates to
 #      show p implies q
@@ -194,6 +194,7 @@ def replace_latex_syntax(line: str) -> str:
 # #    1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
 #      2. Use a tree fingerprint or identity system to detect when actual cloning is needed.
 # TODO `find sub $x $a forall $z $A`, does this one work?  where the formula for the substitution is nested
+# TODO `parse pp` for a postfix operator `pp` should create an error message
 # TODO put lots of negative proof examples in to `tests/proofs` as well
 # TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
@@ -235,12 +236,11 @@ def replace_latex_syntax(line: str) -> str:
 # TODO add syntactic sugar for case distinctions
 
 class KurtException(Exception):
-    def __init__(self, msg:str, column:int|None=None, line:int|None=None, filename:str|None=None, short:bool=False) -> None:
+    def __init__(self, msg:str, column:int|None=None, line:int|None=None, filename:str|None=None) -> None:
         self.msg:      str      = msg
         self.column:   int|None = column
         self.line:     int|None = line
         self.filename: str|None = filename
-        self.short:    bool     = short
 
 ## the syntax is stored in a hierarchical knowledge base called `KnowledgeBase`
 format_options: list[Format] = ['sexpr', 'normal']         # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
@@ -655,7 +655,7 @@ class KnowledgeBase:
 
     def get_lbp(self, token: Token|None) -> int:
         if token is None:
-            raise KurtException(f'SyntaxError: expression expected, got end of line')
+            raise KurtException(f'SyntaxError: expression expected by an infix or prefix operator, got end of line')
         if token.label == 'SYMBOL':
             if token.value in self.lbp:
                 return self.lbp[token.value]
@@ -718,6 +718,8 @@ initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and infix operator
 initial_kb.add_bool  (AND_SYMBOL, [0, 1, 2])               # and is bool with bool inputs
 initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
 initial_kb.add_brackets('(', ')')                          # round brackets for grouping
+initial_kb.add_alias('⊤', TRUE_SYMBOL)                     # alias for true
+initial_kb.add_alias('⇒', IMPL_SYMBOL)                     # alias for implies
 
 ################
 ## kurt lexer ##
@@ -1361,7 +1363,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 print(kb.show_str(), file=sys.stdout)
             case [expr] | [*expr]:
                 if not bool_expr(expr, kb):
-                    raise KurtException(f'EvalError: must evaluate to boolean')
+                    raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
                 f = Formula(expr, line, filename, status='show', reason=None, comment=comment, kb=kb)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
                 if mainstream:
@@ -1434,7 +1436,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
         if expr==[]:
             return kb
         if not bool_expr(expr, kb):
-            raise KurtException(f'EvalError: must evaluate to boolean')
+            raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
         reason = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
         f = Formula(expr, line, filename, status=None, reason=reason, comment=None, kb=kb)
         kb.theory.append(f)                         # add it to the knowledge base
@@ -1464,7 +1466,6 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
 ########################
 
 def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
-    debug(expr)
     match expr:
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
             return True                    # variables are potentially boolean
@@ -1472,8 +1473,8 @@ def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
             return 0 in kb.bool_sig(v)
         case [Token(label='SYMBOL', value=v), *tail] if v==SUB_SYMBOL:
             return bool_expr(tail[2], kb)
-        case [Token(label='SYMBOL', value=v), *_] if isinstance(v, str) and not kb.is_var(v):
-            return 0 in kb.bool_sig(v)
+        case [Token(label='SYMBOL', value=v), *_]:
+            return bool_expr(expr[0], kb)
     return False
 
 def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
@@ -2046,7 +2047,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
             if not is_file:
                 prompt_text = prompt(kb.level, line, continued)
                 new_line = input(prompt_text).rstrip()     # uses readline
-                new_line = replace_latex_syntax(new_line)  # automatic replacements
+                new_line = replace_latex_syntax(new_line)  # automatic replacements in the shell before running the scanner
             else:
                 new_line = input_stream.readline()
                 if not new_line:
@@ -2056,7 +2057,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                 if new_line.startswith(' ' * md_indent):
                     new_line = new_line[md_indent:]  # ignore the first `md_indent` spaces
                 else:
-                    continue
+                    continue                              # ignore the line
             input_line += new_line
             if input_line.endswith('\\'):    # line continuation possible with `\`
                 input_line = input_line[:-1]
@@ -2065,23 +2066,21 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                 try:
                     kb = scan_parse_check_eval(input_line, kb, line, input_stream.name, mainstream)
                 except KurtException as e:
-                    if e.short:
-                        msg = e.msg
+                    if e.column is None:
+                        e.column = len(input_line)
+                    if e.filename == '<stdin>':
+                        msg = f'\n'
                     else:
-                        if e.column is None: e.column = len(input_line)
-                        if e.filename == '<stdin>':
-                            msg = f'\n'
-                        else:
-                            msg = f'  File "{e.filename}", line {e.line}\n'
-                        msg += f'    {input_line}\n'
-                        msg += f'    {" " * e.column + "^"}\n'
-                        msg += e.msg
+                        msg = f'  File "{e.filename}", line {e.line}\n'
+                    msg += f'    {input_line}\n'
+                    msg += f'    {" " * e.column + "^"}\n'
+                    msg += e.msg
                     print(msg, file=sys.stderr)
                     if is_file:
                         return kb, not success    # stop processing after the first error
-                input_line = ''  # Reset input
-                continued = False
-                line += 1
+            input_line = ''  # Reset input
+            continued = False
+            line += 1
         except EOFError:
             print("\nBye!", file=sys.stdout)      # this only happens when Ctrl-d is pressed in the interactive session
             break
