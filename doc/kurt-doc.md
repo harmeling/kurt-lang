@@ -193,3 +193,44 @@ To be continued!
 - when a chain starts we have to check whether the infix operator is compatible with the other operators of the chain
 
 - chains must start with an indent token
+
+### indents and dedents
+
+- indents are used for the following situations:
+
+    assume p            ; assumptions open a new block
+         q
+         h
+    p implies h
+
+    x = 17
+      = 20              ; chains of equations open a new block
+      = 42
+
+    let x, y
+
+### impl-elim
+
+- also the RHS of an implication can be an conjunction
+
+- i.e.
+
+    A and B  implies  C and D
+
+  will automatically split `C` and `D` into `C` and `D`
+
+- this is useful stuff like
+
+    a = b = c
+
+  which gets parsed as
+
+    a = b and b = c
+
+- we can then also implement
+
+    a = b
+      = c
+
+  just by doing a line continuation if we indent
+  

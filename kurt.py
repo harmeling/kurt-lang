@@ -23,9 +23,9 @@ import readline     # readline.[parse_and_bind, add_history, read_history_file, 
 import atexit       # atexit.register
 import inspect      # inspect.stack
 
+from itertools import product, count
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, Pattern, TextIO, Final
-from enum import Enum
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator
 
 # config: general information
 version        = 0.1
@@ -35,9 +35,10 @@ made_by        = 'made by Stefan Harmeling, 2025'
 md_indent      =  7       # ignore all lines not starting with `md_indent` many spaces
 proof_indent   =  4       # how much to indent for a `proof` block
 reason_indent  = 60       # how much the reason is indented
+tab_indent     =  4       # tabs get converted to four spaces
 
 # config: the basic symbols of the kurt language as constants
-AND_SYMBOL   = 'and'         # conjunction (used for premises)
+AND_SYMBOL   = 'and'         # conjunction (used for premises and conclusions)
 IMPL_SYMBOL  = 'implies'     # implication 
 SUB_SYMBOL   = 'sub'         # substitution
 TRUE_SYMBOL  = 'true'        # true
@@ -168,6 +169,7 @@ def replace_latex_syntax(line: str) -> str:
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT BIG TOPICS:
+# 0. brackets, have `|x-y|`, have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately
 # 1. indentation, have `begin` and `end` primitive and use it for `proof` and also for `assume` (haskell 'offside' rule)
 # 2. how to prove forall statements, i.e. variables vs constant results, look at proof of excluded middle
 # 3. local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
@@ -184,6 +186,7 @@ def replace_latex_syntax(line: str) -> str:
 #      qed
 # however, the assume is even nicer, once the assumption is not indented anymore, "impl-intro"
 # is automatically triggered and `p implies q` is added to the theory
+# TODO how about `|x-y|` can we have it already with out brackets?
 # TODO with indentation, we can also do the following, `let` statement and equation chains
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 # TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
@@ -281,7 +284,7 @@ keywords: dict[str, str] = {
 keywords_with_parsing: list[str] = ['use', 'assume', 'def', 'show']
 
 # types
-Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
+Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END', 'INDENT', 'DEDENT']
 Value:  TypeAlias = str | int | float
 Format: TypeAlias = Literal['sexpr', 'normal']
 Status: TypeAlias = Literal['use', 'assume', 'show', 'def'] | None
@@ -294,7 +297,10 @@ class Token:
     origin: Value | None = None
 
     def __repr__(self) -> str:
-        return f'{self.value}'
+        if self.label in ['INDENT', 'DEDENT']:
+            return f'{self.label}({self.value})'
+        else:
+            return f'{self.value}'
     
     def __lt__(self, other: Token) -> bool:
         return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
@@ -309,13 +315,12 @@ def clone_token(expr: Token, new_value: Value|None=None) -> Token:
 
 class Formula:
     next_id: int = 0
-    def __init__(self, expr:Expr, line:int, filename:str, status:Status, reason:str|None, comment:str|None, kb: KnowledgeBase):
+    def __init__(self, expr:Expr, line:str, filename:str, status:Status, comment:str|None, kb: KnowledgeBase):
         self.expr: Expr           = expr               # expression of the formula
         self.renamed_expr: Expr   = rename_all_vars(expr, {}, kb)[0]
-        self.line: int            = line               # line of this formula
+        self.line: str            = line               # line of this formula, string since we also want '16a', etc
         self.filename: str        = filename           # file of this formula
         self.status: Status       = status             # one of 'use', 'assume', 'show', None (for derived)
-        self.reason: str | None   = reason             # the reason why it is true
         self.comment: str | None  = comment            # basically, a label of the formula
         self.id: int              = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
@@ -386,11 +391,12 @@ Nud: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Token], Expr]
 Led: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Expr, Token], Expr]
 
 class KnowledgeBase:
-    def __init__(self, parent:KnowledgeBase|None=None, verbose:bool=False) -> None:
+    def __init__(self, parent:KnowledgeBase|None=None, verbose:bool=False, proof: bool=False) -> None:
         # general
         self.parent: KnowledgeBase|None = parent
         self.level: int            = 0 if parent is None else parent.level + 1
-        self.libs: list[str]       = []        # the filenames of loaded libraries
+        self.proof: bool           = proof                # proof must be closed by `qed`
+        self.libs: list[str]       = []                   # the filenames of loaded libraries
 
         # syntax
         self.infix:    dict[str, tuple[int,int]] = {}     # left and right binding powers of infix operators
@@ -858,13 +864,29 @@ scanner: re.Pattern = re.compile(fr'''
 # notes:
 # since we are using an `f-string` for the regex, we have to escape the curly brackets
 # common white space:
-# \t tab
+# \t tab        # gets converted to space
 # \n newline
 # \r carriage return
 # \f form feed
 # \v vertical tab
 
+indent_stack: list[int] = [0]
 def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
+    global indent_stack
+
+    # calculate indentation
+    stripped_line = input_line.lstrip()
+    indent = len(input_line) - len(stripped_line)
+
+    # deal with the indent/dedent stuff
+    if indent > indent_stack[-1]:
+        indent_stack.append(indent)
+        #yield Token('INDENT', indent, indent)
+    while indent < indent_stack[-1]:
+        indent_stack.pop()
+        #yield Token('DEDENT', indent, indent)
+    if indent != indent_stack[-1]:
+        raise KurtException(f"Inconsistent indentation: got indent {indent}, but expected one of {indent_stack}")
 
     # setup current location
     lastpos: int = 0        # for calculating the column number, update after a newline
@@ -1092,11 +1114,11 @@ def create_usage(keyword: str, arg_labels: list[list[Label]]) -> str:
 def strip_keyword(s: str, column: int) -> str:
     return s[(1+column):]                  # get rid of the keyword at the beginning
 
-def decorate_reason(mainstream: bool, reason: str, filename: str, line: int) -> str:
+def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str) -> str:
     if mainstream:
-        return f'{line} {reason}'
+        return f'{line_str} {reason}'
     else:
-        return f'{os.path.basename(filename)}:{line} {reason}'
+        return f'{os.path.basename(filename)}:{line_str} {reason}'
 
 def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
@@ -1350,10 +1372,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                             pass
                         case _:
                             raise KurtException(f'EvalError: `def` only allowed for `=` and `iff`, got "{expr_str(expr, kb)}"')
-                f = Formula(expr, line, filename, status=keyword, reason=reason, comment=comment, kb=kb)
+                f = Formula(expr, str(line), filename, status=keyword, comment=comment, kb=kb)
                 kb.theory.append(f)
                 if mainstream:
-                    reason = decorate_reason(mainstream, reason, filename, line)
+                    reason = decorate_reason(mainstream, reason, filename, str(line))
                     log(f.formula_str(kb), reason , kb)
             case _:
                 assert f'BUG: `args` must be a list'
@@ -1364,10 +1386,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case [expr] | [*expr]:
                 if not bool_expr(expr, kb):
                     raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
-                f = Formula(expr, line, filename, status='show', reason=None, comment=comment, kb=kb)  # syntactic sugar for theorem, proposition, lemma
+                f = Formula(expr, str(line), filename, status='show', comment=comment, kb=kb)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
                 if mainstream:
-                    reason = decorate_reason(mainstream, 'claim', filename, line)
+                    reason = decorate_reason(mainstream, 'claim', filename, str(line))
                     if comment is not None:
                         reason += f' {comment}'
                     log(f.formula_str(kb), reason , kb)
@@ -1381,13 +1403,15 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                     raise KurtException(f'ProofError: can not start proof since there is no planned formula on current level')
                 if mainstream:
                     log('proof', None, kb)
-                kb = KnowledgeBase(kb)                # add a new level/scope to the knowledgebase
+                kb = KnowledgeBase(kb, proof=True)          # add a new level/scope to the knowledgebase
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    elif keyword == 'qed':                    # closes the last block (scope)
+    elif keyword == 'qed':                            # closes the last block (scope)
         match args:
             case []:
+                if not kb.proof:
+                    raise KurtException(f'EvalError: no proof to finish, `qed` can only conclude `proof` block')
                 if kb.level == 0:
                     raise KurtException(f'EvalError: no block to close')
                 if len(kb.show) > 0:                  # any planned formulas inside the current proof?
@@ -1398,12 +1422,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
                 reason = impl_intro(pf.expr, kb)      # this might generate a KurtException
                 kb = kb.parent                        # drop current level
-                f = Formula(pf.expr, line, filename, status=None, reason=reason, comment=None, kb=kb)
+                f = Formula(pf.expr, str(line), filename, status=None, comment=None, kb=kb)
                 kb.show.pop()                         # pop it now off the show stack, since it was proved
                 kb.theory.append(f)                   # add a copy to the theory
                 if mainstream:
                     log('qed', None, kb)
-                    reason = decorate_reason(mainstream, reason, filename, line)
+                    reason = decorate_reason(mainstream, reason, filename, str(line))
                     log(f.formula_str(kb), reason, kb)
             case _:
                 msg = create_usage(keyword, [[]])
@@ -1430,6 +1454,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
     # finally return the possibly modified knowledgebase
     return kb
 
+def letter_generator() -> Generator[str, None, None]:
+    letters = 'abcdefghijklmnopqrstuvwxyz'
+    for size in count(1):
+        for combo in product(letters, repeat=size):
+            yield ''.join(combo)
+
 def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     if keyword_token is None:
         # expression without keyword: try to derive the formula and add it to the theory
@@ -1437,12 +1467,28 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
             return kb
         if not bool_expr(expr, kb):
             raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
-        reason = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
-        f = Formula(expr, line, filename, status=None, reason=reason, comment=None, kb=kb)
+        reasons = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
+        f = Formula(expr, str(line), filename, status=None, comment=None, kb=kb)
         kb.theory.append(f)                         # add it to the knowledge base
         if mainstream:
-            reason = decorate_reason(mainstream, reason, filename, line)
-            log(f.formula_str(kb), reason, kb)
+            if len(reasons) == 1:
+                reason = decorate_reason(mainstream, reasons[0], filename, str(line))
+                log(f.formula_str(kb), reason, kb)
+            else:
+                assert len(reasons) > 1
+                assert isinstance(expr, list) and len(expr) > 2
+                assert len(expr) == len(reasons) + 1
+                line_strs: list[str] = []
+                for clause, reason, letter in zip(expr[1:], reasons, letter_generator()):
+                    debug(letter)
+                    line_str = str(line) + letter
+                    sub_f = Formula(clause, line_str, filename, status=None, comment=None, kb=kb)
+                    line_strs.append(line_str)
+                    kb.theory.append(sub_f)                         # add sub to the knowledge base
+                    reason = decorate_reason(mainstream, reason, filename, line_str)
+                    log(sub_f.formula_str(kb), reason, kb)
+                reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
+                log(f.formula_str(kb), reason, kb)
         return kb
     else:
         # iterate over the expr to allow ',' in keyword expressions
@@ -1911,7 +1957,7 @@ def formula_ref(f: Formula, filename: str, mainstream: bool) -> str:
 # 1. split `proven_formula` into `conclusion` and `premises`
 # 2. match `expr` against `conclusion`
 # 3. match theory against the `premises` (not the other way around)
-def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: str, mainstream: bool) -> str | None:
+def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[str|None, Subst]:
 
     # to avoid overflow in the counter variable
     reset_var_name_counter()
@@ -1936,20 +1982,19 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         conclusion = formula_expr
         premises   = []
 
-    # match `conclusion` and `premises`
-    subst: Subst|None = None
-    # iterate over all possible substitutions of the `conclusion`
-    for subst_local in match_exprs([(expr, conclusion)], {}, kb):
+    # to match `conclusion` and `premises` iterate over all possible substitutions of the `conclusion`
+    subst_cand: Subst|None = None
+    for subst_local in match_exprs([(expr, conclusion)], subst, kb):
         # search all premises
-        subst, premises_formulas = match_all_theory(premises, subst_local, kb)
-        if subst is None:
+        subst_cand, premises_formulas = match_all_theory(premises, subst_local, kb)
+        if subst_cand is None:
             # alternative search for the conjunction of the premises
             conjunction: Expr = [Token(label='SYMBOL', value=AND_SYMBOL), *premises]
-            subst, premises_formulas = match_all_theory([conjunction], subst_local, kb)
+            subst_cand, premises_formulas = match_all_theory([conjunction], subst_local, kb)
         else:
             break           # bingo!  we found one
-    if subst is None:
-        return None         # no luck this time
+    if subst_cand is None:
+        return None, {}         # no luck this time
 
     # create meaningful `reason`
     if kb.verbose:
@@ -1962,19 +2007,36 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     else:
         reason += ', '.join([formula_ref(premise, filename, mainstream) for premise in premises_formulas]) + ', '
     reason += f'{formula_ref(proven_formula, filename, mainstream)}'
-    return reason    # bingo!  found an implication
+    return reason, subst    # bingo!  found an implication (and a substitution)
 
-def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
+def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> list[str]:
 
     # "top-intro"
-    if isinstance(e, Token) and e.label=='SYMBOL' and e.value==TRUE_SYMBOL:
-        return 'by top-intro'
+    if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
+        return ['by "top-intro"']
 
     # "impl-elim": iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
-        reason: str | None = impl_elim(e, proven_formula, kb, filename, mainstream)
+        reason, _ = impl_elim(expr, proven_formula, {}, kb, filename, mainstream)
         if reason is not None: 
-            return reason
+            return [reason]
+
+    # if `expr` is a conjunction we can try to derive each of the subexpressions
+    match expr:
+        case [Token(label='SYMBOL', value=v), *clauses] if v==AND_SYMBOL:
+            subst: Subst = {}
+            reasons: list[str] = []
+            for clause in clauses:
+                reason = None
+                for proven_formula in kb.all_theory():
+                    reason, subst = impl_elim(clause, proven_formula, subst, kb, filename, mainstream)
+                    if reason is not None:
+                        break   # bingo!  we derived the next clause
+                if reason is None:
+                    break       # failed to derive the next clause
+                reasons.append(reason)
+            if len(reasons) > 0:
+                return reasons
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
@@ -1982,7 +2044,15 @@ def derive_expr(e: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> 
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
     try:
         ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
-        
+        match ts.peek:
+            case Token(label='IDENT'):
+                # two cases: `assume` and chain (of equation or equivalences)
+                pass
+            case Token(label='DEDENT'):
+                # two cases: `assume` and equation chains
+                if kb.proof:
+                    raise KurtException(f'A `proof` block must be closed by `qed`.')
+            
         keyword_token, expr, comment = parse_tokenstream(ts, kb)       # parser
         kb   = eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
     except KurtException as e:
@@ -2053,6 +2123,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                 if not new_line:
                     break
                 new_line = new_line.rstrip()
+            new_line = new_line.expandtabs(tab_indent)     # tabs are ok, but are converted
             if markdown:
                 if new_line.startswith(' ' * md_indent):
                     new_line = new_line[md_indent:]  # ignore the first `md_indent` spaces
