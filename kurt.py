@@ -6,9 +6,96 @@ from __future__ import annotations
 # (c) 2025 Stefan Harmeling
 # licensed under the MIT License
 
-# for profiling run:
+## for profiling run:
 # python -m cProfile -o kurt.prof kurt.py
 # python -m cProfile -s time kurt.py tests/proofs/group.kurt
+
+## processing a kurt-file does the following steps in a single pass
+# level1: lexing
+# level2: parsing
+# level3: simple type checking
+# level4: proving
+
+## links to the natural deduction system
+# https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
+
+### insights
+#    (x):  ')' has should have ..., '|' should have ...
+#    for multiline equation add an extra step that checks whether the INDENT token is followed by an infix operator, if yes, add '___' ellipse
+
+### NEXT BIG TOPICS:
+# 0. brackets, have `|x-y|`, have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately
+#    problem is that for `|18| |19|`, the `get_lbp` for the third `|` (a left version) should be 22 (_space_lbp), however, for the right version it should be 0
+# 1. indentation, have `begin` and `end` primitive and use it for `proof` and also for `assume` (haskell 'offside' rule)
+# 2. how to prove forall statements, i.e. variables vs constant results, look at proof of excluded middle
+# 3. local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
+# 4. comments, separation options:   (A) comments `;`, separation `|` or `::`, (B) comments `--`, separation `;`
+
+# TODO indentation for the proof block:
+#      assume p
+#         q
+#      p implies q
+# translates to
+#      show p implies q
+#      proof
+#          q
+#      qed
+# however, the assume is even nicer, once the assumption is not indented anymore, "impl-intro"
+# is automatically triggered and `p implies q` is added to the theory
+# TODO in kurt-syntax (typescript and e-lisp) let any character that is not `a..z` trigger the replacement
+# TODO introduce `let` for conditional quantifier, add conditional quantifier, e.g., `∀ ε > 0`
+# TODO how about `|x-y|` can we have it already with out brackets?  how about `|x-|y||`
+# TODO support `a_18` or `a_(foo - bar)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
+# TODO with indentation, we can also do the following, `let` statement and equation chains
+# TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
+# TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
+# TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
+# TODO run profiling
+# TODO what is the difference between `arity f 1` and `prefix f 1`?  
+# TODO other ideas for speedup: 
+# #    1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
+#      2. Use a tree fingerprint or identity system to detect when actual cloning is needed.
+# TODO `find sub $x $a forall $z $A`, does this one work?  where the formula for the substitution is nested
+# TODO `parse pp` for a postfix operator `pp` should create an error message
+# TODO put lots of negative proof examples in to `tests/proofs` as well
+# TODO rename variables just with formula creation, store an internal version and a version for viewing
+# TODO allow boolean expressions for the bound variable for some variable binding operators
+# TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=` and `sub`
+# TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
+# TODO check whether we need a version of `equal_expr` that allows bounded renaming
+# TODO check number of possible variable names, use letters to be safe
+# TODO `def ($A // $x=$a) = sub $x $a $A` as a macro mechanism, i.e., just syntactically instead of `use`
+# TODO type checking for `sub $x $a $A` with free and bound variable check
+# TODO have `origin` (see class Token) also on the Formula level
+# TODO substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
+# TODO `parse ( 12, 232 )` and `parse < 12, 32>` generates syntax errors.
+# TODO check that `minimal.kurt` is really hard-coded here
+# TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
+# TODO create an initial version and start working on the branch
+# TODO have keywords: `free` and `bound`
+# TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
+# TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
+#      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
+# TODO turn `load_file` into a method of class KnowledgeBase
+# TODO allow outer forall block around implications
+# TODO put everything into a symbol table?  let's have it additionally.
+# TODO write kurt integration for vscode, highlight the lines that are proven, https://microsoft.github.io/language-server-protocol/
+# TODO two algorithms: constraint based (https://www.youtube.com/watch?v=H7x4THVU4BQ) and substitution based (W)
+# TODO redo something like https://terrytao.wordpress.com/2023/12/05/a-slightly-longer-lean-4-proof-tour/
+#                          https://terrytao.wordpress.com/2023/11/18/formalizing-the-proof-of-pfr-in-lean4-using-blueprint-a-short-tour/
+# TODO organize the implications as a dictionary of lists with the top-level operator of RHS as the key
+# TODO implement 'nonassoc', this could then be checked in 'post_process'
+# TODO integration:    `int x in (0, 1)  f(x)
+# TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
+# TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
+# TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
+# TODO maybe not: do automatic line continuation if more tokens are required, e.g. after '+'
+# TODO format "latex", also allow custom latex formats
+# TODO keep the code below 1000 lines of code!  unlikely...
+# TODO add back the `formula-flags` from the `formula-flag` branch?  instead use string comments?
+# TODO use the Token.column information
+# TODO create test code for each possible KurtException
+# TODO add syntactic sugar for case distinctions
 
 ## all external libraries (let's keep the dependencies minimal)
 import sys          # sys.stdin, sys.stderr
@@ -159,85 +246,6 @@ def replace_latex_syntax(line: str) -> str:
         return REPLACEMENTS.get(command) or command
     return COMMAND_RE.sub(command_replacer, line)
 
-## processing a kurt-file does the following steps in a single pass
-# level1: lexing
-# level2: parsing
-# level3: simple type checking
-# level4: proving
-
-## links
-# https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
-
-### NEXT BIG TOPICS:
-# 0. brackets, have `|x-y|`, have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately
-# 1. indentation, have `begin` and `end` primitive and use it for `proof` and also for `assume` (haskell 'offside' rule)
-# 2. how to prove forall statements, i.e. variables vs constant results, look at proof of excluded middle
-# 3. local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
-# 4. comments, separation options:   (A) comments `;`, separation `|` or `::`, (B) comments `--`, separation `;`
-
-# TODO indentation for the proof block:
-#      assume p
-#         q
-#      p implies q
-# translates to
-#      show p implies q
-#      proof
-#          q
-#      qed
-# however, the assume is even nicer, once the assumption is not indented anymore, "impl-intro"
-# is automatically triggered and `p implies q` is added to the theory
-# TODO how about `|x-y|` can we have it already with out brackets?
-# TODO with indentation, we can also do the following, `let` statement and equation chains
-# TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
-# TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
-# TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
-# TODO run profiling
-# TODO what is the difference between `arity f 1` and `prefix f 1`?  
-# TODO other ideas for speedup: 
-# #    1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
-#      2. Use a tree fingerprint or identity system to detect when actual cloning is needed.
-# TODO `find sub $x $a forall $z $A`, does this one work?  where the formula for the substitution is nested
-# TODO `parse pp` for a postfix operator `pp` should create an error message
-# TODO put lots of negative proof examples in to `tests/proofs` as well
-# TODO rename variables just with formula creation, store an internal version and a version for viewing
-# TODO allow boolean expressions for the bound variable for some variable binding operators
-# TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=` and `sub`
-# TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
-# TODO check whether we need a version of `equal_expr` that allows bounded renaming
-# TODO check number of possible variable names, use letters to be safe
-# TODO `def ($A // $x=$a) = sub $x $a $A` as a macro mechanism, i.e., just syntactically instead of `use`
-# TODO type checking for `sub $x $a $A` with free and bound variable check
-# TODO have `origin` (see class Token) also on the Formula level
-# TODO substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
-# TODO `parse ( 12, 232 )` and `parse < 12, 32>` generates syntax errors.
-# TODO check that `minimal.kurt` is really hard-coded here
-# TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
-# TODO create an initial version and start working on the branch
-# TODO have keywords: `free` and `bound`
-# TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
-# TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
-#      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
-# TODO turn `load_file` into a method of class KnowledgeBase
-# TODO allow outer forall block around implications
-# TODO put everything into a symbol table?  let's have it additionally.
-# TODO write kurt integration for vscode, highlight the lines that are proven, https://microsoft.github.io/language-server-protocol/
-# TODO two algorithms: constraint based (https://www.youtube.com/watch?v=H7x4THVU4BQ) and substitution based (W)
-# TODO redo something like https://terrytao.wordpress.com/2023/12/05/a-slightly-longer-lean-4-proof-tour/
-#                          https://terrytao.wordpress.com/2023/11/18/formalizing-the-proof-of-pfr-in-lean4-using-blueprint-a-short-tour/
-# TODO organize the implications as a dictionary of lists with the top-level operator of RHS as the key
-# TODO implement 'nonassoc', this could then be checked in 'post_process'
-# TODO integration:    `int x in (0, 1)  f(x)
-# TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
-# TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
-# TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
-# TODO maybe not: do automatic line continuation if more tokens are required, e.g. after '+'
-# TODO format "latex", also allow custom latex formats
-# TODO keep the code below 1000 lines of code!  unlikely...
-# TODO add back the `formula-flags` from the `formula-flag` branch?  instead use string comments?
-# TODO use the Token.column information
-# TODO create test code for each possible KurtException
-# TODO add syntactic sugar for case distinctions
-
 class KurtException(Exception):
     def __init__(self, msg:str, column:int|None=None, line:int|None=None, filename:str|None=None) -> None:
         self.msg:      str      = msg
@@ -250,6 +258,7 @@ format_options: list[Format] = ['sexpr', 'normal']         # sexpr: (+ 1 (* 3 4)
 keywords: dict[str, str] = {
     'help':        'print this help',
     'parse':       'parse a string and print its representation',
+    'tokenize':    'tokenize a string and print its tokens',
     'format':      'choose print representation, i.e. one of "sexpr", "normal"',
     'level':       'current level of the knowledge base',
     'load':        'load file, e.g. load "standards.kurt"',
@@ -427,24 +436,24 @@ class KnowledgeBase:
         self.verbose: bool  = verbose if parent is None else parent.verbose           # extra information or not
 
     def entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|None = None) -> str:
-        if   keyword == 'prefix':   return f'prefix "{key}" {value}'
+        if   keyword == 'prefix':   return f'prefix {key} {value}'
         elif keyword == 'infix':    
             if isinstance(value, tuple) and len(value) == 2:
-                return f'infix "{key}" {value[0]} {value[1]}'
+                return f'infix {key} {value[0]} {value[1]}'
             assert False, f'BUG!  Unexpected value for `infix`, got {value}'
-        elif keyword == 'postfix':  return f'postfix "{key}" {value}'
-        elif keyword == 'brackets': return f'brackets "{value}" "{key}"'
-        elif keyword == 'arity':    return f'arity "{key}" {value}'
-        elif keyword == 'flat':     return f'flat "{key}"'
-        elif keyword == 'sym':      return f'sym "{key}"'
-        elif keyword == 'bindop':   return f'bindop "{key}"'
+        elif keyword == 'postfix':  return f'postfix {key} {value}'
+        elif keyword == 'brackets': return f'brackets {value} {key}'
+        elif keyword == 'arity':    return f'arity {key} {value}'
+        elif keyword == 'flat':     return f'flat {key}'
+        elif keyword == 'sym':      return f'sym {key}'
+        elif keyword == 'bindop':   return f'bindop {key}'
         elif keyword == 'bool':     
             if isinstance(value, list):
-                return f'bool "{key}" {' '.join(map(str, value))}'
+                return f'bool {key} {' '.join(map(str, value))}'
             assert False, f'BUG!  Unexpected value for `bool`, got {value}'
-        elif keyword == 'var':      return f'var "{key}"'
-        elif keyword == 'const':    return f'const "{key}"'
-        elif keyword == 'alias':    return f'alias "{key}" "{value}"'
+        elif keyword == 'var':      return f'var {key}'
+        elif keyword == 'const':    return f'const {key}'
+        elif keyword == 'alias':    return f'alias {key} {value}'
         else: assert False, f'BUG: unknown keyword, got {keyword}'
 
     def dict_or_set_str(self, some_dict_or_set: dict[str,str]|dict[str,int]|dict[str,tuple[int,int]]|dict[str,list[int]]|set[str], keyword: str) -> str:
@@ -600,11 +609,11 @@ class KnowledgeBase:
         self.add_const(rbracket)
         self.brackets[rbracket] = lbracket    # to list the brackets (not used for parsing)
         def nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
-            expr: Expr = parse_expression(ts, kb, 0)
+            expr: Expr = parse_expression(ts, kb, bracket_rbp)
             token: Token = next(ts)
             if token.value != rbracket: 
                 raise KurtException(f'SyntaxError: expected "{rbracket}"', column=token.column)
-            token.value = f'{lbracket} {rbracket}'    # use a value that can not come from the tokenizer
+            token.value = f'{lbracket}$${rbracket}'    # use a value that can not come from the tokenizer, avoid space for readability
             return [token, expr]
         self.nud[lbracket] = nud
         self.lbp[rbracket] = bracket_lbp
@@ -703,29 +712,31 @@ class KnowledgeBase:
             s += f'{f.formula_str(self)}\n'
         return s
 
-# some important constants for the parser
-bracket_lbp:  int = 0          # left binding power of brackets
-end_lbp:      int = 0          # left binding power of end of input line
-string_lbp:   int = 1          # left binding power of strings
-space_lbp:    int = 22         # left  binding power: stronger than '=' (defined in equality.kurt)
-space_rbp:    int = 22         # right binding power: stronger than '=' (defined in equality.kurt)
-
-# create initial knowledge base
+# create initial knowledge base and define some important constant for the parser
 initial_kb: KnowledgeBase = KnowledgeBase()
-initial_kb.add_infix (COMMA_SYMBOL, 5, 5)                  # comma is infix with low binding power
-initial_kb.add_flat  (COMMA_SYMBOL)                        # comma op is flat
+begin_rbp:    int = 0                                      # right binding power of beginning of input line
+end_lbp:      int = 0                                      # left  binding power of end of input line
+bracket_rbp:  int = 1                                      # right binding power of left brackets
+bracket_lbp:  int = 1                                      # left  binding power of right brackets
+initial_kb.add_brackets('(', ')')                          # round brackets for grouping
+string_lbp:   int = 2                                      # left  binding power of strings
+initial_kb.add_infix (COMMA_SYMBOL, 5, 5)                  # comma   is infix operator
+initial_kb.add_infix (IMPL_SYMBOL, 13, 12)                 # implies is infix operator
+initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and     is infix operator
+space_lbp:    int = 22                                     # left  binding power: stronger than '=' (defined in equality.kurt)
+space_rbp:    int = 22                                     # right binding power: stronger than '=' (defined in equality.kurt)
 initial_kb.add_infix (SPACE_SYMBOL, space_lbp, space_rbp)  # space op is for fn like `f x`
+
 initial_kb.add_bool  (TRUE_SYMBOL, [0])                    # true is bool
+initial_kb.add_bool  (IMPL_SYMBOL, [0, 1, 2])              # implies is bool with bool input
+initial_kb.add_bool  (AND_SYMBOL,  [0, 1, 2])              # and is bool with bool inputs
+initial_kb.add_flat  (COMMA_SYMBOL)                        # comma op is flat
+initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
 initial_kb.add_arity (SUB_SYMBOL, 3)                       # sub takes three args
 initial_kb.add_bindop(SUB_SYMBOL)                          # sub is a binding operator
-initial_kb.add_infix (IMPL_SYMBOL, 13, 12)                 # implies infix operator
-initial_kb.add_bool  (IMPL_SYMBOL, [0, 1, 2])              # implies is bool with bool input
-initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and infix operator
-initial_kb.add_bool  (AND_SYMBOL, [0, 1, 2])               # and is bool with bool inputs
-initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
-initial_kb.add_brackets('(', ')')                          # round brackets for grouping
 initial_kb.add_alias('⊤', TRUE_SYMBOL)                     # alias for true
 initial_kb.add_alias('⇒', IMPL_SYMBOL)                     # alias for implies
+initial_kb.add_alias('∧', AND_SYMBOL)                     # alias for implies
 
 ################
 ## kurt lexer ##
@@ -840,7 +851,7 @@ def simplify(expr: Expr, kb: KnowledgeBase) -> Expr:
 
 # special tokens that are made for the parser and sometimes artificially generated
 space_token: Token = Token('SYMBOL', SPACE_SYMBOL)  # for expressions like 'f x'
-end_token:   Token = Token('END', '')               # for the end of a string
+end_token:   Token = Token('END', '$$$')               # for the end of a string
 
 # extract all special symbols from the replacement values
 SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(REPLACEMENTS.values()))))
@@ -855,7 +866,7 @@ scanner: re.Pattern = re.compile(fr'''
   (?P<SYMBOL>  [$]*[^\W\d]\w*                    | # symbols 1: identifiers
                [()]                              | # symbols 2: round brackets
                [,]                               | # symbols 3: comma
-               [:=+\-*/.#&^%'@∈!<>{{}}[\]_]+     | # symbols 4: standard operators including literal {{ }}
+               [:=+\-*/.#&^%'@∈!<>{{}}[\]|_]+    | # symbols 4: standard operators including literal {{ }}
                [{re.escape(SPECIAL_SYMBOLS)}])   | # symbols 5: logic, Greek and other math symbols (always single char)
   (?P<NEWLINE> [\n])                             | # newline
   (?P<WHITE>   [^\S\n\r]+)                       | # whitespace (not newline)
@@ -937,7 +948,7 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
 # https://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/
 # https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 
-# the heart of the Pratt parser (calls 'led' and 'nud' implemented elsewhere in this file)
+# the heart of the Pratt parser (calls 'led' and 'nud' implemented in various versions)
 def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr:
     t: Token = next(ts)                           # get next token
     nud: Nud = kb.get_nud(t)                      # get the correct 'nud' function
@@ -1016,15 +1027,15 @@ def process_arity(expr: Expr, kb: KnowledgeBase) -> Expr:
     return [process_arity(e, kb) for e in expr]
 
 def remove_round_brackets(expr: Expr) -> Expr:
-    if isinstance(expr, Token):
-        return expr
-    elif isinstance(expr, list):
-        if is_op_expr(expr, '( )'):
-            return remove_round_brackets(expr[1])
-        else:
-            return [remove_round_brackets(e) for e in expr]
-    else:
-        assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
+    match expr:
+        case Token():
+            return expr
+        case [Token(label='SYMBOL', value='($$)'), sub_expr]:
+            return remove_round_brackets(sub_expr)
+        case [*list_expr]:
+            return [remove_round_brackets(e) for e in list_expr]
+        case _:
+            assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
 
 def check_no_keyword(expr: Expr) -> None:
     match expr:
@@ -1069,19 +1080,19 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
     assert isinstance(ts.peek, Token)
     keyword_token: Token | None
     if ts.peek.label == 'SYMBOL' and ts.peek.value in keywords:
-        keyword_token = next(ts)                           # remove a keyword right away early
+        keyword_token = next(ts)                              # remove a keyword right away early
     else:
         keyword_token = None
     if ts.peek.label == 'END': 
-        return keyword_token, [], None                     # empty token stream
+        return keyword_token, [], None                        # empty token stream
     if keyword_token is None or keyword_token.value in keywords_with_parsing:
         expr: Expr
         comment: str|None
-        expr          = parse_expression(ts, kb, 0)        # parse expression
-        expr, comment = post_process(kb, expr)             # turn spaces into calls, symmetry, flatness
-        type_check_expression(expr, kb)                    # (some) type checking
+        expr          = parse_expression(ts, kb, begin_rbp)   # parse expression
+        expr, comment = post_process(kb, expr)                # turn spaces into calls, symmetry, flatness
+        type_check_expression(expr, kb)                       # (some) type checking
     else:
-        expr = list(ts)[:-1]                               # [:-1] removes end_token
+        expr = list(ts)[:-1]                                  # [:-1] removes end_token
         comment = None
     return keyword_token, expr, comment
 
@@ -1147,13 +1158,24 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case []:
                 pass
             case [*expr_list]:
-                tokenlist: Expr = expr_list + [end_token]           # add end token for parse_expression
-                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))               # turn list into peekable generator
-                expr = parse_expression(ts, kb, 0)            # parse the tokenlist
-                expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
+                tokenlist: Expr = expr_list + [end_token]                          # add end token for parse_expression
+                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
+                expr = parse_expression(ts, kb, begin_rbp)                         # parse the tokenlist
+                expr, comment = post_process(kb, expr)                             # turn spaces into calls, symmetry, flatness
                 msg = f'{expr_sexpr(expr)}'
                 if comment is not None:
                     msg += f' "{comment}"'
+                print(msg, file=sys.stdout)
+            case _:
+                assert f'BUG: `args` must be a list'
+    elif keyword == 'tokenize':
+        match args:
+            case []:
+                pass
+            case [*expr_list]:
+                tokenlist: Expr = expr_list + [end_token]                          # add end token for parse_expression
+                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
+                msg = f'{'  '.join([str(t) for t in ts])}'
                 print(msg, file=sys.stdout)
             case _:
                 assert f'BUG: `args` must be a list'
@@ -1328,12 +1350,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case []:
                 pass
             case [*expr_list]:
-                tokenlist: Expr = expr_list + [end_token]           # add end token for parse_expression
-                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))               # turn list into peekable generator
+                tokenlist: Expr = expr_list + [end_token]                                   # add end token for parse_expression
+                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))           # turn list into peekable generator
                 expr: Expr
-                expr = parse_expression(ts, kb, 0)            # parse the tokenlist
-                expr, comment = post_process(kb, expr)        # turn spaces into calls, symmetry, flatness
-                expr_alt, subst = rename_all_vars(expr, {}, kb)       # rename all variables
+                expr = parse_expression(ts, kb, begin_rbp)                                  # parse the tokenlist
+                expr, comment = post_process(kb, expr)                                      # turn spaces into calls, symmetry, flatness
+                expr_alt, subst = rename_all_vars(expr, {}, kb)  # rename all variables
                 subst_back: dict[str, str] = {}
                 for k in subst.keys():
                     v = subst[k]
@@ -1480,7 +1502,6 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
                 assert len(expr) == len(reasons) + 1
                 line_strs: list[str] = []
                 for clause, reason, letter in zip(expr[1:], reasons, letter_generator()):
-                    debug(letter)
                     line_str = str(line) + letter
                     sub_f = Formula(clause, line_str, filename, status=None, comment=None, kb=kb)
                     line_strs.append(line_str)
@@ -1491,20 +1512,24 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
                 log(f.formula_str(kb), reason, kb)
         return kb
     else:
-        # iterate over the expr to allow ',' in keyword expressions
-        args = []
-        if not isinstance(expr, list):
-            expr = [expr]
-        for e in expr:
-            match e:
-                case Token(label='SYMBOL', value=v) if v==COMMA_SYMBOL:
-                    if len(args) == 0:
-                        raise KurtException(f'ParseError: nothing to separate with a comma, comma can not be used with `use`, `assume`, `show`, etc.')
-                    kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
-                    args = []
-                case _:
-                    args += [e]
-        kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
+        match keyword_token:
+            case Token(label='SYMBOL', value=v) if v in ['parse', 'tokenize']:
+                kb = eval_keyword_expression(keyword_token, expr, comment, kb, line, filename, mainstream)
+            case _:
+                # iterate over the expr to allow ',' in keyword expressions
+                if not isinstance(expr, list):
+                    expr = [expr]
+                args = []
+                for e in expr:
+                    match e:
+                        case Token(label='SYMBOL', value=v) if v==COMMA_SYMBOL:
+                            if len(args) == 0:
+                                raise KurtException(f'ParseError: nothing to separate with a comma, comma can not be used with `use`, `assume`, `show`, etc.')
+                            kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
+                            args = []
+                        case _:
+                            args += [e]
+                kb = eval_keyword_expression(keyword_token, args, comment, kb, line, filename, mainstream)
         return kb
 
 ########################
