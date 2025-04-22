@@ -25,7 +25,6 @@ from __future__ import annotations
 
 ### NEXT BIG TOPICS:
 # 0. brackets, have `|x-y|`, have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately
-#    problem is that for `|18| |19|`, the `get_lbp` for the third `|` (a left version) should be 22 (_space_lbp), however, for the right version it should be 0
 # 1. indentation, have `begin` and `end` primitive and use it for `proof` and also for `assume` (haskell 'offside' rule)
 # 2. how to prove forall statements, i.e. variables vs constant results, look at proof of excluded middle
 # 3. local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
@@ -44,7 +43,6 @@ from __future__ import annotations
 # is automatically triggered and `p implies q` is added to the theory
 # TODO in kurt-syntax (typescript and e-lisp) let any character that is not `a..z` trigger the replacement
 # TODO introduce `let` for conditional quantifier, add conditional quantifier, e.g., `∀ ε > 0`
-# TODO how about `|x-y|` can we have it already with out brackets?  how about `|x-|y||`
 # TODO support `a_18` or `a_(foo - bar)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
 # TODO with indentation, we can also do the following, `let` statement and equation chains
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
@@ -68,7 +66,6 @@ from __future__ import annotations
 # TODO type checking for `sub $x $a $A` with free and bound variable check
 # TODO have `origin` (see class Token) also on the Formula level
 # TODO substitutions are only allowed in `use` lines, not in regular stuff, so they are designed to formulate axiom schemata.
-# TODO `parse ( 12, 232 )` and `parse < 12, 32>` generates syntax errors.
 # TODO check that `minimal.kurt` is really hard-coded here
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO create an initial version and start working on the branch
@@ -146,92 +143,92 @@ def debug(*s) -> None:
 ## some pretty replacement of latex style symbols with unicode characters
 REPLACEMENTS: dict[str, str] = {
     # propositional logic
-    "\\not":     "¬",
-    "\\neg":     "¬",
-    "\\and":     "∧",
-    "\\or":      "∨",
-    "\\iff":     "⇔",
-    "\\equiv":   "≡",
-    "\\implies": "⇒",
-    "\\bottom":  "⊥",
-    "\\top":     "⊤",
+    '\\not':     '¬',
+    '\\neg':     '¬',
+    '\\and':     '∧',
+    '\\or':      '∨',
+    '\\iff':     '⇔',
+    '\\equiv':   '≡',
+    '\\implies': '⇒',
+    '\\bottom':  '⊥',
+    '\\top':     '⊤',
 
     # first order logic
-    "\\forall":  "∀",
-    "\\exists":  "∃",
+    '\\forall':  '∀',
+    '\\exists':  '∃',
 
     # modal logic
-    "\\box":     "□",      # necessity
-    "\\b":       "□",
-    "\\diamond": "◇",      # possibility
-    "\\d":       "◇",
+    '\\box':     '□',      # necessity
+    '\\b':       '□',
+    '\\diamond': '◇',      # possibility
+    '\\d':       '◇',
 
     # set theory
-    "\\infty": "∞",        # infinity
-    "\\in": "∈",           # element of
-    "\\notin": "∉",        # not element of
-    "\\subset": "⊂",       # proper subset
-    "\\subseteq": "⊆",     # subset or equal
-    "\\supset": "⊃",       # proper superset
-    "\\supseteq": "⊇",     # superset or equal
-    "\\cap": "∩",          # intersection
-    "\\cup": "∪",          # union
-    "\\emptyset": "∅",     # empty set
-    "\\equiv": "≡",        # equivalence
-    "\\leq": "≤",          # less than or equal
-    "\\geq": "≥",          # greater than or equal
+    '\\infty': '∞',        # infinity
+    '\\in': '∈',           # element of
+    '\\notin': '∉',        # not element of
+    '\\subset': '⊂',       # proper subset
+    '\\subseteq': '⊆',     # subset or equal
+    '\\supset': '⊃',       # proper superset
+    '\\supseteq': '⊇',     # superset or equal
+    '\\cap': '∩',          # intersection
+    '\\cup': '∪',          # union
+    '\\emptyset': '∅',     # empty set
+    '\\equiv': '≡',        # equivalence
+    '\\leq': '≤',          # less than or equal
+    '\\geq': '≥',          # greater than or equal
 
     # small Greek letters
-    "\\alpha":   "α",
-    "\\beta":    "β",
-    "\\gamma":   "γ",
-    "\\delta":   "δ",
-    "\\epsilon": "ε",
-    "\\zeta":    "ζ",
-    "\\eta":     "η",
-    "\\theta":   "θ",
-    "\\iota":    "ι",
-    "\\kappa":   "κ",
-    "\\lambda":  "λ",
-    "\\mu":      "μ",
-    "\\nu":      "ν",
-    "\\xi":      "ξ",
-    "\\omicron": "ο",
-    "\\pi":      "π",
-    "\\rho":     "ρ",
-    "\\sigma":   "σ",
-    "\\tau":     "τ",
-    "\\upsilon": "υ",
-    "\\phi":     "φ",
-    "\\chi":     "χ",
-    "\\psi":     "ψ",
-    "\\omega":   "ω",
+    '\\alpha':   'α',
+    '\\beta':    'β',
+    '\\gamma':   'γ',
+    '\\delta':   'δ',
+    '\\epsilon': 'ε',
+    '\\zeta':    'ζ',
+    '\\eta':     'η',
+    '\\theta':   'θ',
+    '\\iota':    'ι',
+    '\\kappa':   'κ',
+    '\\lambda':  'λ',
+    '\\mu':      'μ',
+    '\\nu':      'ν',
+    '\\xi':      'ξ',
+    '\\omicron': 'ο',
+    '\\pi':      'π',
+    '\\rho':     'ρ',
+    '\\sigma':   'σ',
+    '\\tau':     'τ',
+    '\\upsilon': 'υ',
+    '\\phi':     'φ',
+    '\\chi':     'χ',
+    '\\psi':     'ψ',
+    '\\omega':   'ω',
 
     # capital Greek letters
-    "\\Alpha":   "Α",
-    "\\Beta":    "Β",
-    "\\Gamma":   "Γ",
-    "\\Delta":   "Δ",
-    "\\Epsilon": "Ε",
-    "\\Zeta":    "Ζ",
-    "\\Eta":     "Η",
-    "\\Theta":   "Θ",
-    "\\Iota":    "Ι",
-    "\\Kappa":   "Κ",
-    "\\Lambda":  "Λ",
-    "\\Mu":      "Μ",
-    "\\Nu":      "Ν",
-    "\\Xi":      "Ξ",
-    "\\Omicron": "Ο",
-    "\\Pi":      "Π",
-    "\\Rho":     "Ρ",
-    "\\Sigma":   "Σ",
-    "\\Tau":     "Τ",
-    "\\Upsilon": "Υ",
-    "\\Phi":     "Φ",
-    "\\Chi":     "Χ",
-    "\\Psi":     "Ψ",
-    "\\Omega":   "Ω"
+    '\\Alpha':   'Α',
+    '\\Beta':    'Β',
+    '\\Gamma':   'Γ',
+    '\\Delta':   'Δ',
+    '\\Epsilon': 'Ε',
+    '\\Zeta':    'Ζ',
+    '\\Eta':     'Η',
+    '\\Theta':   'Θ',
+    '\\Iota':    'Ι',
+    '\\Kappa':   'Κ',
+    '\\Lambda':  'Λ',
+    '\\Mu':      'Μ',
+    '\\Nu':      'Ν',
+    '\\Xi':      'Ξ',
+    '\\Omicron': 'Ο',
+    '\\Pi':      'Π',
+    '\\Rho':     'Ρ',
+    '\\Sigma':   'Σ',
+    '\\Tau':     'Τ',
+    '\\Upsilon': 'Υ',
+    '\\Phi':     'Φ',
+    '\\Chi':     'Χ',
+    '\\Psi':     'Ψ',
+    '\\Omega':   'Ω'
 }
 
 # for the scanner
@@ -2200,16 +2197,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-t', '--test',         action='store_true', help=f'run unit tests and exit')
     return parser.parse_args()
 
+def run_tests() -> None:
+    import os
+    import unittest
+
+    # Ensure we are running discovery in the right directory
+    test_dir = os.path.join(os.path.dirname(__file__), 'tests')
+    loader = unittest.TestLoader()
+    suite = loader.discover(start_dir=test_dir, pattern='test_*.py')
+
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    print(f'\nSUMMARY')
+    print(f'Ran {result.testsRun} tests')
+    print(f'Failures: {len(result.failures)}')
+    print(f'Errors:   {len(result.errors)}')
+    print('Status:   ' + ('✅ Passed' if result.wasSuccessful() else '❌ Failed'))
+
 def main() -> None:
     args = parse_args()
     print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
+
+    # run tests?
+    if args.test:
+        print('Running tests...', file=sys.stdout)
+        run_tests()
+        print('All tests passed.', file=sys.stdout)
+        exit(0)
 
     # debug flag?
     global debug_flag
     debug_flag = args.debug
 
     # readline history
-    readline_history_file = os.path.expanduser("~/.kurt_history")         # should work on all platforms
+    readline_history_file = os.path.expanduser('~/.kurt_history')         # should work on all platforms
     if os.path.exists(readline_history_file):
         readline.read_history_file(readline_history_file)                 # restore history
     atexit.register(readline.write_history_file, readline_history_file)   # register for automatic saving
@@ -2252,5 +2274,5 @@ def main() -> None:
         kb : KnowledgeBase = read_eval_loop(sys.stdin, kb, mainstream=True)[0]
     exit(0)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
