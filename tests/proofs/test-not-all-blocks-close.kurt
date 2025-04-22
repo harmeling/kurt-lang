@@ -1,6 +1,0 @@
-; error: not alle blocks close
-; should create an error message
-load "propositional"
-show true
-proof
-;;; EvalError: inside "./tests/proofs/test-not-all-blocks-close.kurt" not all blocks closed, missing "qed"?

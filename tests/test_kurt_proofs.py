@@ -4,6 +4,7 @@ import io
 import copy
 import unittest
 import kurt
+import pathlib
 
 def file_last_line(fname):
     # the last line in the file starts with `;;; ` and contains the expected last line of the output
@@ -16,11 +17,10 @@ def str_last_line(s):
 class Test_Proving(unittest.TestCase):
     def test_proving(self):
         #kurt.initial_kb.format = 'sexpr'
-        path = "tests/proofs/"
-        examples  = [f for f in os.listdir(path) if f.endswith(".kurt")]
+        examples = list(pathlib.Path('proofs').rglob('*.kurt'))
         for i in range(len(examples)):
             kb = copy.deepcopy(kurt.initial_kb)
-            fname = path + examples[i]
+            fname = str(examples[i])
             with self.subTest(msg=examples[i], i=i):
                 try:
                     true_last_line = file_last_line(fname)
