@@ -15,3 +15,7 @@ infix   >= 20 20           ; greater than or equal
 flat +, *
 sym  +, *
 bool <  0, >  0, <= 0, >= 0
+chain   = <= <
+chain   = >= >
+alias   ≤ <=
+alias   ≥ >=

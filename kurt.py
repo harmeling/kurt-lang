@@ -8,7 +8,7 @@ from __future__ import annotations
 
 ## for profiling run:
 # python -m cProfile -o kurt.prof kurt.py
-# python -m cProfile -s time kurt.py tests/proofs/group.kurt
+# python -m cProfile -s time kurt.py proofs/group.kurt
 
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
@@ -24,7 +24,8 @@ from __future__ import annotations
 #    for multiline equation add an extra step that checks whether the INDENT token is followed by an infix operator, if yes, add '___' ellipse
 
 ### NEXT BIG TOPICS:
-# 0. brackets, have `|x-y|`, have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately
+# -1. `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
+# 0. have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 # 1. indentation, have `begin` and `end` primitive and use it for `proof` and also for `assume` (haskell 'offside' rule)
 # 2. how to prove forall statements, i.e. variables vs constant results, look at proof of excluded middle
 # 3. local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
@@ -41,7 +42,7 @@ from __future__ import annotations
 #      qed
 # however, the assume is even nicer, once the assumption is not indented anymore, "impl-intro"
 # is automatically triggered and `p implies q` is added to the theory
-# TODO in kurt-syntax (typescript and e-lisp) let any character that is not `a..z` trigger the replacement
+# TODO in kurt-syntax (typescript and e-lisp) let any character that is not `a..z` trigger the replacement, the trigger is not omitted
 # TODO introduce `let` for conditional quantifier, add conditional quantifier, e.g., `∀ ε > 0`
 # TODO support `a_18` or `a_(foo - bar)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
 # TODO with indentation, we can also do the following, `let` statement and equation chains
@@ -107,7 +108,7 @@ import readline     # readline.[parse_and_bind, add_history, read_history_file, 
 import atexit       # atexit.register
 import inspect      # inspect.stack
 
-from itertools import product, count
+import itertools    # itertools.[product, count, chain]
 from dataclasses import dataclass
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator
 
@@ -270,6 +271,7 @@ keywords: dict[str, str] = {
     'flat':        'declare infix operator to be flat',
     'sym':         'declare infix operator to be symmetric',
     'bool':        'declare symbols to have output type boolean',
+    'chain':       'declare a chain of symbols, for automatic transitivity',
     'var':         'declare symbols as variable, symbols starting with $ are always variables',
     'const':       'declare symbols as constants',
     'alias':       'add some aliases for a symbol',
@@ -280,7 +282,7 @@ keywords: dict[str, str] = {
 
     # formulas
     'use':         'use a formula without proof as a axiom',
-    'def':         'define something using an equation or equivalence',
+    'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
     'assume':      'assume a formula',
     'show':        'plan to prove a formula',
     'proof':       'start a block and open a new level to prove the last planned formula',
@@ -389,6 +391,11 @@ class PeekableGenerator(Generic[T]):                 # a peekable generator
         except StopIteration:                        # delay the exception until the next 'next'-call
             self.peek = None                         # nothing to peek anymore
             self.eog = True                          # next call __next__ triggers the exception
+    def prepend(self, item: T) -> None:
+        if self.peek is not None:
+            self.gen = itertools.chain([self.peek], self.gen)   # shift the peek back to the front
+        self.peek = item                             # set the peek to the new item
+        self.eog  = False                            # we are not at the end of the generator
 
 # hierarchical knowledge base
 # the level is increased inside blocks and files
@@ -410,9 +417,10 @@ class KnowledgeBase:
         self.prefix:   dict[str, int]            = {}     # right binding power of prefix operator
         self.brackets: dict[str, str]            = {}     # keys are right brackets, values are left brackets
         self.arity:    dict[str, int]            = {}     # for non-zero arities
+        self.chain:    dict[str, list[str]]      = {}     # for chaining operators, i.e., 18 = 1+17 <= 20 < 21
         self.bindop:   set[str]                  = set()  # for variable binding operators
-        self.flat:     set[str]                  = set()  # for declaring a flat operator, i.e. ($a + $b) + $c = $a + $b + $c
-        self.sym:      set[str]                  = set()  # for declaring a symmetric operator, i.e. $a + $b = $b + $a
+        self.flat:     set[str]                  = set()  # for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
+        self.sym:      set[str]                  = set()  # for declaring a symmetric operator, i.e., $a + $b = $b + $a
         self.lbp:      dict[str, int]            = {}     # left binding power
         self.rbp:      dict[str, int]            = {}     # right binding power
         self.bool:     dict[str, list[int]]      = {}     # dict of symbols declared to have boolean output
@@ -432,7 +440,7 @@ class KnowledgeBase:
         self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
         self.verbose: bool  = verbose if parent is None else parent.verbose           # extra information or not
 
-    def entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|None = None) -> str:
+    def entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix {key} {value}'
         elif keyword == 'infix':    
             if isinstance(value, tuple) and len(value) == 2:
@@ -440,6 +448,10 @@ class KnowledgeBase:
             assert False, f'BUG!  Unexpected value for `infix`, got {value}'
         elif keyword == 'postfix':  return f'postfix {key} {value}'
         elif keyword == 'brackets': return f'brackets {value} {key}'
+        elif keyword == 'chain':
+            if isinstance(value, list):
+                return f'chain {key} {' '.join(map(str, value))}'
+            assert False, f'BUG!  Unexpected value for `chain`, got {value}'
         elif keyword == 'arity':    return f'arity {key} {value}'
         elif keyword == 'flat':     return f'flat {key}'
         elif keyword == 'sym':      return f'sym {key}'
@@ -453,7 +465,7 @@ class KnowledgeBase:
         elif keyword == 'alias':    return f'alias {key} {value}'
         else: assert False, f'BUG: unknown keyword, got {keyword}'
 
-    def dict_or_set_str(self, some_dict_or_set: dict[str,str]|dict[str,int]|dict[str,tuple[int,int]]|dict[str,list[int]]|set[str], keyword: str) -> str:
+    def dict_or_set_str(self, some_dict_or_set: dict[str,str]|dict[str,int]|dict[str,tuple[int,int]]|dict[str,list[int]]|dict[str,list[str]]|set[str], keyword: str) -> str:
         if isinstance(some_dict_or_set, dict):
             return '\n'.join([self.entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set])
         else:
@@ -467,6 +479,7 @@ class KnowledgeBase:
         s += self.dict_or_set_str(self.infix,    'infix') + '\n'
         s += self.dict_or_set_str(self.postfix,  'postfix') + '\n'
         s += self.dict_or_set_str(self.arity,    'arity') + '\n'
+        s += self.dict_or_set_str(self.chain,    'chain') + '\n'
         s += self.dict_or_set_str(self.bindop,   'bindop') + '\n'
         s += self.dict_or_set_str(self.brackets, 'brackets') + '\n'
         s += self.dict_or_set_str(self.flat,     'flat') + '\n'
@@ -575,6 +588,16 @@ class KnowledgeBase:
             return [op_token, left]
         self.led[op] = led
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
+
+    def add_chain(self, op: str, chain: list[str]) -> None:
+        if not self.is_infix(op):
+            raise KurtException(f'EvalError: operator "{op}" must be infix operator to declare chain')
+        for c in chain:
+            if not self.is_infix(c):
+                raise KurtException(f'EvalError: operator "{c}" must be infix operator to declare chain')
+        if len(chain) < 1:
+            raise KurtException(f'EvalError: chain of operators must have at least two elements')
+        self.chain[op] = chain
 
     def add_bindop(self, fun: str) -> None:
         if fun not in self.arity:
@@ -1128,6 +1151,18 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str)
     else:
         return f'{os.path.basename(filename)}:{line_str} {reason}'
 
+def increase_level(kb:KnowledgeBase, proof=False) -> KnowledgeBase:
+    return KnowledgeBase(kb, proof)
+
+def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
+    if kb.level == 0:
+        raise KurtException(f'EvalError: no block to close')
+    if len(kb.show) > 0:                  # any planned formulas inside the current proof?
+        pf = kb.show[-1]
+        raise KurtException(f'ProofError: planned formula "{expr_str(pf.expr, kb)}" in current proof is unproven')
+    assert kb.parent is not None, f'BUG: we should be one level up'
+    return kb.parent                        # drop current level
+
 def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
@@ -1261,6 +1296,20 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 kb.add_bindop(op)
             case _:
                 msg = create_usage(keyword, [[], ['STRING']])
+                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+    elif keyword == 'chain':
+        match args:
+            case []:
+                print(kb.dict_or_set_str(kb.chain, keyword), file=sys.stdout)
+            case [Token(label='STRING'|'SYMBOL', value=op), *tail]:
+                assert isinstance(op, str)
+                chain: list[str] = []
+                for t in tail:
+                    assert isinstance(t, Token) and t.label=='SYMBOL' and isinstance(t.value, str)
+                    chain.append(t.value)
+                kb.add_chain(op, chain)
+            case _:
+                msg = create_usage(keyword, [[], ['STRING', 'STRING'], ['STRING', 'STRING', 'STRING'], ['STRING', 'STRING', 'STRING', 'STRING']])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'flat':
         match args:
@@ -1422,7 +1471,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                     raise KurtException(f'ProofError: can not start proof since there is no planned formula on current level')
                 if mainstream:
                     log('proof', None, kb)
-                kb = KnowledgeBase(kb, proof=True)          # add a new level/scope to the knowledgebase
+                kb = increase_level(kb, proof=True)          # add a new level/scope to the knowledgebase
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
@@ -1431,19 +1480,14 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
             case []:
                 if not kb.proof:
                     raise KurtException(f'EvalError: no proof to finish, `qed` can only conclude `proof` block')
-                if kb.level == 0:
-                    raise KurtException(f'EvalError: no block to close')
-                if len(kb.show) > 0:                  # any planned formulas inside the current proof?
-                    pf = kb.show[-1]
-                    raise KurtException(f'ProofError: planned formula "{expr_str(pf.expr, kb)}" in current proof is unproven')
-                assert kb.parent is not None, f'BUG: we should be one level up'
-                assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
-                pf = kb.parent.show[-1]               # peek at the last planned formula from previous level
-                reason = impl_intro(pf.expr, kb)      # this might generate a KurtException
-                kb = kb.parent                        # drop current level
+                kb_up = kb
+                kb = decrease_level(kb)                    # drop current level and perform some checks
+                assert len(kb.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
+                pf = kb.show[-1]                  # peek at the last planned formula from previous level
+                reason = impl_intro(pf.expr, kb_up)   # this might generate a KurtException
                 f = Formula(pf.expr, str(line), filename, status=None, comment=None, kb=kb)
-                kb.show.pop()                         # pop it now off the show stack, since it was proved
-                kb.theory.append(f)                   # add a copy to the theory
+                kb.show.pop()                              # pop it now off the show stack, since it was proved
+                kb.theory.append(f)                        # add a copy to the theory
                 if mainstream:
                     log('qed', None, kb)
                     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -1475,8 +1519,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
 
 def letter_generator() -> Generator[str, None, None]:
     letters = 'abcdefghijklmnopqrstuvwxyz'
-    for size in count(1):
-        for combo in product(letters, repeat=size):
+    for size in itertools.count(1):
+        for combo in itertools.product(letters, repeat=size):
             yield ''.join(combo)
 
 def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
@@ -2063,25 +2107,42 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
 
+previous_lhs: Expr|None = None
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
+    global previous_lhs
     try:
-        ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
+        ts = PeekableGenerator(scan_string(input_line, kb))
         match ts.peek:
-            case Token(label='IDENT'):
-                # two cases: `assume` and chain (of equation or equivalences)
-                pass
+            case Token(label='INDENT'):
+                # two cases: `assume` and chain (of equation or equivalences),  # for now just the chain
+                match ts.peek:
+                    case Token(label='SYMBOL', value=v) if previous_lhs is not None and isinstance(v, str) and kb.is_infix(v) and v in kb.chain:
+                        op_token = next(ts)   # consume the operator
+                        keyword_token, expr, comment = parse_tokenstream(ts, kb)
+                        if keyword_token is not None:
+                            raise KurtException(f'ProofError: multiline chain can not be combined with a keyword')
+                        expr = [op_token, previous_lhs, expr]   # prepend the previous LHS to the token stream
+                    case _:
+                        kb = increase_level(kb)   # increase the level
+                        keyword_token, expr, comment = parse_tokenstream(ts, kb)
             case Token(label='DEDENT'):
                 # two cases: `assume` and equation chains
+                assert kb.level > 0
                 if kb.proof:
                     raise KurtException(f'A `proof` block must be closed by `qed`.')
-            
-        keyword_token, expr, comment = parse_tokenstream(ts, kb)       # parser
-        kb   = eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
+                if previous_lhs is None:
+                    kb = decrease_level(kb)   # decrease the level
+                else:
+                    previous_lhs = None                # stop the chain by deleting the previous LHS
+                keyword_token, expr, comment = parse_tokenstream(ts, kb)
+            case _:
+                keyword_token, expr, comment = parse_tokenstream(ts, kb)    # parser
+        return eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
+
     except KurtException as e:
         e.filename = filename
         e.line     = line
         raise e
-    return kb
 
 def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> tuple[KnowledgeBase, bool]:
     # files are always loaded into level
@@ -2133,7 +2194,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
     continued  = False
     input_line = ''
     if not is_file:
-        readline.parse_and_bind("tab: complete")    # Enable tab completion
+        readline.parse_and_bind("tab: complete")    # enable tab completion
     while True:
         try:
             if not is_file:

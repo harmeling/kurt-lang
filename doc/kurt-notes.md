@@ -909,3 +909,80 @@ How should we match `f $x` against `sub $x $a $A`:
     use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
 
 - e.g. renaming `$x` in "exists-intro" in the LHS makes the whole formula wrong, since `$x` might appear in `$A` which appears also on the RHS.
+
+## 2025-04-23 blocks
+
+- we have a couple of block starters as syntactic sugar, nicely matching several intro rules:
+
+- forall-intro
+
+        let ε>0
+          bla bla
+          F(ε)
+        thus ∀ε>0 F(ε)    ; forall-intro
+
+  which is short for the long version:
+
+        show $$_$$        ; empty `show`
+        proof
+          const ε
+          assume ε>0
+          bla bla
+          F(ε)
+          ε>0 ⇒ F(ε)
+          ∀ε>0 F(ε)
+        qed               ; this adds the last formula to the outer theory
+
+- exist-intro
+
+        take δ=3*ε
+          δ > 0
+          bla bla
+          G(δ)
+        thus ∃ δ>0 G(δ)   ; exists-intro, same as `∃δ δ>0 ∧ G(δ)`
+
+  translates to
+
+        show $$_$$        ; empty `show`
+        proof
+          const δ
+          use δ=3*ε       ; together with previous line same as `def`
+          δ > 0           ; follows from properties of `ε`
+          bla bla
+          G(δ)
+          ∃ δ>0 G(δ)      ; exists-intro, collect the clauses of the conjunction
+        qed               ; this adds the last formula to the outer theory
+
+- impl-intro
+
+        assume p
+          bla bla
+          q
+        thus p ⇒ q        ; impl-intro
+
+  translates to
+
+        show $$_$$        ; empty show statement, will be filled with the next `thus`
+        proof
+          assume p
+          bla bla
+          q
+          thus p ⇒ q
+        qed
+        p ⇒ q
+
+- then we have another short block
+
+        A by
+          foo
+          blo
+        qed
+
+  translates to
+
+        show A
+        proof
+          foo
+          blo
+          A
+        end

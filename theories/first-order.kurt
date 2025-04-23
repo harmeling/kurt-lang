@@ -16,6 +16,12 @@ use forall $x $A                        implies  sub $x $a $A      "forall-elim"
 use sub $x $a $A                        implies  exists $x $A      "exists-intro"
 use (exists $x $B) and ($B implies $A)  implies  $A                "exists-elim"
 
+;; better looking
+; use $A                     ⇒  ∀ $x $A       "forall-intro"
+; use ∀ $x $A                ⇒  sub $x $a $A  "forall-elim"
+; use sub $x $a $A           ⇒  ∃ $x $A       "exists-intro"
+; use (∃ $x $B) ∧ ($B ⇒ $A)  ⇒  $A            "exists-elim"
+
 ;; requirements
 ; - for "forall-elim" and "exists-intro":
 ;   - `$a` doesn't contain free variables that are bound in `$A`
@@ -30,3 +36,5 @@ use (exists $x $B) and ($B implies $A)  implies  $A                "exists-elim"
 ;     we match `$B implies $A` where we can assign `$@1` appropriately, since it appears free
 ;   - case 2: we match `$B` using `$B implies $A`, then we use that `$B` to match against
 ;     `exists $@1 $B`
+
+
