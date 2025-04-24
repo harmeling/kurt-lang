@@ -19,33 +19,14 @@ from __future__ import annotations
 ## links to the natural deduction system
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
-### insights
-#    (x):  ')' has should have ..., '|' should have ...
-#    for multiline equation add an extra step that checks whether the INDENT token is followed by an infix operator, if yes, add '___' ellipse
-
 ### NEXT BIG TOPICS:
-# -1. `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
-# 0. have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
-# 1. indentation, have `begin` and `end` primitive and use it for `proof` and also for `assume` (haskell 'offside' rule)
-# 2. how to prove forall statements, i.e. variables vs constant results, look at proof of excluded middle
-# 3. local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
-# 4. comments, separation options:   (A) comments `;`, separation `|` or `::`, (B) comments `--`, separation `;`
-
-# TODO indentation for the proof block:
-#      assume p
-#         q
-#      p implies q
-# translates to
-#      show p implies q
-#      proof
-#          q
-#      qed
-# however, the assume is even nicer, once the assumption is not indented anymore, "impl-intro"
-# is automatically triggered and `p implies q` is added to the theory
-# TODO in kurt-syntax (typescript and e-lisp) let any character that is not `a..z` trigger the replacement, the trigger is not omitted
+# TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, `by`, then rewrite the proofs
+# TODO implement chains
+# TODO `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
+# TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
+# TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
 # TODO introduce `let` for conditional quantifier, add conditional quantifier, e.g., `∀ ε > 0`
 # TODO support `a_18` or `a_(foo - bar)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
-# TODO with indentation, we can also do the following, `let` statement and equation chains
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 # TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
@@ -292,7 +273,7 @@ keywords: dict[str, str] = {
 keywords_with_parsing: list[str] = ['use', 'assume', 'def', 'show']
 
 # types
-Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END', 'INDENT', 'DEDENT']
+Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
 Value:  TypeAlias = str | int | float
 Format: TypeAlias = Literal['sexpr', 'normal']
 Status: TypeAlias = Literal['use', 'assume', 'show', 'def'] | None
@@ -305,10 +286,7 @@ class Token:
     origin: Value | None = None
 
     def __repr__(self) -> str:
-        if self.label in ['INDENT', 'DEDENT']:
-            return f'{self.label}({self.value})'
-        else:
-            return f'{self.value}'
+        return f'{self.value}'
     
     def __lt__(self, other: Token) -> bool:
         return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
@@ -895,29 +873,13 @@ scanner: re.Pattern = re.compile(fr'''
 # notes:
 # since we are using an `f-string` for the regex, we have to escape the curly brackets
 # common white space:
-# \t tab        # gets converted to space
+# \t tab
 # \n newline
 # \r carriage return
 # \f form feed
 # \v vertical tab
 
-indent_stack: list[int] = [0]
 def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
-    global indent_stack
-
-    # calculate indentation
-    stripped_line = input_line.lstrip()
-    indent = len(input_line) - len(stripped_line)
-
-    # deal with the indent/dedent stuff
-    if indent > indent_stack[-1]:
-        indent_stack.append(indent)
-        #yield Token('INDENT', indent, indent)
-    while indent < indent_stack[-1]:
-        indent_stack.pop()
-        #yield Token('DEDENT', indent, indent)
-    if indent != indent_stack[-1]:
-        raise KurtException(f"Inconsistent indentation: got indent {indent}, but expected one of {indent_stack}")
 
     # setup current location
     lastpos: int = 0        # for calculating the column number, update after a newline
@@ -1152,7 +1114,7 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str)
         return f'{os.path.basename(filename)}:{line_str} {reason}'
 
 def increase_level(kb:KnowledgeBase, proof=False) -> KnowledgeBase:
-    return KnowledgeBase(kb, proof)
+    return KnowledgeBase(parent=kb, proof=proof)
 
 def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
     if kb.level == 0:
@@ -1424,6 +1386,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, comment: str|None,
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword in ['use', 'assume', 'def']:
+        if keyword == 'use' and kb.level > 0:
+            raise KurtException(f'axioms (with `use`) can only be introduced on the top level')
         match args:
             case []:
                 print(kb.theory_str(keyword=keyword), file=sys.stdout)
@@ -2107,42 +2071,17 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
 
-previous_lhs: Expr|None = None
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
-    global previous_lhs
     try:
-        ts = PeekableGenerator(scan_string(input_line, kb))
-        match ts.peek:
-            case Token(label='INDENT'):
-                # two cases: `assume` and chain (of equation or equivalences),  # for now just the chain
-                match ts.peek:
-                    case Token(label='SYMBOL', value=v) if previous_lhs is not None and isinstance(v, str) and kb.is_infix(v) and v in kb.chain:
-                        op_token = next(ts)   # consume the operator
-                        keyword_token, expr, comment = parse_tokenstream(ts, kb)
-                        if keyword_token is not None:
-                            raise KurtException(f'ProofError: multiline chain can not be combined with a keyword')
-                        expr = [op_token, previous_lhs, expr]   # prepend the previous LHS to the token stream
-                    case _:
-                        kb = increase_level(kb)   # increase the level
-                        keyword_token, expr, comment = parse_tokenstream(ts, kb)
-            case Token(label='DEDENT'):
-                # two cases: `assume` and equation chains
-                assert kb.level > 0
-                if kb.proof:
-                    raise KurtException(f'A `proof` block must be closed by `qed`.')
-                if previous_lhs is None:
-                    kb = decrease_level(kb)   # decrease the level
-                else:
-                    previous_lhs = None                # stop the chain by deleting the previous LHS
-                keyword_token, expr, comment = parse_tokenstream(ts, kb)
-            case _:
-                keyword_token, expr, comment = parse_tokenstream(ts, kb)    # parser
-        return eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
-
+        ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
+        
+        keyword_token, expr, comment = parse_tokenstream(ts, kb)       # parser
+        kb   = eval_expression(keyword_token, expr, comment, kb, line, filename, mainstream) # evaluation
     except KurtException as e:
         e.filename = filename
         e.line     = line
         raise e
+    return kb
 
 def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> tuple[KnowledgeBase, bool]:
     # files are always loaded into level

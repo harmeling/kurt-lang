@@ -912,7 +912,7 @@ How should we match `f $x` against `sub $x $a $A`:
 
 ## 2025-04-23 blocks
 
-- we have a couple of block starters as syntactic sugar, nicely matching several intro rules:
+- we don't do an indentation based approach, but pascal style with `let`, `take`, `assume` blocks being ended with `thus`, and `proof` blocks with `qed`.  the basic form is `proof` and `qed`, the other blocks are syntactic sugar tailored to `forall-intro`, `exists-intro` and `impl-intro`.
 
 - forall-intro
 
@@ -967,9 +967,8 @@ How should we match `f $x` against `sub $x $a $A`:
           assume p
           bla bla
           q
-          thus p ⇒ q
+          p ⇒ q
         qed
-        p ⇒ q
 
 - then we have another short block
 
@@ -986,3 +985,5 @@ How should we match `f $x` against `sub $x $a $A`:
           blo
           A
         end
+
+- equation sequences can be indented or not

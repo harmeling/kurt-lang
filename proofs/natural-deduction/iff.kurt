@@ -4,11 +4,9 @@ bool p
 ; what to show
 show p iff p
 proof
-    show p implies p
-    proof
-        assume p
-        p
-    qed
-    p iff p
+    assume p
+        p               ; restatement
+    thus p implies p    ; impl-intro
+    p iff p             ; iff-intro
 qed
 ;;; Proof checked.

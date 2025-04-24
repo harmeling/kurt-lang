@@ -1,13 +1,11 @@
 ; proof-not-false.kurt
 load "propositional"
-show not false
+show ¬⊥
 proof
-    show false implies false
-    proof
-        assume false
-        contradiction
-    qed
-    not false
+    assume ⊥
+        ⊥              ; restatement
+    thus ⊥ ⇒ ⊥         ; impl-intro
+    ¬⊥                 ; not-intro
 qed
 
 ;; alternative syntax
