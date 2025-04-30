@@ -914,6 +914,38 @@ How should we match `f $x` against `sub $x $a $A`:
 
 - we don't do an indentation based approach, but pascal style with `let`, `take`, `assume` blocks being ended with `thus`, and `proof` blocks with `qed`.  the basic form is `proof` and `qed`, the other blocks are syntactic sugar tailored to `forall-intro`, `exists-intro` and `impl-intro`.
 
+- note that we do require newlines to separate expressions
+
+- ideally, we get also some `macro` mechanism to extend the language
+
+- `show`, `proof`, `qed` are built-in and the basis for the other blocks
+
+        show p
+        proof
+          foo
+          p
+        qed               ; checks whether the announced formulas has been derived
+
+- impl-intro
+
+        assume p
+          bla bla
+          q
+        thus p ⇒ q        ; impl-intro
+
+  translates to
+
+        show p ⇒ ___
+        proof
+          use p
+          bla bla
+          q
+        qed               ; this checks whether `p ⇒ q` has been derived
+
+- more details: the `thus p ⇒ q` matches the last `show` entry which is `p ⇒ $EXPR$` and checks whether it has been derived
+
+- the `p ⇒ q` is actually already on the outer scope, since it doesn't need the `use p`
+
 - forall-intro
 
         let ε>0
@@ -923,15 +955,14 @@ How should we match `f $x` against `sub $x $a $A`:
 
   which is short for the long version:
 
-        show $$_$$        ; empty `show`
+        show ∀ε>0 ___
         proof
-          const ε
-          assume ε>0
+          const ε         ; the first variable symbol in `ε>0`, on this level now `ε` is constant
+          use ε>0
           bla bla
           F(ε)
           ε>0 ⇒ F(ε)
-          ∀ε>0 F(ε)
-        qed               ; this adds the last formula to the outer theory
+        qed               ; check whether `∀ε>0 F(ε)` was derived, `ε` being variable again
 
 - exist-intro
 
@@ -943,32 +974,15 @@ How should we match `f $x` against `sub $x $a $A`:
 
   translates to
 
-        show $$_$$        ; empty `show`
-        proof
-          const δ
+        show ∃ δ>0 ___
+        begin
+          const δ         ; declare `δ` as constant
           use δ=3*ε       ; together with previous line same as `def`
-          δ > 0           ; follows from properties of `ε`
+          δ>0           ; follows from properties of `ε`
           bla bla
           G(δ)
-          ∃ δ>0 G(δ)      ; exists-intro, collect the clauses of the conjunction
-        qed               ; this adds the last formula to the outer theory
-
-- impl-intro
-
-        assume p
-          bla bla
-          q
-        thus p ⇒ q        ; impl-intro
-
-  translates to
-
-        show $$_$$        ; empty show statement, will be filled with the next `thus`
-        proof
-          assume p
-          bla bla
-          q
-          p ⇒ q
-        qed
+          δ>0 ∧ G(δ)
+        end               ; checks whether `∃δ>0 G(δ)` was derived, `δ` being variable again
 
 - then we have another short block
 
@@ -983,7 +997,14 @@ How should we match `f $x` against `sub $x $a $A`:
         proof
           foo
           blo
-          A
-        end
+        end               ; checke whether `A` was derived
 
 - equation sequences can be indented or not
+
+## note on variables and constants
+
+- variables can not be constrained, i.e., implicitly they are universally quantified for each formula
+
+- variables can be declared to be `const` inside a block
+
+- symbols are automatically declared to be variable through their usage in variable binding quantifiers

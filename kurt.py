@@ -19,16 +19,19 @@ from __future__ import annotations
 ## links to the natural deduction system
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
-### NEXT BIG TOPICS:
-# TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, `by`, then rewrite the proofs
+### TOPICS before releasing 1.0
+# TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, then rewrite the proofs
+# TODO add `by`
 # TODO implement chains
 # TODO `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
 # TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 # TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
-# TODO introduce `let` for conditional quantifier, add conditional quantifier, e.g., `∀ ε > 0`
+# TODO do multi-line equations and iff, (no indentation necessary, just must be part of a chain, and previous line must be a chain)
+# TODO write documentation/tutorial for the language
+
+### TOPICS for the future
 # TODO support `a_18` or `a_(foo - bar)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
-# TODO do multi-line equations and iff, (either using `_` or use indentation for begin/end block, new keyword `chain`
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO run profiling
 # TODO what is the difference between `arity f 1` and `prefix f 1`?  
@@ -2073,6 +2076,7 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
 
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
     try:
+        # TODO: deal here with beginning-of-line and end-of-line keywords and comments
         ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
         
         keyword_token, expr, comment = parse_tokenstream(ts, kb)       # parser
