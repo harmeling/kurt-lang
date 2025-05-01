@@ -912,7 +912,7 @@ How should we match `f $x` against `sub $x $a $A`:
 
 ## 2025-04-23 blocks
 
-- we don't do an indentation based approach, but pascal style with `let`, `take`, `assume` blocks being ended with `thus`, and `proof` blocks with `qed`.  the basic form is `proof` and `qed`, the other blocks are syntactic sugar tailored to `forall-intro`, `exists-intro` and `impl-intro`.
+- we don't do an indentation based approach, but Pascal style with `let`, `take`, `assume` blocks being ended with `thus`, and `proof` blocks with `qed`.  the basic form is `proof` and `qed`, the other blocks are syntactic sugar tailored to `forall-intro`, `exists-intro` and `impl-intro`.
 
 - note that we do require newlines to separate expressions
 
@@ -924,7 +924,7 @@ How should we match `f $x` against `sub $x $a $A`:
         proof
           foo
           p
-        qed               ; checks whether the announced formulas has been derived
+        qed               ; checks whether the announced formula has been derived
 
 - impl-intro
 
@@ -935,18 +935,18 @@ How should we match `f $x` against `sub $x $a $A`:
 
   translates to
 
-        show p ⇒ ___
+        show p ⇒ $___
         proof
           use p
           bla bla
           q
         qed               ; this checks whether `p ⇒ q` has been derived
 
-- more details: the `thus p ⇒ q` matches the last `show` entry which is `p ⇒ $EXPR$` and checks whether it has been derived
+- more details: the `thus p ⇒ q` matches the last `show` entry which is `p ⇒ $___` and checks whether it has been derived
 
-- the `p ⇒ q` is actually already on the outer scope, since it doesn't need the `use p`
+- the `p ⇒ q` is already on the outer scope, it doesn't need the `use p`
 
-- forall-intro
+- forall-intro, this might be a special case of "impl-intro"
 
         let ε>0
           bla bla
@@ -955,7 +955,7 @@ How should we match `f $x` against `sub $x $a $A`:
 
   which is short for the long version:
 
-        show ∀ε>0 ___
+        show ∀ε>0 $___
         proof
           const ε         ; the first variable symbol in `ε>0`, on this level now `ε` is constant
           use ε>0
@@ -974,7 +974,7 @@ How should we match `f $x` against `sub $x $a $A`:
 
   translates to
 
-        show ∃ δ>0 ___
+        show ∃ δ>0 $___
         begin
           const δ         ; declare `δ` as constant
           use δ=3*ε       ; together with previous line same as `def`

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 ### TOPICS before releasing 1.0
 # TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, then rewrite the proofs
+# TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
+# TODO add boolean expression for the bound variable for some variable binding operators
 # TODO add `by`
 # TODO implement chains
 # TODO `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
