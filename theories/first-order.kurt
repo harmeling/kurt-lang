@@ -5,16 +5,22 @@ load "propositional"  ; syntax and rules for propositional logic
 arity  forall 2       ; universal quantification
 arity  exists 2       ; existential quantification
 bindop forall, exists
-bool   forall 0 2     ; position 1 is special for binding operators and must be boolean or just a variable
-bool   exists 0 2     ; position 1 is special for binding operators and must be boolean or just a variable
+bool   forall 0 2     ; position 1 must be a variable
+bool   exists 0 2     ; position 1 must be a variable
 alias  ∃ exists
 alias  ∀ forall
 
 ;; inference rules
-use $A                                  implies  forall $x $A      "forall-intro"
-use forall $x $A                        implies  sub $x $a $A      "forall-elim"
-use sub $x $a $A                        implies  exists $x $A      "exists-intro"
-use (exists $x $B) and ($B implies $A)  implies  $A                "exists-elim"
+use @A                                  implies  forall $x @A      "forall-intro"
+use forall $x @A                        implies  sub $x $a @A      "forall-elim"
+use sub $x $a @A                        implies  exists $x @A      "exists-intro"
+use (exists $x @B) and (@B implies @A)  implies  @A                "exists-elim"
+
+; ;; inference rules
+; use $A                                  implies  forall $x $A      "forall-intro"
+; use forall $x $A                        implies  sub $x $a $A      "forall-elim"
+; use sub $x $a $A                        implies  exists $x $A      "exists-intro"
+; use (exists $x $B) and ($B implies $A)  implies  $A                "exists-elim"
 
 ;; better looking
 ; use $A                     ⇒  ∀ $x $A       "forall-intro"

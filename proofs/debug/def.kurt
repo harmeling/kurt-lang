@@ -1,0 +1,11 @@
+; def test
+load "equality"
+load "propositional"
+
+bool p, q
+def p iff q
+def x = 18
+x = 18
+use p
+q
+;;; Proof checked.

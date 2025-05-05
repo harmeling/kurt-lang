@@ -19,7 +19,12 @@ from __future__ import annotations
 ## links to the natural deduction system
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
+### working on
+# try `kurt proofs/debug/def.kurt`
+# two issues: TypeError doesn't stop the processing, and last line `10 by 9, 8, "equal-elim"` looks wrong,
+
 ### TOPICS before releasing 1.0
+# TODO distinguish between `@A` for boolean variables and `$A` for other variables
 # TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, then rewrite the proofs
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
 # TODO add boolean expression for the bound variable for some variable binding operators
@@ -484,6 +489,8 @@ class KnowledgeBase:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
     def is_var(self, s: str) -> bool:
         return s in self.var     or (self.parent is not None and self.parent.is_var(s)) or s[0]=='$'   # constant vs variable symbols (variables start with '$')
+    def is_bool_var(self, s: str) -> bool:
+        return s[0]=='@'  # boolean variable
     def is_const(self, s: str) -> bool:
         return s in self.const   or (self.parent is not None and self.parent.is_const(s))
     def is_alias(self, s: str) -> bool:
@@ -616,7 +623,7 @@ class KnowledgeBase:
             token: Token = next(ts)
             if token.value != rbracket: 
                 raise KurtException(f'SyntaxError: expected "{rbracket}"', column=token.column)
-            token.value = f'{lbracket}$${rbracket}'    # use a value that can not come from the tokenizer, avoid space for readability
+            token.value = f'{lbracket}$$${rbracket}'    # use a value that can not come from the tokenizer, avoid space for readability
             return [token, expr]
         self.nud[lbracket] = nud
         self.lbp[rbracket] = bracket_lbp
@@ -866,7 +873,7 @@ scanner: re.Pattern = re.compile(fr'''
   (?P<FLOAT>   [0-9]+\.[0-9]+)                   | # floating point literals
   (?P<INT>     [0-9]+)                           | # integer literals
   (?P<STRING>  ["][^"]*["])                      | # string literals
-  (?P<SYMBOL>  [$]*[^\W\d]\w*                    | # symbols 1: identifiers
+  (?P<SYMBOL>  [\$@]?[^\W\d]\w*                  | # symbols 1: identifiers with at most one leading '$' or '@'
                [()]                              | # symbols 2: round brackets
                [,]                               | # symbols 3: comma
                [:=+\-*/.#&^%'@∈!<>{{}}[\]|_]+    | # symbols 4: standard operators including literal {{ }}
@@ -1017,7 +1024,7 @@ def remove_round_brackets(expr: Expr) -> Expr:
     match expr:
         case Token():
             return expr
-        case [Token(label='SYMBOL', value='($$)'), sub_expr]:
+        case [Token(label='SYMBOL', value='($$$)'), sub_expr]:
             return remove_round_brackets(sub_expr)
         case [*list_expr]:
             return [remove_round_brackets(e) for e in list_expr]
@@ -1548,9 +1555,9 @@ def eval_expression(keyword_token: Token|None, expr: Expr, comment: str|None, kb
 
 def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
     match expr:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
-            return True                    # variables are potentially boolean
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and not kb.is_var(v):
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
+            return True                    # boolean variables
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and not kb.is_bool_var(v):
             return 0 in kb.bool_sig(v)
         case [Token(label='SYMBOL', value=v), *tail] if v==SUB_SYMBOL:
             return bool_expr(tail[2], kb)
@@ -1560,42 +1567,33 @@ def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
 
 def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
     # this is for now hardcoded, should be part of the syntax definitions
+    # this uses the declared boolean-ness of some symbols via `kb.bool` and `bool_expr`
     match expr:
 
-        # substitutions can be anything
+        # substitutions are always boolean
         case [Token(label='SYMBOL', value=v), *_] if v==SUB_SYMBOL:
             pass
 
-        # binding operators such as `forall`, `exists`, `lim`, `int`
-        case [Token(label='SYMBOL', value=op), *tail] if isinstance(op, str) and kb.is_bindop(op):
-            if len(tail) < 2:
-                raise KurtException(f'TypeError: arity of binding operator must be at least two')
-            if 1 in kb.bool_sig(op):
-                assert False, f'BUG: there should not be `1` in kb.bool for binding operators'
-            for idx in range(2, len(tail)+1):
-                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
-                    raise KurtException(f'TypeError: arg {idx} of `{expr_str(expr, kb)}` must be boolean')
-            match tail[0]:
-                case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
-                    pass
-                case [*cond]:
-                    if not bool_expr(cond, kb):
-                        raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean, got {cond}')
-                    # check existence of a free variable
-                    fv: set[str] = free_bound_vars(cond, kb)[0]
-                    if len(fv) == 0:
-                        raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
-                case _:
-                    assert False, f'BUG: did not match {tail[0]} while type checking'
-            # recursive calls
-            for e in tail:
-                type_check_expression(e, kb)
-
-        # arity > 0: prefix, postfix, infix, ...
+        # most expressions: prefix, postfix, infix, bindop, ...
         case [Token(label='SYMBOL', value=op), *tail]:
+            assert isinstance(op, str)
             for idx in range(1, len(tail)+1):
-                if isinstance(op, str) and idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
-                    raise KurtException(f'TypeError: arg {idx} of `{expr_str(expr, kb)}` must be boolean, but is  `{expr_str(tail[idx-1], kb)}`')
+                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
+                    raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(tail[idx-1], kb)}` must be boolean')
+            if kb.is_bindop(op):
+                # check that the first argument is either a variable or a boolean expression
+                match tail[0]:
+                    case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
+                        pass         # ok!
+                    case [*cond]:
+                        if not bool_expr(cond, kb):
+                            raise KurtException(f'TypeError: first arg of binding operator must be variable or boolean, got {cond}')
+                        # check existence of a free variable
+                        fv: set[str] = free_bound_vars(cond, kb)[0]
+                        if len(fv) == 0:
+                            raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
+                    case _:
+                        assert False, f'BUG: did not match {tail[0]} while type checking'
             for e in tail:
                 type_check_expression(e, kb)
 
@@ -1702,7 +1700,29 @@ def apply_subst(expr: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
 
     assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `apply_subst`'
 
+def bool_vars(expr: Expr, kb: KnowledgeBase) -> set[str]:
+    # return a set of the boolean variables in expression `e`
+    match expr:
+
+        # the token of a boolean
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
+            return set([v])
+        
+        # any other token is not a boolean variable
+        case Token():
+            return set()
+        
+        # collect the boolean variables in the children, covers also `e==[]`
+        case [*children]:
+            bv: set[str] = set()
+            for child in children:
+                bv.update(bool_vars(child, kb))
+            return bv
+        
+    assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `bool_vars`'
+
 # note that a variable can be free and bound at the same time in an expression
+# note that here are only considering non-boolean variables
 def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
     # return two lists sets of the free and bound variables in expression `e`
     match expr:
@@ -1738,37 +1758,50 @@ def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
 
 # new variable names just for internal use
 var_counter = 0
-def reset_var_name_counter() -> None:
+def reset_var_counter() -> None:
     global var_counter
     var_counter = 0
 
 def new_var_name() -> str:
     global var_counter
     var_counter += 1
-    return f'$@var{var_counter}'   # the `@` ensures that it is not a valid kurt variable
+    return f'$$var{var_counter}'   # the `$$` ensures that it is not a valid kurt variable
+
+# new boolean variable names just for internal use
+bool_var_counter = 0
+def reset_bool_var_counter() -> None:
+    global bool_var_counter
+    bool_var_counter = 0
+def new_bool_var_name() -> str:
+    global bool_var_counter
+    bool_var_counter += 1
+    return f'@@bool{bool_var_counter}'   # the `@@` ensures that it is not a valid kurt variable
 
 # ALL variables are renamed on the formula level
 # * rename free vars in `expr` with generated names to avoid clashes with other expressions
 #   this is necessary, because free variables are implicitly universally bound per formula,
-#   i.e., their meaning should be shared between formulas
+#   i.e., their meaning should be shared inside a formula (or while matching also between formulas)
 # * renaming bound variables:
-#   we should never rename bound variables only locally, since they might appear in free variables, example:
-#      forall $x $A  implies  sub $x $a $A      "forall-elim"
-#   if we rename `$x` on the RHS of the implication we get:
-#      forall $z $A  implies  sub $x $a $A      "forall-elim"
-#   which might be wrong
-#   however, renaming bound variables globally is fine, since it enables requirement (1) in `generate_all_combinations`
+#   we should never rename bound variables (here `$x`) only locally, since they might appear in free variables (here `@A`), example:
+#      forall $x @A  implies  sub $x $a @A      "forall-elim"
+#   if we rename `$x` on the LHS of the implication we get:
+#      forall $z @A  implies  sub $x $a @A      "forall-elim"
+#   which doesn't work, since in `@A` there is not a `$z` at the correct position
+# * however, renaming bound variables globally (for the whole formula) is fine, since it enables requirement (1) in `generate_all_combinations`
 #   so the renaming of bound variables makes also "exists-elim" possible
 def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
-        # a token of an at least locally free variable will be replaced either by a known sub or with a new name
-        case Token(label='SYMBOL', value=free_v) if isinstance(free_v, str) and kb.is_var(free_v):
+        # a token of an at least locally free (boolean or not) variable will be replaced either by a known sub or with a new name
+        case Token(label='SYMBOL', value=free_v) if isinstance(free_v, str) and (kb.is_var(free_v) or kb.is_bool_var(free_v)):
             if free_v in subst:
                 new_expr = subst[free_v]                 # replace with known substitution
             else:
-                new_free_v = new_var_name()         # create new variable token
+                if kb.is_var(free_v):
+                    new_free_v = new_var_name()
+                else:
+                    new_free_v = new_bool_var_name()
                 new_expr = clone_token(expr, new_free_v)   # create a new token
                 subst[free_v] = new_expr
             return new_expr, subst
@@ -1849,8 +1882,8 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
 
     # `sub $x  a  A` or
     # `sub $x $a  A` or
-    # `sub $x  a $A` or
-    # `sub $x $a $A`
+    # `sub $x  a @A` or
+    # `sub $x $a @A`
     var_a:  str|None
     a:     Expr|None
     if isinstance(p_a, Token) and isinstance(p_a.value, str) and kb.is_var(p_a.value):
@@ -1865,7 +1898,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
 
     all_combinations: Iterator[tuple[Expr|None, Expr]]  # generator of `a` and `A` that create a match
     var_A:            str|None
-    if isinstance(p_A, Token) and isinstance(p_A.value, str) and kb.is_var(p_A.value):
+    if isinstance(p_A, Token) and isinstance(p_A.value, str) and kb.is_bool_var(p_A.value):
         var_A = p_A.value
         if var_A in subst:
             all_combinations = generate_one_combination(a, subst[var_A])    # `$A` was already assigned earlier
@@ -1875,12 +1908,14 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         var_A = None
         # TODO: in this case we should do something more sophisticated, since we could have
         #       arity F 1
-        #       sub $x $a F $A
-        # where we should be creative with `$A` as well, i.e., we should go on with matching, but keeping in mind we can use `sub $x`
-        # i.e., go on with matching against:  `F sub $x $a $A`
+        #       bool F 0 1
+        #       sub $x $a F @A
+        # where we should be creative with `@A` as well, i.e., we should go on with matching, but keeping in mind we can use `sub $x`
+        # i.e., go on with matching against:  `F sub $x $a @A`
         # what about
         #       arity G 2
-        #       sub $x $a G $A $B
+        #       bool G 0 1 2
+        #       sub $x $a G @A @B
         # that should be a problem, however, `generate_all_combinations` must be a bit more sophisticated
         all_combinations = generate_one_combination(a, p_A)
 
@@ -1907,7 +1942,7 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
             match pattern:
 
                 # variable matching
-                case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
+                case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
                     if equal_expr(pattern, expr):
                         # don't extend `subst`, if the variables match already
                         yield from match_exprs(tail, subst, kb)
@@ -1995,7 +2030,7 @@ def formula_ref(f: Formula, filename: str, mainstream: bool) -> str:
 def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[str|None, Subst]:
 
     # to avoid overflow in the counter variable
-    reset_var_name_counter()
+    reset_var_counter()
 
     # continue with the renamed variant of `proven_formula` that is generated during the construction of it
     formula_expr: Expr = proven_formula.renamed_expr

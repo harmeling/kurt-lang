@@ -1008,3 +1008,51 @@ How should we match `f $x` against `sub $x $a $A`:
 - variables can be declared to be `const` inside a block
 
 - symbols are automatically declared to be variable through their usage in variable binding quantifiers
+
+## 2025-05-02 macros
+
+- `def` only works with `=` or `iff`.  can we define it as a macro?
+
+- since those definitions should go into the theories 'equality.kurt' and 'propositional.kurt'
+
+- similarly, `let` might be defined as a macro
+
+- so let's try it!
+
+     macro (def $a = $b) (use $a = $b)
+     macro (def $a iff $b) (use $a iff $b)
+     macro (let $a) (mmh, unclear how to do it right for general boolean expressions $a)
+
+- the extraction of the variable in $a might be difficult
+
+- actually, `let` and `const` are the same
+
+     const a > 0      ; declare `a` to be constant and use `a > 0`
+     const b in Nat   ; declare `b` to be constant and use `b in Nat`
+     let   c > 0      ; declare `c` to be constant and use `c>0`
+     let   d = 3*c    ; declare `d` to be constant and use `d=3*c`
+
+- so, the default should be variable, however, if a symbol gets defined to be infix, prefix, postfix, etc
+  it automatically is constant
+
+- if you really want an infix variable, you have to declare it variable before declaring it infix
+
+## 2025-05-04 variables for formulas
+
+- right now we have for first order logic axioms like:
+
+    ;; better looking
+    use $A                     ⇒  ∀ $x $A       "forall-intro"
+    use ∀ $x $A                ⇒  sub $x $a $A  "forall-elim"
+    use sub $x $a $A           ⇒  ∃ $x $A       "exists-intro"
+    use (∃ $x $B) ∧ ($B ⇒ $A)  ⇒  $A            "exists-elim"
+
+- we should introduce special variables for formulas, e.g., beginning with `@`:
+
+    ;; better looking
+    use @A                     ⇒  ∀ $x @A       "forall-intro"
+    use ∀ $x @A                ⇒  sub $x $a @A  "forall-elim"
+    use sub $x $a @A           ⇒  ∃ $x @A       "exists-intro"
+    use (∃ $x @B) ∧ (@B ⇒ @A)  ⇒  @A            "exists-elim"
+
+- this should be better, since `@A` is now syntactically different from `$A`
