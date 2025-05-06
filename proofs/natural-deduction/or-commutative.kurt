@@ -1,0 +1,46 @@
+; or-commutative
+
+;; syntax
+infix  or      14 14  ; logical or
+flat   or             ; (a or b) or c  iff  a or b or c
+bool   or      0 1 2  ; and and its inputs have type bool
+alias  ∨ or
+
+;; axioms
+use @A implies @A or @B                                             "or-intro"
+use @B implies @A or @B                                             "or-intro"
+use (@A or @B) and (@A implies @C) and (@B implies @C) implies @C   "or-elim"
+
+;; theorem
+bool p, q
+
+show (p ∨ q) ⇒ (q ∨ p)
+proof
+    assume p ∨ q
+    show p ⇒ (q ∨ p)
+    proof
+        assume p
+        q ∨ p
+    qed
+    show q ⇒ (q ∨ p)
+    proof
+        assume q
+        q ∨ p
+    qed
+    q ∨ p
+qed
+;;; Proof checked.
+
+show (p ∨ q) ⇒ (q ∨ p)
+proof
+    assume p
+        q ∨ p
+    thus p ⇒ (q ∨ p)
+    assume q
+        q ∨ p
+    thus q ⇒ (q ∨ p)
+    assume p ∨ q
+        q ∨ p
+    thus (p ∨ q) ⇒ (q ∨ p)
+qed
+;;; Proof checked.

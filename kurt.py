@@ -24,8 +24,6 @@ from __future__ import annotations
 # two issues: TypeError doesn't stop the processing, and last line `10 by 9, 8, "equal-elim"` looks wrong,
 
 ### TOPICS before releasing 1.0
-# TODO work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate 
-#      a log string later up, but we don't need the `mainstream` flag anymore
 # TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, then rewrite the proofs
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
 # TODO add boolean expression for the bound variable for some variable binding operators
@@ -37,8 +35,10 @@ from __future__ import annotations
 # TODO do multi-line equations and iff, (no indentation necessary, just must be part of a chain, and previous line must be a chain)
 # TODO write documentation/tutorial for the language
 # TODO add column information for the exceptions, use `expr_column`
+# TODO work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs
 
 ### TOPICS for the future
+# TODO `parse a and )` should give an error
 # TODO support `a_18` or `a_(i - j)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
@@ -623,6 +623,8 @@ class KnowledgeBase:
         def nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
             expr: Expr = parse_expression(ts, kb, bracket_rbp)
             token: Token = next(ts)
+            if token.label == 'END':
+                raise StopIteration
             if token.value != rbracket: 
                 raise KurtException(f'SyntaxError: expected "{rbracket}"', column=token.column)
             token.value = f'{lbracket}$$${rbracket}'    # use a value that can not come from the tokenizer, avoid space for readability
@@ -682,7 +684,7 @@ class KnowledgeBase:
 
     def get_lbp(self, token: Token|None) -> int:
         if token is None:
-            raise KurtException(f'SyntaxError: expression expected by an infix or prefix operator, got end of line')
+            raise StopIteration
         if token.label == 'SYMBOL':
             if token.value in self.lbp:
                 return self.lbp[token.value]
@@ -2196,29 +2198,30 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                 else:
                     continue                              # ignore the line
             input_line += new_line
-            if input_line.endswith('\\'):    # line continuation possible with `\`
-                input_line = input_line[:-1]
+            try:
+                kb = scan_parse_check_eval(input_line, kb, line, input_stream.name, mainstream)
+            except StopIteration:
+                input_line += ' '  # add a space to the input line
                 continued = True
-            else:
-                try:
-                    kb = scan_parse_check_eval(input_line, kb, line, input_stream.name, mainstream)
-                except KurtException as e:
-                    if e.column is None:
-                        e.column = len(input_line)
-                    if e.filename is None:
-                        e.filename = input_stream.name
-                        e.line     = line
-                        if e.filename == '<stdin>':
-                            msg = f'\n'
-                        else:
-                            msg = f'  File "{e.filename}", line {e.line}\n'
-                        msg += f'    {input_line}\n'
-                        msg += f'    {" " * e.column + "^"}\n'
-                        e.msg = msg + e.msg
-                    if is_file:
-                        raise e                      # reraise the error
+                line += 1
+                continue
+            except KurtException as e:
+                if e.column is None:
+                    e.column = len(input_line)
+                if e.filename is None:
+                    e.filename = input_stream.name
+                    e.line     = line
+                    if e.filename == '<stdin>':
+                        msg = f'\n'
                     else:
-                        print(e.msg, file=sys.stderr)  # go on
+                        msg = f'  File "{e.filename}", line {e.line}\n'
+                    msg += f'    {input_line}\n'
+                    msg += f'    {" " * e.column + "^"}\n'
+                    e.msg = msg + e.msg
+                if is_file:
+                    raise e                        # reraise the error
+                else:
+                    print(e.msg, file=sys.stderr)  # go on
             input_line = ''  # Reset input
             continued = False
             line += 1

@@ -1,0 +1,15 @@
+; and-commutative
+
+use @A ∧ @B ⇒ @A ∧ @B                                     "and-intro"
+use @A ∧ @B ⇒ @A                                          "and-elim"
+use @A ∧ @B ⇒ @B                                          "and-elim"
+
+bool p, q
+show p ∧ q ⇒ q ∧ p
+proof
+    assume p ∧ q
+    p
+    q
+    q ∧ p
+qed
+;;; Proof checked.

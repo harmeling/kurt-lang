@@ -141,18 +141,6 @@ examples = [
     # equality vs space
     ("a = b c d = e",
      '[(SYMBOL "a"), (SYMBOL "="), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "d"), (SYMBOL "="), (SYMBOL "e"), (END "$$$")]',
-     "(= (= a (b c d)) e)"),
-    # this should not work
-    ("a +",
-     '[(SYMBOL "a"), (SYMBOL "+"), (END "$$$")]',
-     "SyntaxError: expression expected by an infix or prefix operator, got end of line"),
-    # this should not work
-    ("a * b c +",
-     '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "+"), (END "$$$")]',
-     "SyntaxError: expression expected by an infix or prefix operator, got end of line"),
-    # this should not work
-    ("a b +",
-     '[(SYMBOL "a"), (SYMBOL "b"), (SYMBOL "+"), (END "$$$")]',
-     "SyntaxError: expression expected by an infix or prefix operator, got end of line")
+     "(= (= a (b c d)) e)")
 ]
 
