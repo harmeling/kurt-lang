@@ -61,7 +61,7 @@ use (@A or @B) and (@A implies @C) and (@B implies @C) implies @C   "or-elim"
 use (@A implies @B) and (@B implies @A) implies (@A iff @B)         "iff-intro"
 use (@A iff @B) implies (@A implies @B)                             "iff-elim"
 use (@A iff @B) implies (@B implies @A)                             "iff-elim"
-use (sub $x $a @A) and ($a iff $b)  implies  (sub $x $b @A)         "iff-elim"
+use (sub $x @a @A) and (@a iff @b)  implies  (sub $x @b @A)         "iff-elim"
 
 use (true implies @A) implies @A                                    "top-elim"
 

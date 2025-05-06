@@ -1,15 +1,16 @@
 ; modal logic
 load "propositional"
 prefix b 20, d 20          ; box and diamond
-bool b, d
-var A, B
-use ◇ A ≡ ¬ □ ¬A
-use □ A ≡ ¬ ◇ ¬A
-use ◇ p ∨ ◇ q ≡ ◇ (p ∨ q)
-use □ p ∧ □ q ≡ □ (p ∧ q)
+bool b, d, A, B, p, q
+alias □ b
+alias ◇ d
+use ◇A ≡ ¬□¬A
+use □A ≡ ¬◇¬A
+use ◇p ∨ ◇q ≡ ◇(p ∨ q)
+use □p ∧ □q ≡ □(p ∧ q)
 
 ; system K
-use □ (p ⇒ q) ⇒ (□ p ⇒ □ q)    "K"
+use □(p ⇒ q) ⇒ (□p ⇒ □q)    "K"
 
 ; system T
-use p ⇒ ◇ p
+use p ⇒ ◇p
