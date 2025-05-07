@@ -1022,9 +1022,9 @@ How should we match `f $x` against `sub $x $a $A`:
      macro (def $a = $b) (use $a = $b)
      macro (def $a iff $b) (use $a iff $b)
      macro (let $a) (const $a)
-     macro (let @A) (const first_var(@A); use @A)
+     macro (let @A) (const @A; use @A)
      macro (take $a=$b) (const $a
-                         use $a=$b
+                         use $a=$b)
 
 - the extraction of the variable in $a might be difficult
 

@@ -24,6 +24,7 @@ from __future__ import annotations
 # two issues: TypeError doesn't stop the processing, and last line `10 by 9, 8, "equal-elim"` looks wrong,
 
 ### TOPICS before releasing 1.0
+# TODO create functions for `begin` and `end` for opening a block, then implement `proof` and `qed`
 # TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, then rewrite the proofs
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
 # TODO add boolean expression for the bound variable for some variable binding operators
@@ -394,11 +395,11 @@ Nud: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Token], Expr]
 Led: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Expr, Token], Expr]
 
 class KnowledgeBase:
-    def __init__(self, parent:KnowledgeBase|None=None, verbose:bool=False, proof: bool=False) -> None:
+    def __init__(self, parent:KnowledgeBase|None=None) -> None:
         # general
         self.parent: KnowledgeBase|None = parent
         self.level: int            = 0 if parent is None else parent.level + 1
-        self.proof: bool           = proof                # proof must be closed by `qed`
+        self.proof: bool           = False                # a proof must be closed by `qed`
         self.libs: list[str]       = []                   # the filenames of loaded libraries
 
         # syntax
@@ -428,7 +429,7 @@ class KnowledgeBase:
 
         # misc
         self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
-        self.verbose: bool  = verbose if parent is None else parent.verbose           # extra information or not
+        self.verbose: bool  = False if parent is None else parent.verbose           # extra information or not
 
     def entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix {key} {value}'
@@ -855,6 +856,15 @@ def compare_expr(t1: Expr, t2: Expr) -> int:                                # "l
                 return c
             return 0
 
+def first_var(expr: Expr, kb: KnowledgeBase) -> str:
+    match expr:
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_var(s):
+            return s
+        case [head, *tail]:
+            return first_var(head, kb)
+        case _:
+            assert False, 'empty expression?'
+
 def simplify(expr: Expr, kb: KnowledgeBase) -> Expr:
     if expr is None:
         return None
@@ -1087,7 +1097,7 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
         expr: Expr
         label: str|None
         expr          = parse_expression(ts, kb, begin_rbp)   # parse expression
-        expr, label = post_process(kb, expr)                # turn spaces into calls, symmetry, flatness
+        expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
         type_check_expression(expr, kb)                       # (some) type checking
     else:
         expr = list(ts)[:-1]                                  # [:-1] removes end_token
@@ -1136,8 +1146,8 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str)
     else:
         return f'{os.path.basename(filename)}:{line_str} {reason}'
 
-def increase_level(kb:KnowledgeBase, proof=False) -> KnowledgeBase:
-    return KnowledgeBase(parent=kb, proof=proof)
+def increase_level(kb:KnowledgeBase) -> KnowledgeBase:
+    return KnowledgeBase(parent=kb)
 
 def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
     if kb.level == 0:
@@ -1456,7 +1466,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                     raise KurtException(f'ProofError: can not start proof since there is no planned formula on current level')
                 if mainstream:
                     log('proof', None, kb)
-                kb = increase_level(kb, proof=True)          # add a new level/scope to the knowledgebase
+                kb = increase_level(kb)          # add a new level/scope to the knowledgebase
+                kb.proof = True
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
