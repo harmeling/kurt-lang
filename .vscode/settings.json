@@ -4,6 +4,7 @@
         "arities",
         "Automath",
         "barebones",
+        "bilinearity",
         "bindop",
         "cand",
         "EAFP",

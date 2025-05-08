@@ -39,6 +39,7 @@ from __future__ import annotations
 # TODO work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
 
 ### TOPICS for the future
+# TODO namespaces, e.g., for scalar-product.kurt
 # TODO `parse a and )` should give an error
 # TODO support `a_18` or `a_(i - j)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
@@ -174,8 +175,11 @@ REPLACEMENTS: dict[str, str] = {
     '\\cup': '∪',          # union
     '\\emptyset': '∅',     # empty set
     '\\equiv': '≡',        # equivalence
+
+    # numbers
     '\\leq': '≤',          # less than or equal
     '\\geq': '≥',          # greater than or equal
+    '\\neq': '≠',          # not equal
 
     # small Greek letters
     '\\alpha':   'α',
@@ -982,7 +986,7 @@ def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr
 def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                        # symmetric operators can sort their args
     if isinstance(expr, list):
         expr = [sort_symmetric_ops(kb, e) for e in expr] # start inside
-        if isinstance(expr[0], Token) and expr[0].label == 'SYMBOL' and kb.is_sym(expr[0].value):
+        if isinstance(expr[0], Token) and expr[0].label == 'SYMBOL' and isinstance(expr[0].value, str) and kb.is_sym(expr[0].value):
             expr = [expr[0]] + sorted(expr[1:], key=functools.cmp_to_key(compare_expr))
         return expr
     elif isinstance(expr, Token):

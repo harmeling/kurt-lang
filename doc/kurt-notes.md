@@ -1024,8 +1024,11 @@ How should we match `f $x` against `sub $x $a $A`:
      macro (def $a = $b) (use $a = $b)
      macro (def $a iff $b) (use $a iff $b)
      macro (let $a) (const $a)
-     macro (let @A) (const @A; use @A)
-     macro (take $a=$b) (const $a
+     macro (let @A) (begin
+                     const @A         ; will automatically extract the first freely variable
+                     use @A)
+     macro (take $a=$b) (begin
+                         const $a     ; will check whether 
                          use $a=$b)
 
 - the extraction of the variable in $a might be difficult
@@ -1061,3 +1064,7 @@ How should we match `f $x` against `sub $x $a $A`:
     use (∃ $x @B) ∧ (@B ⇒ @A)  ⇒  @A            "exists-elim"
 
 - this should be better, since `@A` is now syntactically different from `$A`
+
+## 2025-05-08 variables vs constants
+
+- 
