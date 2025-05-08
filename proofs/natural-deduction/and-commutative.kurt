@@ -8,8 +8,9 @@ bool p, q
 show p ∧ q ⇒ q ∧ p
 proof
     assume p ∧ q
-    p
-    q
-    q ∧ p
+        p
+        q
+        q ∧ p
+    thus p ∧ q ⇒ q ∧ p
 qed
 ;;; Proof checked.

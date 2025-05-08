@@ -6,16 +6,16 @@ var ε, δ, x
 show ∀ε>0 ∃δ>0 ∀x |x-2| < δ  ⇒  |(3x+1)-7| < ε
 proof
     let ε>0           ; opens a block with local constant ε
-    take δ=ε/3>0      ; opens a block with local constant δ
-    let |x-2| < δ     ; opens a block with local constant x
-    |x-2| < ε/3
-    3 * |x-2| < ε
-    |(3*x+1)-7| = |3*x - 6| 
-        = 3 * |x - 2|
-        < ε
-    ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε           ; closes block and removes constant x
-    ∃δ>0 ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε      ; closes block and removes constant δ
-    ∀ε>0 ∃δ ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε   ; closes block and removes constant ε
+        take δ=ε/3>0      ; opens a block with local constant δ
+            let |x-2| < δ     ; opens a block with local constant x
+                |x-2| < ε/3
+                3 * |x-2| < ε
+                |(3*x+1)-7| = |3*x - 6| 
+                    = 3 * |x - 2|
+                    < ε
+            thus ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε           ; closes block and removes constant x
+        thus ∃δ>0 ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε      ; closes block and removes constant δ
+    thus ∀ε>0 ∃δ ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε   ; closes block and removes constant ε
 qed
 
 ; more verbose proof

@@ -47,7 +47,7 @@ alias  ≡ iff
 ;; builtin
 ; use @A implies @A                 "restatement" ; special case of "impl-elim"
 ; use (@A implies @B) implies (@A implies @B)                       "impl-intro"
-; use (@A implies @B) and @A implies @B                             "impl-elim"
+; use ((@A implies @B) and @A) implies @B                           "impl-elim"
 ; use true                                                          "top-intro"
 
 use @A and @B implies @A and @B                                     "and-intro"

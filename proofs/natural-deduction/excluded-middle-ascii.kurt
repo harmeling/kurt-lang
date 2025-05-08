@@ -1,0 +1,22 @@
+load "propositional"
+bool p
+
+; what to show
+show p or not p  "excluded-middle"
+proof
+    show not (p or not p) implies false
+    proof
+        assume not (p or not p)
+            assume p
+                p or not p
+                contradiction
+            thus p implies false
+            not p
+            p or not p
+            contradiction
+        thus not (p or not p) implies false
+    qed
+    not not (p or not p)
+    p or not p
+qed
+;;; Proof checked.

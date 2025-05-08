@@ -6,6 +6,7 @@ use E implies F
 show E implies F
 proof
     assume E
-    F
+        F
+    thus E implies F
 qed
 ;;; Proof checked.

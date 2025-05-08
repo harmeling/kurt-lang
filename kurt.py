@@ -34,6 +34,7 @@ from __future__ import annotations
 # TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 # TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
 # TODO do multi-line equations and iff, (no indentation necessary, just must be part of a chain, and previous line must be a chain)
+# TODO can we make 'proof by contradiction', one step shorter?  `assume A; contradiction; thus not A`
 # TODO write documentation/tutorial for the language
 # TODO add column information for the exceptions, use `expr_column`
 # TODO work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs
@@ -97,13 +98,18 @@ import os           # os.path.[isfile, dirname, abspath, join, basename, split, 
 import argparse     # argparse.ArgumentParser
 import re           # re.[compile, sub, VERBOSE, MULTILINE]
 import functools    # functools.cmp_to_key
-import readline     # readline.[parse_and_bind, add_history, read_history_file, write_history_file]
 import atexit       # atexit.register
 import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain]
 from dataclasses import dataclass
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator
+
+try:
+    import readline     # readline.[parse_and_bind, read_history_file, write_history_file]
+except ImportError:
+    # print("Warning: readline not available. Line editing features will be limited.")
+    readline = None
 
 # config: general information
 version        = 0.1
@@ -276,19 +282,21 @@ keywords: dict[str, str] = {
     # formulas
     'use':         'use a formula without proof as a axiom',
     'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
-    'assume':      'assume a formula',
     'show':        'plan to prove a formula',
+#    'begin':       'start a block, i.e., open a new level',
+#    'end':         'end a block, drop one level and (if in a proof) do not finish the proof of the last planned formula',
     'proof':       'start a block and open a new level to prove the last planned formula',
-    'qed':         'end a block, pop one level and finish the proof of the last planned formula',
-    'break':       'end a block, pop one level and do not finish the proof of the last planned formula',
+    'qed':         'end a block, drop one level and finish the proof of the last planned formula',
+    'assume':      'open a block and assume a formula, the block must be finished with `thus`',
+    'thus':        'finish a block and prove the given formula using the previous block',
     }
-keywords_with_parsing: list[str] = ['use', 'assume', 'def', 'show']
+keywords_with_parsing: list[str] = ['use', 'def', 'show', 'assume', 'thus']
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
 Value:  TypeAlias = str | int | float
 Format: TypeAlias = Literal['sexpr', 'normal']
-Status: TypeAlias = Literal['use', 'assume', 'show', 'def'] | None
+Status: TypeAlias = Literal['use', 'show', 'assume', 'def'] | None
 
 @dataclass
 class Token:
@@ -318,7 +326,7 @@ class Formula:
         self.renamed_expr: Expr   = rename_all_vars(expr, {}, kb)[0]
         self.line: str            = line               # line of this formula, string since we also want '16a', etc
         self.filename: str        = filename           # file of this formula
-        self.status: Status       = status             # one of 'use', 'assume', 'show', None (for derived)
+        self.status: Status       = status             # one of 'use', 'show', None (for derived)
         self.label: str | None    = label              # basically, a name of the formula, e.g., "impl-intro"
         self.reason: str | None   = reason             # the reason for this formula, e.g., "axiom", "assumption", "def", "by"
         self.id: int              = Formula.next_id    # a unique id for every formula
@@ -1408,7 +1416,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                         subst_str = f'{expr_str(expr, kb)} '
                         subst_str += 'with ' 
                         subst_str += ', '.join([f'{subst_back[var]}={expr_str(subst_cand[var], kb)}' for var in subst_cand])
-                        log(expr_str(candidate.expr, kb), subst_str, kb)
+                        log(expr_str(candidate.expr, kb), subst_str, kb.level)
             case _:
                 assert f'BUG: wrong args for `find`'
     elif keyword == "implications":
@@ -1428,7 +1436,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                     reason += f' {label}'
                 if not bool_expr(expr, kb):
                     raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
-                assert keyword in ('use', 'assume', 'def')
                 if keyword == 'def':
                     match expr:
                         case [Token(label='SYMBOL', value=op), *tail] if op in ['=', 'iff']:
@@ -1436,13 +1443,31 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                         case _:
                             raise KurtException(f'EvalError: `def` only allowed for `=` and `iff`, got "{expr_str(expr, kb)}"')
                 reason = decorate_reason(mainstream, reason, filename, str(line))
+                assert keyword in ('use', 'assume', 'def')
+                if keyword == 'assume':
+                    kb = increase_level(kb)          # add a new level/scope to the knowledgebase
                 f = Formula(expr, str(line), filename, status=keyword, label=label, reason=reason, kb=kb)
                 kb.theory.append(f)
                 if mainstream:
-                    log(f.formula_str(kb), reason, kb)
+                    log(f.formula_str(kb), reason, kb.level-1)
             case _:
                 assert f'BUG: `args` must be a list'
-    elif keyword in ['show']:
+    elif keyword == 'thus':
+        match args:
+            case [expr] | [*expr]:
+                if is_implication(expr):
+                    reason = impl_intro(expr, kb, '"assume" block')         # this might generate a KurtException
+                else:
+                    reason = 'foo'
+                reason = decorate_reason(mainstream, reason, filename, str(line))
+                f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
+                kb = decrease_level(kb)                    # drop current level and perform some checks
+                kb.theory.append(f)                        # add a copy to the theory
+                if mainstream:
+                    log('thus ' + f.formula_str(kb), reason, kb.level)
+            case _:
+                assert f'BUG: `args` must be a list'
+    elif keyword == 'show':
         match args:
             case []:
                 print(kb.show_str(), file=sys.stdout)
@@ -1451,11 +1476,11 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                     raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
                 reason = decorate_reason(mainstream, 'claim', filename, str(line))
                 if label is not None:
-                    reason += f' {label}'
+                    reason += f' "{label}"'
                 f = Formula(expr, str(line), filename, status='show', label=label, reason=reason, kb=kb)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
                 if mainstream:
-                    log(f.formula_str(kb), reason, kb)
+                    log(f.formula_str(kb), reason, kb.level)
 
             case _:
                 assert f'BUG: `args` must be a list'
@@ -1465,7 +1490,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 if len(kb.show) == 0:
                     raise KurtException(f'ProofError: can not start proof since there is no planned formula on current level')
                 if mainstream:
-                    log('proof', None, kb)
+                    log('proof', None, kb.level)
                 kb = increase_level(kb)          # add a new level/scope to the knowledgebase
                 kb.proof = True
             case _:
@@ -1480,33 +1505,35 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 kb = decrease_level(kb)                    # drop current level and perform some checks
                 assert len(kb.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
                 pf = kb.show[-1]                  # peek at the last planned formula from previous level
-                reason = impl_intro(pf.expr, kb_up)   # this might generate a KurtException
+                reason = impl_intro(pf.expr, kb_up, block_style='proof')   # this might generate a KurtException
                 reason = decorate_reason(mainstream, reason, filename, str(line))
                 f = Formula(pf.expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
-                kb.show.pop()                              # pop it now off the show stack, since it was proved
+                kb.show.pop()                              # pop it now off the show stack, since it is proved now
                 kb.theory.append(f)                        # add a copy to the theory
                 if mainstream:
-                    log('qed', None, kb)
-                    log(f.formula_str(kb), reason, kb)
+                    log('qed', None, kb.level)
+                    log(f.formula_str(kb), reason, kb.level)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    elif keyword == 'break':                    # closes the last block (scope) without proving the last formula
-        match args:
-            case []:
-                if kb.level == 0:
-                    raise KurtException(f'EvalError: no block to close')
-                if len(kb.show) > 0:                  # any planned formulas inside the current proof?
-                    pf = kb.show[-1]
-                    raise KurtException(f'ProofError: planned formula "{pf}" in current proof is unproven')
-                assert kb.parent is not None, f'BUG: we should be one level up'
-                assert len(kb.parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
-                kb = kb.parent                        # drop current level
-                if mainstream:
-                    log('break', None, kb)
-            case _:
-                msg = create_usage(keyword, [[]])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+    # elif keyword == 'begin':                    # opens a block
+    #     match args:
+    #         case []:
+    #             kb = increase_level(kb)          # add a new level/scope to the knowledgebase
+    #             if mainstream:
+    #                 log('begin', None, kb.level)
+    #         case _:
+    #             msg = create_usage(keyword, [[]])
+    #             raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+    # elif keyword == 'end':                    # closes the last block (scope) without proving the last formula
+    #     match args:
+    #         case []:
+    #             kb = decrease_level(kb)                    # drop current level and perform some checks
+    #             if mainstream:
+    #                 log('end', None, kb.level)
+    #         case _:
+    #             msg = create_usage(keyword, [[]])
+    #             raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
 
@@ -1541,12 +1568,12 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str|None, kb: 
                 sub_f = Formula(clause, line_str, filename, status=None, label=None, reason=reason, kb=kb)
                 kb.theory.append(sub_f)                         # add sub to the knowledge base
                 if mainstream:
-                    log(sub_f.formula_str(kb), reason, kb)
+                    log(sub_f.formula_str(kb), reason, kb.level)
             reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
         f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
         kb.theory.append(f)                         # add it to the knowledge base
         if mainstream:
-            log(f.formula_str(kb), reason, kb)
+            log(f.formula_str(kb), reason, kb.level)
         return kb
     else:
         match keyword_token:
@@ -1646,8 +1673,8 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
 # or written as a kurt formula
 #   A and B and C implies D
 
-def log(s: str, reason: str|None, kb: KnowledgeBase) -> None:
-        indent: str = ' ' * (proof_indent * kb.level)
+def log(s: str, reason: str|None, level: int) -> None:
+        indent: str = ' ' * (proof_indent * level)
         if reason is None:
             print(indent+s, file=sys.stdout)
         else:
@@ -1668,8 +1695,8 @@ def log(s: str, reason: str|None, kb: KnowledgeBase) -> None:
 # 1. check whether the formula to prove matches D
 # 2. search for A and B and C in the theory (with substitution applied)
 
-# this function is called when closing a block (via `qed` or using indentation)
-def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
+# this function is called when closing a block (via `qed` or 'thus')
+def impl_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
     
     # step 1: collect all assumptions of the current level
     if len(kb.theory) == 0:
@@ -1681,16 +1708,16 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
     conclusion = last_formula.expr        # last element is the conclusion
 
     # step 2: form a formula using the last formula in the current level
-    reason = 'by "impl-intro" (derived from last proof)'
     if len(premise) == 0:                  # just the conclusion (empty premise)
         result = conclusion
-        reason = 'by last proof'
+        reason = f'by last {block_style}'
     else:
         if len(premise) == 1:              # premise is one formula
             premise = premise[0]
         else:                              # premise is a conjunction
             premise = simplify([Token(label='SYMBOL', value=AND_SYMBOL)] + premise, kb)   # bring to normalform
         result = [Token(label='SYMBOL', value=IMPL_SYMBOL), premise, conclusion]       # construct implication
+        reason = f'by "impl-intro" (derived from last {block_style})'
 
     # step 3: compare against the planned expression `expr`
     if equal_expr(expr, result):
@@ -2090,9 +2117,9 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
 
     # create meaningful `reason`
     if kb.verbose:
-        log('', f'  expression to prove: {expr_str(expr, kb)}', kb)
-        log('', f'  formula used: {expr_str(proven_formula.expr, kb)}', kb)
-        log('',  '  substitution: {' + ', '.join([f'{var}: `{expr_str(subst[var], kb)}`' for var in subst]) + '}', kb)
+        log('', f'  expression to prove: {expr_str(expr, kb)}', kb.level)
+        log('', f'  formula used: {expr_str(proven_formula.expr, kb)}', kb.level)
+        log('',  '  substitution: {' + ', '.join([f'{var}: `{expr_str(subst[var], kb)}`' for var in subst]) + '}', kb.level)
     reason: str = f'by '
     if len(premises) == 0:
         reason += f'restating '
@@ -2190,7 +2217,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
     continued  = False
     input_line = ''
     if not is_file:
-        readline.parse_and_bind("tab: complete")    # enable tab completion
+        if readline:
+            readline.parse_and_bind("tab: complete")    # enable tab completion
     while True:
         try:
             if not is_file:
@@ -2293,10 +2321,11 @@ def main() -> None:
     debug_flag = args.debug
 
     # readline history
-    readline_history_file = os.path.expanduser('~/.kurt_history')         # should work on all platforms
-    if os.path.exists(readline_history_file):
-        readline.read_history_file(readline_history_file)                 # restore history
-    atexit.register(readline.write_history_file, readline_history_file)   # register for automatic saving
+    if readline:
+        readline_history_file = os.path.expanduser('~/.kurt_history')         # should work on all platforms
+        if os.path.exists(readline_history_file):
+            readline.read_history_file(readline_history_file)                 # restore history
+        atexit.register(readline.write_history_file, readline_history_file)   # register for automatic saving
 
     # the knowledge base we start with on level 0
     kb = initial_kb
@@ -2322,7 +2351,7 @@ def main() -> None:
             mainstream = not args.interactive
             kb, success = load_file(args.filename, kb, mainstream=mainstream)
             if success and mainstream:
-                log('Proof checked.', None, kb)
+                log('Proof checked.', None, kb.level)
         else:
             args.interactive = True
 

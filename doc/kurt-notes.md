@@ -942,6 +942,15 @@ How should we match `f $x` against `sub $x $a $A`:
           q
         qed               ; this checks whether `p ⇒ q` has been derived
 
+  or even more basic:
+
+        begin
+          use p
+          bla bla
+          q
+        end
+        p ⇒ q             ; impl-intro
+
 - more details: the `thus p ⇒ q` matches the last `show` entry which is `p ⇒ $___` and checks whether it has been derived
 
 - the `p ⇒ q` is already on the outer scope, it doesn't need the `use p`

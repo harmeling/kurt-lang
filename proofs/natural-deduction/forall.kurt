@@ -25,9 +25,10 @@ use forall $x (D $x implies E $x)
 show (forall $x D $x) implies (forall $x E $x)
 proof
     assume forall $x D $x
-    D $x
-    D $x implies E $x
-    E $x
-    forall $x E $x
+        D $x
+        D $x implies E $x
+        E $x
+        forall $x E $x
+    thus (forall $x D $x) implies (forall $x E $x)
 qed
 ;;; Proof checked.

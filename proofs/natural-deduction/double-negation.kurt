@@ -3,13 +3,12 @@ bool p
 show p ⇒ ¬¬p
 proof
     assume p
-    show ¬p ⇒ ⊥
-    proof
         assume ¬p
-        p ∧ ¬p
-        contradiction
-    qed
-    ¬¬p
+            p ∧ ¬p
+            ⊥
+        thus ¬p ⇒ ⊥
+        ¬¬p
+    thus p ⇒ ¬¬p
 qed
 
 ;; indentation version

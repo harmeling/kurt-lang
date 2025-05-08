@@ -4,11 +4,9 @@ bool  G, H
 use G implies false
 show not G
 proof
-    show G implies false
-    proof
-        assume G
+    assume G
         contradiction
-    qed
+    thus G implies false
     not G
 qed
 ;;; Proof checked.

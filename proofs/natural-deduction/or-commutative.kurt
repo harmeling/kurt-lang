@@ -17,17 +17,14 @@ bool p, q
 show (p ∨ q) ⇒ (q ∨ p)
 proof
     assume p ∨ q
-    show p ⇒ (q ∨ p)
-    proof
         assume p
-        q ∨ p
-    qed
-    show q ⇒ (q ∨ p)
-    proof
+            q ∨ p
+        thus p ⇒ q ∨ p
         assume q
+            q ∨ p
+        thus q ⇒ (q ∨ p)
         q ∨ p
-    qed
-    q ∨ p
+    thus (p ∨ q) ⇒ (q ∨ p)
 qed
 ;;; Proof checked.
 
