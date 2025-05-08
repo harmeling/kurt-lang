@@ -33,26 +33,22 @@ from __future__ import annotations
 # TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 # TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
 # TODO do multi-line equations and iff, (no indentation necessary, just must be part of a chain, and previous line must be a chain)
-# TODO can we make 'proof by contradiction', one step shorter?  `assume A; contradiction; thus not A`
 # TODO write documentation/tutorial for the language
 # TODO add column information for the exceptions, use `expr_column`
-# TODO work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
+# TODO refactoring: work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
 
 ### TOPICS for the future
 # TODO namespaces, e.g., for scalar-product.kurt
-# TODO `parse a and )` should give an error
-# TODO support `a_18` or `a_(i - j)`, which could be represented as a function call like `a 18` or `_ a 18` (some item)
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO run profiling
+# TODO can we make 'proof by contradiction', one step shorter?  `assume A; contradiction; thus not A`
 # TODO what is the difference between `arity f 1` and `prefix f 1`?  
 # TODO other ideas for speedup: 
 # #    1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
 #      2. Use a tree fingerprint or identity system to detect when actual cloning is needed.
 # TODO `find sub $x $a forall $z $A`, does this one work?  where the formula for the substitution is nested
-# TODO `parse pp` for a postfix operator `pp` should create an error message
 # TODO put lots of negative proof examples in to `tests/proofs` as well
-# TODO rename variables just with formula creation, store an internal version and a version for viewing
 # TODO allow boolean expressions for the bound variable for some variable binding operators
 # TODO allow commandline args for setting builtin keywords, such as `implies` and `and` and `=` and `sub`
 # TODO CHECK THE IMPLEMENTATION WHETHER CONSTRAINTS (i) and (ii) for bindop are enforced
@@ -65,11 +61,9 @@ from __future__ import annotations
 # TODO check that `minimal.kurt` is really hard-coded here
 # TODO matching set of formulas: first match the ones without substitutions, then the ones with (can we detect, when it doesn't work?)
 # TODO create an initial version and start working on the branch
-# TODO have keywords: `free` and `bound`
 # TODO maybe it is a good idea to always have variables with $x and constants without them.  However, using `$+` might be cumbersome.  So having the ability to write `var (+)` might be useful.
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
 #      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
-# TODO turn `load_file` into a method of class KnowledgeBase
 # TODO allow outer forall block around implications
 # TODO put everything into a symbol table?  let's have it additionally.
 # TODO write kurt integration for vscode, highlight the lines that are proven, https://microsoft.github.io/language-server-protocol/
@@ -82,7 +76,6 @@ from __future__ import annotations
 # TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
 # TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
-# TODO maybe not: do automatic line continuation if more tokens are required, e.g. after '+'
 # TODO format "latex", also allow custom latex formats
 # TODO keep the code below 1000 lines of code!  unlikely...
 # TODO use the Token.column information
@@ -517,8 +510,14 @@ class KnowledgeBase:
             return []
         return self.parent.bool_sig(s)
 
+    def is_lbracket(self, s: str) -> bool:
+        return s in self.brackets.values() or (self.parent is not None and self.parent.is_lbracket(s))
+
+    def is_rbracket(self, s: str) -> bool:
+        return s in self.brackets.keys() or (self.parent is not None and self.parent.is_rbracket(s))
+
     def is_bracket(self, s: str) -> bool:
-        return s in self.brackets.values() or s in self.brackets.keys() or (self.parent is not None and self.parent.is_bracket(s))
+        return self.is_lbracket(s) or self.is_rbracket(s)
 
     def is_operator(self, s: str) -> bool:
         return self.is_prefix(s) or self.is_infix(s) or self.is_postfix(s) or self.is_bracket(s)
@@ -566,6 +565,9 @@ class KnowledgeBase:
         elif self.is_infix(op):   return 'infix'
         elif self.is_postfix(op): return 'postfix'
         elif self.is_bracket(op): return 'bracket'
+        elif self.is_bindop(op):  return 'bindop'
+        elif self.is_var(op):     return 'var'
+        elif self.is_const(op):   return 'const'
         else: assert False, f'BUG: call "find_symbol" only for existing symbols'
 
     def add_prefix(self, op: str, rbp: int) -> None:
@@ -898,7 +900,7 @@ scanner: re.Pattern = re.compile(fr'''
   (?P<FLOAT>   [0-9]+\.[0-9]+)                   | # floating point literals
   (?P<INT>     [0-9]+)                           | # integer literals
   (?P<STRING>  ["][^"]*["])                      | # string literals
-  (?P<SYMBOL>  [\$@]?[^\W\d]\w*                  | # symbols 1: identifiers with at most one leading '$' or '@'
+  (?P<SYMBOL>  [$@]?[A-Za-z][A-Za-z0-9]*         | # symbols 1: identifiers with at most one leading '$' or '@'
                [()]                              | # symbols 2: round brackets
                [,]                               | # symbols 3: comma
                [:=+\-*/.#&^%'@∈!<>{{}}[\]|_]+    | # symbols 4: standard operators including literal {{ }}
@@ -967,9 +969,35 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
 # https://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/
 # https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 
+# continuation tokens: infix, postfix, closing brackets, space_token (which is infix as well)
+def is_led_token(token: Token, kb: KnowledgeBase) -> bool:
+    if token.label == 'SYMBOL':
+        op = token.value
+        assert isinstance(op, str)
+        return kb.is_infix(op) or kb.is_postfix(op) or kb.is_rbracket(op)
+    elif token.label == 'STRING':
+        return True                  # this case is for handling the strings that give labels to formulas
+    else:
+        return False
+
+# starting tokens: prefix, opening brackets, bindop, numbers, strings (labels), etc
+def is_nud_token(token: Token, kb: KnowledgeBase) -> bool:
+    if token.label == 'SYMBOL':
+        op = token.value
+        assert isinstance(op, str)
+        # these checks are necessary, since, e.g., `-` can be both prefix and infix
+        if kb.is_prefix(op) or kb.is_lbracket(op) or kb.is_bindop(op):
+            return True
+        else:
+            return not is_led_token(token, kb)  # if not infix/postfix, then it is a number or string
+    else:
+        return True
+
 # the heart of the Pratt parser (calls 'led' and 'nud' implemented in various versions)
 def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr:
     t: Token = next(ts)                           # get next token
+    if not is_nud_token(t, kb):
+        raise KurtException(f'SyntaxError: token "{t.value}" cannot start an expression', t.column)
     nud: Nud = kb.get_nud(t)                      # get the correct 'nud' function
     left: Expr = nud(ts, kb, t)                   # nud == "null denotation"
     peek_lbp: int = kb.get_lbp(ts.peek)           # peek at lbp of the next token
@@ -1091,7 +1119,7 @@ def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str|None]:
     expr = flatten_op(SPACE_SYMBOL, expr)                        # flatten all space operators
     expr = process_arity(expr, kb)                               # turns space operators into function calls according to arities
     expr = remove_round_brackets(expr)                           # remove round brackets for grouping
-    expr, label = check_expr_label(expr, kb)     # check and split `expr` and `label`
+    expr, label = check_expr_label(expr, kb)         # check and split `expr` and `label`
     expr = simplify(expr, kb)                                    # simplify the formula using flatness and symmetry
     return expr, label
 
@@ -1107,7 +1135,7 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
     if keyword_token is None or keyword_token.value in keywords_with_parsing:
         expr: Expr
         label: str|None
-        expr          = parse_expression(ts, kb, begin_rbp)   # parse expression
+        expr        = parse_expression(ts, kb, begin_rbp)     # parse expression
         expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
         type_check_expression(expr, kb)                       # (some) type checking
     else:
@@ -1124,22 +1152,6 @@ def create_usage(keyword: str, arg_labels: list[list[Label]]) -> str:
             s += f' {l}'
         s += f'\n'
     return s
-
-# def check_args(keyword_token: Token, expr: Expr, arg_labels: list[list[Label]]) -> None:
-#     # e.g. 'check_args(keyword_token, expr, [[], ['SYMBOL', 'INT']], ['list', 'add'])
-#     # where [] implies none is possible
-#     # where ['SYMBOL', 'INT'] implies two args with symbol and integer are possible as well
-#     msg = create_usage(str(keyword_token.value), arg_labels)
-#     for arg_label in arg_labels:
-#         assert isinstance(expr, list)
-#         if len(expr) == len(arg_label):
-#             for (e, l) in zip(expr, arg_label):
-#                 if l != 'EXPR':                    # expressions are fine as they are
-#                     if not isinstance(e, Token) or e.label != l:
-#                         raise KurtException(f'EvalError: wrong argument types, possible is:\n{msg}')
-#             return       # we found a correct number of arguments and checked all labels
-#     if ['EXPR'] not in arg_labels:
-#         raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
 
 def strip_keyword(s: str, column: int) -> str:
     return s[(1+column):]                  # get rid of the keyword at the beginning
@@ -2161,7 +2173,6 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
     raise KurtException(f'ProofError: can not derive expression')
 
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
-    # TODO: deal here with beginning-of-line and end-of-line keywords and labels
     ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
     keyword_token, expr, label = parse_tokenstream(ts, kb)       # parser
     kb   = eval_expression(keyword_token, expr, label, kb, line, filename, mainstream) # evaluation

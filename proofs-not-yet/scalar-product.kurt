@@ -16,3 +16,4 @@ show <a,b> * <a,b> ≤ <a,a> * <b,b>   "Cauchy-Schwarz inequality"
 proof
     not yet!
 qed
+;;; Proof checked.

@@ -1028,7 +1028,7 @@ How should we match `f $x` against `sub $x $a $A`:
                      const @A         ; will automatically extract the first freely variable
                      use @A)
      macro (take $a=$b) (begin
-                         const $a     ; will check whether 
+                         const $a     ; will check whether
                          use $a=$b)
 
 - the extraction of the variable in $a might be difficult
@@ -1066,5 +1066,3 @@ How should we match `f $x` against `sub $x $a $A`:
 - this should be better, since `@A` is now syntactically different from `$A`
 
 ## 2025-05-08 variables vs constants
-
-- 
