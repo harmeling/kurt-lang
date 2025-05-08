@@ -24,7 +24,6 @@ from __future__ import annotations
 # two issues: TypeError doesn't stop the processing, and last line `10 by 9, 8, "equal-elim"` looks wrong,
 
 ### TOPICS before releasing 1.0
-# TODO create functions for `begin` and `end` for opening a block, then implement `proof` and `qed`
 # TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, then rewrite the proofs
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
 # TODO add boolean expression for the bound variable for some variable binding operators
@@ -37,7 +36,7 @@ from __future__ import annotations
 # TODO can we make 'proof by contradiction', one step shorter?  `assume A; contradiction; thus not A`
 # TODO write documentation/tutorial for the language
 # TODO add column information for the exceptions, use `expr_column`
-# TODO work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs
+# TODO work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
 
 ### TOPICS for the future
 # TODO `parse a and )` should give an error
@@ -283,8 +282,6 @@ keywords: dict[str, str] = {
     'use':         'use a formula without proof as a axiom',
     'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
     'show':        'plan to prove a formula',
-#    'begin':       'start a block, i.e., open a new level',
-#    'end':         'end a block, drop one level and (if in a proof) do not finish the proof of the last planned formula',
     'proof':       'start a block and open a new level to prove the last planned formula',
     'qed':         'end a block, drop one level and finish the proof of the last planned formula',
     'assume':      'open a block and assume a formula, the block must be finished with `thus`',
@@ -1455,10 +1452,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
     elif keyword == 'thus':
         match args:
             case [expr] | [*expr]:
-                if is_implication(expr):
-                    reason = impl_intro(expr, kb, '"assume" block')         # this might generate a KurtException
-                else:
-                    reason = 'foo'
+                reason = impl_intro(expr, kb, '"assume" block')         # this might generate a KurtException
                 reason = decorate_reason(mainstream, reason, filename, str(line))
                 f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
                 kb = decrease_level(kb)                    # drop current level and perform some checks
@@ -1516,24 +1510,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    # elif keyword == 'begin':                    # opens a block
-    #     match args:
-    #         case []:
-    #             kb = increase_level(kb)          # add a new level/scope to the knowledgebase
-    #             if mainstream:
-    #                 log('begin', None, kb.level)
-    #         case _:
-    #             msg = create_usage(keyword, [[]])
-    #             raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    # elif keyword == 'end':                    # closes the last block (scope) without proving the last formula
-    #     match args:
-    #         case []:
-    #             kb = decrease_level(kb)                    # drop current level and perform some checks
-    #             if mainstream:
-    #                 log('end', None, kb.level)
-    #         case _:
-    #             msg = create_usage(keyword, [[]])
-    #             raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
 

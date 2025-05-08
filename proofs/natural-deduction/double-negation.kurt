@@ -10,16 +10,4 @@ proof
         ¬¬p
     thus p ⇒ ¬¬p
 qed
-
-;; indentation version
-;show p ⇒ ¬¬p
-;proof
-;    assume p
-;        assume ¬p
-;            p ∧ ¬p
-;            contradiction
-;        ¬p ⇒ ⊥
-;        ¬¬p
-;qed
-
 ;;; Proof checked.
