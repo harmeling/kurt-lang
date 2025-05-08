@@ -2179,7 +2179,7 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
         load_level = kb.get_load_level(fname)
         if load_level is not None:
             raise KurtException(f'EvalError: can not load library "{fname}" twice, it has already been loaded on level {load_level}')
-        with open(fname) as f:
+        with open(fname, encoding='utf-8') as f:
             kb, success = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
