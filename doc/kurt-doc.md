@@ -62,15 +62,17 @@ The Kurt programming language is a made to write down and automatically check si
 
       var x     ; to declare variable symbols
 
-- Once a symbol is declared as a variable or constant, it can not be switched back.
+- Once a symbol is declared as constant, it can not be declared variable anymore.  A symbol that is constant inside a block, can be become variable again outside the block.
 
 - If a symbol is not declare variable or constant than its first usage determines its role:
 
      x + y = 0      ; x and y are variables
      forall x F(x)  ; x is a variable
-     a := 17        ; a is a constant
+     let a = 17     ; a is a constant
 
 - Symbols starting with a dollar sign `$` are always variables.
+
+- Symbols starting with a at sign `@` are always boolean variables, that could contain whole formulas.a
 
 ## Variable binding operators
 
@@ -170,9 +172,7 @@ To be continued!
 
 ### line continuation (2025-04-18)
 
-- a line can be only with a line continuation symbol `\` continued
-
-- the reason is that lines are the important primitive, i.e., proofs are proven line by line
+- an unfinished line can be automatically continued in the next line
 
 ### chains
 
@@ -194,24 +194,9 @@ To be continued!
 
 - chains must start with an indent token
 
-### indents and dedents
-
-- indents are used for the following situations:
-
-    assume p            ; assumptions open a new block
-         q
-         h
-    p implies h
-
-    x = 17
-      = 20              ; chains of equations open a new block
-      = 42
-
-    let x, y
-
 ### impl-elim
 
-- also the RHS of an implication can be an conjunction
+- The RHS of an implication can be an conjunction
 
 - i.e.
 
@@ -227,10 +212,7 @@ To be continued!
 
     a = b and b = c
 
-- we can then also implement
+- we can then also:
 
     a = b
       = c
-
-  just by doing a line continuation if we indent
-  

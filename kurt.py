@@ -24,7 +24,7 @@ from __future__ import annotations
 # two issues: TypeError doesn't stop the processing, and last line `10 by 9, 8, "equal-elim"` looks wrong,
 
 ### TOPICS before releasing 1.0
-# TODO create functions for `qed` and `proof` and `assume` and `show`, then add syntax sugar `assume`, `take`, `let`, `thus`, then rewrite the proofs
+# TODO add syntax sugar `take`, `let`, then rewrite the proofs
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
 # TODO add boolean expression for the bound variable for some variable binding operators
 # TODO add `by`
@@ -286,6 +286,8 @@ keywords: dict[str, str] = {
     'qed':         'end a block, drop one level and finish the proof of the last planned formula',
     'assume':      'open a block and assume a formula, the block must be finished with `thus`',
     'thus':        'finish a block and prove the given formula using the previous block',
+    'begin':       'start a block, i.e., open a new level',
+    'end':         'end a block, drop one level and (if in a proof) do not finish the proof of the last planned formula',
     }
 keywords_with_parsing: list[str] = ['use', 'def', 'show', 'assume', 'thus']
 
@@ -980,7 +982,7 @@ def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr
 def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                        # symmetric operators can sort their args
     if isinstance(expr, list):
         expr = [sort_symmetric_ops(kb, e) for e in expr] # start inside
-        if isinstance(expr[0], Token) and expr[0].label == 'SYMBOL' and expr[0].value in kb.sym:
+        if isinstance(expr[0], Token) and expr[0].label == 'SYMBOL' and kb.is_sym(expr[0].value):
             expr = [expr[0]] + sorted(expr[1:], key=functools.cmp_to_key(compare_expr))
         return expr
     elif isinstance(expr, Token):
@@ -1510,6 +1512,24 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+    elif keyword == 'begin':                    # opens a block
+        match args:
+            case []:
+                kb = increase_level(kb)          # add a new level/scope to the knowledgebase
+                if mainstream:
+                    log('begin', None, kb.level)
+            case _:
+                msg = create_usage(keyword, [[]])
+                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+    elif keyword == 'end':                    # closes the last block (scope) without proving the last formula
+        match args:
+            case []:
+                kb = decrease_level(kb)                    # drop current level and perform some checks
+                if mainstream:
+                    log('end', None, kb.level)
+            case _:
+                msg = create_usage(keyword, [[]])
+                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)    
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
 

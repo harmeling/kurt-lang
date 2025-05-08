@@ -918,13 +918,17 @@ How should we match `f $x` against `sub $x $a $A`:
 
 - ideally, we get also some `macro` mechanism to extend the language
 
-- `show`, `proof`, `qed` are built-in and the basis for the other blocks
+- `begin` and `end` are built-in and might be useful for new macros
+
+- `show`, `proof`, `qed` are also built-in
 
         show p
         proof
           foo
           p
         qed               ; checks whether the announced formula has been derived
+
+- `assume` and `thus` are also built-in
 
 - impl-intro
 
@@ -935,27 +939,18 @@ How should we match `f $x` against `sub $x $a $A`:
 
   translates to
 
-        show p ⇒ $___
-        proof
-          use p
-          bla bla
-          q
-        qed               ; this checks whether `p ⇒ q` has been derived
-
-  or even more basic:
-
         begin
-          use p
+          use p        ; almost, since `p` will have `assume` status and not `use`
           bla bla
           q
         end
         p ⇒ q             ; impl-intro
 
-- more details: the `thus p ⇒ q` matches the last `show` entry which is `p ⇒ $___` and checks whether it has been derived
+- more details: the `thus p ⇒ q` matches the formula derived via "impl-intro"
 
 - the `p ⇒ q` is already on the outer scope, it doesn't need the `use p`
 
-- forall-intro, this might be a special case of "impl-intro"
+- "forall-intro", this might be a special case of "impl-intro"
 
         let ε>0
           bla bla
@@ -964,13 +959,12 @@ How should we match `f $x` against `sub $x $a $A`:
 
   which is short for the long version:
 
-        show ∀ε>0 $___
-        proof
+        begin
           const ε         ; the first variable symbol in `ε>0`, on this level now `ε` is constant
           use ε>0
           bla bla
           F(ε)
-          ε>0 ⇒ F(ε)
+        thus ε>0 ⇒ F(ε)
         qed               ; check whether `∀ε>0 F(ε)` was derived, `ε` being variable again
 
 - exist-intro
@@ -983,11 +977,10 @@ How should we match `f $x` against `sub $x $a $A`:
 
   translates to
 
-        show ∃ δ>0 $___
         begin
           const δ         ; declare `δ` as constant
           use δ=3*ε       ; together with previous line same as `def`
-          δ>0           ; follows from properties of `ε`
+          δ>0             ; follows from properties of `ε`
           bla bla
           G(δ)
           δ>0 ∧ G(δ)
@@ -1006,7 +999,7 @@ How should we match `f $x` against `sub $x $a $A`:
         proof
           foo
           blo
-        end               ; checke whether `A` was derived
+        qed               ; checke whether `A` was derived
 
 - equation sequences can be indented or not
 
@@ -1049,7 +1042,7 @@ How should we match `f $x` against `sub $x $a $A`:
 
 - if you really want an infix variable, you have to declare it variable before declaring it infix
 
-## 2025-05-04 variables for formulas
+## 2025-05-04 variables for formulas using @
 
 - right now we have for first order logic axioms like:
 
