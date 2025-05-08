@@ -1,27 +1,23 @@
 ; minimal
-
-false ; never load this theory, it is already hard-coded in `kurt.py`
+false ; never load this theory, this file is just for reference
+      ; it is already hard-coded in `kurt.py`, look for `initial_kb`
 
 ;; syntax
 brackets ( )                                 ; for grouping during parsing
 infix    ,    5  5                           ; for lists
 infix    " " 22 22                           ; space for function applications
-infix    //   3  3                           ; substitution of variables, less strongly binding than `=`
 
-const true
+const true                                   ; declare constant symbol
 bool  true                                   ; true has type bool
 infix implies 13 12                          ; logical implies, right associative (since 13>12)
 infix and     16 16                          ; and operator
 
 ;; inference rules
-use $A implies $A                               "restatement"    ; possibly a special case of `impl-intro`
-use ($A implies $B) implies ($A implies $B)     "impl-intro"     ; the LHS is shown with a `proof`/`qed` block
-use ($A implies $B) and $A implies $B           "impl-elim"      ; see `kurt.py`
+use $A implies $A                                 "restatement" ; see function `impl_elim` in `kurt.py`, look for "restating"
+use ($A implies $B)   implies   ($A implies $B)   "impl-intro"  ; see function `impl_intro` in `kurt.py`
+use ($A implies $B) and $A    implies    $B       "impl-elim"   ; see function `impl_elim` in `kurt.py`
+use true                                          "top-intro"   ; see function `derive_expr` in `kurt.py`, look for "top-intro"
 
-use true                                        "top-intro"
-
-
-
-;;;;;;
-arity  subst 3                               ; function for substitutions
-bindop subst                                 ; first arg must be a variable that is bound
+;; substitution operator
+arity  sub 3                                 ; operator for substitutions
+bindop sub                                   ; first arg must be a variable that is bound
