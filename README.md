@@ -38,3 +38,49 @@ Happy proving!
 ## License
 
 [MIT](./LICENSE) © 2025 Stefan Harmeling
+
+## Installing Kurt Tools
+
+The Kurt language syntax repo [](https://github.com/harmeling/kurt-syntax) includes both a Visual Studio Code extension (`kurt-syntax-<version>.vsix`) for syntax highlighting and snippets and indenting and an Emacs mode (`kurt-mode.el`).
+
+### VS Code Extension Installation
+
+1. **Download the Extension Package**
+
+   You can download the latest VSIX package from the [kurt-syntax GitHub repository](https://github.com/harmeling/kurt-syntax/releases).  
+   Alternatively, if you have the repository cloned, you can build the package locally:
+   
+   ```sh
+   cd path/to/kurt-syntax
+   vsce package
+   ```
+
+2. **Install the VSIX Package**
+
+   To install the extension, run the following command in your terminal:
+   
+   ```sh
+   code --install-extension kurt-syntax-<version>.vsix
+   ```
+   
+   Replace `<version>` with the appropriate version number or the actual package name of the generated file.
+
+### Emacs Mode Installation
+
+1. **Download `kurt-mode.el`**
+
+   The Emacs mode file is hosted in the [kurt-syntax GitHub repository](https://github.com/harmeling/kurt-syntax/blob/main/kurt-mode.el). Download or clone the file to your local setup.
+
+2. **Load the Mode in Your Emacs Configuration**
+
+   Add the following lines to your Emacs configuration (e.g., in your `.emacs` or `init.el` file):
+   
+   ```elisp
+   ;; Load kurt-mode from the local file
+   (load "/path/to/kurt-mode.el")
+   (add-to-list 'auto-mode-alist '("\\.kurt\\'" . kurt-mode))
+   ```
+   
+   Replace `/path/to/kurt-mode.el` with the actual path where you saved the file.
+
+With these instructions, you can enjoy the full Kurt tools experience in both VS Code and Emacs!
