@@ -47,7 +47,7 @@ The Kurt language syntax repo [](https://github.com/harmeling/kurt-syntax) inclu
 
 1. **Download the Extension Package**
 
-   You can download the latest VSIX package from the [kurt-syntax GitHub repository](https://github.com/harmeling/kurt-syntax/releases).  
+   You can download the latest VSIX package from the [kurt-syntax GitHub repository](https://github.com/harmeling/kurt-syntax).  
    Alternatively, if you have the repository cloned, you can build the package locally:
    
    ```sh
@@ -83,4 +83,4 @@ The Kurt language syntax repo [](https://github.com/harmeling/kurt-syntax) inclu
    
    Replace `/path/to/kurt-mode.el` with the actual path where you saved the file.
 
-With these instructions, you can enjoy the full Kurt tools experience in both VS Code and Emacs!
+That's it!
