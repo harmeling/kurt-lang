@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "addtype",
+        "alist",
         "arities",
         "Automath",
         "barebones",
@@ -9,6 +10,8 @@
         "cand",
         "EAFP",
         "elim",
+        "elisp",
+        "emacs",
         "emptyset",
         "firstorder",
         "fixpoints",
@@ -34,6 +37,7 @@
         "polytype",
         "polytypes",
         "ponens",
+        "pycache",
         "Robine",
         "sexpr",
         "subseteq",
