@@ -1,16 +1,20 @@
 ; and-commutative
 
-use @A ∧ @B ⇒ @A ∧ @B                                     "and-intro"
-use @A ∧ @B ⇒ @A                                          "and-elim"
-use @A ∧ @B ⇒ @B                                          "and-elim"
+; let's use a local `AND` to avoid confusion with the global `and` 
+; that is hard wired to be flat and symmetric
+infix AND   14 14   ; logical and
+bool  AND    0 1 2  ; and and its inputs have type bool
+use @A ∧ @B ⇒ @A AND @B                                     "AND-intro"
+use @A AND @B ⇒ @A                                          "AND-elim-left"
+use @A AND @B ⇒ @B                                          "AND-elim-right"
 
 bool p, q
-show p ∧ q ⇒ q ∧ p
+show p AND q ⇒ q AND p
 proof
-    assume p ∧ q
+    assume p AND q
         p
         q
-        q ∧ p
-    thus p ∧ q ⇒ q ∧ p
+        q AND p
+    thus p AND q ⇒ q AND p
 qed
 ;;; Proof checked.

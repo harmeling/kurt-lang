@@ -1022,18 +1022,16 @@ How should we match `f $x` against `sub $x $a $A`:
 - so let's try it!
 
      macro (def $a = $b) (use $a = $b)
-     macro (def $a iff $b) (use $a iff $b)
-     macro (let $a) (const $a)
+     macro (def @a iff @b) (use @a iff @b)
+     macro (let $a) (begin
+                     const $a)
      macro (let @A) (begin
-                     const @A         ; will automatically extract the first freely variable
-                     use @A)
+                     const @A         ; will automatically extract the one and only free variable and `use @a`
      macro (take $a=$b) (begin
-                         const $a     ; will check whether
+                         const $a     ; will check whether...
                          use $a=$b)
 
-- the extraction of the variable in $a might be difficult
-
-- actually, `let` and `const` are the same
+- actually, `let` and `const` are very similar, but `let` opens a block
 
      const a > 0      ; declare `a` to be constant and use `a > 0`
      const b in Nat   ; declare `b` to be constant and use `b in Nat`

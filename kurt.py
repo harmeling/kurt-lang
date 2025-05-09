@@ -16,14 +16,11 @@ from __future__ import annotations
 # level3: simple type checking
 # level4: proving
 
-## links to the natural deduction system
+## link to a good explanation of the natural deduction system
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
-### working on
-# try `kurt proofs/debug/def.kurt`
-# two issues: TypeError doesn't stop the processing, and last line `10 by 9, 8, "equal-elim"` looks wrong,
-
 ### TOPICS before releasing 1.0
+# TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
 # TODO add syntax sugar `take`, `let`, then rewrite the proofs
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
 # TODO add boolean expression for the bound variable for some variable binding operators
@@ -36,6 +33,7 @@ from __future__ import annotations
 # TODO write documentation/tutorial for the language
 # TODO add column information for the exceptions, use `expr_column`
 # TODO refactoring: work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
+# TODO search all TODO in the code and check whether they are still relevant
 
 ### TOPICS for the future
 # TODO namespaces, e.g., for scalar-product.kurt
@@ -94,9 +92,9 @@ import functools    # functools.cmp_to_key
 import atexit       # atexit.register
 import inspect      # inspect.stack
 
-import itertools    # itertools.[product, count, chain]
+import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, List
 
 try:
     import readline     # readline.[parse_and_bind, read_history_file, write_history_file]
@@ -760,11 +758,12 @@ initial_kb.add_bool  (IMPL_SYMBOL, [0, 1, 2])              # implies is bool wit
 initial_kb.add_bool  (AND_SYMBOL,  [0, 1, 2])              # and is bool with bool inputs
 initial_kb.add_flat  (COMMA_SYMBOL)                        # comma op is flat
 initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
+initial_kb.add_sym   (AND_SYMBOL)                          # and is symmetric
 initial_kb.add_arity (SUB_SYMBOL, 3)                       # sub takes three args
 initial_kb.add_bindop(SUB_SYMBOL)                          # sub is a binding operator
 initial_kb.add_alias('⊤', TRUE_SYMBOL)                     # alias for true
 initial_kb.add_alias('⇒', IMPL_SYMBOL)                     # alias for implies
-initial_kb.add_alias('∧', AND_SYMBOL)                     # alias for implies
+initial_kb.add_alias('∧', AND_SYMBOL)                      # alias for implies
 
 ################
 ## kurt lexer ##
@@ -1996,6 +1995,18 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             subst_local[var_a] = expr_a           # store the found substitutions for `$a`
         yield from match_exprs(tail, subst_local, kb)
 
+# helper functions
+T = TypeVar('T')
+def split_into_lists(lst: List[T], n: int) -> List[List[List[T]]]:
+    # returns the list of all partitions of `lst` into `n` lists
+    # e.g. `split_into_lists([1,2,3,4], 2)` returns `[[[1],[2,3,4]], [[1,2],[3,4]], [[1,2,3],[4]]]`
+    if n == 1:
+        return [[lst]]
+    if len(lst) < n:
+        return []
+    return [[lst[:i]] + rest for i in range(1, len(lst) - n + 2)
+                           for rest in split_into_lists(lst[i:], n - 1)]
+
 # each "case" with a recursive call has to loop over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
@@ -2046,9 +2057,25 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                                 #   replace `v_p` with `v_e`
                                 subst_local[v_p] = expr[1]
                                 yield from match_exprs(list(zip(args_e, args_p)) + tail, subst_local, kb)
-                                
-                # list matching TODO when should subst be applied?
-                case [*_] if isinstance(expr, list) and len(pattern)==len(expr):
+
+                # list matching (different length, only possible for flat operators, symmetry irrelevant)
+                case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) or kb.is_sym(op_p)):
+                    match expr:
+                        case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
+                            # for the symmetric case, we have to generate all permutations of the children before splitting
+                            all_perms = itertools.permutations(tail_e) if kb.is_sym(op_e) else [tail_e]
+                            for perm in all_perms:
+                                perm = list(perm)    # ensure lists (and not tuples)
+                                # for the flat case, we have to split the children into `len(tail_p)` many lists
+                                # the complicated looking `[[[pi] for pi in perm]]` is for the conversion into `split_expr`
+                                splits: List[List[List[Expr]]] = split_into_lists(perm, len(tail_p)) if kb.is_sym(op_e) else [[[pi] for pi in perm]]
+                                for split in splits:
+                                    # convert singletons into elements and add the operator to longer lists
+                                    split_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in split]
+                                    yield from match_exprs(list(zip(split_expr, tail_p)) + tail, subst, kb)
+
+                # list matching (same length, no special operators)
+                case [*_] if isinstance(expr, list) and len(expr)==len(pattern):
                     yield from match_exprs(list(zip(expr, pattern)) + tail, subst, kb)
 
         case _:
@@ -2084,7 +2111,7 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
     assert False, f'BUG: `match_all_theory` did not cover all cases for {exprs}'
 
 # what is happening:
-# 0. deep copy `proven_formula` and rename all its variables
+# 0. deep copy `proven_formula` and rename all its variables (happens already in the construction of it)
 # 1. split `proven_formula` into `conclusion` and `premises`
 # 2. match `expr` against `conclusion`
 # 3. match theory against the `premises` (not the other way around)
@@ -2117,12 +2144,14 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
     subst_cand: Subst|None = None
     for subst_local in match_exprs([(expr, conclusion)], subst, kb):
         # search all premises
+        debug(subst_local, premises)
         subst_cand, premises_formulas = match_all_theory(premises, subst_local, kb)
         if subst_cand is None:
             # alternative search for the conjunction of the premises
             conjunction: Expr = [Token(label='SYMBOL', value=AND_SYMBOL), *premises]
             subst_cand, premises_formulas = match_all_theory([conjunction], subst_local, kb)
         else:
+            debug(subst_cand)
             break           # bingo!  we found one
     if subst_cand is None:
         return None, {}         # no luck this time

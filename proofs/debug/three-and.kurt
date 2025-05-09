@@ -1,0 +1,15 @@
+; three-and.kurt
+; simple test of the flat, sym
+; written by Jan Robine (2025-05-08)
+load "propositional"
+bool p, q, r
+use p ∧ q ∧ r
+p                   ; first position
+r                   ; second position
+q                   ; third position
+
+bool a, b
+use a ∧ b
+a                   ; first position
+b                   ; second position
+;;; Proof checked.

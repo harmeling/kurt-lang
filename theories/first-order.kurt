@@ -16,24 +16,18 @@ use forall $x @A                        implies  sub $x $a @A      "forall-elim"
 use sub $x $a @A                        implies  exists $x @A      "exists-intro"
 use (exists $x @B) and (@B implies @A)  implies  @A                "exists-elim"
 
-
-; ;; inference rules
-; use $A                                  implies  forall $x $A      "forall-intro"
-; use forall $x $A                        implies  sub $x $a $A      "forall-elim"
-; use sub $x $a $A                        implies  exists $x $A      "exists-intro"
-; use (exists $x $B) and ($B implies $A)  implies  $A                "exists-elim"
-
 ;; better looking
-; use $A                     ⇒  ∀ $x $A       "forall-intro"
-; use ∀ $x $A                ⇒  sub $x $a $A  "forall-elim"
-; use sub $x $a $A           ⇒  ∃ $x $A       "exists-intro"
-; use (∃ $x $B) ∧ ($B ⇒ $A)  ⇒  $A            "exists-elim"
+; use @A                     ⇒  ∀ $x @A       "forall-intro"
+; use ∀ $x @A                ⇒  sub $x $a @A  "forall-elim"
+; use sub $x $a @A           ⇒  ∃ $x @A       "exists-intro"      ; contraposition of "forall-elim"
+; use (∃ $x @B) ∧ (@B ⇒ @A)  ⇒  @A            "exists-elim"
 
 ;; requirements
 ; - for "forall-elim" and "exists-intro":
 ;   - `$a` doesn't contain free variables that are bound in `$A`
 ;   - already sufficient would be if those free variables in `$a` are not bound in `$A` only at the locations of `$x`
-;   - can it really happen, if we rename all variables beforehand?
+;   - can anything bad really happen, if we rename all variables (free and bound) beforehand?
+;     - probably not, since we rename all vars in `@A` before `$a` is instantiated
 ; - for "exists-elim":
 ;   - `$A` must not contain `$x`
 ;   - since we first completely rename *all* variables this works:

@@ -1,0 +1,16 @@
+; or-intro-left-right.kurt
+
+infix  or      14 14  ; logical or
+;flat   or             ; (a or b) or c  iff  a or b or c
+bool   or      0 1 2  ; and and its inputs have type bool
+alias  ∨ or
+
+;; axioms
+;use @A implies @A or @B                                             "or-intro-left"
+use @B implies @A or @B                                             "or-intro-right"
+
+bool p, q
+use q
+q ∨ p
+p ∨ q
+;;; ProofError: can not derive expression

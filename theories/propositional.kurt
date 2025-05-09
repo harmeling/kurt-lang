@@ -50,12 +50,10 @@ alias  ≡ iff
 ; use ((@A implies @B) and @A) implies @B                           "impl-elim"
 ; use true                                                          "top-intro"
 
-use @A and @B implies @A and @B                                     "and-intro"
-use @A and @B implies @A                                            "and-elim"
-use @A and @B implies @B                                            "and-elim"
+use @A  and  @B   implies   @A and @B                               "and-intro"
+use @A  and  @B   implies   @A                                      "and-elim"   ; `and` is symmetric and flat
 
-use @A implies @A or @B                                             "or-intro"
-use @B implies @A or @B                                             "or-intro"
+use @A   implies   @A or @B                                         "or-intro"   ; `or` is symmetric and flat
 use (@A or @B) and (@A implies @C) and (@B implies @C) implies @C   "or-elim"
 
 use (@A implies @B) and (@B implies @A) implies (@A iff @B)         "iff-intro"
