@@ -903,12 +903,12 @@ How should we match `f $x` against `sub $x $a $A`:
 
 - however bound variables must not be renamed, since they might appear in variables such as `$A` below:
 
-    use $A                                   implies  forall $x $A      "forall-intro"
-    use forall $x $A                         implies  sub $x $a $A      "forall-elim"
-    use sub $x $a $A                         implies  exists $x $A      "exists-intro"
-    use (exists $$x $B) and ($B implies $A)  implies  $A                "exists-elim"
+    use %A                                   implies  forall $x %A      "forall-intro"
+    use forall $x %A                         implies  sub $x $a %A      "forall-elim"
+    use sub $x $a %A                         implies  exists $x %A      "exists-intro"
+    use (exists $$x $B) and ($B implies %A)  implies  %A                "exists-elim"
 
-- e.g. renaming `$x` in "exists-intro" in the LHS makes the whole formula wrong, since `$x` might appear in `$A` which appears also on the RHS.
+- e.g. renaming `$x` in "exists-intro" only in the LHS makes the whole formula wrong, since `$x` might appear in `%A` which appears also on the RHS.
 
 ## 2025-04-23 blocks
 
@@ -1022,14 +1022,14 @@ How should we match `f $x` against `sub $x $a $A`:
 - so let's try it!
 
      macro (def $a = $b) (use $a = $b)
-     macro (def @a iff @b) (use @a iff @b)
-     macro (let $a) (begin
-                     const $a)
-     macro (let @A) (begin
-                     const @A         ; will automatically extract the one and only free variable and `use @a`
-     macro (take $a=$b) (begin
-                         const $a     ; will check whether...
-                         use $a=$b)
+     macro (def %a iff %b) (use %a iff %b)
+     macro (let @a) (begin
+                     const @a)
+     macro (let %A) (begin
+                     const %A         ; will automatically extract the one and only free variable and `use %a`
+     macro (take @a=$b) (begin
+                         const @a     ; will check whether...
+                         use @a=$b)
 
 - actually, `let` and `const` are very similar, but `let` opens a block
 
@@ -1043,24 +1043,172 @@ How should we match `f $x` against `sub $x $a $A`:
 
 - if you really want an infix variable, you have to declare it variable before declaring it infix
 
-## 2025-05-04 variables for formulas using @
+## 2025-05-04 variables for formulas using %
 
 - right now we have for first order logic axioms like:
 
-    ;; better looking
     use $A                     ⇒  ∀ $x $A       "forall-intro"
     use ∀ $x $A                ⇒  sub $x $a $A  "forall-elim"
     use sub $x $a $A           ⇒  ∃ $x $A       "exists-intro"
     use (∃ $x $B) ∧ ($B ⇒ $A)  ⇒  $A            "exists-elim"
 
-- we should introduce special variables for formulas, e.g., beginning with `@`:
+- we should introduce special variables for formulas, e.g., beginning with `%`:
 
-    ;; better looking
-    use @A                     ⇒  ∀ $x @A       "forall-intro"
-    use ∀ $x @A                ⇒  sub $x $a @A  "forall-elim"
-    use sub $x $a @A           ⇒  ∃ $x @A       "exists-intro"
-    use (∃ $x @B) ∧ (@B ⇒ @A)  ⇒  @A            "exists-elim"
+    use %A                     ⇒  ∀ $x %A       "forall-intro"
+    use ∀ $x %A                ⇒  sub $x $a %A  "forall-elim"
+    use sub $x $a %A           ⇒  ∃ $x %A       "exists-intro"
+    use (∃ $x %B) ∧ (%B ⇒ %A)  ⇒  %A            "exists-elim"
 
-- this should be better, since `@A` is now syntactically different from `$A`
+- this should be better, since `%A` is now syntactically different from `$A`
 
-## 2025-05-08 variables vs constants
+## 2025-05-11 syntactic and semantic variables
+
+- syntactic variables: for constants and formulas, only used for `sub`
+
+- semantic variables: also for `sub`, but also everything else
+
+- we use perl style variables:
+
+      $x    variables
+      %x    variables for formulas
+      @x    variables for constants
+
+- `@x` and `%x` are only for substitutions with `sub`
+
+- `$x` are for substitutions as other locations, e.g., binding operators
+
+## 2025-05-12 severals files, export, namespaces
+
+- probably not a big issue: constants are exported together with their axioms or theorems
+
+- if there are clashes we could add namespaces with `.`
+
+- let's use lean4's namespaces:
+
+      namespace Foo        ; opens a block and stores it in the current `kb` under namespaces with name `Foo`
+         x = 18
+         y = 20
+      end
+      Foo.x
+      open Foo             ; reopens a namespace
+         x = 21
+      end
+
+- some tricky issues:
+  - also `use` formulas and derived formulas are part of a KnowledgeBase (e.g., named `Foo`)
+  - does this lead to problems
+  - or should it only be about symbols?
+  - probably to use a formula of the local theory (of `Foo`), we have to automatically rename used symbols
+  - let's wait with the namespace feature for version 2.0
+
+- when we switch on a namespace, for the theorems to be true, we need a similar hierarchy of the existing `kb`s
+
+- we could locally in the symbols also store the corresponding namespaces, so that for formulas we could apply the "renaming" accordingly
+
+- maybe namespaces should be only possible flat structure
+
+## 2025-05-12 variables with constraints
+
+- how about:
+
+      var x, y, z ∈ M
+
+  however, this is somewhat blurring the distinction between constant symbols and variables
+
+- the advantage is that we do not need types, but instead have a formula that constrains the variable
+
+- this might be also useful for functions:
+
+      var f : R --> R     ; declares a function variable
+
+  this defines a constraint for `f`
+
+- another example
+
+      const Set
+      var M, N : Set      ; declare `M`, `N`
+      var f : M --> N     ; declare `f`
+
+  suppose now we write
+
+      f(x)
+
+  this should trigger the check of the formula `x in M`, written as axioms we could get this effect by:
+
+      use $f:$M-->$N and $f($x)  implies  $x in $M  and  $f($x) in $N
+
+  however, not completely clear how to do it right.  how do we get the syntactic check  `x in M`?
+
+- constrained variables are more flexible than types, since otherwise part of the knowledge must be expressed in a typing language
+
+- what is special about a variable?  
+  - that it is implicitly universally quantified over
+  - that we can plug something in for it
+
+- what does it mean to declare `var x ∈ M`
+  - `x` is not fixed
+  - `x` fulfills `x ∈ G`
+  - `∀x F(x)` is actually: `∀x (x ∈ M ⇒ F(x))`  or  `∀x∈M F(x)`
+  - `∃x G(x)` is actually: `∃x (x ∈ M ∧ G(x))`  or  `∃x∈M G(x)`
+
+- so instead of having types, we can declare a formula that must be true for the variable.  this formula is plugged in at the variable position of binding operators
+
+- what does it mean for `let` and `take`?
+
+      let x>0      ; declare a variable (not a constant) for which `x>0` is true
+      take y=17    ; declare a constant, for this the RHS must not contain free variables
+
+## alternatively: let's get started with a simple type system
+
+- notation `x : Nat`
+
+- types are also just some expression, with constant symbols, without real meaning
+
+- types are used for type checking and type inference
+
+- what is the difference between:
+
+      x in Nat    ; a statement that `x` is an element of set `Nat`
+      x :  Nat    ; defines the type of `x`
+
+- what operators do we have on types?
+
+      A --> B     ; functions from A to B
+      A x B       ; Cartesian product
+
+## better use many-sorted logic
+
+- with "sort checking" and "sort inference" (see discussion with ChatGPT)
+
+- "sort constructors": Fun, Tuple, List
+
+- variables have exactly one sort
+
+- constants/function can be overloaded with several sorts
+
+- actually, let's keep it simple: two sorts: 1. bool, 2. non-bool
+
+## variables vs constants
+
+- symbols are constant by default, i.e., once it appears it is registered
+- symbols can be declared variables with `var` or `$` prefix
+- symbols that are bound by a binding operator are locally variable (temporary)
+
+- example
+
+      let x > 0   ; opens a block and declares constant `x`
+           p(x)   ; proves something
+      thus forall x>0 p(x) ; closes the block and forgets constant `x`
+      foobar               ; no more `x` in scope
+
+- only store explicitly declared variables with `var`, don't remember other variables
+
+- the command `const x` checks whether `x` exists already, in that case we get an error message
+
+- the `thus` part with `forall` checks that the constant exists on the current level, i.e., it is new
+
+- constant/variable
+
+  - use f($x) = $x + 1    ; $x is syntactically marked as variable
+  - use f(x) = x + 1      ; without $, and no var declaration
+  

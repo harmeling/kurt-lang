@@ -1,4 +1,5 @@
 load "propositional"
+var p
 bool p
 
 ; what to show
@@ -6,6 +7,7 @@ show p or not p  "excluded-middle"
 proof
     show not (p or not p) implies false
     proof
+        const p             ; locally make it a constant
         assume not (p or not p)
             assume p
                 p or not p

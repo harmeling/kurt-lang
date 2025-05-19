@@ -6,8 +6,8 @@ bool   or      0 1 2  ; and and its inputs have type bool
 alias  ∨ or
 
 ;; axioms
-;use @A implies @A or @B                                             "or-intro-left"
-use @B implies @A or @B                                             "or-intro-right"
+;use %A implies %A or %B                                             "or-intro-left"
+use %B implies %A or %B                                             "or-intro-right"
 
 bool p, q
 use q

@@ -1,0 +1,4 @@
+; bool-const.kurt
+bool x
+const x
+;;; EvalError: symbol "x" is already a constant and can not be declared freshly again

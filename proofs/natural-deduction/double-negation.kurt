@@ -1,7 +1,9 @@
 load "propositional"
+var p
 bool p
 show p ⇒ ¬¬p
 proof
+    const p             ; local constant
     assume p
         assume ¬p
             p ∧ ¬p
@@ -9,5 +11,5 @@ proof
         thus ¬p ⇒ ⊥
         ¬¬p
     thus p ⇒ ¬¬p
-qed
+qed                     ; finally generalize from the local constant to a variable
 ;;; Proof checked.

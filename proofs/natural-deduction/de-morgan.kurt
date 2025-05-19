@@ -1,6 +1,7 @@
 ; de Morgan's law
 load "propositional"
-bool p, q       ; constants
+var p, q       ; variables
+bool p, q
 
 ; axioms
 use p ∨ ¬p         "excluded-middle"
@@ -10,6 +11,7 @@ show ¬(p∧q) ≡ ¬p ∨ ¬q    "de-morgan"
 proof
     show  ¬(p∧q) ⇒ ¬p ∨ ¬q
     proof
+        const p, q             ; locally make them constants
         assume ¬(p∧q)          ; opens a block
             assume p           ; opens a block
                 assume q       ; opens a block
@@ -28,6 +30,7 @@ proof
     qed
     show ¬p ∨ ¬q ⇒ ¬(p∧q)
     proof
+        const p, q             ; locally make them constants
         assume ¬p ∨ ¬q         ; opens a block
             assume ¬p          ; opens a block
                 assume p∧q     ; opens a block
@@ -54,6 +57,7 @@ show ¬(p∨q) ≡ ¬p ∧ ¬q        "de-morgan"
 proof
     show ¬(p∨q) ⇒ ¬p ∧ ¬q
     proof
+        const p, q             ; locally make them constants
         assume ¬(p∨q)
         assume p
         p ∨ q
@@ -70,6 +74,7 @@ proof
     qed
     show ¬p ∧ ¬q ⇒ ¬(p∨q)
     proof
+        const p, q             ; locally make them constants
         assume ¬p ∧ ¬q
         assume p∨q
         assume p

@@ -1,0 +1,4 @@
+; bool-level-const-2.kurt
+var x
+const x       ; not ok, since on the current level there is already a variable
+;;; EvalError: symbol "x" is already a variable on this level or it starts with $

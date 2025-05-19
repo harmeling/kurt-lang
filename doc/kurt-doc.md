@@ -72,7 +72,7 @@ The Kurt programming language is a made to write down and automatically check si
 
 - Symbols starting with a dollar sign `$` are always variables.
 
-- Symbols starting with a at sign `@` are always boolean variables, that could contain whole formulas.a
+- Symbols starting with a at sign `%` are always boolean variables, that could contain whole formulas.a
 
 ## Variable binding operators
 

@@ -4,9 +4,9 @@
 ; that is hard wired to be flat and symmetric
 infix AND   14 14   ; logical and
 bool  AND    0 1 2  ; and and its inputs have type bool
-use @A ∧ @B ⇒ @A AND @B                                     "AND-intro"
-use @A AND @B ⇒ @A                                          "AND-elim-left"
-use @A AND @B ⇒ @B                                          "AND-elim-right"
+use %A ∧ %B ⇒ %A AND %B                                     "AND-intro"
+use %A AND %B ⇒ %A                                          "AND-elim-left"
+use %A AND %B ⇒ %B                                          "AND-elim-right"
 
 bool p, q
 show p AND q ⇒ q AND p

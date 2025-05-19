@@ -20,8 +20,10 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### TOPICS before releasing 1.0
+# TODO handle "automatic" universal quantification, i.e., automatically remove it and/or introduce it
+# TODO automatically turn symbols in binding operators locally into variables (for renaming)
 # TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
-# TODO add syntax sugar `take`, `let`, then rewrite the proofs
+# TODO add syntax sugar `take`, `let`, then rewrite the proofs, should be easy now!  define `macro` for this!
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
 # TODO add boolean expression for the bound variable for some variable binding operators
 # TODO add `by`
@@ -34,10 +36,12 @@ from __future__ import annotations
 # TODO add column information for the exceptions, use `expr_column`
 # TODO refactoring: work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
 # TODO search all TODO in the code and check whether they are still relevant
+# TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
+
+### TOPICS before releasing 2.0
+# TODO namespaces, e.g., for scalar-product.kurt, see `kurt-notes.md`, search for `namespace`
 
 ### TOPICS for the future
-# TODO namespaces, e.g., for scalar-product.kurt
-# TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO run profiling
 # TODO can we make 'proof by contradiction', one step shorter?  `assume A; contradiction; thus not A`
@@ -63,7 +67,6 @@ from __future__ import annotations
 # TODO runtime; currently: `derive_expr` is O(n^k) where n is the length of the theory and k is the maximum number of premises of an proved implication, 
 #      this could be speed up with better data structure to store the formulas of the theory, but let's first keep it slow, but understandable
 # TODO allow outer forall block around implications
-# TODO put everything into a symbol table?  let's have it additionally.
 # TODO write kurt integration for vscode, highlight the lines that are proven, https://microsoft.github.io/language-server-protocol/
 # TODO two algorithms: constraint based (https://www.youtube.com/watch?v=H7x4THVU4BQ) and substitution based (W)
 # TODO redo something like https://terrytao.wordpress.com/2023/12/05/a-slightly-longer-lean-4-proof-tour/
@@ -97,8 +100,10 @@ from dataclasses import dataclass
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, List
 
 try:
+    # should work under Linux and MacOS, but not under Windows
     import readline     # readline.[parse_and_bind, read_history_file, write_history_file]
 except ImportError:
+    # sorry, Windows users, no readline support
     # print("Warning: readline not available. Line editing features will be limited.")
     readline = None
 
@@ -107,7 +112,7 @@ version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
 
 # config: the indentation for the different blocks
-md_indent      =  7       # ignore all lines not starting with `md_indent` many spaces
+md_indent      =  7       # for markdown files ignore all lines not starting with `md_indent` many spaces
 proof_indent   =  4       # how much to indent for a `proof` block
 reason_indent  = 60       # how much the reason is indented
 tab_indent     =  4       # tabs get converted to four spaces
@@ -155,17 +160,17 @@ REPLACEMENTS: dict[str, str] = {
     '\\d':       '◇',
 
     # set theory
-    '\\infty': '∞',        # infinity
-    '\\in': '∈',           # element of
-    '\\notin': '∉',        # not element of
-    '\\subset': '⊂',       # proper subset
+    '\\infty':    '∞',     # infinity
+    '\\in':       '∈',     # element of
+    '\\notin':    '∉',     # not element of
+    '\\subset':   '⊂',     # proper subset
     '\\subseteq': '⊆',     # subset or equal
-    '\\supset': '⊃',       # proper superset
+    '\\supset':   '⊃',     # proper superset
     '\\supseteq': '⊇',     # superset or equal
-    '\\cap': '∩',          # intersection
-    '\\cup': '∪',          # union
+    '\\cap':      '∩',     # intersection
+    '\\cup':      '∪',     # union
     '\\emptyset': '∅',     # empty set
-    '\\equiv': '≡',        # equivalence
+    '\\equiv':    '≡',     # equivalence
 
     # numbers
     '\\leq': '≤',          # less than or equal
@@ -266,7 +271,7 @@ keywords: dict[str, str] = {
     'bool':        'declare symbols to have output type boolean',
     'chain':       'declare a chain of symbols, for automatic transitivity',
     'var':         'declare symbols as variable, symbols starting with $ are always variables',
-    'const':       'declare symbols as constants',
+    'const':       'declare symbols as fresh constants, i.e., they have not been used or declared before',
     'alias':       'add some aliases for a symbol',
 
     'theory':      'print all formulas',
@@ -433,11 +438,14 @@ class KnowledgeBase:
         self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
         self.verbose: bool  = False if parent is None else parent.verbose           # extra information or not
 
-    def entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
+    def _entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix {key} {value}'
         elif keyword == 'infix':    
             if isinstance(value, tuple) and len(value) == 2:
-                return f'infix {key} {value[0]} {value[1]}'
+                if key == ' ':
+                    return f'infix " " {value[0]} {value[1]}'
+                else:
+                    return f'infix {key} {value[0]} {value[1]}'
             assert False, f'BUG!  Unexpected value for `infix`, got {value}'
         elif keyword == 'postfix':  return f'postfix {key} {value}'
         elif keyword == 'brackets': return f'brackets {value} {key}'
@@ -454,30 +462,35 @@ class KnowledgeBase:
                 return f'bool {key} {' '.join(map(str, value))}'
             assert False, f'BUG!  Unexpected value for `bool`, got {value}'
         elif keyword == 'var':      return f'var {key}'
-        elif keyword == 'const':    return f'const {key}'
+        elif keyword == 'const':
+            if key == ' ':
+                return f'const " "'
+            else:
+                return f'const {key}'
         elif keyword == 'alias':    return f'alias {key} {value}'
         else: assert False, f'BUG: unknown keyword, got {keyword}'
 
     def dict_or_set_str(self, some_dict_or_set: dict[str,str]|dict[str,int]|dict[str,tuple[int,int]]|dict[str,list[int]]|dict[str,list[str]]|set[str], keyword: str) -> str:
         if isinstance(some_dict_or_set, dict):
-            return '\n'.join([self.entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set])
+            return '\n'.join([self._entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set])
         else:
-            return '\n'.join([self.entry_str(keyword, key) for key in some_dict_or_set])
+            return '\n'.join([self._entry_str(keyword, key) for key in some_dict_or_set])
 
     # SYNTAX RELATED
     def syntax_str(self) -> str:
         s: str = self.parent.syntax_str() if self.parent is not None else ''
         s += f'; syntax: declarations on level {self.level}\n'
-        s += self.dict_or_set_str(self.prefix,   'prefix') + '\n'
-        s += self.dict_or_set_str(self.infix,    'infix') + '\n'
-        s += self.dict_or_set_str(self.postfix,  'postfix') + '\n'
-        s += self.dict_or_set_str(self.arity,    'arity') + '\n'
-        s += self.dict_or_set_str(self.chain,    'chain') + '\n'
-        s += self.dict_or_set_str(self.bindop,   'bindop') + '\n'
-        s += self.dict_or_set_str(self.brackets, 'brackets') + '\n'
-        s += self.dict_or_set_str(self.flat,     'flat') + '\n'
-        s += self.dict_or_set_str(self.sym,      'sym') + '\n'
-        s += self.dict_or_set_str(self.bool,     'bool') + '\n'
+        all_syntax = [self.dict_or_set_str(self.prefix,   'prefix'),
+                        self.dict_or_set_str(self.infix,    'infix'),
+                        self.dict_or_set_str(self.postfix,  'postfix'),
+                        self.dict_or_set_str(self.arity,    'arity'),
+                        self.dict_or_set_str(self.chain,    'chain'),
+                        self.dict_or_set_str(self.bindop,   'bindop'),
+                        self.dict_or_set_str(self.brackets, 'brackets'),
+                        self.dict_or_set_str(self.flat,     'flat'),
+                        self.dict_or_set_str(self.sym,      'sym'),
+                        self.dict_or_set_str(self.bool,     'bool')]
+        s += '\n'.join([syntax for syntax in all_syntax if syntax != ''])
         return s
 
     def is_infix(self, s: str) -> bool:
@@ -494,8 +507,10 @@ class KnowledgeBase:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
     def is_var(self, s: str) -> bool:
         return s in self.var     or (self.parent is not None and self.parent.is_var(s)) or s[0]=='$'   # constant vs variable symbols (variables start with '$')
+    def is_local_var(self, s: str) -> bool:                # check only in the current level, used for `add_const`
+        return s in self.var     or s[0]=='$'
     def is_bool_var(self, s: str) -> bool:
-        return s[0]=='@'  # boolean variable
+        return s[0]=='%'  # variable for formulas (in `sub`)
     def is_const(self, s: str) -> bool:
         return s in self.const   or (self.parent is not None and self.parent.is_const(s))
     def is_alias(self, s: str) -> bool:
@@ -555,10 +570,11 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: arity of brackets can not be set')
         if fun in self.arity:
             raise KurtException(f'EvalError: arity of symbol "{fun}" has been already set to {self.arity[fun]}')
-        self.add_const(fun)
+        if not (self.is_const(fun) or self.is_var(fun)):
+            self.add_const(fun)
         self.arity[fun] = a
 
-    def find_symbol(self, op: str) -> str:
+    def _find_symbol(self, op: str) -> str:
         if self.is_prefix(op):    return 'prefix'
         elif self.is_infix(op):   return 'infix'
         elif self.is_postfix(op): return 'postfix'
@@ -566,27 +582,30 @@ class KnowledgeBase:
         elif self.is_bindop(op):  return 'bindop'
         elif self.is_var(op):     return 'var'
         elif self.is_const(op):   return 'const'
-        else: assert False, f'BUG: call "find_symbol" only for existing symbols'
+        else: assert False, f'BUG: call "_find_symbol" only for existing symbols'
 
     def add_prefix(self, op: str, rbp: int) -> None:
         if self.is_operator(op) and not self.is_infix(op):    # infix and prefix at the same time is allowed
-            raise KurtException(f'EvalError: symbol "{op}" already exist as {self.find_symbol(op)}')
-        self.add_const(op)
+            raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
+        if not (self.is_const(op) or self.is_var(op)):
+            self.add_const(op)
         self.prefix[op] = rbp
         self.nud[op] = lambda ts, kb, op_token: [op_token, parse_expression(ts, kb, rbp)]
 
     def add_infix(self, op: str, lbp: int, rbp: int) -> None:
         if self.is_operator(op) and not self.is_prefix(op):   # infix and prefix at the same time is allowed
-            raise KurtException(f'EvalError: symbol "{op}" already exist as {self.find_symbol(op)}')
-        self.add_const(op)
+            raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
+        if not (self.is_const(op) or self.is_var(op)):
+            self.add_const(op)
         self.infix[op] = (lbp, rbp)                           # to nicely list all operators
         self.led[op] = lambda ts, kb, left, op_token: [op_token, left, parse_expression(ts, kb, rbp)]
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
     def add_postfix(self, op: str, lbp: int) -> None:
         if self.is_operator(op):
-            raise KurtException(f'EvalError: symbol "{op}" already exist as {self.find_symbol(op)}')
-        self.add_const(op)
+            raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
+        if not (self.is_const(op) or self.is_var(op)):
+            self.add_const(op)
         self.postfix[op] = lbp                                # to nicely list all operators
         def led(_ts: PeekableGenerator, _kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
             return [op_token, left]
@@ -608,6 +627,8 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: before declaring symbol "{fun}" as variable binding, you must set its arity')
         if self.arity[fun] < 2:
             raise KurtException(f'EvalError: arity of binding operators must be at least 2')
+        if not (self.is_const(fun) or self.is_var(fun)):
+            self.add_const(fun)
         self.bindop.add(fun)
 
     def add_flat(self, op: str) -> None:
@@ -625,10 +646,10 @@ class KnowledgeBase:
         self.sym.add(op)
 
     def add_brackets(self, lbracket, rbracket) -> None:
-        if self.is_operator(lbracket):
-            raise KurtException(f'EvalError: symbol "{lbracket}" already exist as {self.find_symbol(lbracket)}')
-        if self.is_operator(rbracket):
-            raise KurtException(f'EvalError: symbol "{rbracket}" already exist as {self.find_symbol(rbracket)}')
+        if self.is_operator(lbracket) or self.is_const(lbracket) or self.is_var(lbracket):
+            raise KurtException(f'EvalError: symbol "{lbracket}" already exist as {self._find_symbol(lbracket)}')
+        if self.is_operator(rbracket) or self.is_const(rbracket) or self.is_var(rbracket):
+            raise KurtException(f'EvalError: symbol "{rbracket}" already exist as {self._find_symbol(rbracket)}')
         self.add_const(lbracket)
         self.add_const(rbracket)
         self.brackets[rbracket] = lbracket    # to list the brackets (not used for parsing)
@@ -646,12 +667,16 @@ class KnowledgeBase:
 
     def add_var(self, s: str) -> None:
         if self.is_const(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a constant')
+            raise KurtException(f'EvalError: symbol "{s}" is already used as a constant')
         self.var.add(s)
 
     def add_const(self, s: str) -> None:
-        if self.is_var(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a variable or starts with $')
+        # a constant is automatically declared if a new symbol is used or when it is explicitly declared
+        # declaring is only allowed, if it doesn't yet exist as a variable or constant
+        if self.is_local_var(s):
+            raise KurtException(f'EvalError: symbol "{s}" is already a variable on this level or it starts with $')
+        if self.is_const(s):
+            raise KurtException(f'EvalError: symbol "{s}" is already a constant and can not be declared freshly again')
         self.const.add(s)
 
     def add_alias(self, s: str, t: str) -> None:
@@ -730,6 +755,24 @@ class KnowledgeBase:
             elif op is not None and is_op_expr(f.expr, op):
                 s += f'{f.formula_str(self)}\n'
         return s
+
+    def _add_new_symbols(self, e: Expr) -> None:
+        match e:
+            case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_var(s):
+                pass                  # do nothing
+            case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_const(s):
+                pass                  # do nothing
+            case Token(label='SYMBOL', value=s) if isinstance(s, str):
+                self.add_const(s)     # create a new constant symbol
+            case [*children]:
+                for child in children:
+                    self._add_new_symbols(child)
+            case _:
+                pass                  # do nothing
+
+    def theory_append(self, f: Formula) -> None:
+        self._add_new_symbols(f.expr)
+        self.theory.append(f)
 
     def show_str(self) -> str:
         s: str = self.parent.show_str() if self.parent is not None else ''
@@ -899,11 +942,12 @@ scanner: re.Pattern = re.compile(fr'''
   (?P<FLOAT>   [0-9]+\.[0-9]+)                   | # floating point literals
   (?P<INT>     [0-9]+)                           | # integer literals
   (?P<STRING>  ["][^"]*["])                      | # string literals
-  (?P<SYMBOL>  [$@]?[A-Za-z][A-Za-z0-9]*         | # symbols 1: identifiers with at most one leading '$' or '@'
+  (?P<SYMBOL>  [$%@]?[A-Za-z][A-Za-z0-9]*        | # symbols 1: identifiers with at most one leading '$' or '%' or '@'
                [()]                              | # symbols 2: round brackets
                [,]                               | # symbols 3: comma
-               [:=+\-*/.#&^%'@∈!<>{{}}[\]|_]+    | # symbols 4: standard operators including literal {{ }}
-               [{re.escape(SPECIAL_SYMBOLS)}])   | # symbols 5: logic, Greek and other math symbols (always single char)
+               [.]                               | # symbols 4: dot for namespaces
+               [:=+\-*/#&^'∈!<>{{}}[\]|_]+       | # symbols 5: standard operators including literal {{ }}
+               [{re.escape(SPECIAL_SYMBOLS)}])   | # symbols 6: logic, Greek and other math symbols (always single char)
   (?P<NEWLINE> [\n])                             | # newline
   (?P<WHITE>   [^\S\n\r]+)                       | # whitespace (not newline)
   (?P<ERROR>   .)                                  # anything else is an error
@@ -1461,7 +1505,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 if keyword == 'assume':
                     kb = increase_level(kb)          # add a new level/scope to the knowledgebase
                 f = Formula(expr, str(line), filename, status=keyword, label=label, reason=reason, kb=kb)
-                kb.theory.append(f)
+                kb.theory_append(f)
                 if mainstream:
                     log(f.formula_str(kb), reason, kb.level-1)
             case _:
@@ -1473,7 +1517,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 reason = decorate_reason(mainstream, reason, filename, str(line))
                 f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
                 kb = decrease_level(kb)                    # drop current level and perform some checks
-                kb.theory.append(f)                        # add a copy to the theory
+                kb.theory_append(f)                        # add a copy to the theory
                 if mainstream:
                     log('thus ' + f.formula_str(kb), reason, kb.level)
             case _:
@@ -1520,7 +1564,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 reason = decorate_reason(mainstream, reason, filename, str(line))
                 f = Formula(pf.expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
                 kb.show.pop()                              # pop it now off the show stack, since it is proved now
-                kb.theory.append(f)                        # add a copy to the theory
+                kb.theory_append(f)                        # add a copy to the theory
                 if mainstream:
                     log('qed', None, kb.level)
                     log(f.formula_str(kb), reason, kb.level)
@@ -1577,12 +1621,12 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str|None, kb: 
                 line_strs.append(line_str)
                 reason = decorate_reason(mainstream, reason, filename, line_str)
                 sub_f = Formula(clause, line_str, filename, status=None, label=None, reason=reason, kb=kb)
-                kb.theory.append(sub_f)                         # add sub to the knowledge base
+                kb.theory_append(sub_f)                         # add sub to the knowledge base
                 if mainstream:
                     log(sub_f.formula_str(kb), reason, kb.level)
             reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
         f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
-        kb.theory.append(f)                         # add it to the knowledge base
+        kb.theory_append(f)                         # add it to the knowledge base
         if mainstream:
             log(f.formula_str(kb), reason, kb.level)
         return kb
@@ -1842,18 +1886,18 @@ def reset_bool_var_counter() -> None:
 def new_bool_var_name() -> str:
     global bool_var_counter
     bool_var_counter += 1
-    return f'@@bool{bool_var_counter}'   # the `@@` ensures that it is not a valid kurt variable
+    return f'%%bool{bool_var_counter}'   # the `%%` ensures that it is not a valid kurt variable
 
 # ALL variables are renamed on the formula level
 # * rename free vars in `expr` with generated names to avoid clashes with other expressions
 #   this is necessary, because free variables are implicitly universally bound per formula,
 #   i.e., their meaning should be shared inside a formula (or while matching also between formulas)
 # * renaming bound variables:
-#   we should never rename bound variables (here `$x`) only locally, since they might appear in free variables (here `@A`), example:
-#      forall $x @A  implies  sub $x $a @A      "forall-elim"
+#   we should never rename bound variables (here `$x`) only locally, since they might appear in free variables (here `%A`), example:
+#      forall $x %A  implies  sub $x $a %A      "forall-elim"
 #   if we rename `$x` on the LHS of the implication we get:
-#      forall $z @A  implies  sub $x $a @A      "forall-elim"
-#   which doesn't work, since in `@A` there is not a `$z` at the correct position
+#      forall $z %A  implies  sub $x $a %A      "forall-elim"
+#   which doesn't work, since in `%A` there is not a `$z` at the correct position
 # * however, renaming bound variables globally (for the whole formula) is fine, since it enables requirement (1) in `generate_all_combinations`
 #   so the renaming of bound variables makes also "exists-elim" possible
 def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, Subst]:
@@ -1949,8 +1993,8 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
 
     # `sub $x  a  A` or
     # `sub $x $a  A` or
-    # `sub $x  a @A` or
-    # `sub $x $a @A`
+    # `sub $x  a %A` or
+    # `sub $x $a %A`
     var_a:  str|None
     a:     Expr|None
     if isinstance(p_a, Token) and isinstance(p_a.value, str) and kb.is_var(p_a.value):
@@ -1976,13 +2020,13 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         # TODO: in this case we should do something more sophisticated, since we could have
         #       arity F 1
         #       bool F 0 1
-        #       sub $x $a F @A
-        # where we should be creative with `@A` as well, i.e., we should go on with matching, but keeping in mind we can use `sub $x`
-        # i.e., go on with matching against:  `F sub $x $a @A`
+        #       sub $x $a F %A
+        # where we should be creative with `%A` as well, i.e., we should go on with matching, but keeping in mind we can use `sub $x`
+        # i.e., go on with matching against:  `F sub $x $a %A`
         # what about
         #       arity G 2
         #       bool G 0 1 2
-        #       sub $x $a G @A @B
+        #       sub $x $a G %A %B
         # that should be a problem, however, `generate_all_combinations` must be a bit more sophisticated
         all_combinations = generate_one_combination(a, p_A)
 
@@ -2023,13 +2067,15 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                 # variable matching
                 case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
                     if equal_expr(pattern, expr):
-                        # don't extend `subst`, if the variables match already
+                        # don't extend `subst`, if the variable names are the same
                         yield from match_exprs(tail, subst, kb)
                     elif v not in subst:
+                        # `v` is not assigned yet, so we can assign it
                         subst_local: Subst = subst.copy()     # shallow copy
                         subst_local[v] = expr          # extend the substitution
                         yield from match_exprs(tail, subst_local, kb)
                     elif equal_expr(subst[v], expr):
+                        # already assigned to `v`, but the same value
                         yield from match_exprs(tail, subst, kb)
                     else:
                         pass                           # no match possible, since `v` already assigned otherwise

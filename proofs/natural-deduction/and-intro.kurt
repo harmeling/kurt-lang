@@ -1,5 +1,5 @@
 ; example: and-intro
-use @A and @B implies @A and @B                                     "and-intro"
+use %A and %B implies %A and %B                                     "and-intro"
 bool I, J
 use I
 use J

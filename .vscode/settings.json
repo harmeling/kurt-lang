@@ -13,9 +13,11 @@
         "elisp",
         "emacs",
         "emptyset",
+        "extensionality",
         "firstorder",
         "fixpoints",
         "forall",
+        "Fraenkel",
         "Freek",
         "functool",
         "Harmeling",
@@ -48,6 +50,7 @@
         "tokenstream",
         "Umbennung",
         "Wiedijk",
+        "Zermelo",
         "αβγδεζηθικλμνξοπρστυφχψω"
     ],
     "python.testing.unittestArgs": [
