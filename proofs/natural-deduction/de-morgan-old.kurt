@@ -1,0 +1,95 @@
+; de Morgan's law
+load "propositional"
+
+; axioms
+use %p ∨ ¬%p         "excluded-middle"
+
+; first law (proof with optional indentation)
+show ¬(%p∧%q) ≡ ¬%p ∨ ¬%q    "de-morgan"
+proof
+    fixbool p, q
+        show  ¬(p∧q) ⇒ ¬p ∨ ¬q
+        proof
+            const p, q             ; locally make them constants
+            assume ¬(p∧q)          ; opens a block
+                assume p           ; opens a block
+                    assume q       ; opens a block
+                        p ∧ q    ; and-intro
+                        ⊥          ; bottom-intro
+                    thus q ⇒ ⊥     ; impl-intro, closes the block opened by `assume q`
+                    ¬q             ; not-intro
+                    ¬p ∨ ¬q        ; or-intro
+                thus p ⇒ ¬p ∨ ¬q   ; impl-intro, closes the block opened by `assume p`
+                assume ¬p
+                    ¬p ∨ ¬q        ; or-intro
+                thus ¬p ⇒ ¬p ∨ ¬q  ; impl-intro, closes the block opened by `assume ¬q`
+                p ∨ ¬p             ; excluded-middle, restatement
+            ¬p ∨ ¬q                ; or-elim
+            thus ¬(p∧q) ⇒ ¬p ∨ ¬q  ; impl-intro, closes the block opened by `assume ¬(p∧q)`
+        qed
+        show ¬p ∨ ¬q ⇒ ¬(p∧q)
+        proof
+            const p, q             ; locally make them constants
+            assume ¬p ∨ ¬q         ; opens a block
+                assume ¬p          ; opens a block
+                    assume p∧q     ; opens a block
+                        p          ; and-elim
+                        ⊥          ; bottom-intro
+                    thus p∧q ⇒ ⊥   ; impl-intro, closes the block opened by `assume p∧q`
+                    ¬(p∧q)         ; not-intro
+                thus ¬p ⇒ ¬(p∧q)   ; impl-intro, closes the block opened by `assume ¬p`
+                assume ¬q
+                    assume p∧q
+                        q          ; and-elim
+                        ⊥          ; bottom-intro
+                    thus p∧q ⇒ ⊥   ; impl-intro, closes the block opened by `assume p∧q`
+                    ¬(p∧q)         ; not-intro
+                thus ¬q ⇒ ¬(p∧q)   ; impl-intro, closes the block opened by `assume ¬q`
+                ¬(p∧q)             ; impl-elim
+            thus ¬p ∨ ¬q ⇒ ¬(p∧q)  ; impl-intro, closes the block opened by `assume ¬p ∨ ¬q`
+        qed
+        ¬(p∧q) ≡ ¬p ∨ ¬q           ; iff-intro
+    thus ¬(%p ∧ %q) ≡ ¬%p ∨ ¬%q
+qed
+
+;; second law (proof without indentation)
+show ¬(p∨q) ≡ ¬p ∧ ¬q        "de-morgan"
+proof
+    show ¬(p∨q) ⇒ ¬p ∧ ¬q
+    proof
+        const p, q             ; locally make them constants
+        assume ¬(p∨q)
+        assume p
+        p ∨ q
+        ⊥
+        thus p ⇒ ⊥
+        ¬p
+        assume q
+        p ∨ q
+        ⊥
+        thus q ⇒ ⊥
+        ¬q
+        ¬p ∧ ¬q
+        thus ¬(p∨q) ⇒ ¬p ∧ ¬q
+    qed
+    show ¬p ∧ ¬q ⇒ ¬(p∨q)
+    proof
+        const p, q             ; locally make them constants
+        assume ¬p ∧ ¬q
+        assume p∨q
+        assume p
+        ¬p
+        ⊥
+        thus p ⇒ ⊥
+        assume q
+        ¬q
+        ⊥
+        thus q ⇒ ⊥
+        ⊥
+        thus p∨q ⇒ ⊥
+        ¬(p∨q)
+        thus ¬p ∧ ¬q ⇒ ¬(p∨q)
+    qed
+    ¬(p∨q) ≡ ¬p ∧ ¬q
+qed
+;;; Proof checked.

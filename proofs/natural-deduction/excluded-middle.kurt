@@ -1,7 +1,7 @@
 load "propositional"
-bool p
 
-; what to show
+; variant 1: prove for a constant
+bool p         ; also declares new constant
 show p ∨ ¬p  "excluded-middle"
 proof
     show ¬ (p ∨ ¬ p) ⇒ ⊥
@@ -18,5 +18,45 @@ proof
     qed
     ¬ ¬ (p ∨ ¬ p)
     p ∨ ¬ p
+qed
+
+; variant 2: prove for a variable
+var q          ; declares a variable
+bool q         ; now the variable is a boolean
+show q ∨ ¬q  "excluded-middle"
+proof
+    show ¬ (q ∨ ¬ q) ⇒ ⊥
+    proof
+        assume ¬ (q ∨ ¬ q)
+            assume q
+                q ∨ ¬ q
+                ⊥
+            thus q ⇒ ⊥
+            ¬ q
+            q ∨ ¬ q
+            ⊥
+        thus ¬ (q ∨ ¬ q) ⇒ ⊥
+    qed
+    ¬ ¬ (q ∨ ¬ q)
+    q ∨ ¬ q
+qed
+
+; variant 3: prove for a boolean variable
+show %p ∨ ¬%p  "excluded-middle"
+proof
+    show ¬ (%p ∨ ¬ %p) ⇒ ⊥
+    proof
+        assume ¬ (%p ∨ ¬ %p)
+            assume %p
+                %p ∨ ¬ %p
+                ⊥
+            thus %p ⇒ ⊥
+            ¬ %p
+            %p ∨ ¬ %p
+            ⊥
+        thus ¬ (%p ∨ ¬ %p) ⇒ ⊥
+    qed
+    ¬ ¬ (%p ∨ ¬ %p)
+    %p ∨ ¬ %p
 qed
 ;;; Proof checked.

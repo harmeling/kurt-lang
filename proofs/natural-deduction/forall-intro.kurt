@@ -1,7 +1,37 @@
-; example: forall-intro
+; forall-intro.kurt
 load "first-order"
-bool  prime
-arity prime 1        ; expects one argument
-use prime $z
-forall $z prime $z
+arity A 1, B 1, C 1, D 1, E 1
+bool A, B, C, D, E
+
+use ∀ $x A $x
+use ∀ $x B $x
+
+show ∀ $x (A $x ∧ B $x)
+proof
+    fix x
+        A x
+        B x
+        A x ∧ B x
+    thus ∀ $x (A $x ∧ B $x)
+qed
+
+show ∀ $x (A $x or C $x)
+proof
+    fix x
+        A x
+        A x or C x
+    thus ∀ $x (A $x or C $x)
+qed
+
+use ∀ $x (D $x ⇒ E $x)
+show (∀ $x D $x) ⇒ (∀ $x E $x)
+proof
+    assume ∀ $x D $x
+        fix x
+            D $x
+            D $x ⇒ E $x
+            E $x
+        thus ∀ $x E $x
+    thus (∀ $x D $x) ⇒ (∀ $x E $x)
+qed
 ;;; Proof checked.

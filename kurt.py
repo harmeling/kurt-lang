@@ -8,7 +8,7 @@ from __future__ import annotations
 
 ## for profiling run:
 # python -m cProfile -o kurt.prof kurt.py
-# python -m cProfile -s time kurt.py proofs/group.kurt
+# python -m cProfile -s time kurt.py proofs/linear-algebra/group.kurt
 
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
@@ -20,8 +20,11 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### TOPICS before releasing 1.0
+# TODO check 'use' vs 'assume', 'fix', 'take', 'let', 'def'
+# TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
+# TODO split 'impl-intro' into 'impl-intro' and just the usual derivation (i.e., w/o premises)
 # TODO handle "automatic" universal quantification, i.e., automatically remove it and/or introduce it
-# TODO automatically turn symbols in binding operators locally into variables (for renaming)
+# TODO automatically turn symbols at the first position in binding operators locally into variables (for renaming)
 # TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
 # TODO add syntax sugar `take`, `let`, then rewrite the proofs, should be easy now!  define `macro` for this!
 # TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
@@ -39,9 +42,11 @@ from __future__ import annotations
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 
 ### TOPICS before releasing 2.0
+# TODO let it run locally in the browser, e.g., using Pyodide <https://pyodide.org/en/stable/>, see https://chatgpt.com/share/68387cb6-7df4-8008-af44-da04c4449f10
 # TODO namespaces, e.g., for scalar-product.kurt, see `kurt-notes.md`, search for `namespace`
 
 ### TOPICS for the future
+# TODO let's hardcode the quantifier rules, also the `let`, `take` and `thus` stuff
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO run profiling
 # TODO can we make 'proof by contradiction', one step shorter?  `assume A; contradiction; thus not A`
@@ -124,6 +129,12 @@ SUB_SYMBOL   = 'sub'         # substitution
 TRUE_SYMBOL  = 'true'        # true
 COMMA_SYMBOL = ','           # listing stuff
 SPACE_SYMBOL = ' '           # function application
+
+# not basic, but still necessary for our implementation of forall-intro and exists-intro
+FORALL_SYMBOL = 'forall'     # universal quantification
+EXISTS_SYMBOL = 'exists'     # existential quantification
+EQUAL_SYMBOL  = '='          # equality
+IFF_SYMBOL    = 'iff'        # equivalence
 
 # config: the default theory and default path
 default_theory: str    = 'theory.kurt'                                                   # default theory
@@ -280,22 +291,26 @@ keywords: dict[str, str] = {
 
     # formulas
     'use':         'use a formula without proof as a axiom',
-    'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
     'show':        'plan to prove a formula',
     'proof':       'start a block and open a new level to prove the last planned formula',
     'qed':         'end a block, drop one level and finish the proof of the last planned formula',
+    'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
     'assume':      'open a block and assume a formula, the block must be finished with `thus`',
+    'fix':         'fix a variable, i.e., assume it to be a constant, the block must be finished with `thus`',
+    'let':         'same as `fix`, by convention used for forall-intro',
+    'take':        'same as `fix`, by convention used for exists-intro',
     'thus':        'finish a block and prove the given formula using the previous block',
     'begin':       'start a block, i.e., open a new level',
     'end':         'end a block, drop one level and (if in a proof) do not finish the proof of the last planned formula',
     }
-keywords_with_parsing: list[str] = ['use', 'def', 'show', 'assume', 'thus']
+axiomatic_keywords = ['use', 'assume', 'def', 'fix', 'let', 'take']
+keywords_with_parsing: list[str] = axiomatic_keywords + ['show', 'thus']
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
 Value:  TypeAlias = str | int | float
 Format: TypeAlias = Literal['sexpr', 'normal']
-Status: TypeAlias = Literal['use', 'show', 'assume', 'def'] | None
+Status: TypeAlias = Literal['use', 'show', 'assume', 'def', 'fix', 'let', 'take'] | None
 
 @dataclass
 class Token:
@@ -416,14 +431,14 @@ class KnowledgeBase:
         self.brackets: dict[str, str]            = {}     # keys are right brackets, values are left brackets
         self.arity:    dict[str, int]            = {}     # for non-zero arities
         self.chain:    dict[str, list[str]]      = {}     # for chaining operators, i.e., 18 = 1+17 <= 20 < 21
-        self.bindop:   set[str]                  = set()  # for variable binding operators
-        self.flat:     set[str]                  = set()  # for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
-        self.sym:      set[str]                  = set()  # for declaring a symmetric operator, i.e., $a + $b = $b + $a
+        self.bindop:   set[str]                  = set()  # set for variable binding operators
+        self.flat:     set[str]                  = set()  # set for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
+        self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
         self.lbp:      dict[str, int]            = {}     # left binding power
         self.rbp:      dict[str, int]            = {}     # right binding power
         self.bool:     dict[str, list[int]]      = {}     # dict of symbols declared to have boolean output
-        self.var:      set[str]                  = set()  # dict of variables with unused values
-        self.const:    set[str]                  = set()  # dict of constants with unused values
+        self.var:      set[str]                  = set()  # set of variables with unused values
+        self.const:    set[str]                  = set()  # set of constants with unused values
         self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
         self.nud:      dict[str, Nud]            = {}     # null denotation, entries are functions for parsing expressions
         self.led:      dict[str, Led]            = {}     # left denotation, entries are functions for parsing infix expressions
@@ -876,6 +891,12 @@ def is_op_expr(e: Expr, op: str) -> bool:
 def is_implication(expr: Expr) -> bool:
     return is_op_expr(expr, IMPL_SYMBOL)
 
+def is_forall(expr: Expr) -> bool:
+    return is_op_expr(expr, FORALL_SYMBOL)
+
+def is_exists(expr: Expr) -> bool:
+    return is_op_expr(expr, EXISTS_SYMBOL)
+
 def equal_expr(t1: Expr, t2: Expr) -> bool:                                     # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
     if isinstance(t1, Token) and isinstance(t2, Token):                         # compare tokens
@@ -1224,6 +1245,22 @@ def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
     assert kb.parent is not None, f'BUG: we should be one level up'
     return kb.parent                        # drop current level
 
+def extract_new_const(expr: Expr, kb: KnowledgeBase) -> str:
+    # extracts the first new constant from the expression `expr`
+    match expr:
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_const(s):
+            return s        # new constant found
+        case [*children]:
+            for child in children:
+                s = extract_new_const(child, kb)
+                if len(s) > 0:
+                    return s
+        case Token():
+            raise KurtException(f'SyntaxError: not a new constant, got `{expr}`')
+        case _:
+            assert False, f'BUG'
+    return ''  # no constant found
+
 def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
@@ -1484,26 +1521,37 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    elif keyword in ['use', 'assume', 'def']:
+    elif keyword in ['use', 'assume', 'def', 'fix', 'let', 'take']:
         match args:
             case []:
                 print(kb.theory_str(keyword=keyword), file=sys.stdout)
             case [expr] | [*expr]:
-                reason = {'use': 'axiom', 'assume': 'assumption', 'def': 'definition'}[keyword]
+                if keyword in ['use', 'assume', 'def'] and not bool_expr(expr, kb):
+                    raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
+                reason = {
+                    'use':    'axiom', 
+                    'assume': 'assumption', 
+                    'def':    'definition', 
+                    'fix':    'new const',
+                    'let':    'new const',
+                    'take':   'new const'}[keyword]
                 if label is not None:
                     reason += f' {label}'
-                if not bool_expr(expr, kb):
-                    raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
+                reason = decorate_reason(mainstream, reason, filename, str(line))
                 if keyword == 'def':
+                    # check that we have an equation or equivalence
                     match expr:
-                        case [Token(label='SYMBOL', value=op), *tail] if op in ['=', 'iff']:
+                        case [Token(label='SYMBOL', value=op), *tail] if op in [EQUAL_SYMBOL, IFF_SYMBOL]:
                             pass
                         case _:
-                            raise KurtException(f'EvalError: `def` only allowed for `=` and `iff`, got "{expr_str(expr, kb)}"')
-                reason = decorate_reason(mainstream, reason, filename, str(line))
-                assert keyword in ('use', 'assume', 'def')
-                if keyword == 'assume':
+                            raise KurtException(f'EvalError: `def` only allowed for `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got "{expr_str(expr, kb)}"')
+                elif keyword == 'fix':
                     kb = increase_level(kb)          # add a new level/scope to the knowledgebase
+                    new_const = extract_new_const(expr, kb)  # extract the new constant from the expression
+                    kb.add_const(new_const)          # add the new constant to the knowledgebase and check whether it is already defined
+                elif keyword == 'assume':
+                    kb = increase_level(kb)          # add a new level/scope to the knowledgebase
+                assert keyword in axiomatic_keywords  # this is assert avoid a warning in vscode
                 f = Formula(expr, str(line), filename, status=keyword, label=label, reason=reason, kb=kb)
                 kb.theory_append(f)
                 if mainstream:
@@ -1511,17 +1559,26 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             case _:
                 assert f'BUG: `args` must be a list'
     elif keyword == 'thus':
-        match args:
-            case [expr] | [*expr]:
-                reason = impl_intro(expr, kb, '"assume" block')         # this might generate a KurtException
-                reason = decorate_reason(mainstream, reason, filename, str(line))
-                f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
-                kb = decrease_level(kb)                    # drop current level and perform some checks
-                kb.theory_append(f)                        # add a copy to the theory
-                if mainstream:
-                    log('thus ' + f.formula_str(kb), reason, kb.level)
-            case _:
-                assert f'BUG: `args` must be a list'
+        # WORK out the cases: impl-intro, forall-intro, exists-intro, also adjust `qed` case
+        assert isinstance(args, list), f'BUG: `args` must be a list, got {args}'
+        if len(args) == 1:
+            expr = args[0]
+        elif len(args) > 1:
+            expr = args
+        else:
+            assert False, f'BUG: `args` must not be empty, got {args}'
+        if is_exists(expr):
+            reason = exists_intro(expr, kb, '"assume" block')
+        elif is_forall(expr):
+            reason = forall_intro(expr, kb, '"assume" block')
+        else:
+            reason = impl_intro(expr, kb, '"assume" block')         # this might generate a KurtException
+        reason = decorate_reason(mainstream, reason, filename, str(line))
+        f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
+        kb = decrease_level(kb)                    # drop current level and perform some checks
+        kb.theory_append(f)                        # add a copy to the theory
+        if mainstream:
+            log('thus ' + f.formula_str(kb), reason, kb.level)
     elif keyword == 'show':
         match args:
             case []:
@@ -1560,7 +1617,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 kb = decrease_level(kb)                    # drop current level and perform some checks
                 assert len(kb.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
                 pf = kb.show[-1]                  # peek at the last planned formula from previous level
-                reason = impl_intro(pf.expr, kb_up, block_style='proof')   # this might generate a KurtException
+                if is_exists(pf.expr):
+                    reason = exists_intro(pf.expr, kb_up, 'proof')
+                elif is_forall(pf.expr):
+                    reason = forall_intro(pf.expr, kb_up, 'proof')
+                else:
+                    reason = impl_intro(pf.expr, kb_up, block_style='proof')   # this might generate a KurtException
                 reason = decorate_reason(mainstream, reason, filename, str(line))
                 f = Formula(pf.expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
                 kb.show.pop()                              # pop it now off the show stack, since it is proved now
@@ -1749,6 +1811,107 @@ def log(s: str, reason: str|None, level: int) -> None:
 # steps:
 # 1. check whether the formula to prove matches D
 # 2. search for A and B and C in the theory (with substitution applied)
+
+# "forall-intro" without condition
+#
+#       fix ε           ; or use `let` or `take`
+#         bla bla
+#         F(ε)
+#       thus ∀ε F(ε)    ; forall-intro
+# which is short for
+#       begin
+#         const ε         ; on this level now `ε` is constant
+#         bla bla
+#         F(ε)
+#       thus ∀ε>0 F(ε)    ; checks whether there are 
+
+def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
+
+    # step 0: split the expression that should be inferred by forall-intro
+    match expr:
+        case [Token(label='SYMBOL', value=FORALL_SYMBOL), bound_v_expr, body]:
+            pass
+        case _:
+            raise KurtException(f'SyntaxError: `forall` expression expected, got {expr}')
+    match bound_v_expr:
+        case Token(label='SYMBOL', value=bound_v) if isinstance(bound_v, str):
+            pass
+        # more matching can happen here for formulas like ∀ε>0 F(ε)
+        case _:
+            raise KurtException(f'SyntaxError: bounded variable expected, got {bound_v_expr}')
+
+    # step 1: there must be exactly one new variable on the current level
+    if len(kb.const) != 1:
+        raise KurtException(f'EvalError: there must be exactly one new constant on this level, introduced via `fix` or `take` or `let`')
+    the_const = list(kb.const)[0]  # get the only constant on this level
+    subst: Subst = {the_const: bound_v_expr}  # substitute the constant with the bound variable
+
+    # step 2: for now: no assumptions are allowed
+    # step 2: later: assumptions involving the bound variable are allowed
+    premises = [f.expr for f in kb.theory if f.status=='assume']
+    if len(premises) > 0:
+        print(kb.theory)
+        raise KurtException(f'EvalError: no assumption allowed for forall-intro, got {len(premises)} assumptions: {", ".join([expr_str(p, kb) for p in premises])}')
+
+    # step 3: statement must be derived with that variable
+    last_f = kb.theory[-1]
+    subst_expr = apply_subst(last_f.expr, subst, kb)  # apply the substitution to the last formula
+    if not equal_expr(subst_expr, body):
+        raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(subst_expr, kb)}')
+    return f'by "forall-intro" (derived from last {block_style})'
+
+# "exists-intro" without condition
+#
+#       take ε=0          ; or use `let` or `fix`
+#         bla bla
+#         F(ε)
+#       thus ∃ε F(ε)      ; exists-intro
+# which is short for
+#       begin
+#         const ε         ; on this level now `ε` is constant
+#         use ε=0         ; this is the only assumption allowed
+#         bla bla
+#         F(ε)
+#       thus ∃ε F(ε)      ; exists-intro
+
+def exists_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
+
+    # step 0: split the expression that should be inferred by exists-intro
+    match expr:
+        case [Token(label='SYMBOL', value=EXISTS_SYMBOL), bound_v_expr, body]:
+            pass
+        case _:
+            raise KurtException(f'SyntaxError: `exists` expression expected, got {expr}')
+    match bound_v_expr:
+        case Token(label='SYMBOL', value=bound_v) if isinstance(bound_v, str):
+            pass
+        # more matching can happen here for formulas like ∃ε>0 F(ε)
+        case _:
+            raise KurtException(f'SyntaxError: bounded variable expected, got {bound_v_expr}')
+
+    # step 1: variable must be new constant on this level
+    if len(kb.const) != 1:
+        raise KurtException(f'EvalError: there must be exactly one new constant on this level, introduced via `fix` or `take` or `let`')
+    the_const = list(kb.const)[0]  # get the only constant on this level
+    subst: Subst = {the_const: bound_v_expr}  # substitute the constant with the bound variable
+
+    # step 2: exactly one equality assumption is required for exists-intro
+    premises = [f.expr for f in kb.theory if f.status=='assume']
+    if len(premises) != 1:
+        raise KurtException(f'EvalError: exactly one equality assumption is required for exists-intro')
+    match premises[0]:
+        case [Token(label='SYMBOL', value=EQUAL_SYMBOL), Token(label='SYMBOL', value=v), RHS] if v==the_const:
+            # ok!  the constant was assigned some value `RHS`
+            pass
+        case _:
+            raise KurtException(f'EvalError: the only allowed assumption must be an equality with LHS `the_const`, got {premises[0]}')
+
+    # step 3: statement must be derived with that variable
+    last_f = kb.theory[-1]
+    subst_expr = apply_subst(last_f.expr, subst, kb)  # apply the substitution to the last formula
+    if not equal_expr(subst_expr, body):
+        raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(subst_expr, kb)}')
+    return f'by "exists-intro" (derived from last {block_style})'
 
 # this function is called when closing a block (via `qed` or 'thus')
 def impl_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:

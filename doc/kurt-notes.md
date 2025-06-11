@@ -952,7 +952,7 @@ How should we match `f $x` against `sub $x $a $A`:
 
 - "forall-intro", this might be a special case of "impl-intro"
 
-        let ε>0
+        fix ε>0
           bla bla
           F(ε)
         thus ∀ε>0 F(ε)    ; forall-intro
@@ -964,16 +964,22 @@ How should we match `f $x` against `sub $x $a $A`:
           use ε>0
           bla bla
           F(ε)
-        thus ε>0 ⇒ F(ε)
-        qed               ; check whether `∀ε>0 F(ε)` was derived, `ε` being variable again
+        thus ∀ε>0 F(ε)    ; checks whether there are 
+
+- "forall-intro" without condition
+
+        fix ε
+          bla bla
+          F(ε)
+        thus ∀ε F(ε)    ; forall-intro
 
 - exist-intro
 
-        take δ=3*ε
+        fix δ=3*ε
           δ > 0
           bla bla
           G(δ)
-        thus ∃ δ>0 G(δ)   ; exists-intro, same as `∃δ δ>0 ∧ G(δ)`
+        thus ∃ δ>0 G(δ)   ; exists-intro, checks whether δ>0 and also G(δ) was derived
 
   translates to
 
@@ -983,8 +989,12 @@ How should we match `f $x` against `sub $x $a $A`:
           δ>0             ; follows from properties of `ε`
           bla bla
           G(δ)
-          δ>0 ∧ G(δ)
         end               ; checks whether `∃δ>0 G(δ)` was derived, `δ` being variable again
+
+- exist-elim
+
+        ∃ δ>0 G(δ)
+        const δ (δ>0 and G(δ))  ; only possibly because of exist-elim
 
 - then we have another short block
 
@@ -1191,12 +1201,12 @@ How should we match `f $x` against `sub $x $a $A`:
 ## variables vs constants
 
 - symbols are constant by default, i.e., once it appears it is registered
-- symbols can be declared variables with `var` or `$` prefix
-- symbols that are bound by a binding operator are locally variable (temporary)
+- symbols can be declared variables with `var` or `$` prefix, if not already used as constants
+- symbols that are bound by a binding operator are always variable (possibly only temporary in that formula below the operator)
 
 - example
 
-      let x > 0   ; opens a block and declares constant `x`
+      fix x > 0   ; opens a block and declares constant `x`
            p(x)   ; proves something
       thus forall x>0 p(x) ; closes the block and forgets constant `x`
       foobar               ; no more `x` in scope
@@ -1210,5 +1220,153 @@ How should we match `f $x` against `sub $x $a $A`:
 - constant/variable
 
   - use f($x) = $x + 1    ; $x is syntactically marked as variable
-  - use f(x) = x + 1      ; without $, and no var declaration
-  
+  - use f(x) = x + 1      ; without $, and no var declaration `x` is a constant
+
+## 2025-05-29 (cheat sheet from discussion with chatgpt) Proof Language Cheat Sheet
+
+### 1. Variables
+
+| Syntax      | Description                                                   |
+|-------------|---------------------------------------------------------------|
+| `var x`     | Declares a formula-level variable (not part of proof steps)   |
+| `$x`        | Anonymous/metavariable, implicit use in formulas              |
+
+---
+
+### 2. `fix` — Logical Binders (Block-Scoped Constants)
+
+Used when introducing constants in proofs that require a new block or subcontext.
+
+| Syntax              | Meaning                                      | Use Case                |
+|---------------------|----------------------------------------------|--------------------------|
+| `fix x`             | Introduce arbitrary constant `x`             | ∀-intro                  |
+| `fix x > 0`         | Constant `x` with assumption `x > 0`         | ∀-intro with constraint  |
+| `fix x = 17`        | Constant `x`, defined as `17`                | ∃-intro (witness)        |
+| `fix x = 17 > 0`    | Constant `x = 17`, and assume `x > 0`        | ∃-intro with side condition |
+
+- ✅ Opens a new block
+- ✅ Used when proving something *about* a constant
+- ❗ Constants introduced with `fix` are **local to the block**
+
+---
+
+### 3. `def` — Flat Constants (No Block)
+
+Used when bringing constants into context without a new proof block.
+
+| Syntax              | Meaning                                      | Use Case                |
+|---------------------|----------------------------------------------|--------------------------|
+| `def x = 17`        | Define constant `x` in the current context   | Named witness           |
+| `def x P(x)`        | Assume constant `x` such that `P(x)` holds   | ∃-elim (from ∃x. P(x))   |
+
+- ✅ Does **not** open a block
+- ✅ Requires justification (e.g., existential hypothesis)
+- ❗ Introduces constants into the **current scope** only
+
+---
+
+### 4. `thus` — Conclusion from Block
+
+Used to conclude a statement after a `fix` block.
+
+| Syntax               | Meaning                                   |
+|----------------------|-------------------------------------------|
+| `thus ∀x. P(x)`      | Conclude universal statement              |
+| `thus ∃x. Q(x)`      | Conclude existential result               |
+| `thus R`             | Conclude a general result                 |
+
+---
+
+### No `const` Needed
+
+- All syntactic constants (`x = expr`) use `def`
+- All logical introductions use `fix`
+- No floating declarations without purpose — every named thing is justified
+
+---
+
+### Example Proof Snippets
+
+```text
+fix ε > 0
+  def δ = ε / 2
+  G(δ)
+  thus ∃δ > 0 G(δ)
+
+fix n
+  H(n)
+  thus ∀n H(n)
+
+H: ∃x. P(x)
+from H, def x P(x)
+  use x to derive something...
+
+### Optional Aliases: `let` and `take` (User-Level Syntax)
+
+For improved readability and natural math style, the keywords `let` and `take` can be used as **aliases for `fix`**. Internally, they behave exactly like `fix` — the distinction is **purely conventional and stylistic**.
+
+### ✅ Aliases
+
+| Alias   | Maps to | Suggested Convention             | Meaning                         |
+|---------|---------|----------------------------------|---------------------------------|
+| `let`   | `fix`   | For arbitrary constants          | Commonly used for ∀-intro       |
+| `take`  | `fix`   | For concrete witnesses           | Commonly used for ∃-intro       |
+
+These forms are **optional** and can be mixed freely with `fix`.
+
+---
+
+### ✅ Examples
+
+#### Universal introduction (∀-intro)
+```text
+let ε > 0
+  ...
+thus ∀ε > 0 F(ε)
+
+---
+
+### `fix` vs `assume`
+
+These two constructs both open a proof block, but serve **different logical roles**.
+
+### ✅ Summary
+
+| Keyword   | Kind        | Introduces        | Enforces Freshness | Used For                        |
+|-----------|-------------|-------------------|---------------------|---------------------------------|
+| `fix`     | Structural  | A new constant    | ✅ Yes              | ∀-intro, ∃-intro                 |
+| `assume`  | Logical     | A proposition     | ❌ No               | ⇒-intro, contradiction, case splits |
+
+---
+
+### ✅ `fix` — Introduce a New Constant (Block Scoped)
+
+Use when:
+- Introducing an **arbitrary** constant (`∀`)
+- Constructing a **witness** (`∃`)
+- Defining constants with constraints
+
+#### Examples
+
+```text
+fix ε > 0
+  ...
+thus ∀ε > 0 F(ε)
+
+fix δ = ε / 2
+  ...
+thus ∃δ > 0 G(δ)
+
+## Let's have `let` and `take` as synonyms for `fix`
+
+- `let` is conventially used for forall-intro
+- `take` is conventially used for exist-intro
+- both desugar to `fix`
+
+## `fixbool`
+
+- boolean variables like `%p` are implicitly universally quantified
+
+- quantifier can never range over boolean variables
+
+- for proofs involving boolean variables there is `fixbool`, which plays the role of `fix` for boolean variables, see e.g. the proof of the excluded middle
