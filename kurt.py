@@ -20,7 +20,7 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### TOPICS before releasing 1.0
-# TODO check 'use' vs 'assume', 'fix', 'take', 'let', 'def'
+# TODO implement `fixbool`
 # TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 # TODO split 'impl-intro' into 'impl-intro' and just the usual derivation (i.e., w/o premises)
 # TODO handle "automatic" universal quantification, i.e., automatically remove it and/or introduce it
@@ -296,9 +296,9 @@ keywords: dict[str, str] = {
     'qed':         'end a block, drop one level and finish the proof of the last planned formula',
     'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
     'assume':      'open a block and assume a formula, the block must be finished with `thus`',
-    'fix':         'fix a variable, i.e., assume it to be a constant, the block must be finished with `thus`',
-    'let':         'same as `fix`, by convention used for forall-intro',
-    'take':        'same as `fix`, by convention used for exists-intro',
+    'fix':         'fix a variable, i.e., assume it to be a constant, but w/o assumption, the block must be finished with `thus`',
+    'let':         'same as `fix` but with assumption, by convention used for forall-intro',
+    'take':        'same as `fix` but with assumption, by convention used for exists-intro',
     'thus':        'finish a block and prove the given formula using the previous block',
     'begin':       'start a block, i.e., open a new level',
     'end':         'end a block, drop one level and (if in a proof) do not finish the proof of the last planned formula',
@@ -310,7 +310,6 @@ keywords_with_parsing = ['use', 'assume', 'def', 'fix', 'let', 'take'] + ['show'
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
 Value:  TypeAlias = str | int | float
 Format: TypeAlias = Literal['sexpr', 'normal']
-Status: TypeAlias = Literal['use', 'show', 'assume', 'def', 'fix', 'let', 'take'] | None
 
 @dataclass
 class Token:
@@ -335,21 +334,25 @@ def clone_token(expr: Token, new_value: Value|None=None) -> Token:
 
 class Formula:
     next_id: int = 0
-    def __init__(self, expr:Expr, line:str, filename:str, status:Status, label:str|None, reason:str|None, kb: KnowledgeBase):
+    def __init__(self, expr:Expr, line:str, filename:str, keyword:str|None, label:str|None, reason:str|None, kb: KnowledgeBase):
         self.expr: Expr           = expr               # expression of the formula
         self.renamed_expr: Expr   = rename_all_vars(expr, {}, kb)[0]
         self.line: str            = line               # line of this formula, string since we also want '16a', etc
         self.filename: str        = filename           # file of this formula
-        self.status: Status       = status             # one of 'use', 'show', None (for derived)
+        self.keyword: str | None  = keyword            # keyword not being `None` is the reason why it is unproven
         self.label: str | None    = label              # basically, a name of the formula, e.g., "impl-intro"
         self.reason: str | None   = reason             # the reason for this formula, e.g., "axiom", "assumption", "def", "by"
         self.id: int              = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
 
+    def unproven(self) -> bool:
+        """Check whether this formula is unproven, i.e., it has a keyword."""
+        return self.keyword is not None
+
     def prefix_str(self) -> str:
         s: str = ''
-        if self.status is not None:
-            s += f'{self.status} '
+        if self.unproven():
+            s += f'{self.keyword} '     # not yet proven, so like an axiom or a `use` statement
         return s
     
     def label_str(self) -> str:
@@ -765,7 +768,7 @@ class KnowledgeBase:
         s: str = self.parent.theory_str(keyword, op) if self.parent is not None else ''
         s += f'; on level {self.level}\n'
         for f in self.theory:
-            if (keyword is None and op is None) or (keyword==f.status):
+            if (keyword is None and op is None) or (keyword==f.keyword):
                 s += f'{f.formula_str(self)}\n'
             elif op is not None and is_op_expr(f.expr, op):
                 s += f'{f.formula_str(self)}\n'
@@ -1255,10 +1258,6 @@ def extract_new_const(expr: Expr, kb: KnowledgeBase) -> str:
                 s = extract_new_const(child, kb)
                 if len(s) > 0:
                     return s
-        case Token():
-            raise KurtException(f'SyntaxError: not a new constant, got `{expr}`')
-        case _:
-            assert False, f'BUG'
     return ''  # no constant found
 
 def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
@@ -1526,15 +1525,15 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             case []:
                 print(kb.theory_str(keyword=keyword), file=sys.stdout)
             case [expr] | [*expr]:
-                if keyword in ['use', 'assume', 'def'] and not bool_expr(expr, kb):
+                if keyword in ['use', 'assume', 'def', 'let', 'take'] and not bool_expr(expr, kb):
                     raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
                 reason = {
                     'use':    'axiom', 
                     'assume': 'assumption', 
                     'def':    'definition', 
                     'fix':    'new const',
-                    'let':    'new const',
-                    'take':   'new const'}[keyword]
+                    'let':    'new const and assumption',
+                    'take':   'new const and assumption'}[keyword]
                 if label is not None:
                     reason += f' {label}'
                 reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -1545,18 +1544,27 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                             pass
                         case _:
                             raise KurtException(f'EvalError: `def` only allowed for `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got "{expr_str(expr, kb)}"')
-                elif keyword == 'fix':
+                elif keyword in ['fix', 'let', 'take']:
                     kb = increase_level(kb)          # add a new level/scope to the knowledgebase
                     new_const = extract_new_const(expr, kb)  # extract the new constant from the expression
                     kb.add_const(new_const)          # add the new constant to the knowledgebase and check whether it is already defined
                 elif keyword == 'assume':
                     kb = increase_level(kb)          # add a new level/scope to the knowledgebase
-                assert keyword in ['use', 'assume', 'def', 'fix', 'let', 'take']
-                keyword = cast(Status, keyword)
-                f = Formula(expr, str(line), filename, status=keyword, label=label, reason=reason, kb=kb)
-                kb.theory_append(f)
-                if mainstream:
-                    log(f.formula_str(kb), reason, kb.level-1)
+                elif keyword == 'use':
+                    pass  # no need to increase the level, since we are just adding an axiom
+                else:
+                    assert False, f'BUG: unknown keyword {keyword} in eval_keyword_expression'
+                level = kb.level if keyword in ['use', 'def'] else kb.level-1
+                if bool_expr(expr, kb):
+                    f = Formula(expr, str(line), filename, keyword=keyword, label=label, reason=reason, kb=kb)
+                    kb.theory_append(f)
+                    if mainstream:
+                        log(f.formula_str(kb), reason, level)
+                else: 
+                    if keyword != 'fix':
+                        raise KurtException(f'EvalError: keyword `{keyword}` requires boolean expression, got "{expr_str(expr, kb)}"')
+                    if mainstream:
+                        log(f'fix {expr_str(expr, kb)}', reason, level)
             case _:
                 assert f'BUG: `args` must be a list'
     elif keyword == 'thus':
@@ -1575,7 +1583,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
         else:
             reason = impl_intro(expr, kb, 'block')         # this might generate a KurtException
         reason = decorate_reason(mainstream, reason, filename, str(line))
-        f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
+        f = Formula(expr, str(line), filename, keyword=None, label=None, reason=reason, kb=kb)
         kb = decrease_level(kb)                    # drop current level and perform some checks
         kb.theory_append(f)                        # add a copy to the theory
         if mainstream:
@@ -1590,7 +1598,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 reason = decorate_reason(mainstream, 'claim', filename, str(line))
                 if label is not None:
                     reason += f' "{label}"'
-                f = Formula(expr, str(line), filename, status='show', label=label, reason=reason, kb=kb)  # syntactic sugar for theorem, proposition, lemma
+                f = Formula(expr, str(line), filename, keyword='show', label=label, reason=reason, kb=kb)  # syntactic sugar for theorem, proposition, lemma
                 kb.show.append(f)
                 if mainstream:
                     log(f.formula_str(kb), reason, kb.level)
@@ -1624,13 +1632,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 if not equal_expr(planned_expr, proven_expr):
                     raise KurtException(f'ProofError: planned formula "{expr_str(planned_expr, kb)}" does not match the last formula in the theory "{expr_str(proven_expr, kb)}"')
                 reason = decorate_reason(mainstream, reason, filename, str(line))
-                f = Formula(planned_expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
+                f = Formula(planned_expr, str(line), filename, keyword=None, label=None, reason=reason, kb=kb)
                 kb = decrease_level(kb)                    # drop current level and perform some checks
                 kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
                 kb.theory_append(f)                        # add a copy to the current theory
                 if mainstream:
                     log('qed', None, kb.level)
-                    log(f.formula_str(kb), reason, kb.level)
+                    #log(f.formula_str(kb), reason, kb.level)
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
@@ -1683,12 +1691,12 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str|None, kb: 
                 line_str = str(line) + letter
                 line_strs.append(line_str)
                 reason = decorate_reason(mainstream, reason, filename, line_str)
-                sub_f = Formula(clause, line_str, filename, status=None, label=None, reason=reason, kb=kb)
+                sub_f = Formula(clause, line_str, filename, keyword=None, label=None, reason=reason, kb=kb)
                 kb.theory_append(sub_f)                         # add sub to the knowledge base
                 if mainstream:
                     log(sub_f.formula_str(kb), reason, kb.level)
             reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
-        f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
+        f = Formula(expr, str(line), filename, keyword=None, label=None, reason=reason, kb=kb)
         kb.theory_append(f)                         # add it to the knowledge base
         if mainstream:
             log(f.formula_str(kb), reason, kb.level)
@@ -1849,7 +1857,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
 
     # step 2: for now: no assumptions are allowed
     # step 2: later: assumptions involving the bound variable are allowed
-    premises = [f.expr for f in kb.theory if f.status=='assume']
+    premises = [f.expr for f in kb.theory if f.unproven()]
     if len(premises) > 0:
         print(kb.theory)
         raise KurtException(f'EvalError: no assumption allowed for forall-intro, got {len(premises)} assumptions: {", ".join([expr_str(p, kb) for p in premises])}')
@@ -1897,7 +1905,7 @@ def exists_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
     subst: Subst = {the_const: bound_v_expr}  # substitute the constant with the bound variable
 
     # step 2: exactly one equality assumption is required for exists-intro
-    premises = [f.expr for f in kb.theory if f.status=='assume']
+    premises = [f.expr for f in kb.theory if f.unproven()]
     if len(premises) != 1:
         raise KurtException(f'EvalError: exactly one equality assumption is required for exists-intro')
     match premises[0]:
@@ -1921,8 +1929,8 @@ def impl_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
     if len(kb.theory) == 0:
         raise KurtException(f'ProofError: nothing was shown in the (sub-)proof')
     last_formula = kb.theory[-1]
-    premise = [f.expr for f in kb.theory if f.status=='assume']
-    if last_formula.status != None:
+    premise = [f.expr for f in kb.theory if f.unproven()]
+    if last_formula.unproven():
         raise KurtException(f'ProofError: last formula in a (sub-)proof can not have `show`, `assume`, `use` status')
     conclusion = last_formula.expr        # last element is the conclusion
 

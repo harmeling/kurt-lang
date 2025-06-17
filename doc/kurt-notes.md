@@ -1386,4 +1386,3 @@ thus ∃δ > 0 G(δ)
       show         ; to state what will be shown
       proof        ; to `begin` a block
       qed          ; to `end` a block
-    
