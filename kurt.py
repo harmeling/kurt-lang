@@ -102,7 +102,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, List
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, List, cast
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -303,8 +303,8 @@ keywords: dict[str, str] = {
     'begin':       'start a block, i.e., open a new level',
     'end':         'end a block, drop one level and (if in a proof) do not finish the proof of the last planned formula',
     }
-axiomatic_keywords = ['use', 'assume', 'def', 'fix', 'let', 'take']
-keywords_with_parsing: list[str] = axiomatic_keywords + ['show', 'thus']
+
+keywords_with_parsing = ['use', 'assume', 'def', 'fix', 'let', 'take'] + ['show', 'thus']
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
@@ -1551,7 +1551,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                     kb.add_const(new_const)          # add the new constant to the knowledgebase and check whether it is already defined
                 elif keyword == 'assume':
                     kb = increase_level(kb)          # add a new level/scope to the knowledgebase
-                assert keyword in axiomatic_keywords  # this is assert avoid a warning in vscode
+                assert keyword in ['use', 'assume', 'def', 'fix', 'let', 'take']
+                keyword = cast(Status, keyword)
                 f = Formula(expr, str(line), filename, status=keyword, label=label, reason=reason, kb=kb)
                 kb.theory_append(f)
                 if mainstream:
@@ -1568,11 +1569,11 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
         else:
             assert False, f'BUG: `args` must not be empty, got {args}'
         if is_exists(expr):
-            reason = exists_intro(expr, kb, '"assume" block')
+            reason = exists_intro(expr, kb, 'block')
         elif is_forall(expr):
-            reason = forall_intro(expr, kb, '"assume" block')
+            reason = forall_intro(expr, kb, 'block')
         else:
-            reason = impl_intro(expr, kb, '"assume" block')         # this might generate a KurtException
+            reason = impl_intro(expr, kb, 'block')         # this might generate a KurtException
         reason = decorate_reason(mainstream, reason, filename, str(line))
         f = Formula(expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
         kb = decrease_level(kb)                    # drop current level and perform some checks
@@ -1608,25 +1609,25 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             case _:
                 msg = create_usage(keyword, [[]])
                 raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-    elif keyword == 'qed':                            # closes the last block (scope)
+    elif keyword == 'qed':                            # closes the last block (scope) and checks that the last promised formula has been proved
         match args:
             case []:
-                if not kb.proof:
-                    raise KurtException(f'EvalError: no proof to finish, `qed` can only conclude `proof` block')
-                kb_up = kb
-                kb = decrease_level(kb)                    # drop current level and perform some checks
-                assert len(kb.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
-                pf = kb.show[-1]                  # peek at the last planned formula from previous level
-                if is_exists(pf.expr):
-                    reason = exists_intro(pf.expr, kb_up, 'proof')
-                elif is_forall(pf.expr):
-                    reason = forall_intro(pf.expr, kb_up, 'proof')
-                else:
-                    reason = impl_intro(pf.expr, kb_up, block_style='proof')   # this might generate a KurtException
+                parent = kb.parent
+                if not kb.proof  or  parent is None:
+                    raise KurtException(f'EvalError: no proof to finish, `qed` can only appear at the end of a `proof` block')
+                assert len(parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
+                planned_expr = parent.show[-1].expr        # peek at the last planned formula from previous level
+                if len(kb.theory) == 0:
+                    raise KurtException(f'ProofError: no formula has been proven, `qed` can only be used after a successful proof')
+                proven_expr  = kb.theory[-1].expr          # what actually has been proven
+                reason = ''
+                if not equal_expr(planned_expr, proven_expr):
+                    raise KurtException(f'ProofError: planned formula "{expr_str(planned_expr, kb)}" does not match the last formula in the theory "{expr_str(proven_expr, kb)}"')
                 reason = decorate_reason(mainstream, reason, filename, str(line))
-                f = Formula(pf.expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
-                kb.show.pop()                              # pop it now off the show stack, since it is proved now
-                kb.theory_append(f)                        # add a copy to the theory
+                f = Formula(planned_expr, str(line), filename, status=None, label=None, reason=reason, kb=kb)
+                kb = decrease_level(kb)                    # drop current level and perform some checks
+                kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
+                kb.theory_append(f)                        # add a copy to the current theory
                 if mainstream:
                     log('qed', None, kb.level)
                     log(f.formula_str(kb), reason, kb.level)

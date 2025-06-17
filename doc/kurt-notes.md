@@ -1370,3 +1370,20 @@ thus ∃δ > 0 G(δ)
 - quantifier can never range over boolean variables
 
 - for proofs involving boolean variables there is `fixbool`, which plays the role of `fix` for boolean variables, see e.g. the proof of the excluded middle
+
+
+# 2025-06-17 primitives
+
+- if we were super minimalistic, we just need 
+
+      begin        ; opens a block
+      end          ; closes a block
+      use          ; add new theorem
+      const        ; add new constant or change a variable to a constant
+
+- however, we also want to write proofs, etc.
+
+      show         ; to state what will be shown
+      proof        ; to `begin` a block
+      qed          ; to `end` a block
+    
