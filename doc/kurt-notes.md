@@ -1474,7 +1474,8 @@ gets
         foo
         bar
 
-      const x      ; introduces a new constant `x`
+      const x      ; introduces a new non-boolean constant `x`
       x = 0        ; also introduces a new constant `x`
       bool p       ; introduces a new boolean constant `p`
       fix y        ; introduces a new constant and opens a block
+

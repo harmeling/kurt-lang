@@ -20,8 +20,8 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### TOPICS before releasing 1.0
-# TODO replace `begin` by `consider`, and `end` by `thus`
 # TODO implement `fixbool`
+# TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 # TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 # TODO split 'impl-intro' into 'impl-intro' and just the usual derivation (i.e., w/o premises)
 # TODO handle "automatic" universal quantification, i.e., automatically remove it and/or introduce it
@@ -714,7 +714,7 @@ class KnowledgeBase:
         if len(self.bool_sig(s)) > 0:
             raise KurtException(f'EvalError: symbol "{s}" is already declared bool')
         if not (self.is_const(s) or self.is_var(s)):
-            self.add_const(s)     # create a constant automatically
+            raise KurtException(f'EvalError: symbol "{s}" must be either a variable or a constant')
         if self.is_bindop(s) and 1 in v:
             raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
         self.bool[s] = v          # add a key with value the tuple of positions that are bool
@@ -818,6 +818,9 @@ space_lbp:    int = 22                                     # left  binding power
 space_rbp:    int = 22                                     # right binding power: stronger than '=' (defined in equality.kurt)
 initial_kb.add_infix (SPACE_SYMBOL, space_lbp, space_rbp)  # space op is for fn like `f x`
 
+initial_kb.add_const (TRUE_SYMBOL)                         # true is const symbol
+initial_kb.add_const (IMPL_SYMBOL)                         # implies is const symbol
+initial_kb.add_const (AND_SYMBOL)                          # and is const symbol
 initial_kb.add_bool  (TRUE_SYMBOL, [0])                    # true is bool
 initial_kb.add_bool  (IMPL_SYMBOL, [0, 1, 2])              # implies is bool with bool input
 initial_kb.add_bool  (AND_SYMBOL,  [0, 1, 2])              # and is bool with bool inputs
@@ -1258,26 +1261,26 @@ def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
     assert kb.parent is not None, f'BUG: we should be one level up'
     return kb.parent                        # drop current level
 
-def extract_new_const(expr: Expr, kb: KnowledgeBase) -> str:
-    # extracts the first new constant from the expression `expr`
+def extract_new_consts(expr: Expr, kb: KnowledgeBase) -> list[str]:
+    # extract all new constants from the expression
     match expr:
         case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_const(s):
-            return s        # new constant found
+            return [s]        # new constant found
         case [*children]:
+            new_consts = []
             for child in children:
-                s = extract_new_const(child, kb)
-                if len(s) > 0:
-                    return s
-    return ''  # no constant found
+                new_consts += extract_new_consts(child, kb)
+            return new_consts
+    return []
 
-def eval_use(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
+def eval_use(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool, keyword='use') -> KnowledgeBase:
     if not bool_expr(expr, kb):
         raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
     reason = 'without proof'
     if label is not None:
         reason += f' {label}'
     reason = decorate_reason(mainstream, reason, filename, str(line))
-    f = Formula(expr, str(line), filename, keyword='use', label=label, reason=reason, kb=kb)
+    f = Formula(expr, str(line), filename, keyword=keyword, label=label, reason=reason, kb=kb)
     kb.theory_append(f)
     if mainstream:
         log(f.formula_str(kb), reason, kb.level)
@@ -1304,20 +1307,40 @@ def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
     kb.proof = True
     return kb
 
-def eval_consider(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
-    kb = increase_level(kb)          # add a new level/scope to the knowledgebase
+def eval_def(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
+    match expr:
+        case [Token(label='SYMBOL', value=s), LHS, RHS] if isinstance(s, str) and (s== EQUAL_SYMBOL or s==IFF_SYMBOL):
+            lhs_consts = extract_new_consts(LHS, kb)  # extract the new constants from the left-hand side
+            rhs_consts = extract_new_consts(RHS, kb)  # extract the new constants from the right-hand side
+            if len(lhs_consts) == 0:
+                raise KurtException(f'EvalError: `def` can only define new constant, but found {len(lhs_consts)} new constants on the left-hand-side in `{expr_str(LHS, kb)}`', line)
+            elif len(lhs_consts) > 1:
+                raise KurtException(f'EvalError: `def` can only define a single constant, found {len(lhs_consts)} new constants on the left-hand-side in `{expr_str(LHS, kb)}`', line)
+            if len(rhs_consts) != 0:
+                raise KurtException(f'EvalError: `def` requires the right-hand-side to contain no new constants, found {len(rhs_consts)} new constants on the right-hand-side in `{expr_str(RHS, kb)}`', line)
+        case _:
+            raise KurtException(f'EvalError: `def` only allowed with `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got "{expr_str(expr, kb)}"')
+    kb = eval_use(kb, expr, label, filename, line, mainstream=False, keyword='def')  # use the expression as a definition
     if mainstream:
-        log('begin', None, kb.level)
+        reason = f'{line} defining `{lhs_consts[0]}`'
+        log(f'def {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
+    return kb
+
+def eval_consider(kb: KnowledgeBase, line: int, mainstream: bool) -> KnowledgeBase:
+    if mainstream:
+        reason = f'{line} open local scope'
+        log('consider', reason, kb.level)
+    kb = increase_level(kb)          # add a new level/scope to the knowledgebase
     return kb
 
 def eval_thus(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     # WORK out the cases: impl-intro, forall-intro, exists-intro, also adjust `qed` case
     if is_exists(expr):
-        reason = exists_intro(expr, kb, 'block')
+        reason = exists_intro(expr, kb, 'local scope')
     elif is_forall(expr):
-        reason = forall_intro(expr, kb, 'block')
+        reason = forall_intro(expr, kb, 'local scope')
     else:
-        reason = impl_intro(expr, kb, 'block')         # this might generate a KurtException
+        reason = impl_intro(expr, kb, 'local scope')         # this might generate a KurtException
     reason = decorate_reason(mainstream, reason, filename, str(line))
     f = Formula(expr, str(line), filename, keyword=None, label=None, reason=reason, kb=kb)
     kb = decrease_level(kb)                    # drop current level and perform some checks
@@ -1349,9 +1372,12 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     return kb
 
 def eval_let(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    new_const = extract_new_const(expr, kb)  # extract the new constant from the expression
-    kb = eval_consider(kb, mainstream)  # open a new block
-    kb.add_const(new_const)          # add the new constant to the knowledgebase and check whether it is already defined
+    new_consts = extract_new_consts(expr, kb)  # extract the new constant from the expression
+    print(f'new constants: {new_consts}', file=sys.stderr)
+    if len(new_consts) != 1:
+        raise KurtException(f'EvalError: `let` can only define a single constant, found {len(new_consts)} new constants in `{expr_str(expr, kb)}`', line)
+    kb = eval_consider(kb, line, mainstream)  # open a new block
+    kb.add_const(new_consts[0])               # add the new constant to the knowledgebase and check whether it is already defined
     kb = eval_use(kb, expr, label, filename, line, mainstream)  # use the expression as an assumption
     return kb
 
@@ -1618,21 +1644,22 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
     elif keyword == 'consider':                    # opens a block
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
-        kb = eval_consider(kb, mainstream)
+        kb = eval_consider(kb, line, mainstream)
     elif keyword == 'assume':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
-        kb = eval_consider(kb, mainstream)  # open a new block
+        kb = eval_consider(kb, line, mainstream=False)  # open a new block
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-        kb = eval_use(kb, expr, label, filename, line, mainstream)  # use the expression as an assumption
+        kb = eval_use(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
+        if mainstream:
+            reason = f'{line} open local scope with assumption'
+            log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
     elif keyword == 'def':
         if len(args) == 0:
             print(kb.theory_str(keyword=keyword), file=sys.stdout)
         else:
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-            if not is_equality(expr) and not is_iff(expr):
-                raise KurtException(f'EvalError: `{keyword}` only allowed for `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got "{expr_str(expr, kb)}"')
-            kb = eval_use(kb, expr, label, filename, line, mainstream)  # use the expression as a definition
+            kb = eval_def(kb, args, label, filename, line, mainstream)  # use the expression as a definition
     elif keyword == 'fix':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
@@ -1641,20 +1668,29 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 pass
             case _:
                 raise KurtException(f'EvalError: `{keyword}` only allowed with a new constant, got "{expr_str(args, kb)}"')
-        kb = eval_consider(kb, mainstream)  # open a new block
+        kb = eval_consider(kb, line, mainstream)  # open a new block
         kb.add_const(s)          # add the new constant to the knowledgebase
+        if mainstream:
+            reason = f'{line} new constant'
+            log(f'{keyword} {s}', reason, kb.level-1)  # log the new constant
     elif keyword == 'let':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-        kb = eval_let(kb, expr, label, filename, line, mainstream)  # use the expression as an assumption
+        kb = eval_let(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
+        if mainstream:
+            reason = f'{line} new constant with assumption'
+            log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
     elif keyword == 'take':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
         if not is_equality(expr):
             raise KurtException(f'EvalError: `take` only allowed with an equality, got "{expr_str(expr, kb)}"')
-        kb = eval_let(kb, expr, label, filename, line, mainstream)  # use the expression as an assumption
+        kb = eval_let(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
+        if mainstream:
+            reason = f'{line} new constant with value'
+            log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
 
@@ -1823,7 +1859,7 @@ def log(s: str, reason: str|None, level: int) -> None:
 #         F(ε)
 #       thus ∀ε F(ε)    ; forall-intro
 # which is short for
-#       begin
+#       consider
 #         const ε         ; on this level now `ε` is constant
 #         bla bla
 #         F(ε)
@@ -1871,7 +1907,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
 #         F(ε)
 #       thus ∃ε F(ε)      ; exists-intro
 # which is short for
-#       begin
+#       consider
 #         const ε         ; on this level now `ε` is constant
 #         use ε=0         ; this is the only assumption allowed
 #         bla bla
