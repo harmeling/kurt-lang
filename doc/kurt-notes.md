@@ -1386,3 +1386,95 @@ thus ∃δ > 0 G(δ)
       show         ; to state what will be shown
       proof        ; to `begin` a block
       qed          ; to `end` a block
+
+# fix, let, take
+
+## `assume`
+
+    assume F
+        bla
+        G
+    thus F implies G
+        
+gets
+
+    consider
+        use F
+        bla
+        G
+    thus F implies G
+
+## `fix`
+
+    fix x
+        bla
+    thus F(x)
+
+gets
+
+    consider
+        const x
+        bla
+    thus forall x F(x)
+
+## `take`
+
+    take x = 0
+        bla
+    thus exists x F(x)
+
+gets
+
+    consider
+        const x
+        use x = 0
+        bla
+    thus exists x F(x)
+
+## `let`
+
+    let x > 0
+        bla
+        F(x)
+    thus forall $x F($x)
+
+gets
+
+    consider
+        const x
+        use x > 0
+        bla
+        F(x)
+    thus forall $x F($x)
+
+## `def`
+
+    def x = 0
+
+gets
+
+    use x = 0
+
+# better keywords for `begin`
+
+    context  ; Neutral, structured          General, scope-aware
+    locally  ; Scoped reasoning             Very clear it’s temporary
+    derive   ; Logical process              Feels deductive, clean
+    scope    ; Explicitly delimited logic   Clear, modern, structured
+    case     ; Standard in math             Concise, familiar
+
+    reason   ; let's use this one!
+    consider ; also not bad!  FAVORITE!
+    note     ; why not?
+    observer ; also cool.
+
+# boolfix and the like
+
+    boolfix p
+        foo
+        bar
+
+      const x      ; introduces a new constant `x`
+      x = 0        ; also introduces a new constant `x`
+      bool p       ; introduces a new boolean constant `p`
+      fix y        ; introduces a new constant and opens a block

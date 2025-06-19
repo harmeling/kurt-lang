@@ -6,12 +6,14 @@ arity prime 1        ; expects one argument
 
 use prime 2
 
-fix x
+consider
+    const x
     use x = 2
     prime x
 thus ∃ $z prime $z
 
-fix x = 2
+fix x
+    use x = 2
     prime x
 thus ∃ $z prime $z
 

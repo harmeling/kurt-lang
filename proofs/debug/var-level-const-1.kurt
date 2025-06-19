@@ -1,6 +1,7 @@
 ; bool-level-const-1.kurt
 var x
-begin
+consider
   const x       ; that's ok, since on the current level there is no variable
-end
+  true
+thus true
 ;;; Proof checked.
