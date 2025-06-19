@@ -21,15 +21,17 @@ from __future__ import annotations
 
 ### TOPICS before releasing 1.0
 # TODO implement `fixbool`
+# TODO allow implicit universal quantification, i.e., all variables $x are automatically universally quantified
+# TODO allow implicit universal quantification for boolean variables
+# TODO add assumptions to forall-intro and exists-intro, i.e., `let x>0` and `take x>0`
+# TODO allow several variables for `fix` and `let`, e.g., `fix x, y` or `let x>0, y>0`, similar for `forall-intro` and `exists-intro`
+# TODO WORK out the cases: impl-intro, forall-intro, exists-intro, also adjust `qed` case
 # TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 # TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 # TODO split 'impl-intro' into 'impl-intro' and just the usual derivation (i.e., w/o premises)
 # TODO handle "automatic" universal quantification, i.e., automatically remove it and/or introduce it
 # TODO automatically turn symbols at the first position in binding operators locally into variables (for renaming)
 # TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
-# TODO add syntax sugar `take`, `let`, then rewrite the proofs, should be easy now!  define `macro` for this!
-# TODO Q: can we have `take` and `let` be special cases `assume`?  then just use a macro mechanism?
-# TODO add boolean expression for the bound variable for some variable binding operators
 # TODO add `by`
 # TODO implement chains
 # TODO `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
@@ -609,16 +611,12 @@ class KnowledgeBase:
     def add_prefix(self, op: str, rbp: int) -> None:
         if self.is_operator(op) and not self.is_infix(op):    # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
-        if not (self.is_const(op) or self.is_var(op)):
-            self.add_const(op)
         self.prefix[op] = rbp
         self.nud[op] = lambda ts, kb, op_token: [op_token, parse_expression(ts, kb, rbp)]
 
     def add_infix(self, op: str, lbp: int, rbp: int) -> None:
         if self.is_operator(op) and not self.is_prefix(op):   # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
-        if not (self.is_const(op) or self.is_var(op)):
-            self.add_const(op)
         self.infix[op] = (lbp, rbp)                           # to nicely list all operators
         self.led[op] = lambda ts, kb, left, op_token: [op_token, left, parse_expression(ts, kb, rbp)]
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
@@ -626,8 +624,6 @@ class KnowledgeBase:
     def add_postfix(self, op: str, lbp: int) -> None:
         if self.is_operator(op):
             raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
-        if not (self.is_const(op) or self.is_var(op)):
-            self.add_const(op)
         self.postfix[op] = lbp                                # to nicely list all operators
         def led(_ts: PeekableGenerator, _kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
             return [op_token, left]
@@ -649,8 +645,6 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: before declaring symbol "{fun}" as variable binding, you must set its arity')
         if self.arity[fun] < 2:
             raise KurtException(f'EvalError: arity of binding operators must be at least 2')
-        if not (self.is_const(fun) or self.is_var(fun)):
-            self.add_const(fun)
         self.bindop.add(fun)
 
     def add_flat(self, op: str) -> None:
@@ -672,7 +666,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol "{lbracket}" already exist as {self._find_symbol(lbracket)}')
         if self.is_operator(rbracket) or self.is_const(rbracket) or self.is_var(rbracket):
             raise KurtException(f'EvalError: symbol "{rbracket}" already exist as {self._find_symbol(rbracket)}')
-        self.add_const(lbracket)
+        self.add_const(lbracket)              # brackets must be new constants
         self.add_const(rbracket)
         self.brackets[rbracket] = lbracket    # to list the brackets (not used for parsing)
         def nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
@@ -706,15 +700,11 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol "{s}" is already a variable or starts with $')
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol "{s}" is already a constant')
-        if not (self.is_var(t) or self.is_const(t)):
-            raise KurtException(f'EvalError: symbol "{t}" must be either a variable or a constant')
         self.alias[s] = t         # add a key `s` with value `t`
 
     def add_bool(self, s: str, v: list[int]) -> None:
         if len(self.bool_sig(s)) > 0:
             raise KurtException(f'EvalError: symbol "{s}" is already declared bool')
-        if not (self.is_const(s) or self.is_var(s)):
-            raise KurtException(f'EvalError: symbol "{s}" must be either a variable or a constant')
         if self.is_bindop(s) and 1 in v:
             raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
         self.bool[s] = v          # add a key with value the tuple of positions that are bool
@@ -1333,12 +1323,21 @@ def eval_consider(kb: KnowledgeBase, line: int, mainstream: bool) -> KnowledgeBa
     kb = increase_level(kb)          # add a new level/scope to the knowledgebase
     return kb
 
+def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
+    # check whether the expression contains any boolean variables
+    match expr:
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and kb.is_bool_var(s):
+            return True
+        case [*children]:
+            return any(contains_bool_vars(c, kb) for c in children)
+        case _:
+            return False
+
 def eval_thus(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    # WORK out the cases: impl-intro, forall-intro, exists-intro, also adjust `qed` case
     if is_exists(expr):
-        reason = exists_intro(expr, kb, 'local scope')
+        reason = exists_intro(expr, kb, 'local scope')       # this might generate a KurtException
     elif is_forall(expr):
-        reason = forall_intro(expr, kb, 'local scope')
+        reason = forall_intro(expr, kb, 'local scope')       # this might generate a KurtException
     else:
         reason = impl_intro(expr, kb, 'local scope')         # this might generate a KurtException
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -1637,7 +1636,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
         kb = eval_proof(kb, mainstream)
-    elif keyword == 'qed':                            # closes the last block (scope) and checks that the last promised formula has been proved
+    elif keyword == 'qed':            # closes the last block (scope) and checks that the last promised formula has been proved
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
         kb = eval_qed(kb, filename, line, mainstream)
@@ -1668,10 +1667,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
                 pass
             case _:
                 raise KurtException(f'EvalError: `{keyword}` only allowed with a new constant, got "{expr_str(args, kb)}"')
-        kb = eval_consider(kb, line, mainstream)  # open a new block
+        kb = eval_consider(kb, line, mainstream=False)  # open a new block
         kb.add_const(s)          # add the new constant to the knowledgebase
         if mainstream:
-            reason = f'{line} new constant'
+            reason = f'{line} open local scope with new constant'
             log(f'{keyword} {s}', reason, kb.level-1)  # log the new constant
     elif keyword == 'let':
         if len(args) == 0:
@@ -1679,7 +1678,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
         kb = eval_let(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
         if mainstream:
-            reason = f'{line} new constant with assumption'
+            reason = f'{line} open local scope with new constant and assumption'
             log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
     elif keyword == 'take':
         if len(args) == 0:
@@ -1689,7 +1688,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             raise KurtException(f'EvalError: `take` only allowed with an equality, got "{expr_str(expr, kb)}"')
         kb = eval_let(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
         if mainstream:
-            reason = f'{line} new constant with value'
+            reason = f'{line} open local scope with new constant having a value'
             log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
@@ -1868,6 +1867,7 @@ def log(s: str, reason: str|None, level: int) -> None:
 def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
 
     # step 0: split the expression that should be inferred by forall-intro
+    # the usual case where the expression is a forall
     match expr:
         case [Token(label='SYMBOL', value=FORALL_SYMBOL), bound_v_expr, body]:
             pass

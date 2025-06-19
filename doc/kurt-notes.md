@@ -1479,3 +1479,6 @@ gets
       bool p       ; introduces a new boolean constant `p`
       fix y        ; introduces a new constant and opens a block
 
+## bool / infix
+
+Note that some statements are purely syntactic and don't care whether something is a constant or variable.

@@ -1,0 +1,22 @@
+load "propositional"
+
+; this version should be usable when loaded as well
+; the key is that there are no quantifier for bool vars, but
+; they are implicitly universally quantified
+
+show %a ∨ %b  ⇔  %b ∨ %a   "or-sym"
+proof
+    fix a, b
+        bool a, b
+        assume a ∨ b
+            a
+            b ∨ a
+        thus a ∨ b ⇒ b ∨ a
+        assume b ∨ a
+            b
+            a ∨ b
+        thus a ∨ b
+        a ∨ b  ⇔  b ∨ a
+    thus %a ∨ %b  ⇔  %b ∨ %a
+qed
+;;; Proof checked.
