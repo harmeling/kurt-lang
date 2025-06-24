@@ -7,6 +7,7 @@ def q iff true
 def p iff q
 def x = 18
 x = 18
+p ⇒ q
 use p
 q
 ;;; Proof checked.

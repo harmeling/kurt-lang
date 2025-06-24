@@ -20,7 +20,11 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### TOPICS before releasing 1.0
+# TODO should we trigger subst for `sub $x $a %A` as soon as `%A` is known?
+# TODO sub expression can be expression but also pattern, do we match correctly both cases?
+# TODO get group.kurt working with constants and with `var x, y, z`
 # TODO implement `fixbool`
+# TODO 'thus' with one step shorter
 # TODO allow implicit universal quantification, i.e., all variables $x are automatically universally quantified
 # TODO allow implicit universal quantification for boolean variables
 # TODO add assumptions to forall-intro and exists-intro, i.e., `let x>0` and `take x>0`
@@ -302,6 +306,8 @@ keywords: dict[str, str] = {
     'consider':    'start a block that will be finished with `thus`',
     'thus':        'finish a block that was started with `consider`, and prove the given formula using the previous block',
 
+    'break':       'break the current proof block without proving anything',
+
     # syntactic sugar
     'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
     'assume':      'open a block and assume a formula, the block must be finished with `thus`',
@@ -341,14 +347,14 @@ def clone_token(expr: Token, new_value: Value|None=None) -> Token:
 class Formula:
     next_id: int = 0
     def __init__(self, expr:Expr, line:str, filename:str, keyword:str|None, label:str|None, reason:str|None, kb: KnowledgeBase):
-        self.expr: Expr           = expr               # expression of the formula
-        self.renamed_expr: Expr   = rename_all_vars(expr, {}, kb)[0]
-        self.line: str            = line               # line of this formula, string since we also want '16a', etc
-        self.filename: str        = filename           # file of this formula
-        self.keyword: str | None  = keyword            # keyword not being `None` is the reason why it is unproven
-        self.label: str | None    = label              # basically, a name of the formula, e.g., "impl-intro"
-        self.reason: str | None   = reason             # the reason for this formula, e.g., "axiom", "assumption", "def", "by"
-        self.id: int              = Formula.next_id    # a unique id for every formula
+        self.expr: Expr            = expr               # expression of the formula
+        self.simplified_expr: Expr = simplify(rename_all_vars(expr, {}, kb)[0], kb)
+        self.line: str             = line               # line of this formula, string since we also want '16a', etc
+        self.filename: str         = filename           # file of this formula
+        self.keyword: str | None   = keyword            # keyword not being `None` is the reason why it is unproven
+        self.label: str | None     = label              # basically, a name of the formula, e.g., "impl-intro"
+        self.reason: str | None    = reason             # the reason for this formula, e.g., "axiom", "assumption", "def", "by"
+        self.id: int               = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
 
     def unproven(self) -> bool:
@@ -496,9 +502,11 @@ class KnowledgeBase:
 
     def dict_or_set_str(self, some_dict_or_set: dict[str,str]|dict[str,int]|dict[str,tuple[int,int]]|dict[str,list[int]]|dict[str,list[str]]|set[str], keyword: str) -> str:
         if isinstance(some_dict_or_set, dict):
-            return '\n'.join([self._entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set])
+            lines = [self._entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set]
         else:
-            return '\n'.join([self._entry_str(keyword, key) for key in some_dict_or_set])
+            lines = [self._entry_str(keyword, key) for key in some_dict_or_set]
+        lines.sort()
+        return '\n'.join(lines)
 
     # SYNTAX RELATED
     def syntax_str(self) -> str:
@@ -594,8 +602,6 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: arity of brackets can not be set')
         if fun in self.arity:
             raise KurtException(f'EvalError: arity of symbol "{fun}" has been already set to {self.arity[fun]}')
-        if not (self.is_const(fun) or self.is_var(fun)):
-            self.add_const(fun)
         self.arity[fun] = a
 
     def _find_symbol(self, op: str) -> str:
@@ -771,6 +777,8 @@ class KnowledgeBase:
     def _add_new_symbols(self, e: Expr) -> None:
         match e:
             case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_var(s):
+                pass                  # do nothing
+            case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_bool_var(s):
                 pass                  # do nothing
             case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_const(s):
                 pass                  # do nothing
@@ -1084,7 +1092,11 @@ def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr
 def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                        # symmetric operators can sort their args
     if isinstance(expr, list):
         expr = [sort_symmetric_ops(kb, e) for e in expr] # start inside
-        if isinstance(expr[0], Token) and expr[0].label == 'SYMBOL' and isinstance(expr[0].value, str) and kb.is_sym(expr[0].value):
+        if (isinstance(expr[0], Token) 
+            and expr[0].label == 'SYMBOL' 
+            and isinstance(expr[0].value, str) 
+            and kb.is_sym(expr[0].value) 
+            and expr[0].value != SPACE_SYMBOL):  # we exclude the SPACE_SYMBOL, even though it is symmetric
             expr = [expr[0]] + sorted(expr[1:], key=functools.cmp_to_key(compare_expr))
         return expr
     elif isinstance(expr, Token):
@@ -1190,7 +1202,6 @@ def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str|None]:
     expr = process_arity(expr, kb)                               # turns space operators into function calls according to arities
     expr = remove_round_brackets(expr)                           # remove round brackets for grouping
     expr, label = check_expr_label(expr, kb)         # check and split `expr` and `label`
-    expr = simplify(expr, kb)                                    # simplify the formula using flatness and symmetry
     return expr, label
 
 def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, Expr, str|None]:
@@ -1268,7 +1279,7 @@ def eval_use(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line
         raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
     reason = 'without proof'
     if label is not None:
-        reason += f' {label}'
+        reason += f' "{label}"'
     reason = decorate_reason(mainstream, reason, filename, str(line))
     f = Formula(expr, str(line), filename, keyword=keyword, label=label, reason=reason, kb=kb)
     kb.theory_append(f)
@@ -1335,11 +1346,15 @@ def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
 
 def eval_thus(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     if is_exists(expr):
-        reason = exists_intro(expr, kb, 'local scope')       # this might generate a KurtException
+        reason = exists_intro(expr, kb)       # this might generate a KurtException
     elif is_forall(expr):
-        reason = forall_intro(expr, kb, 'local scope')       # this might generate a KurtException
+        reason = forall_intro(expr, kb)       # this might generate a KurtException
+    elif is_implication(expr):
+        reason = impl_intro(expr, kb)         # this might generate a KurtException
     else:
-        reason = impl_intro(expr, kb, 'local scope')         # this might generate a KurtException
+        # actually, `thus` is for `forall`, `exists` and `implies` only, but we allow it for any expression
+        reasons, _ = derive_expr(expr, kb, filename, mainstream)       # this might generate a KurtException
+        reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
     reason = decorate_reason(mainstream, reason, filename, str(line))
     f = Formula(expr, str(line), filename, keyword=None, label=None, reason=reason, kb=kb)
     kb = decrease_level(kb)                    # drop current level and perform some checks
@@ -1372,7 +1387,6 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
 
 def eval_let(kb: KnowledgeBase, expr: Expr, label: str|None, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     new_consts = extract_new_consts(expr, kb)  # extract the new constant from the expression
-    print(f'new constants: {new_consts}', file=sys.stderr)
     if len(new_consts) != 1:
         raise KurtException(f'EvalError: `let` can only define a single constant, found {len(new_consts)} new constants in `{expr_str(expr, kb)}`', line)
     kb = eval_consider(kb, line, mainstream)  # open a new block
@@ -1626,6 +1640,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
         kb = eval_thus(kb, expr, label, filename, line, mainstream)  # use the expression as a conclusion
+    elif keyword == 'break':
+        if len(args) > 0:
+            raise KurtException(f'EvalError: `{keyword}` does not take any arguments')
+        kb = decrease_level(kb)                    # drop current level and perform some checks
+        if mainstream:
+            log('break', f'{line} forget the last proof or local scope', kb.level)
     elif keyword == 'show':
         if len(args) == 0:
             print(kb.show_str(), file=sys.stdout)
@@ -1676,6 +1696,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
+        if not bool_expr(expr, kb):
+            raise KurtException(f'EvalError: expression must evaluate to boolean, got "{expr_str(expr, kb)}"')
         kb = eval_let(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
         if mainstream:
             reason = f'{line} open local scope with new constant and assumption'
@@ -1709,7 +1731,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str|None, kb: 
             return kb
         if not bool_expr(expr, kb):
             raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
-        reasons = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
+        reasons, _ = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
         if len(reasons) == 1:
             reason = decorate_reason(mainstream, reasons[0], filename, str(line))
         else:
@@ -1864,7 +1886,7 @@ def log(s: str, reason: str|None, level: int) -> None:
 #         F(ε)
 #       thus ∀ε>0 F(ε)    ; checks whether there are 
 
-def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
+def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
 
     # step 0: split the expression that should be inferred by forall-intro
     # the usual case where the expression is a forall
@@ -1873,6 +1895,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
             pass
         case _:
             raise KurtException(f'SyntaxError: `forall` expression expected, got {expr}')
+    ###NOT YETbound_v = extract_bound_var(bound_v_expr, kb)  # extract the bound variable from the expression
     match bound_v_expr:
         case Token(label='SYMBOL', value=bound_v) if isinstance(bound_v, str):
             pass
@@ -1898,7 +1921,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
     subst_expr = apply_subst(last_f.expr, subst, kb)  # apply the substitution to the last formula
     if not equal_expr(subst_expr, body):
         raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(subst_expr, kb)}')
-    return f'by "forall-intro" (derived from last {block_style})'
+    return f'by "forall-intro" (derived from last local scope)'
 
 # "exists-intro" without condition
 #
@@ -1914,7 +1937,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
 #         F(ε)
 #       thus ∃ε F(ε)      ; exists-intro
 
-def exists_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
+def exists_intro(expr: Expr, kb: KnowledgeBase) -> str:
 
     # step 0: split the expression that should be inferred by exists-intro
     match expr:
@@ -1951,10 +1974,10 @@ def exists_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
     subst_expr = apply_subst(last_f.expr, subst, kb)  # apply the substitution to the last formula
     if not equal_expr(subst_expr, body):
         raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(subst_expr, kb)}')
-    return f'by "exists-intro" (derived from last {block_style})'
+    return f'by "exists-intro" (derived from last local scope)'
 
 # this function is called when closing a block (via `qed` or 'thus')
-def impl_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
+def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
     
     # step 1: collect all assumptions of the current level
     if len(kb.theory) == 0:
@@ -1968,14 +1991,14 @@ def impl_intro(expr: Expr, kb: KnowledgeBase, block_style: str) -> str:
     # step 2: form a formula using the last formula in the current level
     if len(premise) == 0:                  # just the conclusion (empty premise)
         result = conclusion
-        reason = f'by last {block_style}'
+        reason = f'by last local scope'
     else:
         if len(premise) == 1:              # premise is one formula
             premise = premise[0]
         else:                              # premise is a conjunction
             premise = simplify([Token(label='SYMBOL', value=AND_SYMBOL)] + premise, kb)   # bring to normalform
         result = [Token(label='SYMBOL', value=IMPL_SYMBOL), premise, conclusion]       # construct implication
-        reason = f'by "impl-intro" (derived from last {block_style})'
+        reason = f'by "impl-intro" (derived from last local scope)'
 
     # step 3: compare against the planned expression `expr`
     if equal_expr(expr, result):
@@ -2177,11 +2200,14 @@ def generate_all_combinations_rec(expr: Expr, token_x: Token, expr_a: Expr|None,
         else:
             yield expr_a, expr            # $a=expr_a, $A = expr
 
-def generate_one_combination(expr_a, expr_A) -> Iterator[tuple[Expr|None, Expr]]:
-    yield expr_a, expr_A
+def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iterator[tuple[Expr|None, Expr]]:
+    cand_expr = apply_subst(expr_A, {var_x: expr_a}, kb)  # substitute `$x` with `expr_a`
+    if equal_expr(cand_expr, expr):
+        # we have a match, i.e., `expr = sub $x $a $A` where `$a` is `expr_a` and `$A` is `expr_A`
+        yield expr_a, expr_A
 
 # couple of problems:
-# - also we are generating some wrong combinations where we replace bound variables in `$A` with `$x`, what is allowed, can `$a` contain any bound variables of `$A`?  probably not!
+# - also we are generating some wrong combinations where we replace bound variables in `%A` with `$x`, what is allowed, can `$a` contain any bound variables of `%A`?  probably not!
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
 
     # check that `expr` is not a sub expression
@@ -2215,7 +2241,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
     if isinstance(p_A, Token) and isinstance(p_A.value, str) and kb.is_bool_var(p_A.value):
         var_A = p_A.value
         if var_A in subst:
-            all_combinations = generate_one_combination(a, subst[var_A])    # `$A` was already assigned earlier
+            all_combinations = generate_one_combination(expr, var_x, a, subst[var_A], kb)    # `$A` was already assigned earlier
         else:
             all_combinations = generate_all_combinations(expr, token_x, a, kb)
     else:
@@ -2231,15 +2257,16 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         #       bool G 0 1 2
         #       sub $x $a G %A %B
         # that should be a problem, however, `generate_all_combinations` must be a bit more sophisticated
-        all_combinations = generate_one_combination(a, p_A)
+        all_combinations = generate_one_combination(expr, var_x, a, p_A, kb)
 
     for (expr_a, expr_A) in all_combinations:
         subst_local = subst.copy()
-        # we don't have to match `expr` against `expr_A` since `all_combinations` ensure that they match
+        # we don't have to match `expr` against `expr_A` since `all_combinations` and also `one_combinations` ensure that they match
         if var_A is not None and var_A not in subst_local:
-            subst_local[var_A] = expr_A           # store the found substitutions for `$A`
+            subst_local[var_A] = expr_A           # store the found substitutions for `%A`
         if var_a is not None and expr_a is not None:
             subst_local[var_a] = expr_a           # store the found substitutions for `$a`
+        # now that we found a substitution for `$a` and `%A`, 
         yield from match_exprs(tail, subst_local, kb)
 
 # helper functions
@@ -2254,19 +2281,18 @@ def split_into_lists(lst: List[T], n: int) -> List[List[List[T]]]:
     return [[lst[:i]] + rest for i in range(1, len(lst) - n + 2)
                            for rest in split_into_lists(lst[i:], n - 1)]
 
-# each "case" with a recursive call has to loop over all generated local substitutions
+# each "case" with a recursive call loops over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
 def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
     match exprs_patterns:
 
-        case []:
+        case []:            # empty list
             yield subst     # we found a substitution
 
-        case [(expr, pattern), *tail]:
+        case [(expr, pattern), *tail]:  # non-empty list
             # matches `expr` to `pattern` and extends `subst`
             match pattern:
-
                 # variable matching
                 case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
                     if equal_expr(pattern, expr):
@@ -2333,6 +2359,8 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
 
 # match the theory against a a list of expressions (not the other way around) and grow the substitution
 def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tuple[Subst | None, list[Formula]]:
+    #debug(exprs)
+    #debug(subst)
     match exprs:
 
         # we matched all `exprs`, done!
@@ -2349,6 +2377,10 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that create a match
                 for subst_cand in match_exprs([(candidate.expr, expr_local)], subst, kb):
+                    # debug(f'  candidate: {expr_str(candidate.expr, kb)}')
+                    # debug(f'  expr_local: {expr_str(expr_local, kb)}')
+                    # debug(f'  subst_cand: {subst_cand}')
+                    # debug(f'  tail: {", ".join([expr_str(t, kb) for t in tail])}')
                     # try to match the rest of the expressions (the `tail`)
                     # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
                     subst_cand_cand, found_tail = match_all_theory(tail, subst_cand, kb)
@@ -2362,15 +2394,17 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
 # what is happening:
 # 0. deep copy `proven_formula` and rename all its variables (happens already in the construction of it)
 # 1. split `proven_formula` into `conclusion` and `premises`
-# 2. match `expr` against `conclusion`
+# 2. match `expr` against `conclusion` (and create a substitution)
 # 3. match theory against the `premises` (not the other way around)
 def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[str|None, Subst]:
+
+    #debug(f'impl_elim: {expr_str(expr, kb)} against {expr_str(proven_formula.expr, kb)}', kb.level)
 
     # to avoid overflow in the counter variable
     reset_var_counter()
 
     # continue with the renamed variant of `proven_formula` that is generated during the construction of it
-    formula_expr: Expr = proven_formula.renamed_expr
+    formula_expr: Expr = proven_formula.simplified_expr
 
     # assign `conclusion` and `premises`
     if is_implication(formula_expr):      # we have an implication with a premise
@@ -2389,18 +2423,22 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
         conclusion = formula_expr
         premises   = []
 
+    debug(f'  expr: {expr_str(expr, kb)}')
+    debug(f'  conclusion: {expr_str(conclusion, kb)}')
+    debug(f'  premises: {", ".join([expr_str(p, kb) for p in premises])}')
+    debug(f'--------')
+
     # to match `conclusion` and `premises` iterate over all possible substitutions of the `conclusion`
     subst_cand: Subst|None = None
     for subst_local in match_exprs([(expr, conclusion)], subst, kb):
         # search all premises
-        debug(subst_local, premises)
+        debug(f'  subst_local: {subst_local}')
         subst_cand, premises_formulas = match_all_theory(premises, subst_local, kb)
         if subst_cand is None:
             # alternative search for the conjunction of the premises
             conjunction: Expr = [Token(label='SYMBOL', value=AND_SYMBOL), *premises]
             subst_cand, premises_formulas = match_all_theory([conjunction], subst_local, kb)
         else:
-            debug(subst_cand)
             break           # bingo!  we found one
     if subst_cand is None:
         return None, {}         # no luck this time
@@ -2412,23 +2450,28 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
         log('',  '  substitution: {' + ', '.join([f'{var}: `{expr_str(subst[var], kb)}`' for var in subst]) + '}', kb.level)
     reason: str = f'by '
     if len(premises) == 0:
-        reason += f'restating '
+        reason += f''
     else:
         reason += ', '.join([formula_ref(premise, filename, mainstream) for premise in premises_formulas]) + ', '
     reason += f'{formula_ref(proven_formula, filename, mainstream)}'
     return reason, subst    # bingo!  found an implication (and a substitution)
 
-def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> list[str]:
+def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[list[str], Subst]:
+
+    # deep copy `exp` and to a simplifications
+    expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
+    expr = simplify(expr, kb)   # simplify the expression, e.g., remove redundant
 
     # "top-intro"
     if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
-        return ['by "top-intro"']
+        return ['by "top-intro"'], {}
 
     # "impl-elim": iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
-        reason, _ = impl_elim(expr, proven_formula, {}, kb, filename, mainstream)
-        if reason is not None: 
-            return [reason]
+        reason, subst = impl_elim(expr, proven_formula, {}, kb, filename, mainstream)
+        if reason is not None:
+            assert isinstance(reason, str)
+            return [reason], subst
 
     # if `expr` is a conjunction we can try to derive each of the subexpressions
     match expr:
@@ -2436,16 +2479,12 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
             subst: Subst = {}
             reasons: list[str] = []
             for clause in clauses:
-                reason = None
-                for proven_formula in kb.all_theory():
-                    reason, subst = impl_elim(clause, proven_formula, subst, kb, filename, mainstream)
-                    if reason is not None:
-                        break   # bingo!  we derived the next clause
-                if reason is None:
-                    break       # failed to derive the next clause
-                reasons.append(reason)
+                more_reasons, subst = derive_expr(clause, kb, filename, mainstream)
+                if more_reasons is None:
+                    break   # failed to derive the next clause
+                reasons.extend(more_reasons)
             if len(reasons) > 0:
-                return reasons
+                return reasons, subst
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
@@ -2608,6 +2647,7 @@ def main() -> None:
     # debug flag?
     global debug_flag
     debug_flag = args.debug
+    debug_flag = True
 
     # readline history
     if readline:

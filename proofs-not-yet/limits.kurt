@@ -17,25 +17,4 @@ proof
         thus ∃δ>0 ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε      ; closes block and removes constant δ
     thus ∀ε>0 ∃δ ∀x |x-2| < δ ⇒ |(3*x+1)-7| < ε   ; closes block and removes constant ε
 qed
-
-; more verbose proof
-show ∀ε (ε>0 ⇒ ∃δ (δ>0 ∧ ∀x (|x-2|<δ ⇒ |(3x+1)-7|<ε)))
-proof
-    const ε
-    assume ε>0
-        const δ
-        use δ=ε/3
-        ε/3 > 0
-        δ > 0
-        const x
-        |(3*x+1)-7| = |3*x - 6| = 3*|x - 2|
-        assume |x-2| < δ
-            |x-2| < ε/3
-            3*|x-2| < ε
-            |(3*x+1)-7| < ε
-        |x-2|<δ ⇒ |(3*x+1)-7| < ε
-        ∀x |x-2|<δ ⇒ |(3*x+1)-7| < ε
-        ∃δ (δ>0 ∧ ∀x |x-2|<δ ⇒ |(3*x+1)-7| < ε)
-    ε>0 ⇒ ∃δ (δ>0 ∧ ∀x |x-2|<δ ⇒ |(3*x+1)-7| < ε)
-    ∀ε (ε>0 ⇒ ∃δ (δ>0 ∧ ∀x |x-2|<δ ⇒ |(3*x+1)-7| < ε))
-qed
+;;; Proof checked.

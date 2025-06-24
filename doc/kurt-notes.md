@@ -1481,4 +1481,6 @@ gets
 
 ## bool / infix
 
-Note that some statements are purely syntactic and don't care whether something is a constant or variable.
+- Note that some statements are purely syntactic and don't care whether something is a constant or variable.
+
+- Thinking about group.kurt.  Right now it is written for constant symbols, however, it should be implicitly universally quantified.  Let's check first why the reasons are all wrong...

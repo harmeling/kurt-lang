@@ -1,11 +1,14 @@
-; simple propositions using group theory
+; simple proofs from group theory
 load "equality"
 
-; define constant function symbols for infix and prefix notations
+; define function symbols for infix and prefix notations
 infix  +  60 60           ; binary plus
 prefix -     80           ; unary minus
 
+;var x, y, z
+
 ; group axioms
+; (implicitly universally quantified over x, y, z)
 use (x + y) + z = x + (y + z)       "G1" ; associativity
 use 0 + x = x                       "G2" ; neutral element
 use -x + x = 0                      "G3" ; left inverse
@@ -14,6 +17,7 @@ use -x + x = 0                      "G3" ; left inverse
 show x + -x = 0                     "G4" ; right inverse
 proof
     -(x + -x) + (x + -x)              = 0   ; by G3
+    false
     -(x + -x) + (x + (0 + -x))        = 0   ; by G2
     -(x + -x) + (x + ((-x + x) + -x)) = 0   ; by G3
     -(x + -x) + ((x + (-x + x)) + -x) = 0   ; by G1
