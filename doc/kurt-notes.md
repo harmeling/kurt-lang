@@ -1484,3 +1484,78 @@ gets
 - Note that some statements are purely syntactic and don't care whether something is a constant or variable.
 
 - Thinking about group.kurt.  Right now it is written for constant symbols, however, it should be implicitly universally quantified.  Let's check first why the reasons are all wrong...
+
+## 2025-06-25 impl-elim and sub expressions
+
+- steps:
+
+      use A and B  implies  C
+      use A
+      use B
+      C
+
+  how to prove C by impl-elim?
+
+  step 1: find an implication such that C matches the conclusion to find a subst for the conclusion
+  step 2: apply the substitution to the premises
+  step 3: if there are sub-expressions in the premises, check whether can be triggered
+  step 4: find theory formulas that match against the premises
+
+- a sub expression `sub $x a A` can be triggered, if `A` doesn't contain any boolean variables
+
+## symmetric and flat operators
+
+- sorting to an expression with a symmetric operator doesn't help for the matching, since we have to try all variants
+
+- flattening a flat operator does help
+
+      F and (G and H)   ; the expression
+      %A and %B         ; the pattern (e.g. a conclusion or premise)
+
+  (1) assume that `and` is neither flat nor symmetric
+
+      %A: F,       %B: G and H
+
+  (2) assume that `and` is flat, but not symmetric, thus start with flattened `F and G and H`
+
+      %A: F,       %B: G and H
+      %A: F and G, %B: H
+
+  (3) assume that `and` is symmetric, but not flat, work with `F and (G and H)` and `(G and H) and F`
+
+      %A: F,       %B: G and H
+      %A: F,       %B: H and G  ; covered by recursive call
+      %A: G and H, %B: F
+      %A: H and G, %B: F        ; covered by recursive call
+
+  (4) assume that `and` is symmetric and flat, thus start with `F and G and H` and all its permutations
+
+      %A: F,       %B: G and H
+      %A: F,       %B: H and G  ; covered by recursive call
+      %A: G,       %B: F and H
+      %A: G,       %B: H and F  ; covered by recursive call
+      %A: H,       %B: F and G
+      %A: H,       %B: G and F  ; covered by recursive call
+      %A: G and H, %B: F
+      %A: H and G, %B: F        ; covered by recursive call
+      %A: F and H, %B: G
+      %A: H and F, %B: G        ; covered by recursive call
+      %A: F and G, %B: H
+      %A: G and F, %B: H        ; covered by recursive call
+
+- for an implementation of this see the corresponding case in the function `match_exprs`
+      
+## subtlety about `and` and `implies`
+
+- this works:
+
+      use A and B implies C
+      use A
+      use B
+      C
+
+- however, this doesn't (currently)
+
+      use A and B implies C
+      use A and B
+      C
