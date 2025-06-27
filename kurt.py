@@ -2747,7 +2747,7 @@ def main() -> None:
     # debug flag?
     global debug_flag
     debug_flag = args.debug
-    debug_flag = not debug_flag
+    ##debug_flag = not debug_flag    # swap the debug flag for "run and debug"
 
     # readline history
     if readline:
