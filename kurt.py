@@ -109,7 +109,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, List, cast
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, cast
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -2281,7 +2281,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
 
 # helper functions
 T = TypeVar('T')
-def split_into_lists(lst: List[T], n: int) -> Iterator[List[List[T]]]:
+def split_into_lists(lst: list[T], n: int) -> Iterator[list[list[T]]]:
     """
     Lazily yield every way to split `lst` into `n` consecutive, non-empty sub-lists.
 
@@ -2304,7 +2304,7 @@ def split_into_lists(lst: List[T], n: int) -> Iterator[List[List[T]]]:
         for rest in split_into_lists(tail, n - 1):
             yield [head] + rest
 
-def partitions(seq:List[T], k: int) -> Iterator[List[List[T]]]:
+def partitions(seq:list[T], k: int) -> Iterator[list[list[T]]]:
     """
     Yield each way to split `seq` into `k` non-empty subsets.
 

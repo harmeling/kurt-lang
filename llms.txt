@@ -1,0 +1,4 @@
+# kurt language
+
+Put here a short description of the language and instructions how to use kurt for an LLM.
+
