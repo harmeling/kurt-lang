@@ -484,7 +484,7 @@ class KnowledgeBase:
         elif keyword == 'brackets': return f'brackets {value} {key}'
         elif keyword == 'chain':
             if isinstance(value, list):
-                return f'chain {key} {' '.join(map(str, value))}'
+                return f'chain {key} {" ".join(map(str, value))}'
             assert False, f'BUG!  Unexpected value for `chain`, got {value}'
         elif keyword == 'arity':    return f'arity {key} {value}'
         elif keyword == 'flat':     return f'flat {key}'
@@ -492,7 +492,7 @@ class KnowledgeBase:
         elif keyword == 'bindop':   return f'bindop {key}'
         elif keyword == 'bool':     
             if isinstance(value, list):
-                return f'bool {key} {' '.join(map(str, value))}'
+                return f'bool {key} {" ".join(map(str, value))}'
             assert False, f'BUG!  Unexpected value for `bool`, got {value}'
         elif keyword == 'var':      return f'var {key}'
         elif keyword == 'const':
@@ -885,7 +885,7 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
         case [Token(label='SYMBOL', value=a), e1, e2]:
             return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
         case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_flat(a):
-            return f'({f' {expr_normal(expr[0], kb)} '.join([expr_normal(e, kb) for e in tail])})'
+            return f'({f" {expr_normal(expr[0], kb)} ".join([expr_normal(e, kb) for e in tail])})'
         case [*tail]:
             return f'({" ".join([expr_normal(e, kb) for e in tail])})'
         case None:
@@ -1431,7 +1431,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str|None, k
         if len(args) > 0:
             tokenlist: Expr = args + [end_token]                          # add end token for parse_expression
             ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
-            msg = f'{'  '.join([str(t) for t in ts])}'
+            msg = f'{"  ".join([str(t) for t in ts])}'
             print(msg, file=sys.stdout)
     elif keyword == 'format':
         match args:
