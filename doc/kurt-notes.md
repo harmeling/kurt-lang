@@ -1559,3 +1559,56 @@ gets
       use A and B implies C
       use A and B
       C
+
+## 2025-07-03 free variables, bound variables and constants
+
+- let's maintain a list of all existing symbols
+
+- in quantified formulas such as:
+
+      forall x F(x)
+
+  x is a locally bound variable.  to avoid confusion, `x` is not allowed to be a constant already.
+
+- if we would like automatically quantified formulas we either declare symbols to be free variables
+
+      freevar x, y       ; now `x` and `y` are used as free variables (until fixed)
+      x + y = y + x
+
+  or we use the dollar notation for free variables
+
+      $x + $y = $y + $x
+
+- forall-intro and exists-intro require fresh constants which are introduced with `fix`, `let`, `take`
+
+      fix x         ; add locally `x` as a constant and checks that it doesn't exist yet as a constant, 
+                    ; it is fine, if it is a variable so far
+          bla bla
+          F(x)      ; don't omit this step!
+      thus forall x F(x)
+
+- new symbols are automatically new constants
+
+- how do we prove statements with free variables?
+
+      show $x + $y = $y + $x
+      proof
+          fix $x, $y  ; now the free variables are fixed, i.e., constant
+              sorry
+              $x + $y = $y + $x  ; omit this step!
+          thus $x + $y = $y + $x
+      qed
+
+- boolean free variables
+
+      show %A and %B  iff  %B and %A
+      proof
+          fix %A, %B
+              sorry
+              %A and %B  iff  %B and %A  ; omit this step!
+          thus %A and %B  iff  %B and %A
+      qed
+
+- `fix` is fixing a symbol to be constant following the rules:
+  - before the symbol was not a constant
+  - it might have been already a variable
