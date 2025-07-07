@@ -286,7 +286,7 @@ keywords: dict[str, str] = {
     'sym':         'declare infix operator to be symmetric',
     'bool':        'declare symbols to have output type boolean',
     'chain':       'declare a chain of symbols, for automatic transitivity',
-    'var':         'declare symbols as variable, symbols starting with $ are always variables',
+    'var':         'declare symbols as variable',
     'const':       'declare symbols as fresh constants, i.e., they have not been used or declared before',
     'alias':       'add some aliases for a symbol',
 
@@ -450,12 +450,16 @@ class KnowledgeBase:
         self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
         self.lbp:      dict[str, int]            = {}     # left binding power
         self.rbp:      dict[str, int]            = {}     # right binding power
-        self.bool:     dict[str, list[int]]      = {}     # dict of symbols declared to have boolean output
-        self.var:      set[str]                  = set()  # set of variables with unused values
-        self.const:    set[str]                  = set()  # set of constants with unused values
         self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
         self.nud:      dict[str, Nud]            = {}     # null denotation, entries are functions for parsing expressions
         self.led:      dict[str, Led]            = {}     # left denotation, entries are functions for parsing infix expressions
+
+        # variables vs constants
+        self.var:      set[str]                  = set()  # set of variables with unused values
+        self.const:    set[str]                  = set()  # set of constants with unused values
+
+        # types
+        self.bool:     dict[str, list[int]]      = {}     # dict of symbols declared to have boolean output
 
         # theory
         self.theory: list[Formula] = []                   # list of formulas (axioms added by 'use', 
@@ -548,9 +552,9 @@ class KnowledgeBase:
     def is_sym(self, s: str) -> bool:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
     def is_var(self, s: str) -> bool:
-        return s in self.var     or (self.parent is not None and self.parent.is_var(s)) or s[0]=='$'   # constant vs variable symbols (variables start with '$')
+        return s in self.var     or (self.parent is not None and self.parent.is_var(s))
     def is_local_var(self, s: str) -> bool:                # check only in the current level, used for `add_const`
-        return s in self.var     or s[0]=='$'
+        return s in self.var
     def is_bool_var(self, s: str) -> bool:
         return s[0]=='%'  # variable for formulas (in `sub`)
     def is_const(self, s: str) -> bool:
@@ -706,7 +710,7 @@ class KnowledgeBase:
         # a constant is automatically declared if a new symbol is used or when it is explicitly declared
         # declaring is only allowed, if it doesn't yet exist as a variable or constant
         if self.is_local_var(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a variable on this level or it starts with $')
+            raise KurtException(f'EvalError: symbol "{s}" is already a variable on this level')
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol "{s}" is already a constant and can not be declared freshly again')
         self.const.add(s)
@@ -723,7 +727,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol "{s}" is already declared bool')
         if self.is_bindop(s) and 1 in v:
             raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
-        self.bool[s] = v          # add a key with value the tuple of positions that are bool
+        self.bool[s] = v          # add a key and set the value to the tuple of positions that are bool
 
     def get_nud(self, token: Token) -> Nud:
         if token.label == 'SYMBOL':

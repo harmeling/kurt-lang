@@ -1595,7 +1595,7 @@ gets
       proof
           fix $x, $y  ; now the free variables are fixed, i.e., constant
               sorry
-              $x + $y = $y + $x  ; omit this step!
+              ;; $x + $y = $y + $x  ; omit this step!
           thus $x + $y = $y + $x
       qed
 
@@ -1605,10 +1605,26 @@ gets
       proof
           fix %A, %B
               sorry
-              %A and %B  iff  %B and %A  ; omit this step!
+              ;; %A and %B  iff  %B and %A  ; omit this step!
           thus %A and %B  iff  %B and %A
       qed
 
 - `fix` is fixing a symbol to be constant following the rules:
   - before the symbol was not a constant
   - it might have been already a variable
+
+## 2025-07-07 free variables
+
+- by default, symbols that are used are constants
+
+    use x = 0    ; `x` is now listed as a constant
+
+- however, symbols can be declared variable before their first usage
+
+    var y        ; `y` is now listed as a variable
+    use y = 0    ; `y` is 
+
+- how about getting rid of $x and %x?  instead determine automatically whether
+  symbols are boolean or not with their first usage
+
+- declaring `var` is necessary, but `const` is the default
