@@ -42,6 +42,8 @@ from __future__ import annotations
 # TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 
 ### TOPICS before releasing 2.0
+# TODO should substitutions be always boolean (see `type_check_expression`)
+# TODO variables and syntax should be file only, i.e., the `theory` is exported, but the syntax is not.  problem: how to show formulas that are imported (just as quotes?  e.g. `[equality.kurt] %a and %b implies %b and %a`
 # TODO add column information for the exceptions, use `expr_column`
 # TODO instead of brute-force matching, use more clever matching, e.g., search for the sub terms, or have a dictionary of all subterms
 # TODO let it run locally in the browser, e.g., using Pyodide <https://pyodide.org/en/stable/>, see https://chatgpt.com/share/68387cb6-7df4-8008-af44-da04c4449f10
@@ -552,11 +554,12 @@ class KnowledgeBase:
     def is_sym(self, s: str) -> bool:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
     def is_var(self, s: str) -> bool:
-        return s in self.var     or (self.parent is not None and self.parent.is_var(s))
+        return s[0] == '$' or s in self.var or (self.parent is not None and self.parent.is_var(s))
     def is_local_var(self, s: str) -> bool:                # check only in the current level, used for `add_const`
         return s in self.var
     def is_bool_var(self, s: str) -> bool:
-        return s[0]=='%'  # variable for formulas (in `sub`)
+        # e.g. variable for formulas (in `sub x a A` the symbol `A` is boolean)
+        return s[0] == '%' or (self.is_var(s) and self.is_bool(s))
     def is_const(self, s: str) -> bool:
         return s in self.const   or (self.parent is not None and self.parent.is_const(s))
     def is_alias(self, s: str) -> bool:
@@ -805,6 +808,10 @@ class KnowledgeBase:
     def theory_append(self, f: Formula) -> None:
         self._add_new_symbols(f.expr)
         self.theory.append(f)
+
+    def show_append(self, f: PromisedFormula) -> None:
+        self._add_new_symbols(f.expr)
+        self.show.append(f)
 
     def show_str(self) -> str:
         s: str = self.parent.show_str() if self.parent is not None else ''
@@ -1323,7 +1330,7 @@ def eval_show(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
     if label is not None:
         reason += f' "{label}"'
     f = PromisedFormula(kb, expr, str(line), filename, label, reason)
-    kb.show.append(f)
+    kb.show_append(f)
     if mainstream:
         log(f.formula_str(kb), reason, kb.level)
     return kb
@@ -1864,7 +1871,6 @@ def expr_column(expr : Expr) -> int:
             return expr_column(children[0])
 
 def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
-    # this is for now hardcoded, should be part of the syntax definitions
     # this uses the declared boolean-ness of some symbols via `kb.bool` and `bool_expr`
     match expr:
 

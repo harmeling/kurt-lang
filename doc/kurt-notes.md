@@ -1628,3 +1628,5 @@ gets
   symbols are boolean or not with their first usage
 
 - declaring `var` is necessary, but `const` is the default
+
+- note that substitutions are always boolean

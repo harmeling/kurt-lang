@@ -60,16 +60,6 @@
         "Zermelo",
         "αβγδεζηθικλμνξοπρστυφχψω"
     ],
-    "python.testing.unittestArgs": [
-        "-v",
-        "-s",
-        "./tests",
-        "-p",
-        "test_*.py"
-    ],
-    "python.testing.pytestEnabled": false,
-    "python.testing.unittestEnabled": true,
-    "python.testing.autoTestDiscoverOnSaveEnabled": false,
     "python.analysis.autoImportCompletions": true,
     "workbench.colorCustomizations": {
         "activityBar.activeBackground": "#259711",
@@ -90,5 +80,14 @@
         "titleBar.inactiveBackground": "#1a690c99",
         "titleBar.inactiveForeground": "#e7e7e799"
     },
-    "peacock.color": "#1a690c"
+    "peacock.color": "#1a690c",
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./tests",
+        "-p",
+        "test_*.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true
 }
