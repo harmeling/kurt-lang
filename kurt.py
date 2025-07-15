@@ -364,10 +364,7 @@ class Formula:
             return 'use' + ' '     # not yet proven, so like an axiom, introduced via `use` or `assume`
     
     def label_str(self) -> str:
-        if self.label is None:
-            return ''
-        else:
-            return f' "{self.label}"'
+        return f' "{self.label}"'
     
     def __str__(self) -> str:
         return f'{self.prefix_str()}{self.expr}{self.label_str()}'
@@ -559,7 +556,11 @@ class KnowledgeBase:
         return s in self.var
     def is_bool_var(self, s: str) -> bool:
         # e.g. variable for formulas (in `sub x a A` the symbol `A` is boolean)
-        return s[0] == '%' or (self.is_var(s) and self.is_bool(s))
+        if s[0] == '%':
+            return True
+        if self.is_var(s):
+            return 0 in self.bool_sig(s)
+        return False
     def is_const(self, s: str) -> bool:
         return s in self.const   or (self.parent is not None and self.parent.is_const(s))
     def is_alias(self, s: str) -> bool:
@@ -713,7 +714,7 @@ class KnowledgeBase:
         # a constant is automatically declared if a new symbol is used or when it is explicitly declared
         # declaring is only allowed, if it doesn't yet exist as a variable or constant
         if self.is_local_var(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a variable on this level')
+            raise KurtException(f'EvalError: symbol "{s}" is already a variable on this level or starts with "$"')
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol "{s}" is already a constant and can not be declared freshly again')
         self.const.add(s)
@@ -1265,9 +1266,9 @@ def strip_keyword(s: str, column: int) -> str:
 # create a good reference string for a formula `f`
 def formula_ref(f: Formula, filename: str, mainstream: bool) -> str:
     if mainstream and f.filename==filename:
-        return f'{f.line}' if f.label is None else f'"{f.label}"'
+        return f'{f.line}' if len(f.label)==0 else f'"{f.label}"'
     else:
-        return f'{os.path.basename(f.filename)}:{f.line}' if f.label is None else f'"{f.label}"'
+        return f'{os.path.basename(f.filename)}:{f.line}' if len(f.label)==0 else f'"{f.label}"'
 
 def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str) -> str:
     if mainstream:
@@ -1276,9 +1277,11 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str)
         return f'{os.path.basename(filename)}:{line_str} {reason}'
 
 def increase_level(kb:KnowledgeBase) -> KnowledgeBase:
+    debug('')
     return KnowledgeBase(parent=kb)
 
 def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
+    debug('')
     if kb.level == 0:
         raise KurtException(f'EvalError: no block to close')
     if len(kb.show) > 0:                  # any planned formulas inside the current proof?
@@ -1314,7 +1317,7 @@ def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int
     if not bool_expr(expr, kb):
         raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
     reason = 'without proof'
-    if label is not None:
+    if len(label) > 0:
         reason += f' "{label}"'
     reason = decorate_reason(mainstream, reason, filename, str(line))
     f = Formula(kb, expr, str(line), filename, label, reason, proven=False)
@@ -1327,12 +1330,12 @@ def eval_show(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
     if not bool_expr(expr, kb):
         raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
     reason = decorate_reason(mainstream, 'claim', filename, str(line))
-    if label is not None:
+    if len(label) > 0:
         reason += f' "{label}"'
     f = PromisedFormula(kb, expr, str(line), filename, label, reason)
     kb.show_append(f)
     if mainstream:
-        log(f.formula_str(kb), reason, kb.level)
+        log(f'show {expr_str(expr, kb)}', reason, kb.level)
     return kb
 
 def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
@@ -1458,7 +1461,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             expr = parse_expression(ts, kb, begin_rbp)                         # parse the tokenlist
             expr, label = post_process(kb, expr)                               # turn spaces into calls, symmetry, flatness
             msg = f'{expr_sexpr(expr)}'
-            if label is not None:
+            if len(label) > 0:
                 msg += f' "{label}"'
             print(msg, file=sys.stdout)
     elif keyword == 'tokenize':
@@ -1731,7 +1734,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             raise KurtException(msg)
         new_consts: list[str] = []
         new_level = True
-        for expr in args[1:]:
+        for expr in args:
             match expr:
                 case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
                     kb = eval_fix(kb, new_const, line, mainstream, new_level) # only open a new block in the first iteration)
@@ -1923,7 +1926,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
 
 def log(s: str, reason: str, level: int) -> None:
         indent: str = ' ' * (proof_indent * level)
-        if reason is None:
+        if len(reason) == 0:
             print(indent+s, file=sys.stdout)
         else:
             print(f'{(indent+s):<{reason_indent}}; {reason}', file=sys.stdout)
@@ -2584,7 +2587,7 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
 # 1. split `proven_formula` into `conclusion` and `premises`
 # 2. match `expr` against `conclusion` (and create a substitution)
 # 3. match theory against the `premises` (not the other way around)
-def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[str|None, Subst]:
+def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[str, Subst]:
 
     debug(f'impl_elim: {expr_str(expr, kb)} against {expr_str(proven_formula.expr, kb)}')
 
@@ -2622,7 +2625,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
         if subst_cand is not None:
             break           # bingo!  we found one
     if subst_cand is None:
-        return None, {}     # no luck this time
+        return '', {}     # no luck this time
 
     # create meaningful `reason`
     if kb.verbose:
@@ -2650,7 +2653,7 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
     # "impl-elim": iterate over the previously proven formulas that form the current theory
     for proven_formula in kb.all_theory():
         reason, subst = impl_elim(expr, proven_formula, {}, kb, filename, mainstream)
-        if reason is not None:
+        if len(reason) > 0:
             assert isinstance(reason, str)
             return [reason], subst
 

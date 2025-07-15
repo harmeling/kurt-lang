@@ -1,7 +1,8 @@
 load "propositional"
 
 ; variant 1
-freeboolvar p
+var p
+bool p
 show p ⇒ ¬¬p
 proof
     assume p

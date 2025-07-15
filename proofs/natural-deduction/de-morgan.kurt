@@ -1,6 +1,7 @@
 ; de Morgan's law
 load "propositional"
-freeboolvar p, q       ; free boolean variables
+var p, q       ; free variables
+bool p, q      ; boolean variables
 
 ; axioms
 use p ∨ ¬p         "excluded-middle"

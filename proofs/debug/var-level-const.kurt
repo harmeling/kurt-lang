@@ -1,4 +1,4 @@
-; bool-level-const-1.kurt
+; bool-level-const.kurt
 var x
 consider
   const x       ; that's ok, since on the current level there is no variable

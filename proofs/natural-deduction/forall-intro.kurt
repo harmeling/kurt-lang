@@ -13,7 +13,7 @@ proof
         A x
         B x
         A x ∧ B x
-    thus ∀ $x (A $x ∧ B $x)
+    thus ∀ x (A x ∧ B x)
 qed
 
 show ∀ $x (A $x or C $x)

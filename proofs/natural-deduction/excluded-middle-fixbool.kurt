@@ -6,8 +6,8 @@ load "propositional"
 
 show %p ∨ ¬%p  "excluded-middle"
 proof
-    fix p 
-        bool p
+    bool p
+    fix p
         assume ¬(p ∨ ¬p)
             assume p
                 p ∨ ¬p
