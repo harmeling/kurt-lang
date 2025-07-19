@@ -1232,10 +1232,13 @@ def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
 def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, Expr, str]:
     assert isinstance(ts.peek, Token)
     keyword_token: Token | None
+    keyword: str
     label: str
     if ts.peek.label == 'SYMBOL' and ts.peek.value in keywords:
+        keyword  = ts.peek.value
         keyword_token = next(ts)                              # remove a keyword right away early
     else:
+        keyword = ''
         keyword_token = None
     if ts.peek.label == 'END': 
         return keyword_token, [], ''                          # empty token stream
@@ -1244,6 +1247,12 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
         expr        = parse_expression(ts, kb, begin_rbp)     # parse expression
         expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
         expr        = simplify(expr, kb)                      # simplify the expression, basically flattening
+        if keyword == 'thus':
+            # type check with the parent
+            if kb.parent is None:
+                raise KurtException(f'EvalError: "thus" can only be used after "fix", "take", or "assume"')
+            kb = kb.parent
+        debug(keyword)
         type_check_expression(expr, kb)                       # (some) type checking
     else:
         expr = list(ts)[:-1]                                  # [:-1] removes end_token
@@ -1890,7 +1899,11 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
             if kb.is_bindop(op):
                 # check that the first argument is either a variable or a boolean expression
                 match tail[0]:
-                    case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
+                    case Token(label='SYMBOL', value=v):
+                        if not isinstance(v, str):
+                            raise KurtException(f'TypeError: first arg of binding operator must be boolean or new symbol, got {v}', column=expr_column(tail[0]))
+                        if kb.is_const(v):
+                            raise KurtException(f'TypeError: first arg of binding operator must not be constant, got a constant "{v}"', column=expr_column(tail[0]))
                         pass         # ok!
                     case [*cond]:
                         if not bool_expr(cond, kb):
@@ -1977,10 +1990,10 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
     body = expr  # this is the loop variable, where we will chop off the forall quantifiers
     while True:
         match body:
-            case [Token(label='SYMBOL', value=FORALL_SYMBOL), bound_v_expr, inner_body]:
+            case [Token(label='SYMBOL', value=op), bound_v_expr, inner_body] if op == FORALL_SYMBOL:
                 match bound_v_expr:
                     case Token(label='SYMBOL', value=the_const) if isinstance(the_const, str):
-                        if not the_const in kb.const:      # check whether `the_const` is a new constant on the current level
+                        if the_const not in kb.const:      # check whether `the_const` is a new constant on the current level
                             if len(the_consts) > 0:
                                 break # we have found some forall quantifiers with new constants, some quantifiers will remain in the `body`
                             else:
@@ -1996,7 +2009,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
                 body = inner_body  # continue with the body of the forall, this is the loop increment
             case _:
                 break
-    assert len(the_consts) == 0, f'BUG, the call to `forall-intro` requires `expr` to be a forall-expression'
+    assert len(the_consts) > 0, f'BUG, the call to `forall-intro` requires `expr` to be a forall-expression'
     # now we continue with `the_consts`, `conditions` and `body`
 
     # step 2: check that all assumptions on the current level correspond to the conditions
