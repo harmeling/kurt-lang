@@ -20,6 +20,7 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### TOPICS before releasing 1.0
+# TODO check the conditions for forall and exist rules
 # TODO try to get code coverage.py working
 # TODO get group.kurt working with constants and with `var x, y, z`
 # TODO implement `fixbool`
@@ -790,7 +791,7 @@ class KnowledgeBase:
                 s += f'{f.formula_str(self)}\n'
         return s
 
-    def _add_new_symbols(self, e: Expr) -> None:
+    def _add_new_symbols(self, e: Expr, bound_vars: set[str] = set()) -> None:
         match e:
             case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_var(s):
                 pass                  # do nothing
@@ -799,10 +800,16 @@ class KnowledgeBase:
             case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_const(s):
                 pass                  # do nothing
             case Token(label='SYMBOL', value=s) if isinstance(s, str):
-                self.add_const(s)     # create a new constant symbol
+                if s not in bound_vars:
+                    self.add_const(s)     # create a new constant symbol
             case [*children]:
+                match children:
+                    case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail]:
+                        if op in self.bindop:
+                            assert isinstance(v, str), f'BUG: symbol must be string'
+                            bound_vars.add(v)
                 for child in children:
-                    self._add_new_symbols(child)
+                    self._add_new_symbols(child, bound_vars)
             case _:
                 pass                  # do nothing
 
@@ -1252,7 +1259,6 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
             if kb.parent is None:
                 raise KurtException(f'EvalError: "thus" can only be used after "fix", "take", or "assume"')
             kb = kb.parent
-        debug(keyword)
         type_check_expression(expr, kb)                       # (some) type checking
     else:
         expr = list(ts)[:-1]                                  # [:-1] removes end_token
@@ -1286,11 +1292,9 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str)
         return f'{os.path.basename(filename)}:{line_str} {reason}'
 
 def increase_level(kb:KnowledgeBase) -> KnowledgeBase:
-    debug('')
     return KnowledgeBase(parent=kb)
 
 def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
-    debug('')
     if kb.level == 0:
         raise KurtException(f'EvalError: no block to close')
     if len(kb.show) > 0:                  # any planned formulas inside the current proof?
@@ -1387,7 +1391,6 @@ def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
             return False
 
 def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    debug(f'eval_thus: {expr_str(expr, kb)}')
     if is_exists(expr):
         reason = exists_intro(expr, kb)       # this might generate a KurtException
     elif is_forall(expr):
@@ -1417,7 +1420,8 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         raise KurtException(f'ProofError: no formula has been proven, `qed` can only be used after a successful proof')
     proven_expr  = kb.theory[-1].expr          # what actually has been proven
     reason = ''
-    if not equal_expr(planned_expr, proven_expr):
+    subst_list: list[Subst] = list(match_exprs([(planned_expr, proven_expr)], {}, kb))
+    if len(subst_list) != 1  or  subst_list[0] != {}:
         raise KurtException(f'ProofError: planned formula "{expr_str(planned_expr, kb)}" does not match the last formula in the theory "{expr_str(proven_expr, kb)}"')
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
@@ -2237,7 +2241,7 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase) -> tuple[Expr, 
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
-        # a token of an at least locally free (boolean or not) variable will be replaced either by a known sub or with a new name
+        # a token of an (at least) locally free (boolean or not) variable will be replaced either by a known sub or with a new name
         case Token(label='SYMBOL', value=free_v) if isinstance(free_v, str) and (kb.is_var(free_v) or kb.is_bool_var(free_v)):
             if free_v in subst:
                 new_expr = subst[free_v]                 # replace with known substitution
@@ -2598,14 +2602,11 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
 # what is happening:
 # 0. deep copy `proven_formula` and rename all its variables (happens already in the construction of it)
 # 1. split `proven_formula` into `conclusion` and `premises`
-# 2. match `expr` against `conclusion` (and create a substitution)
+# 2. match `expr` against `conclusion` (and create a substitution that replaces free variables in conclusion)
 # 3. match theory against the `premises` (not the other way around)
 def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[str, Subst]:
 
     debug(f'impl_elim: {expr_str(expr, kb)} against {expr_str(proven_formula.expr, kb)}')
-
-    # to avoid overflow in the counter variable
-    reset_var_counter()
 
     # continue with the renamed and simplified variant of `proven_formula` that is generated during the construction of it
     formula_expr: Expr = proven_formula.simplified_expr
@@ -2619,18 +2620,10 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
     else:   # "implication" with an empty premise (think of `true implies $A`)
         conclusion = formula_expr
 
-    debug(f'  expr: {expr_str(expr, kb)}')
-    debug(f'  conclusion: {expr_str(conclusion, kb)}')
-    if premise is not None:
-        debug(f'  premise: {expr_str(premise, kb)}')
-    else:
-        debug(f'  premise: (empty)')
-
     # to match `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
     subst_cand: Subst|None = None
     for subst_local in match_exprs([(expr, conclusion)], subst, kb):
         # search for the premise, i.e., match the theory against the `premise`
-        debug(f'  subst_local: {subst_local}')
         if premise is None:
             subst_cand = subst_local
         else:
