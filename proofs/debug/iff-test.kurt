@@ -1,0 +1,7 @@
+; iff test
+load "propositional"
+
+bool p, q
+use p iff q
+p implies q
+;;; Proof checked.

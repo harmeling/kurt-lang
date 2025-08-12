@@ -1630,3 +1630,88 @@ gets
 - declaring `var` is necessary, but `const` is the default
 
 - note that substitutions are always boolean
+
+# 2025-08-11 current challenges
+
+problems: 
+
+- [done by checking for boolean-ness of %A]check the `sub $x $z %A` stuff to avoid some of the cases, e.g. `$x=%A`
+
+- [done by commenting it out] matching expr with pattern, where expr is a variable, we shouldn't have that, but we introduced it, why?
+
+- [done by checking] what about on-the-fly bound variables, e.g. `v` instead of `$v`, i.e., `not kb.is_var(v)`
+  1. if `v` is in the pattern, every thing should be fine, since the corresponding variable in the expression gets put into the subst
+  2. if `v` is in the expr, but being a bound variable, things are harder, we should just put it into the subst, before recursing.
+
+- ok: expr = `prime $x` must be matched against `prime 2`, then `$x = x` will be matched against `2=x`
+  how to do that?  this case is missing in `match_exprs`.  how to do it right, if the expression is a variable.
+  do we need to check whether it is still unassigned?
+  or there should be a flag, the expression is coming from the premise?
+
+- example:
+      load "equality"
+      use prime 2
+      use x = 2
+      prime x
+
+  how does the proof work in `simple-predicate.kurt` work?   we need `equal-elim`:
+      use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
+
+  step 1:
+      match `prime x` against RHS `sub $x $b %A`
+      with `%A = prime $x` and `$b=x`
+
+  step 2:
+      try to match the premise (LHS) against the theory.  this wont work, but
+      the conjunction can be split into two expression which can be matched
+      against the theory
+      match `sub $x $a %A` and `$a = $b` against the theory
+
+  step 3:
+      first plug in the known substitution and trigger the substitution
+      match `prime $a` and `$a = x`
+
+  step 4:
+      
+- abstract example
+
+      use A
+      use A implies B
+      B
+
+  step 1: match B against the conclusion of the implication, i.e., assign free variables in the conclusion accordingly
+  step 2: apply the substitution also to the premise A
+  step 3: match A against the theory
+  - however, there might be free variables in A and in the theory.  what to do?
+
+- what does `A implies B` actually mean if there are free variables involved?
+
+       forall $x $y $z (A($x, $y) implies B($x, $z))
+
+  i.e., first assigning $x and $z from the conclusion.  then I can still assign $y as it fits the theory.
+
+- next more complicated that should cover all cases for "impl-elim":
+
+        use A($a, $b, $c, 42)
+        use A(17, $b, $d, $e) implies B($b)
+        B(101)
+
+    how to proof B(101)?
+    step 1: match B(101) against conclusion B($b), i.e., $b=101, hereby, variables in B(101) only match against free variables in the conclusion
+    step 2: plug in substitution into premise to get A(17, 101, $d, $e)
+    step 3: match expression A(17, 101, $d, $e) against pattern A($a, $b, $c, 42), however, allow to match free variables of the expression to anything in the pattern, here are more steps:
+            step 3.1: $a is assigned to 17, in the pattern $a must be checked to be 17 everywhere
+            step 3.2: $b is assigned to 101, in the pattern $b must be checked to be 101 everywhere
+            step 3.3: $c is assigned to $d, in the pattern $c must be checked to be $d everywhere
+            step 3.4: $e is assigned to 42, in the expression $e is replaced by 42 everywhere
+
+- so the theory (here A($a, $b, $c, 42) must be matched against the premise (here A(17, $b, $d, $e))
+
+  - so the 17 is ok, since $a in the theory is universally quantified, just ensure 17 
+
+- how about deriving B(101, $x), i.e. what if we have a free variable in the promised formula?
+
+- so concluding:
+
+  - B(101) must be matched against a conclusion
+  - then match the theory against the premises (not the other way around)
