@@ -1715,3 +1715,7 @@ problems:
 
   - B(101) must be matched against a conclusion
   - then match the theory against the premises (not the other way around)
+
+# 2025-08-13
+
+- working on `eval_qed` and `eval_thus`, the call to match_exprs should just get the first element

@@ -1,6 +1,6 @@
 load "propositional"
 
-; this version should be usable when loaded as well
+; this version should be usable when loaded as an extension in another file, since we do not declare anything local here
 ; the key is that there are no quantifier for bool vars, but
 ; they are implicitly universally quantified
 
@@ -9,14 +9,23 @@ proof
     fix a, b
         bool a, b
         assume a ∨ b
-            a
+            assume a
+                b ∨ a
+            thus a ⇒ b ∨ a
+            assume b
+                b ∨ a
+            thus b ⇒ b ∨ a
             b ∨ a
         thus a ∨ b ⇒ b ∨ a
         assume b ∨ a
-            b
+            assume b
+                a ∨ b
+            thus b ⇒ a ∨ b
+            assume a
+                a ∨ b
+            thus a ⇒ a ∨ b
             a ∨ b
-        thus a ∨ b
-        a ∨ b  ⇔  b ∨ a
+        thus b ∨ a ⇒ a ∨ b
     thus %a ∨ %b  ⇔  %b ∨ %a
 qed
 ;;; Proof checked.

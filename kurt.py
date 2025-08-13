@@ -20,8 +20,10 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### TOPICS before releasing 1.0
+# TODO when calling 'bool a', check that 'a' hasn't been used already (e.g. right after a 'fix a'
+# TODO define what get's exported when loading a file, make variables declarations local?
+# TODO get coverage of 100% in the unit tests
 # TODO check the conditions for forall and exist rules
-# TODO try to get code coverage.py working
 # TODO get group.kurt working with constants and with `var x, y, z`
 # TODO implement `fixbool`
 # TODO 'thus' with one step shorter
@@ -107,7 +109,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, cast
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, Iterable
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -1404,6 +1406,9 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
         log('thus ' + f.formula_str(kb), reason, kb.level)
     return kb
 
+def _first_or_none(xs: Iterable[Subst]) -> Subst | None:
+    return next(iter(xs), None)
+
 def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     parent = kb.parent
     if not kb.proof  or  parent is None:
@@ -1414,8 +1419,8 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         raise KurtException(f'ProofError: no formula has been proven, `qed` can only be used after a successful proof')
     proven_expr  = kb.theory[-1].expr          # what actually has been proven
     reason = ''
-    subst_list: list[Subst] = list(match_exprs([(planned_expr, proven_expr)], {}, kb))
-    if len(subst_list) != 1  or  subst_list[0] != {}:
+    optional_subst = _first_or_none(match_exprs([(planned_expr, proven_expr)], {}, kb))
+    if optional_subst is None:
         raise KurtException(f'ProofError: planned formula "{expr_str(planned_expr, kb)}" does not match the last formula in the theory "{expr_str(proven_expr, kb)}"')
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
@@ -1741,7 +1746,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             raise KurtException(msg)
         new_consts: list[str] = []
         new_level = True
-        for expr in args:
+        if not is_op_expr(args, COMMA_SYMBOL):
+            raise KurtException(f'SyntaxError: `fix` requires a single symbol or a comma-separated list of symbols, got {args}')
+        for expr in args[1:]:  # args are an expression with ','-operator
             match expr:
                 case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
                     kb = eval_fix(kb, new_const, line, mainstream, new_level) # only open a new block in the first iteration)
