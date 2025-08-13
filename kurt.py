@@ -109,7 +109,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Generator, Iterable
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -1395,7 +1395,7 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
         reason = impl_intro(expr, kb)         # this might generate a KurtException
     else:
         # actually, `thus` is for `forall`, `exists` and `implies` only, but we allow it for any expression
-        reasons, _ = derive_expr(expr, kb, filename, mainstream)       # this might generate a KurtException
+        reasons = derive_expr(expr, kb, filename, mainstream)       # this might generate a KurtException
         reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
@@ -1406,7 +1406,7 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
         log('thus ' + f.formula_str(kb), reason, kb.level)
     return kb
 
-def _first_or_none(xs: Iterable[Subst]) -> Subst | None:
+def _first_or_none(xs: Iterator[Subst]) -> Subst | None:
     return next(iter(xs), None)
 
 def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
@@ -1804,7 +1804,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
     # finally return the possibly modified knowledgebase
     return kb
 
-def letter_generator() -> Generator[str, None, None]:
+def letter_generator() -> Iterator[str]:
     letters = 'abcdefghijklmnopqrstuvwxyz'
     for size in itertools.count(1):
         for combo in itertools.product(letters, repeat=size):
@@ -1817,7 +1817,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: Knowl
             return kb
         if not bool_expr(expr, kb):
             raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
-        reasons, _ = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
+        reasons = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
         if len(reasons) == 1:
             reason = decorate_reason(mainstream, reasons[0], filename, str(line))
         else:
@@ -2633,7 +2633,7 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
 # 1. split `proven_formula` into `conclusion` and `premises`
 # 2. match `expr` against `conclusion` (and create a substitution that replaces free variables in conclusion)
 # 3. match theory against the `premises` (not the other way around)
-def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[str, Subst]:
+def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
 
     debug(f'impl_elim: {expr_str(expr, kb)} against {expr_str(proven_formula.expr, kb)}')
 
@@ -2651,7 +2651,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
 
     # to match `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
     subst_cand: Subst|None = None
-    for subst_local in match_exprs([(expr, conclusion)], subst, kb):
+    for subst_local in match_exprs([(expr, conclusion)], {}, kb):
         # search for the premise, i.e., match the theory against the `premise`
         if premise is None:
             subst_cand = subst_local
@@ -2662,13 +2662,12 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
             break           # bingo!  we found one
     if subst_cand is None:
         debug('failed')
-        return '', {}     # no luck this time
+        return ''     # no luck this time
 
     # create meaningful `reason`
     if kb.verbose:
         log('', f'  expression to prove: {expr_str(expr, kb)}', kb.level)
         log('', f'  formula used: {expr_str(proven_formula.expr, kb)}', kb.level)
-        log('',  '  substitution: {' + ', '.join([f'{var}: `{expr_str(subst[var], kb)}`' for var in subst]) + '}', kb.level)
     reason: str = f'by '
     if premise is not None:
         refs = ', '.join([formula_ref(ref, filename, mainstream) for ref in matched_formulas])
@@ -2677,9 +2676,9 @@ def impl_elim(expr: Expr, proven_formula: Formula, subst: Subst, kb: KnowledgeBa
         else:
             reason += f'{refs}, '
     reason += f'{formula_ref(proven_formula, filename, mainstream)}'
-    return reason, subst    # bingo!  found an implication (and a substitution)
+    return reason    # bingo!  found an implication (and a substitution)
 
-def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> tuple[list[str], Subst]:
+def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> list[str]:
 
     # deep copy `exp` and to a simplifications
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
@@ -2687,14 +2686,15 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
 
     # "top-intro"
     if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
-        return ['by "top-intro"'], {}
+        return ['by "top-intro"']
 
     # "impl-elim": iterate over the previously proven formulas that form the current theory
+    # this includes restatements
     for proven_formula in kb.all_theory():
-        reason, subst = impl_elim(expr, proven_formula, {}, kb, filename, mainstream)
+        reason = impl_elim(expr, proven_formula, kb, filename, mainstream)
         if len(reason) > 0:
             assert isinstance(reason, str)
-            return [reason], subst
+            return [reason]
 
     # if `expr` is a conjunction we can try to derive each of the subexpressions
     match expr:
@@ -2702,12 +2702,12 @@ def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) 
             subst: Subst = {}
             reasons: list[str] = []
             for clause in clauses:
-                more_reasons, subst = derive_expr(clause, kb, filename, mainstream)
+                more_reasons = derive_expr(clause, kb, filename, mainstream)
                 if more_reasons is None:
                     break   # failed to derive the next clause
                 reasons.extend(more_reasons)
             if len(reasons) > 0:
-                return reasons, subst
+                return reasons
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')

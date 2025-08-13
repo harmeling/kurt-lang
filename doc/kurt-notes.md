@@ -1718,4 +1718,6 @@ problems:
 
 # 2025-08-13
 
-- working on `eval_qed` and `eval_thus`, the call to match_exprs should just get the first element
+- working on simple-test.kurt
+  - problem is most likely, that the substitutions for expr or pattern are not properly applied
+  
