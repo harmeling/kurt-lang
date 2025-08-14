@@ -109,7 +109,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, assert_never
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -2470,8 +2470,9 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
             match expr:
                 case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
                     # `expr` is a free variable, ensure that all expression in the list do the replacement
-                    tail_ep = [(_transform(e, {v: pattern}, kb), p) for (e, p) in tail]
-                    yield from match_exprs(tail_ep, subst, kb)
+                    if False:
+                        tail_ep = [(_transform(e, {v: pattern}, kb), p) for (e, p) in tail]
+                        yield from match_exprs(tail_ep, subst, kb)
 
             # matches `expr` against `pattern` and extends `subst` (which replaces stuff in `pattern`)
             match pattern:
@@ -2483,7 +2484,7 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                     elif v not in subst:
                         # `v` is not assigned yet, so we can assign it
                         subst_local: Subst = subst.copy()     # shallow copy
-                        subst_local[v] = expr          # extend the substitution
+                        subst_local[v] = expr                 # extend the substitution
                         yield from match_exprs(tail, subst_local, kb)
                     elif equal_expr(subst[v], expr):
                         # already assigned to `v`, but the same value
@@ -2557,10 +2558,10 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
                     # we didn't match the pattern, so we cannot extend the substitution
                     pass
 
-        case _:
+        case _:                                                                                          # pragma: no cover
             # we didn't cover all cases!  bug!  either the outer `match` or the inner one failed
-            assert False, f'BUG: `match_exprs` did not cover all cases for {exprs_patterns}'
-
+            assert False, f'BUG: not all cases covered'                                                  # pragma: no cover
+        
 def expr_without_boolean_var(expr: Expr, kb: KnowledgeBase) -> bool:
     # check whether `expr` is a final expression, i.e., it does not contain any boolean variables
     match expr:
@@ -2602,26 +2603,21 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
         
         # still at least one to go
         case [expr, *tail]:
-            # deep copy of `expr` is necessary, since `match_all_theory` will be called several times with the same `exprs` in `impl_elim`
-            # and we have to apply the various substitutions to it, which might change from call to call
-            expr_local = deepcopy_expr(expr)
-            expr_local = apply_subst(expr_local, subst, kb)
-            expr_local = trigger_sub(expr_local, kb)   # trigger the `sub` operator, i.e., replace `sub $x $a $x=0` with `$x=$a`
-            # debug(f'  expr_local: {expr_str(expr_local, kb)}')
             # iterate over all formulas of the theory
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that create a match
-                for subst_cand in match_exprs([(candidate.simplified_expr, expr_local)], subst, kb):
+                # IMPORTANT: match the candidate to the expression (not vice versa)
+                for subst_cand in match_exprs([(candidate.simplified_expr, expr)], subst, kb):
                     # try to match the rest of the expressions (the `tail`)
                     # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
-                    subst_cand_cand, found_tail = match_all_theory(tail, subst_cand, kb)
-                    if subst_cand_cand is not None:
-                        return subst_cand_cand, [candidate, *found_tail]   # match was found!  BINGO!
+                    subst_cand, found_tail = match_all_theory(tail, subst_cand, kb)
+                    if subst_cand is not None:
+                        return subst_cand, [candidate, *found_tail]   # match was found!  BINGO!
             # no match so far, however, possibly `expr` is a conjunction that we can split into pieces
-            match expr_local:
-                # e.g., (A and B) implies C, then `exprs_local = [A, B]`
-                case [Token(label='SYMBOL', value=v), *exprs_local] if v == AND_SYMBOL:
-                    return match_all_theory(exprs_local + tail, subst, kb)  # try to match the conjunction
+            match expr:
+                # e.g., (A and B) implies C, then `expr = ['and', A, B]`
+                case [Token(label='SYMBOL', value=v), *exprs] if v == AND_SYMBOL:
+                    return match_all_theory(exprs + tail, subst, kb)  # try to match the conjunction
             # still no match, so we return `None` and an empty list
             return None, []       # could not find a match among the candidate `patterns`
 
@@ -2642,25 +2638,29 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
 
     # assign `conclusion` and `premises`
     premise: Expr|None = None
-    if is_implication(formula_expr):      # we have an implication with a premise
+    if is_implication(formula_expr):      # case 1: implication with a premise
         assert isinstance(formula_expr, list)
         conclusion: Expr = formula_expr[2]
         premise          = formula_expr[1]
-    else:   # "implication" with an empty premise (think of `true implies $A`)
+
+    else:                                 # case 2: "implication" with an empty premise (think of `true implies $A`)
         conclusion = formula_expr
 
     # to match `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
-    subst_cand: Subst|None = None
-    for subst_local in match_exprs([(expr, conclusion)], {}, kb):
-        # search for the premise, i.e., match the theory against the `premise`
-        if premise is None:
-            subst_cand = subst_local
-        else:
-            subst_cand, matched_formulas = match_all_theory([premise], subst_local, kb)
-        if subst_cand is not None:
+    for subst in match_exprs([(expr, conclusion)], {}, kb):
+        if premise is not None:
+            # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
+            # and we have to apply the various substitutions to it, which might change from call to call
+            premise_local = deepcopy_expr(premise)
+            premise_local = apply_subst(premise_local, subst, kb)
+            premise_local = trigger_sub(premise_local, kb)   # trigger the `sub` operator, i.e., replace `sub $x $a $x=0` with `$x=$a`
+
+            # search for the premise as well, i.e., match the theory against the `premise`
+            subst, matched_formulas = match_all_theory([premise_local], subst, kb)
+        if subst is not None:
             debug('bingo!')
             break           # bingo!  we found one
-    if subst_cand is None:
+    else:
         debug('failed')
         return ''     # no luck this time
 
@@ -2870,7 +2870,7 @@ def main() -> None:
     # debug flag?
     global debug_flag
     debug_flag = args.debug
-    ##debug_flag = not debug_flag    # swap the debug flag for "run and debug"
+    debug_flag = not debug_flag    # swap the debug flag for "run and debug"
 
     # readline history
     if readline:

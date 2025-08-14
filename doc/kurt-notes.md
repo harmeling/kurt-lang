@@ -1720,4 +1720,3 @@ problems:
 
 - working on simple-test.kurt
   - problem is most likely, that the substitutions for expr or pattern are not properly applied
-  
