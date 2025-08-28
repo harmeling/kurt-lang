@@ -96,7 +96,8 @@ from __future__ import annotations
 # TODO add syntactic sugar for case distinctions
 
 ## all external libraries (let's keep the dependencies minimal)
-import sys          # sys.stdin, sys.stderr
+import sys
+from unittest import case          # sys.stdin, sys.stderr
 if sys.version_info < (3, 10):
     print("Python 3.10 or newer is required, since we are using Python's `match`!  Sorry about that!", file=sys.stderr)
     exit(0)
@@ -1777,7 +1778,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             reason = f'{line} open local scope with new constant and assumption'
             log(f'{keyword} {", ".join([expr_str(expr, kb) for expr in args[1:]])}', reason, kb.level-1)  # log the new constant
     elif keyword == 'take':
-        msg = 'EvalError: `take` takes a single (or a comma-separated list of) equation with a new constant on the left-hand-side'
+        msg = 'EvalError: `take` takes a single equation (or a comma-separated list of equations) with a new constant (constants) on the left-hand-side of the equation'
         if len(args) == 0:
             raise KurtException(msg)
         elif len(args) > 1 and not is_comma_separated_list(args):
@@ -2238,7 +2239,11 @@ def new_bool_var_name() -> str:
 #   which doesn't work, since in `%A` there is not a `$z` at the correct position
 # * however, renaming bound variables globally (for the whole formula) is fine, since it enables requirement (1) in `generate_all_combinations`
 #   so the renaming of bound variables makes also "exists-elim" possible
-def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase, bound_vars: set[str] = set()) -> tuple[Expr, Subst]:
+def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase, bound_vars: set[str]|None = None) -> tuple[Expr, Subst]:
+    # initialize the bound_vars if not given (don't put `set()` as the default value into the signature, since it is only called once and then modified, THIS LEADS TO A VERY SUBTLE BUG)
+    if bound_vars is None:
+        bound_vars = set()
+
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
@@ -2259,19 +2264,31 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase, bound_vars: set
         case Token():
             return expr, subst
 
-        # recursively replace the children
-        case [*children] if len(children) > 0:
-            # collect the bound_vars
-            match children:
-                case [Token(label='SYMBOL', value=bind_op), Token(label='SYMBOL', value=bind_var), *rest] if isinstance(bind_op, str) and kb.is_bindop(bind_op):
-                    assert isinstance(bind_var, str)
-                    bound_vars.add(bind_var)
-            # recurse
-            new_expr = []
+        # SPECIFIC binder form: [bind_op, bind_var, *rest]
+        case [Token(label='SYMBOL', value=bind_op),
+              Token(label='SYMBOL', value=bind_var), *rest] \
+              if isinstance(bind_op, str) and kb.is_bindop(bind_op) and isinstance(bind_var, str):
+            
+            # operator and bound variable are processed with current scope
+            head1, subst = rename_all_vars(expr[0], subst, kb, bound_vars)
+            head2, subst = rename_all_vars(expr[1], subst, kb, bound_vars)
+
+            # body gets new scope including the bound variable
+            new_bound_vars = bound_vars | {bind_var}
+            new_rest = []
+            for child in rest:
+                new_child, subst = rename_all_vars(child, subst, kb, new_bound_vars)
+                new_rest.append(new_child)
+
+            return [head1, head2, *new_rest], subst
+
+        # GENERIC list: no binder detected here
+        case [*children] if children:
+            new_children = []
             for child in children:
                 new_child, subst = rename_all_vars(child, subst, kb, bound_vars)
-                new_expr.append(new_child)
-            return new_expr, subst
+                new_children.append(new_child)
+            return new_children, subst
 
     assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `rename_all_vars`'
 

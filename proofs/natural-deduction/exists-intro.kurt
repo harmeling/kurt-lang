@@ -4,7 +4,7 @@ load "equality"
 load "first-order"
 
 bool  prime
-arity prime 1        ; expects one argument
+arity prime 1        ; `prime` expects exactly one argument
 
 use prime 2
 
