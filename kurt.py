@@ -1419,7 +1419,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         raise KurtException(f'ProofError: no formula has been proven, `qed` can only be used after a successful proof')
     proven_expr  = kb.theory[-1].expr          # what actually has been proven
     reason = ''
-    optional_subst = _first_or_none(match_exprs([(planned_expr, proven_expr)], {}, kb))
+    optional_subst = _first_or_none(_implies(proven_expr, planned_expr, kb))
     if optional_subst is None:
         raise KurtException(f'ProofError: planned formula "{expr_str(planned_expr, kb)}" does not match the last formula in the theory "{expr_str(proven_expr, kb)}"')
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -1463,7 +1463,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         match args:
             case [Token(label='STRING', value=fname)]:
                 assert isinstance(fname, str)
-                kb = load_file(fname, kb, path=local_path, mainstream=False)[0]
+                kb = load_file(fname, kb, path=local_path, mainstream=False)
             case _:
                 raise KurtException(f'ParseError: "{keyword}" takes a string for the filename', keyword_token.column)
     elif keyword == 'parse':
@@ -1742,13 +1742,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         msg = 'EvalError: `fix` takes a single new constant or a comma-separated list of constants'
         if len(args) == 0:
             raise KurtException(msg)
-        elif len(args) > 1 and not is_comma_separated_list(args):
-            raise KurtException(msg)
+        elif len(args) > 1:
+            if not is_comma_separated_list(args):
+                raise KurtException(msg)
+            args = args[1:]
         new_consts: list[str] = []
         new_level = True
-        if not is_op_expr(args, COMMA_SYMBOL):
-            raise KurtException(f'SyntaxError: `fix` requires a single symbol or a comma-separated list of symbols, got {args}')
-        for expr in args[1:]:  # args are an expression with ','-operator
+        for expr in args:  # args are an expression with ','-operator
             match expr:
                 case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
                     kb = eval_fix(kb, new_const, line, mainstream, new_level) # only open a new block in the first iteration)
@@ -2477,7 +2477,7 @@ def match_exprs(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: Knowl
             # matches `expr` against `pattern` and extends `subst` (which replaces stuff in `pattern`)
             match pattern:
                 # variable matching
-                case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
+                case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v) or v in subst):
                     if equal_expr(pattern, expr):
                         # don't extend `subst`, if the variable names are the same
                         yield from match_exprs(tail, subst, kb)
@@ -2593,13 +2593,13 @@ def trigger_sub(expr: Expr, kb: KnowledgeBase) -> Expr:
             return expr      # no sub operator, so we return the original expression
 
 # match the theory against a a list of expressions (not the other way around) and grow the substitution
-def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tuple[Subst | None, list[Formula]]:
-    debug(f'exprs: [{", ".join([expr_str(e, kb) for e in exprs])}], subst={subst}')
+def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[Formula]]:
+    debug(f'exprs: [{", ".join([expr_str(e, kb) for e in exprs])}]')
     match exprs:
 
         # we matched all `exprs`, done!
         case []:
-            return subst, []
+            return True, []
         
         # still at least one to go
         case [expr, *tail]:
@@ -2607,22 +2607,31 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that create a match
                 # IMPORTANT: match the candidate to the expression (not vice versa)
-                for subst_cand in match_exprs([(candidate.simplified_expr, expr)], subst, kb):
-                    # try to match the rest of the expressions (the `tail`)
-                    # (no deepcopy necessary, since in the next iteration `subst_cand` is overwritten)
-                    subst_cand, found_tail = match_all_theory(tail, subst_cand, kb)
-                    if subst_cand is not None:
-                        return subst_cand, [candidate, *found_tail]   # match was found!  BINGO!
+                for subst in match_exprs([(candidate.simplified_expr, expr)], {}, kb):
+                    # try to match the rest of the expressions (the `tail`), but first apply the subst
+                    tail_local = [_transform(e, subst, kb) for e in tail]
+                    success, found_formulas = match_all_theory(tail_local, kb)
+                    if success:
+                        return True, [candidate, *found_formulas]   # match was found!  BINGO!
             # no match so far, however, possibly `expr` is a conjunction that we can split into pieces
             match expr:
                 # e.g., (A and B) implies C, then `expr = ['and', A, B]`
                 case [Token(label='SYMBOL', value=v), *exprs] if v == AND_SYMBOL:
-                    return match_all_theory(exprs + tail, subst, kb)  # try to match the conjunction
+                    # the only place where we might call `match_all_theory` with a list longer than one
+                    return match_all_theory(exprs + tail, kb)  # try to match the conjunction
             # still no match, so we return `None` and an empty list
-            return None, []       # could not find a match among the candidate `patterns`
+            return False, []       # could not find a match among the candidate `patterns`
 
     # we calling `match_all_theory` wrongly, bug!
     assert False, f'BUG: `match_all_theory` did not cover all cases for {exprs}'
+
+# _implies
+# checks whether `proven_expr` implies `new_expr`
+# we assume that there are no outer universal quantifier
+# if the implication is true, then `Subst` constrains the `premise` and puts requirements, 
+# a free variable in `premise` could be assigned to a constant or another free variable in `conclusion`
+def _implies(proven_expr: Expr, new_expr: Expr, kb) -> Iterator[Subst]:
+    yield from match_exprs([(new_expr, proven_expr)], {}, kb)
 
 # what is happening:
 # 0. deep copy `proven_formula` and rename all its variables (happens already in the construction of it)
@@ -2631,7 +2640,7 @@ def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tupl
 # 3. match theory against the `premises` (not the other way around)
 def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
 
-    debug(f'impl_elim: {expr_str(expr, kb)} against {expr_str(proven_formula.expr, kb)}')
+    debug(f'{expr_str(expr, kb)} against {expr_str(proven_formula.expr, kb)}')
 
     # continue with the renamed and simplified variant of `proven_formula` that is generated during the construction of it
     formula_expr: Expr = proven_formula.simplified_expr
@@ -2647,8 +2656,11 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         conclusion = formula_expr
 
     # to match `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
-    for subst in match_exprs([(expr, conclusion)], {}, kb):
-        if premise is not None:
+    for subst in _implies(conclusion, expr, kb):
+        if premise is None:
+            debug('bingo!')
+            break           # bingo!  we found one
+        else:
             # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
             # and we have to apply the various substitutions to it, which might change from call to call
             premise_local = deepcopy_expr(premise)
@@ -2656,10 +2668,10 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
             premise_local = trigger_sub(premise_local, kb)   # trigger the `sub` operator, i.e., replace `sub $x $a $x=0` with `$x=$a`
 
             # search for the premise as well, i.e., match the theory against the `premise`
-            subst, matched_formulas = match_all_theory([premise_local], subst, kb)
-        if subst is not None:
-            debug('bingo!')
-            break           # bingo!  we found one
+            success, matched_formulas = match_all_theory([premise_local], kb)
+            if success:
+                debug('bingo!')
+                break           # bingo!  we found one
     else:
         debug('failed')
         return ''     # no luck this time
@@ -2718,36 +2730,35 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
     kb   = eval_expression(keyword_token, expr, label, kb, line, filename, mainstream) # evaluation
     return kb
 
-def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> tuple[KnowledgeBase, bool]:
+def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:
     # files are always loaded into level
     level = kb.level       # save current level
     if not filename.endswith('.kurt'):
         filename += '.kurt'
-    try:
+    try:    # just for handling OS errors
         fname = find_file(filename, path)    # search along the path
-        if fname is None:
+        if len(fname) == 0:
             raise OSError
         load_level = kb.get_load_level(fname)
         if load_level is not None:
             raise KurtException(f'EvalError: can not load library "{fname}" twice, it has already been loaded on level {load_level}')
         with open(fname, encoding='utf-8') as f:
-            kb, success = read_eval_loop(f, kb, markdown, mainstream=mainstream)
+            kb = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open "{filename}" searching at {path}') from None
     
-    if success:
-        # checks after closing the file
-        if kb.level != level:
-            kb.level = level       # set levels back before raising the exception
-            raise KurtException(f'\nEvalError: inside "{fname}" not all blocks closed, missing "qed"?')
-        if len(kb.show) != 0:
-            s = '\nNot shown:\n'
-            for f in kb.show:
-                s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
-            raise KurtException(f'{s}\n\nEvalError: inside "{fname}" not all promised formulas were proved.')
-        kb.libs.append(fname)
-    return kb, success
+    # checks after closing the file
+    if kb.level != level:
+        kb.level = level       # set levels back before raising the exception
+        raise KurtException(f'\nEvalError: inside "{fname}" not all blocks closed, missing "qed"?')
+    if len(kb.show) != 0:
+        s = '\nNot shown:\n'
+        for f in kb.show:
+            s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
+        raise KurtException(f'{s}\n\nEvalError: inside "{fname}" not all promised formulas were proven.')
+    kb.libs.append(fname)
+    return kb
 
 ###########################
 ## commandline interface ##
@@ -2761,15 +2772,13 @@ def prompt(level: int, line: int, continued: bool=False) -> str:
         s += f'!!![{line}] '                        # the bangs mean "show!"
     return s
 
-def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False):
-    success   = True
+def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False) -> KnowledgeBase:
     is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
     line       = 1
     continued  = False
     input_line = ''
-    if not is_file:
-        if readline:
-            readline.parse_and_bind("tab: complete")    # enable tab completion
+    if not is_file and readline:
+        readline.parse_and_bind("tab: complete")    # enable tab completion
     while True:
         try:
             if not is_file:
@@ -2809,23 +2818,23 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                     msg += f'    {" " * e.column + "^"}\n'
                     e.msg = msg + e.msg
                 if is_file:
-                    raise e                        # reraise the error
+                    raise e    # reraise the error, since we were called by `load_file`
                 else:
-                    print(e.msg, file=sys.stderr)  # go on
+                    print(e.msg, file=sys.stderr)  # show the error and go on
             input_line = ''  # Reset input
             continued = False
             line += 1
         except EOFError:
             print("\nBye!", file=sys.stdout)      # this only happens when Ctrl-d is pressed in the interactive session
             break
-    return kb, success
+    return kb
 
-def find_file(fname: str, path: list[str]) -> str | None:
+def find_file(fname: str, path: list[str]) -> str:
     for p in path:
         cand = os.path.join(p, fname)
         if os.path.isfile(cand):
             return cand
-    return None
+    return ''   # empty string
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=f'a simple proof assistant ({made_by})')
@@ -2857,8 +2866,8 @@ def run_tests() -> None:
     print('Status:   ' + ('✅ Passed' if result.wasSuccessful() else '❌ Failed'))
 
 def main() -> None:
-    args = parse_args()
     print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
+    args = parse_args()
 
     # run tests?
     if args.test:
@@ -2870,7 +2879,7 @@ def main() -> None:
     # debug flag?
     global debug_flag
     debug_flag = args.debug
-    debug_flag = not debug_flag    # swap the debug flag for "run and debug"
+#    debug_flag = not debug_flag    # swap the debug flag for "run and debug"
 
     # readline history
     if readline:
@@ -2895,14 +2904,14 @@ def main() -> None:
     try:
         # by default load `default_theory` or nothing
         theory_filename = find_file(default_theory, theory_path)
-        if theory_filename is not None:
-            kb: KnowledgeBase = load_file(theory_filename, kb, mainstream=False)[0]
+        if len(theory_filename) > 0:
+            kb: KnowledgeBase = load_file(theory_filename, kb, mainstream=False)
 
         # if there is a filename run the file
         if args.filename is not None:
             mainstream = not args.interactive
-            kb, success = load_file(args.filename, kb, mainstream=mainstream)
-            if success and mainstream:
+            kb = load_file(args.filename, kb, mainstream=mainstream)
+            if mainstream:
                 log('Proof checked.', '', kb.level)
         else:
             args.interactive = True
@@ -2910,9 +2919,9 @@ def main() -> None:
     except KurtException as e:
         print(e.msg, file=sys.stderr)
 
-    # read-eval-print loop
+    # read-eval-print loop with exception handling
     if args.interactive:
-        kb : KnowledgeBase = read_eval_loop(sys.stdin, kb, mainstream=True)[0]
+        kb = read_eval_loop(sys.stdin, kb, mainstream=True)
     exit(0)
 
 if __name__ == '__main__':

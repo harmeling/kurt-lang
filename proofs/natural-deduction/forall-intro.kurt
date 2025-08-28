@@ -16,12 +16,12 @@ proof
     thus ∀ x (A x ∧ B x)
 qed
 
-show ∀ $x (A $x or C $x)
+show ∀ $x (A $x ∨ C $x)
 proof
     fix x
         A x
-        A x or C x
-    thus ∀ $x (A $x or C $x)
+        A x ∨ C x
+    thus ∀ $x (A $x ∨ C $x)
 qed
 
 use ∀ $x (D $x ⇒ E $x)

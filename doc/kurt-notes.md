@@ -1716,7 +1716,104 @@ problems:
   - B(101) must be matched against a conclusion
   - then match the theory against the premises (not the other way around)
 
-# 2025-08-13
+# 2025-08-14
 
-- working on simple-test.kurt
-  - problem is most likely, that the substitutions for expr or pattern are not properly applied
+        use A($a, $b, $c, 42)
+        use A(17, $b, $d, $e) implies B($b)
+        B(101)
+
+- the difficulty is that quantified variables behave differently than non-quantified variables
+
+- let's start with restatements
+
+        var x
+
+        use A 17
+        A x        ; is not implied by `A 17`
+
+        use B 17
+        B 17       ; is implied by `B 17`
+
+        use C x
+        C 17       ; is implied by `C x`, with `{'x':17}`
+
+        use D x
+        D y        ; is implied by `D x`
+
+- modus ponens
+
+        use A
+        use A implies B
+        B
+
+    find implication such that:
+    (1) conclusion implies `B` (possibly creating `subst`, if `B` contains constant))
+    (2) there is a true formula that implies substituted premise
+
+- next let's add free variables
+
+        var x, y, z
+        use A x                   ; implicitly universally quantified
+        use A y implies B y       ; also universally quantified
+        B z                       ; also universally quantified
+
+    `B y` implies `B z`
+    `A x` implies `A y`
+
+- next let's add free variables and a constant
+
+        var x
+        use A x                   ; implicitly universally quantified
+        use A x implies B 17      ; also universally quantified
+        B x                       ; `B 17` doesn't imply `B x`
+
+        var x, y
+        use A x                   ; implicitly universally quantified
+        use A y implies B y       ; also universally quantified
+        B 17                      ; with constant
+
+    `B y` implies `B 17` with `subst={'y': 17}`
+    `use A x` implies `A y [subst]`
+
+        var x, y
+        use A 17                  ; implicitly universally quantified
+        use A x implies B x       ; also universally quantified
+        B y                       ; doesn't match against `B 17` since `x` is free
+
+    `B x` implies `B y` with `subst={'x':'y'}`
+    `A 17` does not implies `A x [subst]`
+
+        var x, y, z
+        use A x 42
+        use A y z implies B y
+        B y
+
+    `B y` implies `B y` with `subst={'y':'y'}`
+    `A y z` is implied by `A x 42` for the special case {'z':42} [extend the substitution]
+
+- variables appearing in the substitution are not free anymore
+
+- formulas with outer universal quantification can be simplified by removing the quantifier and ensuring free variables
+
+# 2025-08-15
+
+- free variables are universally quantified, i.e.
+
+        var x, y, z
+        use A x
+        use A y ⇒ B z
+        B z
+
+    actually means:
+
+        use ∀ x A x
+        use ∀ y (A y ⇒ B y)
+        ∀ B z
+
+    this should work since:
+
+        ∀x (A x ⇒ B x) ⇒ (∀x A x ⇒ ∀x B x)
+    
+- what about other rules?
+
+        ∀x ∀y (A x ⇒ B y) ⇒ (∀x A x ⇒ ∀y B y)
