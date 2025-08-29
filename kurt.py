@@ -19,21 +19,24 @@ from __future__ import annotations
 ## link to a good explanation of the natural deduction system
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
+### NEXT
+# TODO eval_thus, replace exists_intro with exists_elim
+# TODO group.kurt
+
 ### TOPICS before releasing 1.0
-# TODO when calling 'bool a', check that 'a' hasn't been used already (e.g. right after a 'fix a'
+# TODO do calculations with integers and reals
+# TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?
+# TODO when calling 'bool a', check that 'a' hasn't been used already (e.g. right after a 'fix a')
 # TODO define what get's exported when loading a file, make variables declarations local?
 # TODO get coverage of 100% in the unit tests
-# TODO check the conditions for forall and exist rules
+# TODO test the conditions for forall and exist rules
 # TODO get group.kurt working with constants and with `var x, y, z`
-# TODO implement `fixbool`
-# TODO 'thus' with one step shorter
+# TODO 'thus' with one step shorter, for `qed` we use match`, for `thus` we use equal (otherwise matching the correct variables is difficult)
 # TODO allow implicit universal quantification, i.e., all variables $x are automatically universally quantified
 # TODO allow implicit universal quantification for boolean variables
 # TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 # TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
-# TODO handle "automatic" universal quantification, i.e., automatically remove it and/or introduce it
 # TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
-# TODO add `by`
 # TODO implement chains
 # TODO `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
 # TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
@@ -1434,18 +1437,22 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         #log(f.formula_str(kb), reason, kb.level)
     return kb
 
-def eval_fix(kb: KnowledgeBase, new_const: str, line: int, mainstream: bool, new_level: bool=True):
+def eval_fix(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, new_level: bool=True) -> KnowledgeBase:
+    with_condition = isinstance(expr, list) and bool_expr(expr, kb)
+    if with_condition:
+        new_const = extract_one_new_const(expr, kb)  # extract exactly one new constant from the expression
+    else:
+        match expr:
+            case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
+                pass
+            case _:
+                raise KurtException(f'EvalError: expression must be new constant or boolean condition with new constant, got "{expr_str(expr, kb)}"')
+    assert isinstance(new_const, str)
     if new_level:
         kb = eval_consider(kb, line, mainstream=False)  # open a new block
     kb.add_const(new_const)          # add the new constant to the knowledgebase
-    return kb
-
-def eval_let(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, new_level: bool=True) -> KnowledgeBase:
-    if not bool_expr(expr, kb):
-        raise KurtException(f'EvalError: expression must evaluate to boolean, got "{expr_str(expr, kb)}"')
-    new_const = extract_one_new_const(expr, kb)  # extract exactly one new constant from the expression
-    kb = eval_fix(kb, new_const, line, mainstream, new_level)
-    kb = eval_use(kb, expr, label, filename, line, mainstream)  # use the expression as an assumption
+    if with_condition:
+        kb = eval_use(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
     return kb
 
 def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
@@ -1684,7 +1691,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                     subst_str += 'with ' 
                     subst_str += ', '.join([f'{subst_back[var]}={expr_str(subst_cand[var], kb)}' for var in subst_cand])
                     log(expr_str(candidate.expr, kb), subst_str, kb.level)
-    elif keyword == "implications":
+    elif keyword == 'implications':
         if len(args) > 0:
             msg = create_usage(keyword, [[]])
             raise KurtException(f'EvalError: {keyword} does not take any arguments', keyword_token.column)
@@ -1740,65 +1747,21 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
             kb = eval_def(kb, args, label, filename, line, mainstream)  # use the expression as a definition
     elif keyword == 'fix':
-        msg = 'EvalError: `fix` takes a single new constant or a comma-separated list of constants'
+        msg = 'EvalError: `fix` takes new constants or boolean expressions'
         if len(args) == 0:
             raise KurtException(msg)
-        elif len(args) > 1:
-            if not is_comma_separated_list(args):
-                raise KurtException(msg)
-            args = args[1:]
-        new_consts: list[str] = []
+        if is_comma_separated_list(args):
+            args = args[1:]    # remove the comma operator
+
+        # add the new constants and their constraints (if boolean expressions are given)
         new_level = True
-        for expr in args:  # args are an expression with ','-operator
-            match expr:
-                case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
-                    kb = eval_fix(kb, new_const, line, mainstream, new_level) # only open a new block in the first iteration)
-                    new_consts.append(new_const)
-                    new_level = False  # keep the level for the next iteration
-                case _:
-                    raise KurtException(msg)
+        for expr in args:  # args is a list of expressions
+            kb = eval_fix(kb, expr, keyword, filename, line, mainstream, new_level) # only open a new block in the first iteration)
+            new_level = False  # keep the level for the next iteration
         if mainstream:
-            reason = f'{line} open local scope with new constant or new constants'
-            log(f'{keyword} {", ".join(new_consts)}', reason, kb.level-1)  # log the new constants
-    elif keyword == 'let':
-        msg = 'EvalError: `let` takes a single boolean expression with a new constant or a comma-separated list of boolean expressions with new constants'
-        if len(args) == 0:
-            raise KurtException(msg)
-        elif len(args) > 1 and not is_comma_separated_list(args):
-            raise KurtException(msg)
-        new_level = True
-        for expr in args[1:]:
-            match expr:
-                case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
-                    kb = eval_let(kb, expr, label, filename, line, mainstream=False, new_level=new_level)  # use the expression as an assumption
-                    new_level = False  # keep the level for the next iteration
-                case _:
-                    raise KurtException(msg)
-        if mainstream:
-            reason = f'{line} open local scope with new constant and assumption'
-            log(f'{keyword} {", ".join([expr_str(expr, kb) for expr in args[1:]])}', reason, kb.level-1)  # log the new constant
-    elif keyword == 'take':
-        msg = 'EvalError: `take` takes a single equation (or a comma-separated list of equations) with a new constant (constants) on the left-hand-side of the equation'
-        if len(args) == 0:
-            raise KurtException(msg)
-        elif len(args) > 1 and not is_comma_separated_list(args):
-            raise KurtException(msg)
-        new_level = True
-        for expr in args[1:]:
-            match expr:
-                case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
-                    match expr:
-                        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=c), RHS] if isinstance(op, str) and op==COMMA_SYMBOL and isinstance(c, str) and not kb.is_const(c):
-                            pass
-                        case _:
-                            raise KurtException(msg)
-                    kb = eval_let(kb, expr, label, filename, line, mainstream=False, new_level=new_level)  # use the expression as an assumption
-                    new_level = False  # keep the level for the next iteration
-                case _:
-                    raise KurtException(msg)
-        if mainstream:
-            reason = f'{line} open local scope with new constant and assumption'
-            log(f'{keyword} {", ".join([expr_str(expr, kb) for expr in args[1:]])}', reason, kb.level-1)  # log the new constant
+            reason = f'{line} open local scope with (possibly constrained) new constants'
+            args_str = [expr_str(expr, kb) for expr in args]
+            log(f'{keyword} {", ".join(args_str)}', reason, kb.level-1)  # log the new constants
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
 
@@ -2035,19 +1998,6 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
         raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(last_expr, kb)}')
     return f'by "forall-intro" (derived from last local scope)'
 
-# "exists-intro" without condition
-#
-#       take ε=0          ; or use `let` or `fix`
-#         bla bla
-#         F(ε)
-#       thus ∃ε F(ε)      ; exists-intro
-# which is short for
-#       consider
-#         const ε         ; on this level now `ε` is constant
-#         use ε=0         ; this is the only assumption allowed
-#         bla bla
-#         F(ε)
-#       thus ∃ε F(ε)      ; exists-intro
 
 def exists_intro(expr: Expr, kb: KnowledgeBase) -> str:
     debug(f'exists_intro: {expr_str(expr, kb)}')
@@ -2823,7 +2773,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                 continue
             except KurtException as e:
                 if e.column is None:
-                    e.column = 0      # put the marker `^` at the beginning of the line
+                    e.column = proof_indent * kb.level      # put the marker `^` at the beginning of the expression
                 if e.filename is None:
                     e.filename = input_stream.name
                     e.line     = line

@@ -5,7 +5,7 @@ load "equality"
 infix  +  60 60           ; binary plus
 prefix -     80           ; unary minus
 
-freevar x, y, z
+var x, y, z
 
 ; group axioms
 ; (implicitly universally quantified over x, y, z)
@@ -18,7 +18,6 @@ show x + -x = 0                     "G4" ; right inverse
 proof
     fix x
         -(x + -x) + (x + -x)              = 0   ; by G3
-        false
         -(x + -x) + (x + (0 + -x))        = 0   ; by G2
         -(x + -x) + (x + ((-x + x) + -x)) = 0   ; by G3
         -(x + -x) + ((x + (-x + x)) + -x) = 0   ; by G1

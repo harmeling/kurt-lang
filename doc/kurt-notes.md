@@ -1408,19 +1408,22 @@ gets
 
     fix x
         bla
-    thus F(x)
+        F(x)
+    thus forall x F(x)
 
 gets
 
     consider
         const x
         bla
+        F(x)
     thus forall x F(x)
 
 ## `take`
 
     take x = 0
         bla
+        F(x)
     thus exists x F(x)
 
 gets
@@ -1817,3 +1820,89 @@ problems:
 - what about other rules?
 
         ∀x ∀y (A x ⇒ B y) ⇒ (∀x A x ⇒ ∀y B y)
+
+
+# 2025-08-28 what rules open a new block?
+
+- rules that require a block
+
+        assume A             ; short for `consider\\ use A`
+            bla
+            B
+        thus A implies B     ; impl-intro
+
+        assume A             ; short for `consider\\ use A`
+            bla
+            bottom
+        thus not A           ; not-intro
+
+        fix x>0              ; short for `consider\\ const x\\ use x>0`
+            bla
+            F(x)
+        thus forall x>0 F(x) ; forall-intro, ensure there are no further assumptions but `x>0`
+
+        exists y G(y)        ; short for `consider\\ const y\\ G(y)`
+        pick y with G(y)
+            bla
+            B
+        thus B               ; exists-elim, ensure there are no assumptions and `B` doesn't contain local constants
+
+- rules that do not require a block
+
+        A
+        B
+        A and B              ; and-intro
+
+        C and D
+        C                    ; and-elim
+
+        C
+        C or D               ; or-intro
+
+        E or F
+        E implies G
+        F implies G
+        G                    ; or-elim
+
+        A
+        A implies B
+        B                    ; impl-elim
+
+        forall x A(x)
+        A(t)                 ; forall-elim
+
+        def x = 17
+        F(x)
+        exists x F(x)        ; exists-intro
+        G(42)
+        exists x G(x)        ; exists-intro
+
+- difference between `use` and `def`
+
+        def x = 17           ; ensure that LHS `x` contains a new constant
+        use x = y            ; assumption on possibly existing symbols
+        var z
+        def f(z) = z*z       ; ensures that `f` is a new constant
+        var x, y
+        def x<=y  iff  x<y or x=y   ; ensures that `<=` is a new constant
+
+    - so for the implementation of `def` we have to check that there is a new constant
+    - also the RHS must be checked that there are no new constants
+
+- which ones do we need?  only `def`, `use`, `fix`, `assume`, `const`
+
+        assume A        ; new block with new axiom
+            bla
+            B
+        thus A implies B
+        def x=17        ; for new constants
+        use x=y         ; new axiom
+        fix x           ; new block with new constant
+            bla
+        thus forall x F(x)
+        fix x>0         ; new block with new constant with condition (`use x>0`)
+            bla
+        thus forall x>0 F(x)
+        const x         ; new constant
+
+- ok, no need for `take`, `let`

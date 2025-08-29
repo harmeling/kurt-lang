@@ -8,19 +8,7 @@ arity prime 1        ; `prime` expects exactly one argument
 
 use prime 2
 
-consider
-    const x
-    use x = 2
-    prime x
-thus ∃ $z prime $z
-
-fix x
-    use x = 2
-    prime x
-thus ∃ $z prime $z
-
-take x = 2
-    prime x
-thus ∃ $z prime $z
-
+def x = 2
+prime x
+∃ $z prime $z
 ;;; Proof checked.
