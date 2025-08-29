@@ -137,7 +137,9 @@ tab_indent     =  4       # tabs get converted to four spaces
 AND_SYMBOL   = 'and'         # conjunction (used for premises and conclusions)
 IMPL_SYMBOL  = 'implies'     # implication 
 SUB_SYMBOL   = 'sub'         # substitution
+NOT_SYMBOL   = 'not'         # negation
 TRUE_SYMBOL  = 'true'        # true
+FALSE_SYMBOL = 'false'       # false
 COMMA_SYMBOL = ','           # listing stuff
 SPACE_SYMBOL = ' '           # function application
 
@@ -928,6 +930,9 @@ def is_op_expr(e: Expr, op: str) -> bool:
 def is_implication(expr: Expr) -> bool:
     return is_op_expr(expr, IMPL_SYMBOL)
 
+def is_not(expr: Expr) -> bool:
+    return is_op_expr(expr, NOT_SYMBOL)
+
 def is_forall(expr: Expr) -> bool:
     return is_op_expr(expr, FORALL_SYMBOL)
 
@@ -1390,15 +1395,32 @@ def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
         case _:
             return False
 
+def contains_current_const_symbols(expr, kb) -> bool:
+    # check whether the expression contains any constant symbols from the current level
+    match expr:
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and s in kb.const:
+            return True
+        case [*children]:
+            return any(contains_current_const_symbols(c, kb) for c in children)
+        case _:
+            return False
+
 def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    if is_exists(expr):
-        reason = exists_intro(expr, kb)       # this might generate a KurtException
+    # `thus` is closing a block opened by `consider`, but also for `forall-intro`, `exists-elim`, `impl-intro`, `not-intro`
+    if is_not(expr):
+        reason = not_intro(expr, kb)
     elif is_forall(expr):
-        reason = forall_intro(expr, kb)       # this might generate a KurtException
+        reason = forall_intro(expr, kb)
     elif is_implication(expr):
-        reason = impl_intro(expr, kb)         # this might generate a KurtException
+        reason = impl_intro(expr, kb)
     else:
-        # actually, `thus` is for `forall`, `exists` and `implies` only, but we allow it for any expression
+        # finally `exists-elim` and also just for just closing a block opened by `consider`
+        # check (i) there are no assumptions, (ii) there are no constant symbols on this level appearing in `expr`
+        unproven_expr = [f.expr for f in kb.theory if f.proven == False]
+        if len(unproven_expr) > 0:   # (i)
+            raise KurtException(f'ProofError: there are assumptions on the current level, `thus` can thus only conclude an implication or an universal quantified formula to close the block, got "{expr_str(unproven_expr[-1], kb)}"')
+        if contains_current_const_symbols(expr, kb):
+            raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of `thus`, got `{expr_str(expr, kb)}`')
         reasons = derive_expr(expr, kb, filename, mainstream)       # this might generate a KurtException
         reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -1928,6 +1950,16 @@ def log(s: str, reason: str, level: int) -> None:
 # 1. check whether the formula to prove matches D
 # 2. search for A and B and C in the theory (with substitution applied)
 
+# "negation-intro"
+#
+# assume A
+#    bla
+#    bottom
+# thus not A    ; neg-intro
+
+def negation_intro(expr: Expr, kb: KnowledgeBase) -> str:
+    return 'not yet'
+
 # "forall-intro" without condition
 #
 #       fix ε           ; or use `let` or `take`
@@ -1940,6 +1972,7 @@ def log(s: str, reason: str, level: int) -> None:
 #         bla bla
 #         F(ε)
 #       thus ∀ε>0 F(ε)    ; checks whether there are 
+# ensure that the current level contains only ε as a new symbol and nothing else (also no assumptions)
 
 def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
 
@@ -1998,46 +2031,35 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
         raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(last_expr, kb)}')
     return f'by "forall-intro" (derived from last local scope)'
 
+def not_intro(expr: Expr, kb: KnowledgeBase) -> str:
 
-def exists_intro(expr: Expr, kb: KnowledgeBase) -> str:
-    debug(f'exists_intro: {expr_str(expr, kb)}')
+    # step 0: ensure we are one level up
+    if kb.level == 0:
+        raise KurtException(f'EvalError: neg-intro requires one level up')
+    assert kb.parent is not None
+    kb_parent: KnowledgeBase = kb.parent
 
-    # step 0: split the expression that should be inferred by exists-intro
-    match expr:
-        case [Token(label='SYMBOL', value=EXISTS_SYMBOL), bound_v_expr, body]:
+    # step 1: dissect the `not` expression
+    assert isinstance(expr, list)      # must be true, since `expr` is a not-expression
+    body = expr[1]
+
+    # step 2: check that `body` was assumed
+    assumptions = [f.expr for f in kb.theory if f.proven == False]  # collect all assumptions on the current level
+    if len(assumptions) == 1:              # assumptions is one formula
+        assumptions = assumptions[0]
+    else:                                  # assumptions is a conjunction
+        assumptions = simplify([Token(label='SYMBOL', value=AND_SYMBOL)] + assumptions, kb)   # bring to normalform
+    if not equal_expr(assumptions, body):
+        raise KurtException(f'EvalError: {expr_str(body, kb)} does not match any assumption on the current level')
+
+    # step 3: `false` must have been derived
+    last_expr = kb.theory[-1].expr
+    match last_expr:
+        case Token(label='SYMBOL', value=FALSE_SYMBOL):
             pass
         case _:
-            raise KurtException(f'SyntaxError: `exists` expression expected, got {expr}')
-    match bound_v_expr:
-        case Token(label='SYMBOL', value=bound_v) if isinstance(bound_v, str):
-            pass
-        # more matching can happen here for formulas like ∃ε>0 F(ε)
-        case _:
-            raise KurtException(f'SyntaxError: bounded variable expected, got {bound_v_expr}')
-
-    # step 1: variable must be new constant on this level
-    if len(kb.const) != 1:
-        raise KurtException(f'EvalError: there must be exactly one new constant on this level, introduced via `fix` or `take` or `let`')
-    the_const = list(kb.const)[0]  # get the only constant on this level
-    subst: Subst = {the_const: bound_v_expr}  # substitute the constant with the bound variable
-
-    # step 2: exactly one equality assumption is required for exists-intro
-    premises = [f.expr for f in kb.theory if f.proven == False]
-    if len(premises) != 1:
-        raise KurtException(f'EvalError: exactly one equality assumption is required for exists-intro')
-    match premises[0]:
-        case [Token(label='SYMBOL', value=EQUAL_SYMBOL), Token(label='SYMBOL', value=v), RHS] if v==the_const:
-            # ok!  the constant was assigned some value `RHS`
-            pass
-        case _:
-            raise KurtException(f'EvalError: the only allowed assumption must be an equality with LHS `the_const`, got {premises[0]}')
-
-    # step 3: statement must be derived with that variable
-    last_f = kb.theory[-1]
-    subst_expr = apply_subst(last_f.expr, subst, kb)  # apply the substitution to the last formula
-    if not equal_expr(subst_expr, body):
-        raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(subst_expr, kb)}')
-    return f'by "exists-intro" (derived from last local scope)'
+            raise KurtException(f'ProofError: could not prove contradiction (aka `false`)\n            instead got        {expr_str(last_expr, kb)}')
+    return f'by "not-intro" (derived from last local scope)'
 
 # this function is called when closing a block (via `qed` or 'thus')
 def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:

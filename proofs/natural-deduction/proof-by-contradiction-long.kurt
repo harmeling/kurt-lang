@@ -1,12 +1,18 @@
 ; example: proof by contradiction
 load "propositional"
-bool  G, H
-use G implies false
-show not G
+bool p, q
+
+; axioms
+use p ⇒ q
+use ¬q
+
+; what to show
+show ¬p
 proof
-    assume G
-        contradiction
-    thus G implies false
-    not G
+    assume p
+        q
+        ⊥
+    thus p ⇒ ⊥    ; with extra step
+    ¬p
 qed
 ;;; Proof checked.

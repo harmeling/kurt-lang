@@ -1,6 +1,6 @@
 ; example: proof by contradiction
 load "propositional"
-bool  p, q
+bool p, q
 
 ; axioms
 use p ⇒ q
@@ -12,7 +12,6 @@ proof
     assume p
         q
         ⊥
-    thus p ⇒ ⊥
-    ¬p
+    thus ¬p
 qed
 ;;; Proof checked.
