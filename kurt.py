@@ -20,10 +20,10 @@ from __future__ import annotations
 # https://leanprover-community.github.io/logic_and_proof/natural_deduction_for_first_order_logic.html
 
 ### NEXT
-# TODO eval_thus, replace exists_intro with exists_elim
 # TODO group.kurt
 
 ### TOPICS before releasing 1.0
+# TODO when `bool` is called check that the symbol is not yet used
 # TODO do calculations with integers and reals
 # TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?
 # TODO when calling 'bool a', check that 'a' hasn't been used already (e.g. right after a 'fix a')
@@ -307,25 +307,25 @@ keywords: dict[str, str] = {
 
     # formulas
     'use':         'use a formula without proof as a axiom',
+    'def':         'define new constant symbol using an equation or equivalence',
 
     'show':        'plan to prove a formula',
     'proof':       'start a proof block to prove the last planned formula',
     'qed':         'end a proof block, to finish the proof of the last planned formula',
 
-    'consider':    'start a block that will be finished with `thus`',
+    'consider':    'start a block that will be finished with `thus`, shouldn\'t be used, instead use `assume`, `fix` and `pick`',
     'thus':        'finish a block that was started with `consider`, and prove the given formula using the previous block',
 
-    'break':       'break the current proof block without proving anything',
+    'break':       'break the current proof block without proving anything, should only be used in the shell',
 
     # syntactic sugar
-    'def':         'define something using an equation or equivalence, syntactic sugar for `use` for these cases',
-    'assume':      'open a block and assume a formula, the block must be finished with `thus`',
-    'fix':         'fix a variable, i.e., assume it to be a constant, but w/o assumption, the block must be finished with `thus`',
-    'let':         'same as `fix` but with assumption, by convention used for forall-intro',
-    'take':        'same as `fix` but with assumption, by convention used for exists-intro',
+    'assume':      'open a block and assume a formula, the block must be finished with `thus`, made for `impl-intro`',
+    'fix':         'fix a new constant, possibly as an assumption, the block must be finished with `thus`, made for `forall-intro`',
+    'pick':        'picks a new constant `with` assumption, made for `exists-elim`'
     }
+helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
-keywords_with_parsing = ['use', 'assume', 'def', 'fix', 'let', 'take', 'fixbool'] + ['show', 'thus']
+keywords_with_parsing = ['use', 'assume', 'def', 'fix'] + ['show', 'thus']
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
@@ -357,7 +357,7 @@ class Formula:
     next_id: int = 0
     def __init__(self, kb: KnowledgeBase, expr:Expr, line:str, filename:str, label:str, reason:str, proven:bool):
         self.expr: Expr            = expr               # expression of the formula
-        self.simplified_expr: Expr = simplify(rename_all_vars(expr, {}, kb)[0], kb)
+        self.simplified_expr: Expr = rename_all_vars(simplify(expr, kb), {}, kb)[0]
         self.line: str             = line               # line of this formula, string since we also want '16a', etc
         self.filename: str         = filename           # file of this formula
         self.label: str            = label              # basically, a name of the formula, e.g., "impl-intro"
@@ -789,7 +789,7 @@ class KnowledgeBase:
 
     def all_theory_expressions(self) -> Iterator[Expr]:
         for f in self.all_theory():
-            yield f.expr
+            yield f.simplified_expr
 
     def theory_str(self, op:str|None=None) -> str:
         s: str = self.parent.theory_str(op) if self.parent is not None else ''
@@ -999,7 +999,7 @@ def simplify(expr: Expr, kb: KnowledgeBase) -> Expr:
 
 # special tokens that are made for the parser and sometimes artificially generated
 space_token: Token = Token('SYMBOL', SPACE_SYMBOL)  # for expressions like 'f x'
-end_token:   Token = Token('END', '$$$')               # for the end of a string
+end_token:   Token = Token('END', '$$$')            # for the end of a string
 
 # extract all special symbols from the replacement values
 SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(REPLACEMENTS.values()))))
@@ -1205,7 +1205,7 @@ def remove_round_brackets(expr: Expr) -> Expr:
 
 def check_no_keyword(expr: Expr) -> None:
     match expr:
-        case Token(label='SYMBOL', value=v) if v in keywords:
+        case Token(label='SYMBOL', value=v) if v in keywords or v in helper_keywords:
             raise KurtException(f'SyntaxError: keywords not allowed inside expressions', expr.column)
         case [*_]:
             for e in expr:
@@ -1235,10 +1235,12 @@ def check_expr_label(expr: Expr, kb) -> tuple[Expr, str]:            # check [ex
     return tail, label
 
 def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
-    expr = flatten_op(SPACE_SYMBOL, expr)                        # flatten all space operators
-    expr = process_arity(expr, kb)                               # turns space operators into function calls according to arities
-    expr = remove_round_brackets(expr)                           # remove round brackets for grouping
-    expr, label = check_expr_label(expr, kb)         # check and split `expr` and `label`
+    expr = flatten_op(SPACE_SYMBOL, expr)               # flatten all space operators
+    expr = process_arity(expr, kb)                      # turns space operators into function calls according to arities
+    expr = remove_round_brackets(expr)                  # remove round brackets for grouping
+    expr, label = check_expr_label(expr, kb)       # check and split `expr` and `label`
+    expr = simplify(expr, kb)                           # simplify the expression, basically flattening
+
     return expr, label
 
 def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, Expr, str]:
@@ -1258,7 +1260,6 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
         expr: Expr
         expr        = parse_expression(ts, kb, begin_rbp)     # parse expression
         expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
-        expr        = simplify(expr, kb)                      # simplify the expression, basically flattening
         if keyword == 'thus':
             # type check with the parent
             if kb.parent is None:
@@ -1459,7 +1460,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         #log(f.formula_str(kb), reason, kb.level)
     return kb
 
-def eval_fix(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, new_level: bool=True) -> KnowledgeBase:
+def eval_fix(kb: KnowledgeBase, expr: Expr, filename: str, line: int, mainstream: bool, new_level: bool=True) -> KnowledgeBase:
     with_condition = isinstance(expr, list) and bool_expr(expr, kb)
     if with_condition:
         new_const = extract_one_new_const(expr, kb)  # extract exactly one new constant from the expression
@@ -1474,8 +1475,43 @@ def eval_fix(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int
         kb = eval_consider(kb, line, mainstream=False)  # open a new block
     kb.add_const(new_const)          # add the new constant to the knowledgebase
     if with_condition:
-        kb = eval_use(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
+        kb = eval_use(kb, expr, 'fix', filename, line, mainstream=False)  # use the expression as an assumption
     return kb
+
+def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename: str, line: int, mainstream: bool) -> tuple[KnowledgeBase, Expr]:
+    assert isinstance(new_const_expr, Token) and new_const_expr.label=='SYMBOL'
+    new_const = new_const_expr.value
+    assert isinstance(new_const, str)
+
+    # (1) parse `fact_expr`
+    if not isinstance(fact_expr, list):
+        fact_expr = [fact_expr]
+    tokenlist: Expr = fact_expr + [end_token]                          # add end token for parse_expression
+    ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
+    fact = parse_expression(ts, kb, begin_rbp)     # parse the tokenlist
+    fact, label = post_process(kb, fact)      # turn spaces into calls, symmetry, flat space operators
+    debug(f'fact == {fact}')
+
+    # (2) check that the `fact` matches some existential statement in the theory so far
+    for cand_expr in filter(is_exists, kb.all_theory_expressions()):
+        match cand_expr:
+            case [Token(label='SYMBOL', value=EXIST_SYMBOL), Token(label='SYMBOL', value=bound_var), body] if isinstance(bound_var, str):
+                subst: Subst = {bound_var: new_const_expr}
+                body = deepcopy_expr(body)
+                body = apply_subst(body, subst, kb)
+                debug(f'body == {body}')
+                if equal_expr(body, fact):
+                    break  # end the loop without the `else` block
+    else:
+        raise KurtException(f'ProofError: can not find an existential formula that matches the `pick`')
+
+    # (3) open a new block, add a new constant and the fact
+    kb = eval_consider(kb, line, mainstream=False);    # open a new block
+    kb.add_const(new_const)                            # add the new constant to the knowledgebase
+    reason = f'added as a fact for witness `{new_const}`'
+    f = Formula(kb, fact, str(line), filename, label, reason, proven=True)
+    kb.theory_append(f)
+    return kb, fact
 
 def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
@@ -1498,17 +1534,17 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 raise KurtException(f'ParseError: "{keyword}" takes a string for the filename', keyword_token.column)
     elif keyword == 'parse':
         if len(args) > 0:
-            tokenlist: Expr = args + [end_token]                          # add end token for parse_expression
+            tokenlist: Expr = args + [end_token]                               # add end token for parse_expression
             ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
             expr = parse_expression(ts, kb, begin_rbp)                         # parse the tokenlist
-            expr, label = post_process(kb, expr)                               # turn spaces into calls, symmetry, flatness
+            expr, label = post_process(kb, expr)                               # turn spaces into calls, symmetry
             msg = f'{expr_sexpr(expr)}'
             if len(label) > 0:
                 msg += f' "{label}"'
             print(msg, file=sys.stdout)
     elif keyword == 'tokenize':
         if len(args) > 0:
-            tokenlist: Expr = args + [end_token]                          # add end token for parse_expression
+            tokenlist: Expr = args + [end_token]                               # add end token for parse_expression
             ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
             msg = f'{"  ".join([str(t) for t in ts])}'
             print(msg, file=sys.stdout)
@@ -1699,7 +1735,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))           # turn list into peekable generator
             expr: Expr
             expr = parse_expression(ts, kb, begin_rbp)                                  # parse the tokenlist
-            expr, label = post_process(kb, expr)                                        # turn spaces into calls, symmetry, flatness
+            expr, label = post_process(kb, expr)                                        # turn spaces into calls, symmetry
             expr_alt, subst = rename_all_vars(expr, {}, kb)  # rename all variables
             subst_back: dict[str, str] = {}
             for k in subst.keys():
@@ -1778,12 +1814,24 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         # add the new constants and their constraints (if boolean expressions are given)
         new_level = True
         for expr in args:  # args is a list of expressions
-            kb = eval_fix(kb, expr, keyword, filename, line, mainstream, new_level) # only open a new block in the first iteration)
-            new_level = False  # keep the level for the next iteration
+            kb = eval_fix(kb, expr, filename, line, mainstream, new_level) # only open a new block in the first iteration)
+            new_level = False  # keep the level for the next iteration of the for loop
         if mainstream:
             reason = f'{line} open local scope with (possibly constrained) new constants'
             args_str = [expr_str(expr, kb) for expr in args]
             log(f'{keyword} {", ".join(args_str)}', reason, kb.level-1)  # log the new constants
+    elif keyword == 'pick':
+        msg = 'EvalError: `pick` takes a new constant, keyword `with` and a formula , e.g. `pick x with F(x)`'
+        if len(args) == 0:
+            raise KurtException(msg)
+        match args:
+            case [Token(label='SYMBOL', value=new_const), Token(label='SYMBOL', value='with'), *fact_expr] if isinstance(new_const, str) and not kb.is_const(new_const):
+                kb, fact = eval_pick(kb, args[0], fact_expr, filename, line, mainstream)
+            case _:
+                raise KurtException(msg)
+        if mainstream:
+            reason = f'{line} open local scope with new constant `{new_const}`'
+            log(f'{keyword} {new_const} with {expr_str(fact, kb)}', reason, kb.level-1)  # log the new constants
     else:
         assert False, f'BUG: unknown keyword, got "{keyword}"'
 
@@ -2026,6 +2074,8 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
             raise KurtException(f'EvalError: condition {expr_str(c, kb)} does not match any assumption on the current level')
 
     # step 3: the remaining body must have been derived
+    if len(kb.theory) == 0:
+        raise KurtException(f'Nothing was proved in the last local scope')
     last_expr = kb.theory[-1].expr
     if not equal_expr(last_expr, body):
         raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(last_expr, kb)}')
@@ -2053,12 +2103,15 @@ def not_intro(expr: Expr, kb: KnowledgeBase) -> str:
         raise KurtException(f'EvalError: {expr_str(body, kb)} does not match any assumption on the current level')
 
     # step 3: `false` must have been derived
+    msg = f'ProofError: the contradiction (aka `false`) was not proved'
+    if len(kb.theory) == 0:
+        raise KurtException(msg)
     last_expr = kb.theory[-1].expr
     match last_expr:
         case Token(label='SYMBOL', value=FALSE_SYMBOL):
             pass
         case _:
-            raise KurtException(f'ProofError: could not prove contradiction (aka `false`)\n            instead got        {expr_str(last_expr, kb)}')
+            raise KurtException(msg)
     return f'by "not-intro" (derived from last local scope)'
 
 # this function is called when closing a block (via `qed` or 'thus')
@@ -2211,6 +2264,7 @@ def new_bool_var_name() -> str:
 #   which doesn't work, since in `%A` there is not a `$z` at the correct position
 # * however, renaming bound variables globally (for the whole formula) is fine, since it enables requirement (1) in `generate_all_combinations`
 #   so the renaming of bound variables makes also "exists-elim" possible
+# * since symbols become `bound` on the fly, we have to maintain a set of bound variables that get globally replaced
 def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase, bound_vars: set[str]|None = None) -> tuple[Expr, Subst]:
     # initialize the bound_vars if not given (don't put `set()` as the default value into the signature, since it is only called once and then modified, THIS LEADS TO A VERY SUBTLE BUG)
     if bound_vars is None:
@@ -2228,7 +2282,7 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase, bound_vars: set
                     new_free_v = new_var_name()
                 else:
                     new_free_v = new_bool_var_name()
-                new_expr = clone_token(expr, new_free_v)   # create a new token
+                new_expr = clone_token(expr, new_free_v)   # create a new token by modifying `expr`
                 subst[free_v] = new_expr
             return new_expr, subst
 
@@ -2236,25 +2290,27 @@ def rename_all_vars(expr: Expr, subst: Subst, kb: KnowledgeBase, bound_vars: set
         case Token():
             return expr, subst
 
-        # SPECIFIC binder form: [bind_op, bind_var, *rest]
+        # binding operator expression
         case [Token(label='SYMBOL', value=bind_op),
-              Token(label='SYMBOL', value=bind_var), *rest] \
+              Token(label='SYMBOL', value=bind_var), *body] \
               if isinstance(bind_op, str) and kb.is_bindop(bind_op) and isinstance(bind_var, str):
-            
-            # operator and bound variable are processed with current scope
+
+            # operator gets processed with current scope (actually nothing to do)
             head1, subst = rename_all_vars(expr[0], subst, kb, bound_vars)
-            head2, subst = rename_all_vars(expr[1], subst, kb, bound_vars)
 
-            # body gets new scope including the bound variable
+            # `bind_var` and `body` are processed in the context, that `bind_var in bound_vars`
             new_bound_vars = bound_vars | {bind_var}
-            new_rest = []
-            for child in rest:
+            head2, subst = rename_all_vars(expr[1], subst, kb, new_bound_vars)
+
+            # `body` gets new scope including the bound variable
+            new_body = []
+            for child in body:
                 new_child, subst = rename_all_vars(child, subst, kb, new_bound_vars)
-                new_rest.append(new_child)
+                new_body.append(new_child)
 
-            return [head1, head2, *new_rest], subst
+            return [head1, head2, *new_body], subst
 
-        # GENERIC list: no binder detected here
+        # all other expressions
         case [*children] if children:
             new_children = []
             for child in children:
@@ -2281,10 +2337,10 @@ def bound_var_safe(expr: Expr, token_x: Token, expr_a: Expr|None, expr_A: Expr, 
 # - `generate_all_combinations`
 # - binding operator case in `match_exprs`
 def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, kb: KnowledgeBase) -> Iterator[tuple[Expr|None, Expr]]:
-    # generate all `($a, $A)` such that `expr = sub $x $a $A`
+    # generate all `($a, %A)` such that `expr = sub $x $a %A`
     # however, two requirements:
     # (1) `$x` does not appear in `expr` as a free or bound variable, this is ensured by renaming bound variables
-    # (2) `$a` does not contain freely any variables that are bound in `$A` (actually only bound at the locations of `$x`
+    # (2) `$a` does not contain freely any variables that are bound in `%A` (actually only bound at the locations of `$x`)
     [free, bound] = free_bound_vars(expr, kb)
     var_x = token_x.value
     assert var_x not in free and var_x not in bound, f'BUG: `{var_x}` must not appear in `{expr_str(expr, kb)}`'

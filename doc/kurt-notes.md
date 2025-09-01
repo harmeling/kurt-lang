@@ -1906,3 +1906,70 @@ problems:
         const x         ; new constant
 
 - ok, no need for `take`, `let`
+
+# 2025-09-01  fix vs pick syntax discussion
+
+proof programming language, syntax for impl-intro, forall-intro and exist-elim:
+
+## option 1:
+
+    assume A                 ; opens a block with an assumption (A)
+        blabla
+        B
+    thus A implies B         ; impl-intro
+
+    fix x>0                  ; opens a block with a new constant and an assumption (x>0)
+        blabla
+        F(x)
+    thus forall x>0 f(x)     ; forall-intro
+
+    exists x G(x)
+    pick y with G(y)         ; opens a block with a new constant and a fact (G(y))
+        blabla
+        B                    ; doesn't contain y
+    thus B                   ; exist-elim
+
+## option 2 (impl-intro is the same):
+
+    assume A                 ; opens a block with an assumption (A)
+        blabla
+        B
+    thus A implies B         ; impl-intro
+
+    fix x                    ; opens a block with a new constant
+        use x>0              ; state the assumption assumption (x>0)
+        blabla
+        F(x)
+    thus forall x>0 f(x)     ; forall-intro
+
+    exists x G(x)
+    pick y                   ; opens a block with a new constant
+        G(y)                 ; follows inside the block from the existential statement
+        blabla
+        B                    ; doesn't contain y
+    thus B                   ; exist-elim
+
+## option 3 (spelled out):
+
+    consider                 ; opens a block
+        use A                ; state an assumption (A)
+        blabla
+        B
+    thus A implies B         ; impl-intro
+
+    consider                 ; opens a block
+        const x              ; creates new constant
+        use x>0              ; state the assumption assumption (x>0)
+        blabla
+        F(x)
+    thus forall x>0 f(x)     ; forall-intro
+
+    exists x G(x)
+    consider                 ; opens a block
+        const y              ; create new constant
+        G(y)                 ; follows inside the block from the existential statement
+        blabla
+        B                    ; doesn't contain y
+    thus B                   ; exist-elim
+
+Which option is the easiest?  What is the best?  The language should be a tool for students in their first semester learning proofs and math.
