@@ -313,15 +313,14 @@ keywords: dict[str, str] = {
     'proof':       'start a proof block to prove the last planned formula',
     'qed':         'end a proof block, to finish the proof of the last planned formula',
 
-    'consider':    'start a block that will be finished with `thus`, shouldn\'t be used, instead use `assume`, `fix` and `pick`',
-    'thus':        'finish a block that was started with `consider`, and prove the given formula using the previous block',
-
-    'break':       'break the current proof block without proving anything, should only be used in the shell',
-
-    # syntactic sugar
+    # opening blocks
     'assume':      'open a block and assume a formula, the block must be finished with `thus`, made for `impl-intro`',
     'fix':         'fix a new constant, possibly as an assumption, the block must be finished with `thus`, made for `forall-intro`',
-    'pick':        'picks a new constant `with` assumption, made for `exists-elim`'
+    'pick':        'picks a new constant `with` assumption, made for `exists-elim`',
+
+    # closing blocks
+    'thus':        'finish a block that was started with `assume`, `fix` or `pick`, and prove the given formula using the previous block',
+    'break':       'break the current proof block without proving anything, should only be used in the shell'
     }
 helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
@@ -365,6 +364,19 @@ class Formula:
         self.proven: bool          = proven             # proven yes or no (for `use` and `assume` and `show`)
         self.id: int               = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
+
+    def clone(self, kb):
+        cloned_f = Formula(
+            kb,
+            expr     = self.expr,
+            line     = self.line,
+            filename = self.filename,
+            label    = self.label,
+            reason   = self.reason,
+            proven   = self.proven
+        )
+        cloned_f.id = self.id
+        return cloned_f
 
     def prefix_str(self) -> str:
         if self.proven:
@@ -783,13 +795,17 @@ class KnowledgeBase:
     def all_theory(self) -> Iterator[Formula]:
         # iterate over all levels
         for f in reversed(self.theory):
+            debug(f)
             yield f
+            # can we chop of universal quantifier?
+            while is_forall(f.simplified_expr):
+                f = f.clone(self)
+                assert isinstance(f.simplified_expr, list) and len(f.simplified_expr) == 3
+                f.simplified_expr = f.simplified_expr[2]
+                debug(f)
+                yield f
         if self.parent is not None:
             yield from self.parent.all_theory()
-
-    def all_theory_expressions(self) -> Iterator[Expr]:
-        for f in self.all_theory():
-            yield f.simplified_expr
 
     def theory_str(self, op:str|None=None) -> str:
         s: str = self.parent.theory_str(op) if self.parent is not None else ''
@@ -821,8 +837,13 @@ class KnowledgeBase:
             case _:
                 pass                  # do nothing
 
-    def theory_append(self, f: Formula) -> None:
-        self._add_new_symbols(f.expr)
+    def theory_append(self, f: Formula, symbol_level_prev: bool = False) -> None:
+        if symbol_level_prev:
+            # add the symbols to the previous level
+            assert self.parent is not None, f'BUG: can not add symbols one level up, check `assume` implementation'
+            self.parent._add_new_symbols(f.expr)
+        else:
+            self._add_new_symbols(f.expr)
         self.theory.append(f)
 
     def show_append(self, f: PromisedFormula) -> None:
@@ -835,6 +856,12 @@ class KnowledgeBase:
         for f in self.show:
             s += f'{f.formula_str(self)}\n'
         return s
+
+    def all_vars(self) -> set[str]:
+        if self.parent is None:
+            return self.var
+        else:
+            return self.var | self.parent.all_vars()   # set union
 
 # create initial knowledge base and define some important constant for the parser
 initial_kb: KnowledgeBase = KnowledgeBase()
@@ -1332,7 +1359,7 @@ def extract_zero_new_consts(expr: Expr, kb: KnowledgeBase) -> None:
     if len(new_consts) != 0:
         raise KurtException(f'EvalError: expected no new constants, got {len(new_consts)} in "{expr_str(expr, kb)}"')
 
-def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, keyword='use') -> KnowledgeBase:
+def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, symbol_level_prev: bool=False) -> KnowledgeBase:
     if not bool_expr(expr, kb):
         raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
     reason = 'without proof'
@@ -1340,7 +1367,7 @@ def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int
         reason += f' "{label}"'
     reason = decorate_reason(mainstream, reason, filename, str(line))
     f = Formula(kb, expr, str(line), filename, label, reason, proven=False)
-    kb.theory_append(f)
+    kb.theory_append(f, symbol_level_prev)
     if mainstream:
         log(f.formula_str(kb), reason, kb.level)
     return kb
@@ -1373,16 +1400,16 @@ def eval_def(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int
             extract_zero_new_consts(RHS, kb)                 # check there are no new constants on the right-hand side
         case _:
             raise KurtException(f'EvalError: `def` only allowed with `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got "{expr_str(expr, kb)}"')
-    kb = eval_use(kb, expr, label, filename, line, mainstream=False, keyword='def')  # use the expression as a definition
+    kb = eval_use(kb, expr, label, filename, line, mainstream=False)  # use the expression as a definition
     if mainstream:
         reason = f'{line} defining `{lhs_const}`'
         log(f'def {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
     return kb
 
-def eval_consider(kb: KnowledgeBase, line: int, mainstream: bool) -> KnowledgeBase:
+def eval_openblock(kb: KnowledgeBase, line: int, mainstream: bool) -> KnowledgeBase:
     if mainstream:
         reason = f'{line} open local scope'
-        log('consider', reason, kb.level)
+        log('openblock', reason, kb.level)
     kb = increase_level(kb)          # add a new level/scope to the knowledgebase
     return kb
 
@@ -1396,18 +1423,41 @@ def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
         case _:
             return False
 
-def contains_current_const_symbols(expr, kb) -> bool:
-    # check whether the expression contains any constant symbols from the current level
+def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
+    # check whether the `expr` contains certain `symbols`
+    # note that bound variables are ignored
     match expr:
-        case Token(label='SYMBOL', value=s) if isinstance(s, str) and s in kb.const:
-            return True
+        # symbols
+        case Token(label='SYMBOL', value=s):
+            assert isinstance(s, str)
+            if s in symbols:
+                debug(s)
+            return s in symbols
+        # binding operator
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
+            assert isinstance(bound_v, str)
+            symbols_wo_bound_v = symbols - {bound_v}  # set difference creating a new set
+            return contains(tail, symbols_wo_bound_v, kb)
+        # other list
         case [*children]:
-            return any(contains_current_const_symbols(c, kb) for c in children)
+            return any(contains(c, symbols, kb) for c in children)
         case _:
             return False
 
 def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    # `thus` is closing a block opened by `consider`, but also for `forall-intro`, `exists-elim`, `impl-intro`, `not-intro`
+    # `thus` is closing a block opened by `consider`, but also for `not-intro`, `forall-intro`, `impl-intro`, `exists-elim`
+
+    # check that there are no constant symbols on this level appearing in `expr`
+    # (1) for `assume` (not-intro and impl-impl) create new constants already on the level below
+    # (2) for `fix` and `pick` (forall-intro) create new constants on the new level
+
+    # the constants on the current level are not allowed, however, the variables of the previous level are allowed (see `de-morgan.kurt`)
+    assert kb.parent is not None
+    not_allowed = kb.const - kb.parent.all_vars()   # set difference creating new set
+    if contains(expr, not_allowed, kb):
+        raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of `thus`, got `{expr_str(expr, kb)}`')
+
+    # try to derive `expr` depending on its form
     if is_not(expr):
         reason = not_intro(expr, kb)
     elif is_forall(expr):
@@ -1415,15 +1465,15 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
     elif is_implication(expr):
         reason = impl_intro(expr, kb)
     else:
-        # finally `exists-elim` and also just for just closing a block opened by `consider`
-        # check (i) there are no assumptions, (ii) there are no constant symbols on this level appearing in `expr`
-        unproven_expr = [f.expr for f in kb.theory if f.proven == False]
-        if len(unproven_expr) > 0:   # (i)
-            raise KurtException(f'ProofError: there are assumptions on the current level, `thus` can thus only conclude an implication or an universal quantified formula to close the block, got "{expr_str(unproven_expr[-1], kb)}"')
-        if contains_current_const_symbols(expr, kb):
-            raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of `thus`, got `{expr_str(expr, kb)}`')
+        # finally `exists-elim`
+        # (1) check there are no assumptions
+        unproven_exprs = [f.expr for f in kb.theory if f.proven == False]
+        if len(unproven_exprs) > 0:   # (i)
+            raise KurtException(f'ProofError: there are assumptions on the current level, `thus` can thus only conclude an implication or an universal quantified formula to close the block, got "{expr_str(unproven_exprs[-1], kb)}"')
+        # (2) derive the expression
         reasons = derive_expr(expr, kb, filename, mainstream)       # this might generate a KurtException
         reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
+        reason += f', then by "exist-elim"'
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
     f = Formula(kb, expr, str(line), filename, label, reason, proven=True)
@@ -1472,7 +1522,7 @@ def eval_fix(kb: KnowledgeBase, expr: Expr, filename: str, line: int, mainstream
                 raise KurtException(f'EvalError: expression must be new constant or boolean condition with new constant, got "{expr_str(expr, kb)}"')
     assert isinstance(new_const, str)
     if new_level:
-        kb = eval_consider(kb, line, mainstream=False)  # open a new block
+        kb = eval_openblock(kb, line, mainstream=False)  # open a new block
     kb.add_const(new_const)          # add the new constant to the knowledgebase
     if with_condition:
         kb = eval_use(kb, expr, 'fix', filename, line, mainstream=False)  # use the expression as an assumption
@@ -1493,20 +1543,22 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename
     debug(f'fact == {fact}')
 
     # (2) check that the `fact` matches some existential statement in the theory so far
-    for cand_expr in filter(is_exists, kb.all_theory_expressions()):
-        match cand_expr:
-            case [Token(label='SYMBOL', value=EXIST_SYMBOL), Token(label='SYMBOL', value=bound_var), body] if isinstance(bound_var, str):
-                subst: Subst = {bound_var: new_const_expr}
-                body = deepcopy_expr(body)
-                body = apply_subst(body, subst, kb)
-                debug(f'body == {body}')
-                if equal_expr(body, fact):
-                    break  # end the loop without the `else` block
+    for candidate in kb.all_theory():
+        cand_expr = candidate.simplified_expr
+        if is_exists(cand_expr):
+            match cand_expr:
+                case [Token(label='SYMBOL', value=EXIST_SYMBOL), Token(label='SYMBOL', value=bound_var), body] if isinstance(bound_var, str):
+                    subst: Subst = {bound_var: new_const_expr}
+                    body = deepcopy_expr(body)
+                    body = apply_subst(body, subst, kb)
+                    debug(f'body == {body}')
+                    if equal_expr(body, fact):
+                        break  # end the loop without the `else` block
     else:
         raise KurtException(f'ProofError: can not find an existential formula that matches the `pick`')
 
     # (3) open a new block, add a new constant and the fact
-    kb = eval_consider(kb, line, mainstream=False);    # open a new block
+    kb = eval_openblock(kb, line, mainstream=False);    # open a new block
     kb.add_const(new_const)                            # add the new constant to the knowledgebase
     reason = f'added as a fact for witness `{new_const}`'
     f = Formula(kb, fact, str(line), filename, label, reason, proven=True)
@@ -1785,16 +1837,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
         kb = eval_qed(kb, filename, line, mainstream)
-    elif keyword == 'consider':                    # opens a block
-        if len(args) > 0:
-            raise KurtException(f'EvalError: `{keyword}` takes no arguments')
-        kb = eval_consider(kb, line, mainstream)
     elif keyword == 'assume':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
-        kb = eval_consider(kb, line, mainstream=False)  # open a new block
+        kb = eval_openblock(kb, line, mainstream=False)  # open a new block
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-        kb = eval_use(kb, expr, label, filename, line, mainstream=False)  # use the expression as an assumption
+        kb = eval_use(kb, expr, label, filename, line, mainstream=False, symbol_level_prev=True)  # use the expression as an assumption
         if mainstream:
             reason = f'{line} open local scope with assumption'
             log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant

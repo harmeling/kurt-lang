@@ -17,8 +17,7 @@ proof
                     assume q       ; opens a block
                         p ∧ q    ; and-intro
                         ⊥          ; bottom-intro
-                    thus q ⇒ ⊥     ; impl-intro, closes the block opened by `assume q`
-                    ¬q             ; not-intro
+                    thus ¬q        ; not-intro, closes the block opened by `assume q`
                     ¬p ∨ ¬q        ; or-intro
                 thus p ⇒ ¬p ∨ ¬q   ; impl-intro, closes the block opened by `assume p`
                 assume ¬p
@@ -37,15 +36,13 @@ proof
                 assume p∧q     ; opens a block
                     p          ; and-elim
                     ⊥          ; bottom-intro
-                thus p∧q ⇒ ⊥   ; impl-intro, closes the block opened by `assume p∧q`
-                ¬(p∧q)         ; not-intro
+                thus ¬(p∧q)    ; impl-intro, closes the block opened by `assume p∧q`
             thus ¬p ⇒ ¬(p∧q)   ; impl-intro, closes the block opened by `assume ¬p`
             assume ¬q
                 assume p∧q
                     q          ; and-elim
                     ⊥          ; bottom-intro
-                thus p∧q ⇒ ⊥   ; impl-intro, closes the block opened by `assume p∧q`
-                ¬(p∧q)         ; not-intro
+                thus ¬(p∧q)    ; not-intro, closes the block opened by `assume p∧q`
             thus ¬q ⇒ ¬(p∧q)   ; impl-intro, closes the block opened by `assume ¬q`
             ¬(p∧q)             ; impl-elim
         thus ¬p ∨ ¬q ⇒ ¬(p∧q)  ; impl-intro, closes the block opened by `assume ¬p ∨ ¬q`

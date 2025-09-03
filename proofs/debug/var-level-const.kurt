@@ -1,7 +1,8 @@
 ; bool-level-const.kurt
 var x
-consider
+bool A
+assume A
   const x       ; that's ok, since on the current level there is no variable
   true
-thus true
+thus A ⇒ true
 ;;; Proof checked.

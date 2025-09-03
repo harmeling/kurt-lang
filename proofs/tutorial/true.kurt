@@ -1,0 +1,6 @@
+; true.kurt
+; - the keyword `true` is just the statement that is always true.
+; - kurt will read the file line by line and check whether the current line follows from the previous ones
+; - at the end of the file we have the line `;;; Proof checked`, which is for unittest.
+true
+;;; Proof checked.

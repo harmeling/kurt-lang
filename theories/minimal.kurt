@@ -13,10 +13,11 @@ infix implies 13 12                          ; logical implies, right associativ
 infix and     16 16                          ; and operator
 
 ;; inference rules
-use $A implies $A                                 "restatement" ; see function `impl_elim` in `kurt.py`, look for "restating"
-use ($A implies $B)   implies   ($A implies $B)   "impl-intro"  ; see function `impl_intro` in `kurt.py`
-use ($A implies $B) and $A    implies    $B       "impl-elim"   ; see function `impl_elim` in `kurt.py`
-use true                                          "top-intro"   ; see function `derive_expr` in `kurt.py`, look for "top-intro"
+use $A implies $A                                 "restatement" ; see `impl_elim` in `kurt.py`, look for "restating"
+use ($A implies $B)   implies   ($A implies $B)   "impl-intro"  ; see `impl_intro` in `kurt.py`
+use ($A implies $B) and $A    implies    $B       "impl-elim"   ; see `impl_elim` in `kurt.py`
+use true                                          "top-intro"   ; see `derive_expr` in `kurt.py`, look for "top-intro"
+use (%A implies false) implies not %A             "not-intro"   ; see `not_intro` in `kurt.py`, but also in `propositional.kurt`
 
 ;; substitution operator
 arity  sub 3                                 ; operator for substitutions

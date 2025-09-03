@@ -4,13 +4,12 @@ load "first-order"
 const P, B, C
 bool P, B, C
 arity P 1
-use forall a (P(a) ⇒ B)
+use ∀ a (P(a) ⇒ B)
 use B ⇒ C
 use ∃x P(x)
 
 show C
 proof
-    ∃x P(x)
     pick a with P(a)
         P(a) ⇒ B
         B
