@@ -448,6 +448,7 @@ class KnowledgeBase:
     def __init__(self, parent:KnowledgeBase|None=None) -> None:
         # general
         self.parent: KnowledgeBase|None = parent
+        self._todos: list[str]     = []                   # list of todos (only relevant on level 0)
         self.level: int            = 0 if parent is None else parent.level + 1
         self.proof: bool           = False                # a proof must be closed by `qed`
         self.libs: list[str]       = []                   # the filenames of loaded libraries
@@ -487,6 +488,19 @@ class KnowledgeBase:
         # misc
         self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
         self.verbose: bool  = False if parent is None else parent.verbose           # extra information or not
+
+    def todo_add(self, todo) -> None:
+        if self.parent is None:
+            self._todos.append(todo)
+        else:
+            self.parent.todo_add(todo)
+
+    def todos(self) -> list[str]:
+        if self.parent is None:
+            return self._todos
+        else:
+            assert len(self._todos) == 0, f'BUG: `todos` must be stored in the top level'
+            return self.todos()
 
     def _entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix {key} {value}'
@@ -1867,6 +1881,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         else:
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
             kb = eval_use(kb, expr, label, filename, line, mainstream, keyword)  # use the expression as an assumption
+            todo = decorate_reason(False, f'todo {expr_str(expr, kb)}', filename, str(line))
+            kb.todo_add(todo)
     elif keyword == 'thus':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
@@ -3060,7 +3076,16 @@ def main() -> None:
             mainstream = not args.interactive
             kb = load_file(args.filename, kb, mainstream=mainstream)
             if mainstream:
-                log('Proof checked.', '', kb.level)
+                todos = kb.todos()
+                n_todos = len(todos)
+                if n_todos == 0:
+                    log(f'Proof checked.', '', kb.level)
+                elif n_todos == 1:
+                    log(f'Proof almost checked: {n_todos} todo.', '', kb.level)
+                else:
+                    log(f'Proof almost checked: {n_todos} todos.', '', kb.level)
+                for todo in todos:
+                    log(f'  {todo}', '', kb.level)
         else:
             args.interactive = True
 
