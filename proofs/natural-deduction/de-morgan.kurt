@@ -1,5 +1,5 @@
 ; de Morgan's law
-load "propositional"
+load propositional
 var p, q       ; free variables
 bool p, q      ; boolean variables
 

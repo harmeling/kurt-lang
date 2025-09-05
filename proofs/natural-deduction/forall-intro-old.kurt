@@ -1,5 +1,5 @@
 ; example: forall-intro
-load "first-order"
+load first-order
 bool  prime
 arity prime 1        ; expects one argument
 use prime 2

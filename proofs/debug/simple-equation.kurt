@@ -1,5 +1,5 @@
 ; simple equation
-load "equality"
+load equality
 
 ; first test
 use x = 0

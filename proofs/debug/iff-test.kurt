@@ -1,5 +1,5 @@
 ; iff test
-load "propositional"
+load propositional
 
 bool p, q
 use p iff q

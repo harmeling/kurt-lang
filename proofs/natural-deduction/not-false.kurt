@@ -1,5 +1,5 @@
 ; proof-not-false.kurt
-load "propositional"
+load propositional
 show ¬⊥
 proof
     assume ⊥

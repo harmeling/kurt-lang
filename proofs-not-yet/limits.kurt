@@ -1,7 +1,7 @@
 ; limits
 
-load "forall"
-load "arithmetics"
+load forall
+load arithmetics
 var ε, δ, x
 show ∀ε>0 ∃δ>0 ∀x |x-2| < δ  ⇒  |(3x+1)-7| < ε
 proof

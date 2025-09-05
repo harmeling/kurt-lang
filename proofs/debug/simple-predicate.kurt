@@ -1,5 +1,5 @@
 ; simple-predicate
-load "equality"
+load equality
 bool  prime
 arity prime 1        ; expects one argument
 

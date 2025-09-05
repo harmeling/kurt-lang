@@ -1,5 +1,5 @@
 ; example: equal-elim TODO
-load "equality"
+load equality
 bool f 0
 arity f 1
 use x = 17

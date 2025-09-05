@@ -2,7 +2,7 @@
 ; simple test of the flat, sym of and
 ; written by Jan Robine (2025-05-08)
 
-;;load "propositional"
+;;load propositional
 bool p, q, r
 use %A  and  %B   implies   %A                                      "and-elim"   ; `and` is symmetric and flat
 use p ∧ q ∧ r

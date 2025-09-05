@@ -1,4 +1,4 @@
-load "propositional"
+load propositional
 
 ; this version should be usable when loaded as well
 ; the key is that there are no quantifier for bool vars, but

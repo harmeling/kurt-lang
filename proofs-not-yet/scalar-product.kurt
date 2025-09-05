@@ -1,5 +1,5 @@
 ; scalar-product.kurt
-load "arithmetic"   ; for theorems about real numbers
+load arithmetic   ; for theorems about real numbers
 brackets < >
 
 ; bilinearity 

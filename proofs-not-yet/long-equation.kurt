@@ -1,7 +1,7 @@
 ; long-equation.kurt
 ;
 ; simple equation with indentation
-load "equality"
+load equality
 use a=b
 use b=c
 show a=c

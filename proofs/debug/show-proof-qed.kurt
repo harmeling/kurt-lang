@@ -1,5 +1,5 @@
 ; example: show-proof-qed
-load "all"
+load all
 bool E, F
 use E implies F
 show E implies F

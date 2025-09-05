@@ -1,5 +1,5 @@
 ; solve math equation
-load "arithmetic"
+load arithmetic
 false ; NOT YET
 
 ; find all solutions of 2^x + 8^x = 130

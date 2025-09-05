@@ -1,6 +1,6 @@
 ; exist-elim.kurt
 
-load "first-order"
+load first-order
 arity P 1
 bool P, B, C
 const P, B, C

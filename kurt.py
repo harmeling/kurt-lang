@@ -284,7 +284,7 @@ keywords: dict[str, str] = {
     'tokenize':    'tokenize a string and print its tokens',
     'format':      'choose print representation, i.e. one of "sexpr", "normal"',
     'level':       'current level of the knowledge base',
-    'load':        'load file, e.g. load "standards.kurt"',
+    'load':        'load file(s), e.g. load standards.kurt or load foo.kurt',
 
     'syntax':      'print the current syntax',
     'prefix':      'add prefix operator with right binding power',
@@ -1061,20 +1061,42 @@ SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(REPLACEMENTS.values()))))
 # scanner based on regular expressions (let's support unicode!)
 # note that the ordering of the expressions here is important
 scanner: re.Pattern = re.compile(fr'''
-  (?P<COMMENT> [;].*$)                           | # comments
-  (?P<FLOAT>   [0-9]+\.[0-9]+)                   | # floating point literals
-  (?P<INT>     [0-9]+)                           | # integer literals
-  (?P<STRING>  ["][^"]*["])                      | # string literals
-  (?P<SYMBOL>  [$%@]?[A-Za-z][A-Za-z0-9]*        | # symbols 1: identifiers with at most one leading '$' or '%' or '@'
-               [()]                              | # symbols 2: round brackets
-               [,]                               | # symbols 3: comma
-               [.]                               | # symbols 4: dot for namespaces
-               [:=+\-*/#&^'∈!<>{{}}[\]|_]+       | # symbols 5: standard operators including literal {{ }}
-               [{re.escape(SPECIAL_SYMBOLS)}])   | # symbols 6: logic, Greek and other math symbols (always single char)
-  (?P<NEWLINE> [\n])                             | # newline
-  (?P<WHITE>   [^\S\n\r]+)                       | # whitespace (not newline)
-  (?P<ERROR>   .)                                  # anything else is an error
+  (?P<LOAD>(?i:load)\s+(?P<LOAD_BODY>[^\n;]*))    | # captures everything after `load` up to ';' or EOL
+  (?P<COMMENT> [;].*$)                            | # comments
+  (?P<FLOAT>   [0-9]+\.[0-9]+)                    | # floating point literals
+  (?P<INT>     [0-9]+)                            | # integer literals
+  (?P<STRING>  ["][^"]*["])                       | # string literals
+  (?P<SYMBOL>  [$%@]?[A-Za-z][A-Za-z0-9]*         | # symbols 1: identifiers with at most one leading '$' or '%' or '@'
+               [()]                               | # symbols 2: round brackets
+               [,]                                | # symbols 3: comma
+               [.]                                | # symbols 4: dot for namespaces
+               [:=+\-*/#&^'∈!<>{{}}[\]|_]+        | # symbols 5: standard operators including literal {{ }}
+               [{re.escape(SPECIAL_SYMBOLS)}])    | # symbols 6: logic, Greek and other math symbols (always single char)
+  (?P<NEWLINE> [\n])                              | # newline
+  (?P<WHITE>   [^\S\n\r]+)                        | # whitespace (not newline)
+  (?P<ERROR>   .)                                 # anything else is an error
 ''', re.VERBOSE | re.MULTILINE)
+
+# filename magic
+filenames_pattern = re.compile(r'''
+    \s*                 # optional leading spaces
+    (?:                 # either...
+        "([^"]*)"       # 1. quoted filename (capture without quotes)
+      | ([^",\s][^,\s]*)# 2. unquoted filename (no spaces/commas)
+    )
+    \s*                 # optional trailing spaces
+    (?:,|$)             # followed by comma or end
+''', re.VERBOSE)
+
+def split_filenames(s: str) -> list[str]:
+    out = []
+    for m in filenames_pattern.finditer(s):
+        quoted, unquoted = m.groups()
+        val = quoted if quoted is not None else unquoted
+        if val:
+            out.append(val)
+    return out
+
 # notes:
 # since we are using an `f-string` for the regex, we have to escape the curly brackets
 # common white space:
@@ -1119,6 +1141,11 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
             yield Token(label, value[1:-1], column + len(value))
         elif label == 'NEWLINE': 
             assert False, f'BUG: newlines not allowed in "input_line"'
+        elif label == 'LOAD':
+            body = match.group('LOAD_BODY')
+            yield Token('SYMBOL', 'load', column + 4)
+            for name in split_filenames(body):
+                yield Token('STRING', name, column + 4 + len(name))
         elif label == 'ERROR':  # error
             raise KurtException(f'SyntaxError: scanning error while scanning `{value}`', column)
         else:
@@ -1606,12 +1633,15 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         if len(current_path) > 0:
             local_path = [current_path] + local_path
         debug(args)
-        match args:
-            case [Token(label='STRING', value=fname)]:
-                assert isinstance(fname, str)
-                kb = load_file(fname, kb, path=local_path, mainstream=False)
-            case _:
-                raise KurtException(f'ParseError: `{keyword}` takes just a filename', keyword_token.column)
+        if len(args) == 0:
+            raise KurtException(f'ParseError: `{keyword}` takes at least one filename or several comma-separated', keyword_token.column)
+        for arg in args:
+            match arg:
+                case Token(label='STRING', value=fname):
+                    assert isinstance(fname, str)
+                    kb = load_file(fname, kb, path=local_path, mainstream=False)
+                case _:
+                    assert False, f'BUG: `load` was scanned with wrong args'
     elif keyword == 'parse':
         if len(args) > 0:
             tokenlist: Expr = args + [end_token]                               # add end token for parse_expression

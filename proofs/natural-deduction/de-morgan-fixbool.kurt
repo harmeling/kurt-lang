@@ -1,5 +1,5 @@
 ; de Morgan's law
-load "propositional"
+load propositional
 
 ; axioms
 use %p ∨ ¬%p         "excluded-middle"

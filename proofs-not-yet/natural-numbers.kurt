@@ -1,5 +1,5 @@
 ; simple natural numbers
-load "set"
+load set
 
 use 0 in Nat
 use n in Nat  implies  s n in Nat

@@ -1,4 +1,4 @@
-load "propositional"
+load propositional
 bool p
 var p
 

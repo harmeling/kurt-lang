@@ -1,6 +1,6 @@
 ; def test
-load "equality"
-load "propositional"
+load equality
+load propositional
 
 bool p, q
 def q iff true

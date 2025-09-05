@@ -1,7 +1,7 @@
 ; example: exists-intro
-;load "first-order"
-load "equality"
-load "first-order"
+;load first-order
+load equality
+load first-order
 
 bool  prime
 arity prime 1        ; `prime` expects exactly one argument

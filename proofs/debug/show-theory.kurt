@@ -1,4 +1,4 @@
 ; theory
-load "first-order"
+load first-order
 theory
 ;;; Proof checked.

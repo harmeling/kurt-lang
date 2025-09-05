@@ -1,6 +1,6 @@
 ; chains.kurt
-load "equality"
-load "arithmetic"
+load equality
+load arithmetic
 
 ; define some chain
 chain = ≤ <

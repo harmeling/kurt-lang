@@ -1,4 +1,4 @@
-load "propositional"
+load propositional
 
 ; variant 1: prove for a constant
 bool p         ; also declares new constant

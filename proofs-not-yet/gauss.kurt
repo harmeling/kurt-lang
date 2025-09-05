@@ -2,7 +2,7 @@
 ; proof of Gauss' summation formula
 false ; NOT YET
 
-load "arithmetics"       ; load axioms about +, *, etc
+load arithmetics       ; load axioms about +, *, etc
 var a, b, i, g
 ; axioms about summations
 use a > b  implies  sum i (a, b) (sub $$i i g) = 0                              "S1"
