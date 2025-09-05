@@ -21,8 +21,8 @@ proof
 qed
 
 ; variant 2: prove for a variable
-var q          ; declares a variable
-bool q         ; now the variable is a boolean
+bool q         ; declare the symbol `q` to be boolean
+var q          ; declare it to be a variable
 show q ∨ ¬q  "excluded-middle"
 proof
     show ¬ (q ∨ ¬ q) ⇒ ⊥

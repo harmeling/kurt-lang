@@ -1,4 +1,4 @@
 ; const-const.kurt
 const x
 const x       ; not ok, since on the current level there is already a variable
-;;; EvalError: symbol "x" is already a constant and can not be declared freshly again
+;;; EvalError: symbol `x` is already a constant and can not be declared freshly again

@@ -1,4 +1,4 @@
 ; var-const.kurt
 const x
 var x
-;;; EvalError: symbol "x" is already used as a constant
+;;; EvalError: symbol `x` is already used as a constant

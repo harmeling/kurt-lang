@@ -1,6 +1,6 @@
 load "propositional"
-var p
 bool p
+var p
 
 ; what to show
 show p or not p  "excluded-middle"

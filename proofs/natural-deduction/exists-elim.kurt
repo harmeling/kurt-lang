@@ -1,9 +1,9 @@
 ; exist-elim.kurt
 
 load "first-order"
-const P, B, C
-bool P, B, C
 arity P 1
+bool P, B, C
+const P, B, C
 use ∀ a (P(a) ⇒ B)
 use B ⇒ C
 use ∃x P(x)

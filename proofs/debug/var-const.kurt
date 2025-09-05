@@ -1,4 +1,4 @@
 ; var-const.kurt
 var x
 const x
-;;; EvalError: symbol "x" is already a variable on this level or starts with "$"
+;;; EvalError: symbol `x` is already a variable on this level or starts with "$"

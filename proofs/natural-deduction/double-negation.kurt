@@ -1,8 +1,8 @@
 load "propositional"
 
 ; variant 1
-var p
 bool p
+var p
 show p ⇒ ¬¬p
 proof
     assume p

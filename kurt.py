@@ -468,9 +468,12 @@ class KnowledgeBase:
         self.bindop:   set[str]                  = set()  # set for variable binding operators
         self.flat:     set[str]                  = set()  # set for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
         self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
+        self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
+        self.used:     set[str]                  = set()  # set of all symbols that are used in formulas (i.e., not only declared)
+
+        # parsing related
         self.lbp:      dict[str, int]            = {}     # left binding power
         self.rbp:      dict[str, int]            = {}     # right binding power
-        self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
         self.nud:      dict[str, Nud]            = {}     # null denotation, entries are functions for parsing expressions
         self.led:      dict[str, Led]            = {}     # left denotation, entries are functions for parsing infix expressions
 
@@ -584,6 +587,8 @@ class KnowledgeBase:
         return False
     def is_const(self, s: str) -> bool:
         return s in self.const   or (self.parent is not None and self.parent.is_const(s))
+    def is_used(self, s: str) -> bool:
+        return s in self.used    or (self.parent is not None and self.parent.is_used(s))
     def is_alias(self, s: str) -> bool:
         return s in self.alias   or (self.parent is not None and self.parent.is_alias(s))
 
@@ -686,6 +691,8 @@ class KnowledgeBase:
         self.chain[op] = chain
 
     def add_bindop(self, fun: str) -> None:
+        if self.is_used(fun):
+            raise KurtException(f'EvalError: symbol `{fun}` has been already used in a formula')
         if fun not in self.arity:
             raise KurtException(f'EvalError: before declaring symbol "{fun}" as variable binding, you must set its arity')
         if self.arity[fun] < 2:
@@ -707,6 +714,10 @@ class KnowledgeBase:
         self.sym.add(op)
 
     def add_brackets(self, lbracket, rbracket) -> None:
+        if self.is_used(lbracket):
+            raise KurtException(f'EvalError: symbol `{lbracket}` has been already used in a formula')
+        if self.is_used(rbracket):
+            raise KurtException(f'EvalError: symbol `{rbracket}` has been already used in a formula')
         if self.is_operator(lbracket) or self.is_const(lbracket) or self.is_var(lbracket):
             raise KurtException(f'EvalError: symbol "{lbracket}" already exist as {self._find_symbol(lbracket)}')
         if self.is_operator(rbracket) or self.is_const(rbracket) or self.is_var(rbracket):
@@ -727,29 +738,37 @@ class KnowledgeBase:
         self.lbp[rbracket] = bracket_lbp
 
     def add_var(self, s: str) -> None:
+        if self.is_used(s):
+            raise KurtException(f'EvalError: symbol `{s}` has been already used in a formula')
         if self.is_const(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already used as a constant')
+            raise KurtException(f'EvalError: symbol `{s}` is already used as a constant')
         self.var.add(s)
 
     def add_const(self, s: str) -> None:
         # a constant is automatically declared if a new symbol is used or when it is explicitly declared
         # declaring is only allowed, if it doesn't yet exist as a variable or constant
+        if self.is_used(s):
+            raise KurtException(f'EvalError: symbol `{s}` has been already used in a formula')
         if self.is_local_var(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a variable on this level or starts with "$"')
+            raise KurtException(f'EvalError: symbol `{s}` is already a variable on this level or starts with "$"')
         if self.is_const(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a constant and can not be declared freshly again')
+            raise KurtException(f'EvalError: symbol `{s}` is already a constant and can not be declared freshly again')
         self.const.add(s)
 
     def add_alias(self, s: str, t: str) -> None:
+        if self.is_used(s):
+            raise KurtException(f'EvalError: symbol `{s}` has been already used in a formula')
         if self.is_var(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a variable or starts with $')
+            raise KurtException(f'EvalError: symbol `{s}` is already a variable or starts with $')
         if self.is_const(s):
-            raise KurtException(f'EvalError: symbol "{s}" is already a constant')
+            raise KurtException(f'EvalError: symbol `{s}` is already a constant')
         self.alias[s] = t         # add a key `s` with value `t`
 
     def add_bool(self, s: str, v: list[int]) -> None:
+        if self.is_used(s):
+            raise KurtException(f'EvalError: symbol `{s}` has been already used in a formula')
         if len(self.bool_sig(s)) > 0:
-            raise KurtException(f'EvalError: symbol "{s}" is already declared bool')
+            raise KurtException(f'EvalError: symbol `{s}` is already declared bool')
         if self.is_bindop(s) and 1 in v:
             raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
         self.bool[s] = v          # add a key and set the value to the tuple of positions that are bool
@@ -815,27 +834,31 @@ class KnowledgeBase:
                 s += f'{f.formula_str(self)}\n'
         return s
 
-    def _add_new_symbols(self, e: Expr, bound_vars: set[str] = set()) -> None:
+    # add new symbols and also add them to the list of symbols that are used in formulas
+    # we ignore all bound vars, since they are temporary
+    def _add_new_symbols(self, e: Expr, bound_vars: set[str]|None = None) -> None:
+        if bound_vars is None:
+            bound_vars = set()
         match e:
-            case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_var(s):
-                pass                  # do nothing
-            case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_bool_var(s):
-                pass                  # do nothing
-            case Token(label='SYMBOL', value=s) if isinstance(s, str) and self.is_const(s):
-                pass                  # do nothing
-            case Token(label='SYMBOL', value=s) if isinstance(s, str):
-                if s not in bound_vars:
-                    self.add_const(s)     # create a new constant symbol
+            case Token(label='SYMBOL', value=s):
+                assert isinstance(s, str), f'BUG: token value must be string`'
+                if self.is_var(s) or self.is_bool_var(s) or self.is_const(s):
+                    pass
+                elif not self.is_used(s):
+                    if s not in bound_vars:
+                        self.add_const(s)     # 1. add a new constant if it is not a bound var
+                        self.used.add(s)      # 2. add it to the used symbols
             case [*children]:
                 match children:
                     case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail]:
                         if op in self.bindop:
                             assert isinstance(v, str), f'BUG: symbol must be string'
-                            bound_vars.add(v)
+                            bound_vars = bound_vars | {v}   # add v to a copy of `bound_vars`
+                            debug(bound_vars)
                 for child in children:
                     self._add_new_symbols(child, bound_vars)
             case _:
-                pass                  # do nothing
+                pass                  # do nothing, might be other tokens
 
     def theory_append(self, f: Formula, symbol_level_prev: bool = False) -> None:
         if symbol_level_prev:
@@ -878,12 +901,12 @@ space_lbp:    int = 22                                     # left  binding power
 space_rbp:    int = 22                                     # right binding power: stronger than '=' (defined in equality.kurt)
 initial_kb.add_infix (SPACE_SYMBOL, space_lbp, space_rbp)  # space op is for fn like `f x`
 
-initial_kb.add_const (TRUE_SYMBOL)                         # true is const symbol
-initial_kb.add_const (IMPL_SYMBOL)                         # implies is const symbol
-initial_kb.add_const (AND_SYMBOL)                          # and is const symbol
 initial_kb.add_bool  (TRUE_SYMBOL, [0])                    # true is bool
 initial_kb.add_bool  (IMPL_SYMBOL, [0, 1, 2])              # implies is bool with bool input
 initial_kb.add_bool  (AND_SYMBOL,  [0, 1, 2])              # and is bool with bool inputs
+initial_kb.add_const (TRUE_SYMBOL)                         # true is const symbol
+initial_kb.add_const (IMPL_SYMBOL)                         # implies is const symbol
+initial_kb.add_const (AND_SYMBOL)                          # and is const symbol
 initial_kb.add_flat  (COMMA_SYMBOL)                        # comma op is flat
 initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
 initial_kb.add_sym   (AND_SYMBOL)                          # and is symmetric
