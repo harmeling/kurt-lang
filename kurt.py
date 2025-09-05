@@ -313,6 +313,8 @@ keywords: dict[str, str] = {
     'proof':       'start a proof block to prove the last planned formula',
     'qed':         'end a proof block, to finish the proof of the last planned formula',
 
+    'todo':        'place a formula that might not be derivable yet',
+
     # opening blocks
     'assume':      'open a block and assume a formula, the block must be finished with `thus`, made for `impl-intro`',
     'fix':         'fix a new constant, possibly as an assumption, the block must be finished with `thus`, made for `forall-intro`',
@@ -324,7 +326,7 @@ keywords: dict[str, str] = {
     }
 helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
-keywords_with_parsing = ['use', 'assume', 'def', 'fix'] + ['show', 'thus']
+keywords_with_parsing = ['use', 'assume', 'def', 'fix', 'show', 'thus', 'todo']
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END']
@@ -354,16 +356,21 @@ def clone_token(expr: Token, new_value: Value|None=None) -> Token:
 
 class Formula:
     next_id: int = 0
-    def __init__(self, kb: KnowledgeBase, expr:Expr, line:str, filename:str, label:str, reason:str, proven:bool):
+    def __init__(self, kb: KnowledgeBase, expr:Expr, line:str, filename:str, label:str, reason:str, keyword:str):
         self.expr: Expr            = expr               # expression of the formula
         self.simplified_expr: Expr = rename_all_vars(simplify(expr, kb), {}, kb)[0]
         self.line: str             = line               # line of this formula, string since we also want '16a', etc
         self.filename: str         = filename           # file of this formula
         self.label: str            = label              # basically, a name of the formula, e.g., "impl-intro"
         self.reason: str           = reason             # the reason for this formula, e.g., "axiom", "assumption", "def", "by"
-        self.proven: bool          = proven             # proven yes or no (for `use` and `assume` and `show`)
+        self.keyword: str          = keyword            # one of `use`, `assume`, `show`, `todo`
         self.id: int               = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
+
+    def is_proven(self) -> bool:
+        # proven if `self.keyword in ['', 'todo']`
+        # not proven is `self.keyword in ['use', 'show']`
+        return self.keyword in ['', 'todo']
 
     def clone(self, kb):
         cloned_f = Formula(
@@ -373,16 +380,16 @@ class Formula:
             filename = self.filename,
             label    = self.label,
             reason   = self.reason,
-            proven   = self.proven
+            keyword  = self.keyword
         )
         cloned_f.id = self.id
         return cloned_f
 
     def prefix_str(self) -> str:
-        if self.proven:
+        if self.keyword == '':
             return ''
         else:
-            return 'use' + ' '     # not yet proven, so like an axiom, introduced via `use` or `assume`
+            return f'{self.keyword} '
     
     def label_str(self) -> str:
         return f' "{self.label}"'
@@ -396,10 +403,6 @@ class Formula:
     # this function is necessary, since it requires the knowledgebase
     def formula_str(self, kb: KnowledgeBase) -> str:
         return f'{self.prefix_str()}{expr_str(self.expr, kb)}'
-
-class PromisedFormula(Formula):
-    def __init__(self, kb: KnowledgeBase, expr:Expr, line:str, filename:str, label:str, reason:str):
-        super().__init__(kb, expr, line, filename, label, reason, proven=False)   # promised formulas are not proven
 
 # expression
 # not a class itself, instead just a type alias
@@ -485,10 +488,10 @@ class KnowledgeBase:
         self.bool:     dict[str, list[int]]      = {}     # dict of symbols declared to have boolean output
 
         # theory
-        self.theory: list[Formula] = []                   # list of formulas (axioms added by 'use', 
+        self.theory: list[Formula] = []                   # list of formulas (axioms added by 'use' or 'todo', 
                                                           #                   assumptions added by 'assume',
                                                           #                   and derived formulas)
-        self.show:   list[PromisedFormula] = []           # lists of promised formulas to show
+        self.show:   list[Formula] = []                   # lists of promised formulas to show
 
         # misc
         self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
@@ -645,7 +648,7 @@ class KnowledgeBase:
         if self.is_bracket(fun):
             raise KurtException(f'EvalError: arity of brackets can not be set')
         if fun in self.arity:
-            raise KurtException(f'EvalError: arity of symbol "{fun}" has been already set to {self.arity[fun]}')
+            raise KurtException(f'EvalError: arity of symbol `{fun}` has been already set to {self.arity[fun]}')
         self.arity[fun] = a
 
     def _find_symbol(self, op: str) -> str:
@@ -660,20 +663,20 @@ class KnowledgeBase:
 
     def add_prefix(self, op: str, rbp: int) -> None:
         if self.is_operator(op) and not self.is_infix(op):    # infix and prefix at the same time is allowed
-            raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
+            raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
         self.prefix[op] = rbp
         self.nud[op] = lambda ts, kb, op_token: [op_token, parse_expression(ts, kb, rbp)]
 
     def add_infix(self, op: str, lbp: int, rbp: int) -> None:
         if self.is_operator(op) and not self.is_prefix(op):   # infix and prefix at the same time is allowed
-            raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
+            raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
         self.infix[op] = (lbp, rbp)                           # to nicely list all operators
         self.led[op] = lambda ts, kb, left, op_token: [op_token, left, parse_expression(ts, kb, rbp)]
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
     def add_postfix(self, op: str, lbp: int) -> None:
         if self.is_operator(op):
-            raise KurtException(f'EvalError: symbol "{op}" already exist as {self._find_symbol(op)}')
+            raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
         self.postfix[op] = lbp                                # to nicely list all operators
         def led(_ts: PeekableGenerator, _kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
             return [op_token, left]
@@ -682,10 +685,10 @@ class KnowledgeBase:
 
     def add_chain(self, op: str, chain: list[str]) -> None:
         if not self.is_infix(op):
-            raise KurtException(f'EvalError: operator "{op}" must be infix operator to declare chain')
+            raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare chain')
         for c in chain:
             if not self.is_infix(c):
-                raise KurtException(f'EvalError: operator "{c}" must be infix operator to declare chain')
+                raise KurtException(f'EvalError: operator `{c}` must be infix operator to declare chain')
         if len(chain) < 1:
             raise KurtException(f'EvalError: chain of operators must have at least two elements')
         self.chain[op] = chain
@@ -694,23 +697,23 @@ class KnowledgeBase:
         if self.is_used(fun):
             raise KurtException(f'EvalError: symbol `{fun}` has been already used in a formula')
         if fun not in self.arity:
-            raise KurtException(f'EvalError: before declaring symbol "{fun}" as variable binding, you must set its arity')
+            raise KurtException(f'EvalError: before declaring symbol `{fun}` as variable binding, you must set its arity')
         if self.arity[fun] < 2:
             raise KurtException(f'EvalError: arity of binding operators must be at least 2')
         self.bindop.add(fun)
 
     def add_flat(self, op: str) -> None:
         if not self.is_infix(op):
-            raise KurtException(f'EvalError: operator "{op}" must be infix operator to declare flatness')
+            raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare flatness')
         if self.is_flat(op):
-            raise KurtException(f'EvalError: operator "{op}" is already declared "flat"')
+            raise KurtException(f'EvalError: operator `{op}` is already declared "flat"')
         self.flat.add(op)
 
     def add_sym(self, op) -> None:
         if not self.is_infix(op):
-            raise KurtException(f'EvalError: operator "{op}" must be infix operator to declare symmetry')
+            raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare symmetry')
         if self.is_sym(op):
-            raise KurtException(f'EvalError: operator "{op}" is already declared "sym"')
+            raise KurtException(f'EvalError: operator `{op}` is already declared "sym"')
         self.sym.add(op)
 
     def add_brackets(self, lbracket, rbracket) -> None:
@@ -719,9 +722,9 @@ class KnowledgeBase:
         if self.is_used(rbracket):
             raise KurtException(f'EvalError: symbol `{rbracket}` has been already used in a formula')
         if self.is_operator(lbracket) or self.is_const(lbracket) or self.is_var(lbracket):
-            raise KurtException(f'EvalError: symbol "{lbracket}" already exist as {self._find_symbol(lbracket)}')
+            raise KurtException(f'EvalError: symbol `{lbracket}` already exist as {self._find_symbol(lbracket)}')
         if self.is_operator(rbracket) or self.is_const(rbracket) or self.is_var(rbracket):
-            raise KurtException(f'EvalError: symbol "{rbracket}" already exist as {self._find_symbol(rbracket)}')
+            raise KurtException(f'EvalError: symbol `{rbracket}` already exist as {self._find_symbol(rbracket)}')
         self.add_const(lbracket)              # brackets must be new constants
         self.add_const(rbracket)
         self.brackets[rbracket] = lbracket    # to list the brackets (not used for parsing)
@@ -731,7 +734,7 @@ class KnowledgeBase:
             if token.label == 'END':
                 raise StopIteration
             if token.value != rbracket: 
-                raise KurtException(f'SyntaxError: expected "{rbracket}"', column=token.column)
+                raise KurtException(f'SyntaxError: expected `{rbracket}`', column=token.column)
             token.value = f'{lbracket}$$${rbracket}'    # use a value that can not come from the tokenizer, avoid space for readability
             return [token, expr]
         self.nud[lbracket] = nud
@@ -826,12 +829,13 @@ class KnowledgeBase:
         if self.parent is not None:
             yield from self.parent.all_theory()
 
-    def theory_str(self, op:str|None=None) -> str:
-        s: str = self.parent.theory_str(op) if self.parent is not None else ''
+    def theory_str(self, op:str|None=None, keyword:str|None=None) -> str:
+        s: str = self.parent.theory_str(op=op) if self.parent is not None else ''
         s += f'; on level {self.level}\n'
         for f in self.theory:
             if op is None or is_op_expr(f.expr, op):
-                s += f'{f.formula_str(self)}\n'
+                if keyword is None or f.keyword==keyword:
+                    s += f'{f.formula_str(self)}\n'
         return s
 
     # add new symbols and also add them to the list of symbols that are used in formulas
@@ -869,7 +873,7 @@ class KnowledgeBase:
             self._add_new_symbols(f.expr)
         self.theory.append(f)
 
-    def show_append(self, f: PromisedFormula) -> None:
+    def show_append(self, f: Formula) -> None:
         self._add_new_symbols(f.expr)
         self.show.append(f)
 
@@ -1116,7 +1120,7 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
         elif label == 'NEWLINE': 
             assert False, f'BUG: newlines not allowed in "input_line"'
         elif label == 'ERROR':  # error
-            raise KurtException(f'SyntaxError: scanning error while scanning "{value}"', column)
+            raise KurtException(f'SyntaxError: scanning error while scanning `{value}`', column)
         else:
             assert False, f'BUG: unknown label, got {label}'
     yield end_token
@@ -1159,7 +1163,7 @@ def is_nud_token(token: Token, kb: KnowledgeBase) -> bool:
 def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr:
     t: Token = next(ts)                           # get next token
     if not is_nud_token(t, kb):
-        raise KurtException(f'SyntaxError: token "{t.value}" cannot start an expression', t.column)
+        raise KurtException(f'SyntaxError: token `{t.value}` cannot start an expression', t.column)
     nud: Nud = kb.get_nud(t)                      # get the correct 'nud' function
     left: Expr = nud(ts, kb, t)                   # nud == "null denotation"
     peek_lbp: int = kb.get_lbp(ts.peek)           # peek at lbp of the next token
@@ -1218,7 +1222,7 @@ def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
             e: Expr = [expr[0]]                                       # the new expression
             for i in range(1, arity+1):
                 if len(tail) == 0:
-                    raise KurtException(f'EvalError: not enough arguments for "{op}"')
+                    raise KurtException(f'EvalError: not enough arguments for `{op}`')
                 ei: Expr
                 tail: list[Expr]
                 ei, tail = group_by_arity(tail, kb)             # let the next one eat as many expr as it needs
@@ -1354,7 +1358,7 @@ def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
     if kb.level == 0:
         raise KurtException(f'EvalError: no block to close')
     if len(kb.show) > 0:                  # any planned formulas inside the current proof?
-        raise KurtException(f'ProofError: planned formula "{expr_str(kb.show[-1].expr, kb)}" in current proof is unproven')
+        raise KurtException(f'ProofError: planned formula `{expr_str(kb.show[-1].expr, kb)}` in current proof is unproven')
     assert kb.parent is not None, f'BUG: we should be one level up'
     return kb.parent                        # drop current level
 
@@ -1374,22 +1378,22 @@ def extract_one_new_const(expr: Expr, kb: KnowledgeBase) -> str:
     # extract exactly one new constant from the expression and checks there is only one
     new_consts = _extract_new_consts(expr, kb)
     if len(new_consts) != 1:
-        raise KurtException(f'EvalError: expected exactly one new constant, got {len(new_consts)} in "{expr_str(expr, kb)}"')
+        raise KurtException(f'EvalError: expected exactly one new constant, got {len(new_consts)} in `{expr_str(expr, kb)}`')
     return new_consts[0]
 
 def extract_zero_new_consts(expr: Expr, kb: KnowledgeBase) -> None:
     new_consts = _extract_new_consts(expr, kb)
     if len(new_consts) != 0:
-        raise KurtException(f'EvalError: expected no new constants, got {len(new_consts)} in "{expr_str(expr, kb)}"')
+        raise KurtException(f'EvalError: expected no new constants, got {len(new_consts)} in `{expr_str(expr, kb)}`')
 
-def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, symbol_level_prev: bool=False) -> KnowledgeBase:
+def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, keyword: str, symbol_level_prev: bool=False) -> KnowledgeBase:
     if not bool_expr(expr, kb):
-        raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
+        raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
     reason = 'without proof'
     if len(label) > 0:
         reason += f' "{label}"'
     reason = decorate_reason(mainstream, reason, filename, str(line))
-    f = Formula(kb, expr, str(line), filename, label, reason, proven=False)
+    f = Formula(kb, expr, str(line), filename, label, reason, keyword)
     kb.theory_append(f, symbol_level_prev)
     if mainstream:
         log(f.formula_str(kb), reason, kb.level)
@@ -1397,11 +1401,11 @@ def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int
 
 def eval_show(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     if not bool_expr(expr, kb):
-        raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
+        raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
     reason = decorate_reason(mainstream, 'claim', filename, str(line))
     if len(label) > 0:
         reason += f' "{label}"'
-    f = PromisedFormula(kb, expr, str(line), filename, label, reason)
+    f = Formula(kb, expr, str(line), filename, label, reason, keyword='show')
     kb.show_append(f)
     if mainstream:
         log(f'show {expr_str(expr, kb)}', reason, kb.level)
@@ -1422,8 +1426,8 @@ def eval_def(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int
             lhs_const = extract_one_new_const(LHS, kb)  # extract exactly one new constants from the left-hand side
             extract_zero_new_consts(RHS, kb)                 # check there are no new constants on the right-hand side
         case _:
-            raise KurtException(f'EvalError: `def` only allowed with `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got "{expr_str(expr, kb)}"')
-    kb = eval_use(kb, expr, label, filename, line, mainstream=False)  # use the expression as a definition
+            raise KurtException(f'EvalError: `def` only allowed with `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got `{expr_str(expr, kb)}`')
+    kb = eval_use(kb, expr, label, filename, line, keyword='def', mainstream=False)  # use the expression as a definition
     if mainstream:
         reason = f'{line} defining `{lhs_const}`'
         log(f'def {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
@@ -1490,16 +1494,16 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
     else:
         # finally `exists-elim`
         # (1) check there are no assumptions
-        unproven_exprs = [f.expr for f in kb.theory if f.proven == False]
+        unproven_exprs = [f.expr for f in kb.theory if not f.is_proven()]
         if len(unproven_exprs) > 0:   # (i)
-            raise KurtException(f'ProofError: there are assumptions on the current level, `thus` can thus only conclude an implication or an universal quantified formula to close the block, got "{expr_str(unproven_exprs[-1], kb)}"')
+            raise KurtException(f'ProofError: there are assumptions on the current level, `thus` can thus only conclude an implication or an universal quantified formula to close the block, got `{expr_str(unproven_exprs[-1], kb)}`')
         # (2) derive the expression
         reasons = derive_expr(expr, kb, filename, mainstream)       # this might generate a KurtException
         reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
         reason += f', then by "exist-elim"'
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
-    f = Formula(kb, expr, str(line), filename, label, reason, proven=True)
+    f = Formula(kb, expr, str(line), filename, label, reason, keyword='')
     kb = decrease_level(kb)                    # drop current level and perform some checks
     kb.theory_append(f)                        # add a copy to the theory
     if mainstream:
@@ -1521,10 +1525,10 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     reason = ''
     optional_subst = _first_or_none(_implies(proven_expr, planned_expr, kb))
     if optional_subst is None:
-        raise KurtException(f'ProofError: planned formula "{expr_str(planned_expr, kb)}" does not match the last formula in the theory "{expr_str(proven_expr, kb)}"')
+        raise KurtException(f'ProofError: planned formula `{expr_str(planned_expr, kb)}` does not match the last formula in the theory `{expr_str(proven_expr, kb)}`')
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
-    f = Formula(kb, planned_expr, str(line), filename, label, reason, proven=True)
+    f = Formula(kb, planned_expr, str(line), filename, label, reason, keyword='')
     kb = decrease_level(kb)                    # drop current level and perform some checks
     kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
     kb.theory_append(f)                        # add a copy to the current theory
@@ -1542,13 +1546,13 @@ def eval_fix(kb: KnowledgeBase, expr: Expr, filename: str, line: int, mainstream
             case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
                 pass
             case _:
-                raise KurtException(f'EvalError: expression must be new constant or boolean condition with new constant, got "{expr_str(expr, kb)}"')
+                raise KurtException(f'EvalError: expression must be new constant or boolean condition with new constant, got `{expr_str(expr, kb)}`')
     assert isinstance(new_const, str)
     if new_level:
         kb = eval_openblock(kb, line, mainstream=False)  # open a new block
     kb.add_const(new_const)          # add the new constant to the knowledgebase
     if with_condition:
-        kb = eval_use(kb, expr, 'fix', filename, line, mainstream=False)  # use the expression as an assumption
+        kb = eval_use(kb, expr, 'fix', filename, line, keyword='use', mainstream=False)  # use the expression as an assumption
     return kb
 
 def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename: str, line: int, mainstream: bool) -> tuple[KnowledgeBase, Expr]:
@@ -1584,7 +1588,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename
     kb = eval_openblock(kb, line, mainstream=False);    # open a new block
     kb.add_const(new_const)                            # add the new constant to the knowledgebase
     reason = f'added as a fact for witness `{new_const}`'
-    f = Formula(kb, fact, str(line), filename, label, reason, proven=True)
+    f = Formula(kb, fact, str(line), filename, label, reason, keyword='')
     kb.theory_append(f)
     return kb, fact
 
@@ -1601,12 +1605,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         local_path = theory_path
         if len(current_path) > 0:
             local_path = [current_path] + local_path
+        debug(args)
         match args:
             case [Token(label='STRING', value=fname)]:
                 assert isinstance(fname, str)
                 kb = load_file(fname, kb, path=local_path, mainstream=False)
             case _:
-                raise KurtException(f'ParseError: "{keyword}" takes a string for the filename', keyword_token.column)
+                raise KurtException(f'ParseError: `{keyword}` takes just a filename', keyword_token.column)
     elif keyword == 'parse':
         if len(args) > 0:
             tokenlist: Expr = args + [end_token]                               # add end token for parse_expression
@@ -1633,13 +1638,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 raise KurtException(f'only a single arg out of {format_options} is allowed"')
     elif keyword == 'level':
         if len(args) > 0:
-            raise KurtException(f'ParseError: "{keyword}" does not take any arguments', keyword_token.column)
+            raise KurtException(f'ParseError: `{keyword}` does not take any arguments', keyword_token.column)
         print(kb.level, file=sys.stdout)
 
     # SYNTAX RELATED
     elif keyword == 'syntax':
         if len(args) > 0:
-            raise KurtException(f'ParseError: "{keyword}" does not take any arguments', keyword_token.column)
+            raise KurtException(f'ParseError: `{keyword}` does not take any arguments', keyword_token.column)
         else:
             print('; syntax')
             print(kb.syntax_str_all_levels(), file=sys.stdout)
@@ -1831,10 +1836,16 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         print(kb.theory_str(op=IMPL_SYMBOL), file=sys.stdout)
     elif keyword == 'use':
         if len(args) == 0:
-            print(kb.theory_str(), file=sys.stdout)
+            print(kb.theory_str(keyword=keyword), file=sys.stdout)
         else:
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-            kb = eval_use(kb, expr, label, filename, line, mainstream)  # use the expression as an assumption
+            kb = eval_use(kb, expr, label, filename, line, mainstream, keyword)  # use the expression as an assumption
+    elif keyword == 'todo':
+        if len(args) == 0:
+            print(kb.theory_str(keyword=keyword), file=sys.stdout)
+        else:
+            expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
+            kb = eval_use(kb, expr, label, filename, line, mainstream, keyword)  # use the expression as an assumption
     elif keyword == 'thus':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
@@ -1865,13 +1876,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
         kb = eval_openblock(kb, line, mainstream=False)  # open a new block
         expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-        kb = eval_use(kb, expr, label, filename, line, mainstream=False, symbol_level_prev=True)  # use the expression as an assumption
+        kb = eval_use(kb, expr, label, filename, line, mainstream=False, keyword='use', symbol_level_prev=True)  # use the expression as an assumption
         if mainstream:
             reason = f'{line} open local scope with assumption'
             log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
     elif keyword == 'def':
         if len(args) == 0:
-            print(kb.theory_str(), file=sys.stdout)
+            print(kb.theory_str(keyword=keyword), file=sys.stdout)
         else:
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
             kb = eval_def(kb, args, label, filename, line, mainstream)  # use the expression as a definition
@@ -1904,7 +1915,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             reason = f'{line} open local scope with new constant `{new_const}`'
             log(f'{keyword} {new_const} with {expr_str(fact, kb)}', reason, kb.level-1)  # log the new constants
     else:
-        assert False, f'BUG: unknown keyword, got "{keyword}"'
+        assert False, f'BUG: unknown keyword, got `{keyword}`'
 
     # finally return the possibly modified knowledgebase
     return kb
@@ -1921,7 +1932,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: Knowl
         if expr==[]:
             return kb
         if not bool_expr(expr, kb):
-            raise KurtException(f'EvalError: must evaluate to boolean, got "{expr_str(expr, kb)}"')
+            raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
         reasons = derive_expr(expr, kb, filename, mainstream)  # this might raise ProofError exceptions
         if len(reasons) == 1:
             reason = decorate_reason(mainstream, reasons[0], filename, str(line))
@@ -1935,13 +1946,13 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: Knowl
                 line_strs.append(line_str)
                 reason = decorate_reason(mainstream, reason, filename, line_str)
                 label = ''
-                sub_f = Formula(kb, clause, line_str, filename, label, reason, proven=True)
+                sub_f = Formula(kb, clause, line_str, filename, label, reason, keyword='')
                 kb.theory_append(sub_f)                         # add sub to the knowledge base
                 if mainstream:
                     log(sub_f.formula_str(kb), reason, kb.level)
             reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
         label = ''
-        f = Formula(kb, expr, str(line), filename, label, reason, proven=True)
+        f = Formula(kb, expr, str(line), filename, label, reason, keyword='')
         kb.theory_append(f)                         # add it to the knowledge base
         if mainstream:
             log(f.formula_str(kb), reason, kb.level)
@@ -2013,7 +2024,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
                         if not isinstance(v, str):
                             raise KurtException(f'TypeError: first arg of binding operator must be boolean or new symbol, got {v}', column=expr_column(tail[0]))
                         if kb.is_const(v):
-                            raise KurtException(f'TypeError: first arg of binding operator must not be constant, got a constant "{v}"', column=expr_column(tail[0]))
+                            raise KurtException(f'TypeError: first arg of binding operator must not be constant, got a constant `{v}`', column=expr_column(tail[0]))
                         pass         # ok!
                     case [*cond]:
                         if not bool_expr(cond, kb):
@@ -2135,7 +2146,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
 
     # step 2: check that all assumptions on the current level correspond to the conditions
     assumptions: list[Expr]
-    assumptions = [f.expr for f in kb.theory if f.proven == False]  # collect all assumptions on the current level
+    assumptions = [f.expr for f in kb.theory if not f.is_proven()]  # collect all assumptions on the current level
     if len(assumptions) != len(conditions):
         raise KurtException(f'EvalError: number of assumptions ({len(assumptions)}) on the current level must match the number of conditions ({len(conditions)}) in the forall expression')
     assumptions = sort_exprs(assumptions)
@@ -2165,7 +2176,7 @@ def not_intro(expr: Expr, kb: KnowledgeBase) -> str:
     body = expr[1]
 
     # step 2: check that `body` was assumed
-    assumptions = [f.expr for f in kb.theory if f.proven == False]  # collect all assumptions on the current level
+    assumptions = [f.expr for f in kb.theory if not f.is_proven()]  # collect all assumptions on the current level
     if len(assumptions) == 1:              # assumptions is one formula
         assumptions = assumptions[0]
     else:                                  # assumptions is a conjunction
@@ -2192,8 +2203,8 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
     if len(kb.theory) == 0:
         raise KurtException(f'ProofError: nothing was shown in the (sub-)proof')
     last_formula = kb.theory[-1]
-    premise = [f.expr for f in kb.theory if f.proven == False]
-    if not last_formula.proven:
+    premise = [f.expr for f in kb.theory if not f.is_proven()]
+    if not last_formula.is_proven():
         raise KurtException(f'ProofError: last formula in a (sub-)proof must be derived and can not be assumed with `use`')
     conclusion = last_formula.expr        # last element is the conclusion
 
@@ -2857,22 +2868,22 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
             raise OSError
         load_level = kb.get_load_level(fname)
         if load_level is not None:
-            raise KurtException(f'EvalError: can not load library "{fname}" twice, it has already been loaded on level {load_level}')
+            raise KurtException(f'EvalError: can not load library `{fname}` twice, it has already been loaded on level {load_level}')
         with open(fname, encoding='utf-8') as f:
             kb = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
-        raise KurtException(f'EvalError: unable to open "{filename}" searching at {path}') from None
+        raise KurtException(f'EvalError: unable to open `{filename}` searching at {path}') from None
     
     # checks after closing the file
     if kb.level != level:
         kb.level = level       # set levels back before raising the exception
-        raise KurtException(f'\nEvalError: inside "{fname}" not all blocks closed, missing "qed"?')
+        raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed, missing "qed"?')
     if len(kb.show) != 0:
         s = '\nNot shown:\n'
         for f in kb.show:
             s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
-        raise KurtException(f'{s}\n\nEvalError: inside "{fname}" not all promised formulas were proven.')
+        raise KurtException(f'{s}\n\nEvalError: inside `{fname}` not all promised formulas were proven.')
     kb.libs.append(fname)
     return kb
 
@@ -2929,7 +2940,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                     if e.filename == '<stdin>':
                         msg = f'\n'
                     else:
-                        msg = f'  File "{e.filename}", line {e.line}\n'
+                        msg = f'  File `{e.filename}`, line {e.line}\n'
                     msg += f'    {input_line}\n'
                     msg += f'    {" " * e.column + "^"}\n'
                     e.msg = msg + e.msg
