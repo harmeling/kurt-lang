@@ -23,17 +23,13 @@ from __future__ import annotations
 # TODO group.kurt
 
 ### TOPICS before releasing 1.0
-# TODO when `bool` is called check that the symbol is not yet used
+# TODO get group.kurt working with constants and with `var x, y, z`
 # TODO do calculations with integers and reals
 # TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?
-# TODO when calling 'bool a', check that 'a' hasn't been used already (e.g. right after a 'fix a')
 # TODO define what get's exported when loading a file, make variables declarations local?
 # TODO get coverage of 100% in the unit tests
 # TODO test the conditions for forall and exist rules
-# TODO get group.kurt working with constants and with `var x, y, z`
 # TODO 'thus' with one step shorter, for `qed` we use match`, for `thus` we use equal (otherwise matching the correct variables is difficult)
-# TODO allow implicit universal quantification, i.e., all variables $x are automatically universally quantified
-# TODO allow implicit universal quantification for boolean variables
 # TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 # TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 # TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
@@ -45,7 +41,6 @@ from __future__ import annotations
 # TODO write documentation/tutorial for the language
 # TODO refactoring: work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
 # TODO search all TODO in the code and check whether they are still relevant
-# TODO proof like "excluded-middle" are right now for constant `p`, but actually we would like to prove it for all `p`, i.e., `show $p or not $p`, then it can also be used for subsequent proofs, this requires a let statement or the like together with `forall-intro`
 
 ### TOPICS before releasing 2.0
 # TODO should substitutions be always boolean (see `type_check_expression`)
@@ -56,10 +51,8 @@ from __future__ import annotations
 # TODO namespaces, e.g., for scalar-product.kurt, see `kurt-notes.md`, search for `namespace`
 
 ### TOPICS for the future
-# TODO let's hardcode the quantifier rules, also the `let`, `take` and `thus` stuff
 # TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 # TODO run profiling
-# TODO can we make 'proof by contradiction', one step shorter?  `assume A; contradiction; thus not A`
 # TODO what is the difference between `arity f 1` and `prefix f 1`?  
 # TODO other ideas for speedup: 
 # #    1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
@@ -93,9 +86,7 @@ from __future__ import annotations
 # TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
 # TODO https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.
 # TODO format "latex", also allow custom latex formats
-# TODO keep the code below 1000 lines of code!  unlikely...
 # TODO use the Token.column information
-# TODO create test code for each possible KurtException
 # TODO add syntactic sugar for case distinctions
 
 ## all external libraries (let's keep the dependencies minimal)

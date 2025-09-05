@@ -82,3 +82,9 @@ That's it!
 ## License
 
 [MIT](./LICENSE) © 2025 Stefan Harmeling
+
+## Attribution
+
+This project is licensed under the [MIT License](LICENSE).  
+When using or referencing it, please include a link back to this repository.  
+A star on GitHub is also greatly appreciated!
