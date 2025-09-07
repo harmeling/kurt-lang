@@ -3074,7 +3074,9 @@ def main() -> None:
         # if there is a filename run the file
         if args.filename is not None:
             mainstream = not args.interactive
+            assert kb.level == 0
             kb = load_file(args.filename, kb, mainstream=mainstream)
+            assert kb.level == 0
             if mainstream:
                 todos = kb.todos()
                 n_todos = len(todos)
