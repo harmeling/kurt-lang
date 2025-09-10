@@ -1741,7 +1741,7 @@ problems:
         C 17       ; is implied by `C x`, with `{'x':17}`
 
         use D x
-        D y        ; is implied by `D x`
+        D y        ; is implied by `D x`, renaming `{'x':'y'}`
 
 - modus ponens
 
@@ -1763,7 +1763,7 @@ problems:
     `B y` implies `B z`
     `A x` implies `A y`
 
-- next let's add free variables and a constant
+- next let's add free variables and a constant (fooo)
 
         var x
         use A x                   ; implicitly universally quantified
@@ -1973,3 +1973,44 @@ proof programming language, syntax for impl-intro, forall-intro and exist-elim:
     thus B                   ; exist-elim
 
 Which option is the easiest?  What is the best?  The language should be a tool for students in their first semester learning proofs and math.
+
+## 2025-09-10 (on the train to Göttingen, seeing Onn)
+
+two issues: 
+
+(i)  Question: how to get the `sub` and formula scheme right?
+(ii) Suppose we proved 
+
+        show (%A ⇒ ⊥) ⇒ ¬%A  "not-intro"
+        proof 
+            todo 
+        qed
+
+    then we want
+
+        assume F
+            todo
+            ⊥
+        thus ¬F    ; by "not-intro"
+
+
+- example
+
+    use sub $x $a %A  and  $a = $b   implies   sub $x $b %A   "equal-elim"
+    use a = b
+    use F(a)
+
+- implication
+
+    use A
+    use A implies B
+    not A  or  B
+    B
+
+- example with free variables
+
+    var x, y
+    use F(x, y)
+    use F(x, y) implies G(y)
+    G(z)
+    

@@ -1,6 +1,6 @@
 # kurt-lang
 
-The Kurt programming language is a simple language to write proofs in a form that is close to how humans write proofs.  The file `kurt.py` contains the whole implementation.  You can either call `./kurt.py` or `./kurt`.  For now, just clone the repository and start proving:
+The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `kurt.py` contains the whole implementation.  You can either call `./kurt.py` or `./kurt`.  For now, just clone the repository and start proving:
 
     ~/git/kurt-lang (main ✗) kurt
     This is Kurt, Version 0.1 (made by Stefan Harmeling, 2025)
@@ -22,7 +22,7 @@ Alternatively, create a file `modus-ponens.kurt`:
     use A
     B
 
-Then just check it on the shell:
+Then just check it in the commandline:
 
     ~/git/kurt-lang (main ✗) kurt modus-ponens.kurt 
     This is Kurt, Version 0.1 (made by Stefan Harmeling, 2025)
@@ -35,7 +35,7 @@ Happy proving!
 
 ## Installing Kurt Tools
 
-The Kurt language syntax repo [](https://github.com/harmeling/kurt-syntax) includes both a Visual Studio Code extension (`kurt-syntax-<version>.vsix`) for syntax highlighting and snippets and indenting and an Emacs mode (`kurt-mode.el`).
+The [Kurt language syntax repo](https://github.com/harmeling/kurt-syntax) includes both a Visual Studio Code extension (`kurt-syntax-<version>.vsix`) for syntax highlighting and snippets and indenting and an Emacs mode (`kurt-mode.el`).
 
 ### VS Code Extension Installation
 

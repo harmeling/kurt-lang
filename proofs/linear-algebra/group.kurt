@@ -18,13 +18,13 @@ show x + -x = 0                     "G4" ; right inverse
 proof
     fix x
         -(x + -x) + (x + -x)              = 0   ; by G3
-        todo -(x + -x) + (x + (0 + -x))        = 0   ; by G2
+        -(x + -x) + (x + (0 + -x))        = 0   ; by G2
         todo -(x + -x) + (x + ((-x + x) + -x)) = 0   ; by G3
         todo -(x + -x) + ((x + (-x + x)) + -x) = 0   ; by G1
         todo -(x + -x) + (((x + -x) + x) + -x) = 0   ; by G1
         todo -(x + -x) + ((x + -x) + (x + -x)) = 0   ; by G1
         todo (-(x + -x) + (x + -x)) + (x + -x) = 0   ; by G1
-        0 + (x + -x)                      = 0   ; by G3
+        todo 0 + (x + -x)                      = 0   ; by G3
         todo x + -x = 0
     thus x + -x = 0
 qed

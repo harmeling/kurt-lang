@@ -11,6 +11,7 @@
         "boolfix",
         "cand",
         "conventially",
+        "deepcopy",
         "EAFP",
         "elim",
         "elisp",

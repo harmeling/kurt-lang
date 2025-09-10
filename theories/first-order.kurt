@@ -11,10 +11,10 @@ alias  ∃ exists
 alias  ∀ forall
 
 ;; inference rules
-use %A                                  implies  forall $x %A      "forall-intro"
+;use %A                                  implies  forall $x %A      "forall-intro"
 use forall $x %A                        implies  sub $x $a %A      "forall-elim"
 use sub $x $a %A                        implies  exists $x %A      "exists-intro"
-use (exists $x %B) and (%B implies %A)  implies  %A                "exists-elim"
+;use (exists $x %B) and (%B implies %A)  implies  %A                "exists-elim"
 
 ;; better looking
 ; use %A                     ⇒  ∀ $x %A       "forall-intro"
@@ -39,5 +39,3 @@ use (exists $x %B) and (%B implies %A)  implies  %A                "exists-elim"
 ;     we match `%B implies %A` where we can assign `$%1` appropriately, since it appears free
 ;   - case 2: we match `%B` using `%B implies %A`, then we use that `%B` to match against
 ;     `exists $%1 %B`
-
-

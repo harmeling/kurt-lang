@@ -5,3 +5,5 @@ __pycache__
 profile.out
 .coverage
 tmp.txt
+foo.md
+test.py
