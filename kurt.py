@@ -866,7 +866,7 @@ def expr_str(expr: Expr, kb: KnowledgeBase) -> str:
         return expr_sexpr(expr)
     elif kb.format == 'normal':
         s: str = expr_normal(expr, kb)
-        if s[0] == '(' and s[-1] == ')':
+        if len(s) > 0  and  s[0] == '(' and s[-1] == ')':
             s = s[1:-1]         # the brackets are useful during construction, but on the top level we have to omit them
         return s
     else:
@@ -1954,6 +1954,8 @@ def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
             return True                    # boolean variables
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and not kb.is_bool_var(v):
             return 0 in kb.bool_sig(v)
+        case Token(label='TODO', value=''):
+            return True
         case [Token(label='SYMBOL', value=v), *tail] if v==SUB_SYMBOL:
             return bool_expr(tail[2], kb)
         case [Token(label='SYMBOL', value=v), *_]:
@@ -2827,6 +2829,12 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
     return reason    # bingo!  found an implication (and a substitution)
 
 def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> list[str]:
+
+    # do we have a joker?
+    if len(kb.theory) > 0:
+        match kb.theory[0].expr:
+            case Token(label='TODO', value=''):
+                return ['by "todo"']
 
     # deep copy `exp` and to a simplifications
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
