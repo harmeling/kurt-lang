@@ -1763,7 +1763,7 @@ problems:
     `B y` implies `B z`
     `A x` implies `A y`
 
-- next let's add free variables and a constant (fooo)
+- next let's add free variables and a constant
 
         var x
         use A x                   ; implicitly universally quantified
@@ -2014,3 +2014,29 @@ two issues:
     use F(x, y) implies G(y)
     G(z)
     
+## 2025-09-10
+
+
+- the renaming of variables takes care that the variables of a formula are variables also in subsequent levels when they might be redeclared to be constant
+
+- what is `match_expr_against_pattern` doing?
+
+      use A
+      use B implies C
+      D
+
+  two modes:
+
+  (1) match D against C, generating `subst_D`, `subst_C`, only keep `subst_C`
+      - constants in D are matched against constants or variables in C
+      - variables in D are matched against variables in C but not against constants
+      - boolean variables in D are matched against boolean variables in C but not against expressions
+      - expressions in D can be matched against expressions in C or against boolean variables in C and against sub-expressions in C
+      - subst-expressions in D are matched against subst-expressions in C
+
+  (2) match B with `subst_C` against A, generating `subst_B` (extended version of `subst_C`), and a new `subst_A` (unused)
+      - constants in B are matched against constants or variables in A
+      + variables in B are matched against variables in A ***or against constants***
+      + boolean variables in B are matched against boolean variables in A ***or against expressions***
+      - expressions in B can be matched against expressions in A or against boolean variables in A (and against sub-expressions in A) [maybe we don't allow the latter for now]
+      - subst-expressions in B are matched against subst-expressions in A ***or against expressions***

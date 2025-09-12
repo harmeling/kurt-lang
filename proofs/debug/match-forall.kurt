@@ -17,7 +17,7 @@ var y
 use ∀ $y  C $y
 C y
 
-; case 4
+; case 4: implicit universal quantification
 use D y
 ∀ $y  D $y
 ;;; Proof checked.

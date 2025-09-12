@@ -2,12 +2,14 @@
 
 ## NEXT
 
+- TODO impl_elim: are all universal quantifier removed?  (can be done in simplify)
 - TODO group.kurt
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
 
 ## TOPICS before releasing 1.0
 
+- TODO have a fast match, that compares the last two formulas for changes (instead of full `generate all`)
 - TODO get group.kurt working with constants and with `var x, y, z`
 - TODO do calculations with integers and reals
 - TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?

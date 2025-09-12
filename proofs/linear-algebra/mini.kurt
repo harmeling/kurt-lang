@@ -12,12 +12,8 @@ use (x + y) + z = x + (y + z)       "G1" ; associativity
 use 0 + x = x                       "G2" ; neutral element
 use -x + x = 0                      "G3" ; left inverse
 
-; fix y
-;     -y + y = 0
-;     -y + (0+y) = 0
-; thus true
 fix z
-    use -(z + -z) + (z + -z)              = 0   ; by G3
+    -(z + -z) + (z + -z)              = 0   ; by G3
     -(z + -z) + (z + (0 + -z))        = 0   ; by G2
 thus true
 ;;; Proof checked.
