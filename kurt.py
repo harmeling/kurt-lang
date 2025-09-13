@@ -1486,7 +1486,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     proven_f = kb.theory[-1]
     proven_expr  = proven_f.simplified_expr          # what actually has been proven
     reason = ''
-    optional_subst = _first_or_none(match_exprs_to_patterns([(planned_expr, proven_expr)], {}, kb))
+    optional_subst = _first_or_none(match_exprs_to_patterns([(planned_expr, proven_expr)], {}, kb, two_sided=False))
     if optional_subst is None:
         raise KurtException(f'ProofError: planned formula `{planned_f}` does not match the last formula in the theory `{proven_f}`')
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -1788,7 +1788,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                     subst_back[v.value] = k
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that create a match
-                for subst_cand in match_exprs_to_patterns([(candidate.simplified_expr, expr_alt)], {}, kb):
+                for subst_cand in match_exprs_to_patterns([(candidate.simplified_expr, expr_alt)], {}, kb, two_sided=False):
                     subst_str = f'{expr_str(expr, kb)} '
                     subst_str += 'with ' 
                     subst_str += ', '.join([f'{subst_back[var]}={expr_str(subst_cand[var], kb)}' for var in subst_cand])
@@ -2484,7 +2484,7 @@ def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iter
 
 # couple of problems:
 # - also we are generating some wrong combinations where we replace bound variables in `%A` with `$x`, what is allowed, can `$a` contain any bound variables of `%A`?  probably not!
-def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase) -> Iterator[Subst]:
+def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase, two_sided: bool) -> Iterator[Subst]:
 
     # check that `expr` is not a sub expression
     assert not is_sub(expr)
@@ -2547,7 +2547,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             if var_a is not None and expr_a is not None:
                 subst_local[var_a] = expr_a           # store the found substitutions for `$a`
             # now that we found a substitution for `$a` and `%A`
-            yield from match_exprs_to_patterns(tail, subst_local, kb)
+            yield from match_exprs_to_patterns(tail, subst_local, kb, two_sided)
 
 # helper functions
 T = TypeVar('T')
@@ -2618,8 +2618,8 @@ def _transform(e: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
 # `two_sided` means that variables in the exprs can also be assigned
-def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase, two_sided: bool =False) -> Iterator[Subst]:
-    debug(f'{[(expr_str(e, kb), expr_str(f, kb)) for (e, f) in exprs_patterns]}')
+def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase, two_sided: bool) -> Iterator[Subst]:
+    debug(f'{[(expr_str(e, kb), expr_str(f, kb)) for (e, f) in exprs_patterns]} subst={subst}')
     if len(exprs_patterns) == 0:
         yield subst     # we emptied the matching tasks and found a substitution
     else:
@@ -2632,39 +2632,39 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                     # replace all occurrences by the expression from the pattern
                     subst_e = {v_e: pattern}
                     tail_local = [(_transform(e, subst_e, kb), p) for (e,p) in tail]
-                    yield from match_exprs_to_patterns(tail_local, subst, kb)
+                    yield from match_exprs_to_patterns(tail_local, subst, kb, two_sided)
 
         # matches `expr` against `pattern` and extends `subst` (which replaces stuff in `pattern`)
         match pattern:
             # variable matching
-            case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v) or v in subst):
+            case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
                 if v in subst:
                     if equal_expr(subst[v], expr):
                         # already assigned to `v`, but the same value
-                        yield from match_exprs_to_patterns(tail, subst, kb)
+                        yield from match_exprs_to_patterns(tail, subst, kb, two_sided)
                     else:
                         pass                           # no match possible, since `v` already assigned otherwise
                 else:
                     if equal_expr(pattern, expr):
                         # don't extend `subst`, if the variable names are the same
-                        yield from match_exprs_to_patterns(tail, subst, kb)
+                        yield from match_exprs_to_patterns(tail, subst, kb, two_sided)
                     else:
                         # `v` is not assigned yet, so we can assign it
                         subst_local: Subst = subst.copy()     # shallow copy
                         subst_local[v] = expr                 # extend the substitution
-                        yield from match_exprs_to_patterns(tail, subst_local, kb)
+                        yield from match_exprs_to_patterns(tail, subst_local, kb, two_sided)
 
             # constant matching
             case Token(label=l, value=v):
                 if isinstance(expr, Token) and l==expr.label and v==expr.value:
-                    yield from match_exprs_to_patterns(tail, subst, kb)
+                    yield from match_exprs_to_patterns(tail, subst, kb, two_sided)
 
             # binding operator matching (rename bound variable)
             case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
                 if op_p == SUB_SYMBOL:
                     # optionally: a pattern with a `sub` is special and possibly matches many expressions
                     if not is_sub(expr):   # however, don't call this function to match a `sub` expression to a `sub` pattern to avoid an infinite loop
-                        yield from match_against_sub(expr, pattern, tail, subst, kb)
+                        yield from match_against_sub(expr, pattern, tail, subst, kb, two_sided)
                 # in any case: additionally binding ops match against their matching binding ops
                 match expr:
                     case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
@@ -2676,7 +2676,7 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                             # case 2: v_p != v_e
                             #   replace `v_p` with `v_e`
                             subst_local[v_p] = expr[1]   # covers both cases!
-                            yield from match_exprs_to_patterns(list(zip(args_e, args_p)) + tail, subst_local, kb)
+                            yield from match_exprs_to_patterns(list(zip(args_e, args_p)) + tail, subst_local, kb, two_sided)
 
             # list matching for flat and non-symmetric operators (do allow different lengths)
             case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and not kb.is_sym(op_p)):
@@ -2687,7 +2687,7 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                             for split in splits:
                                 # convert singletons into elements and add the operator to longer lists
                                 split_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in split]
-                                yield from match_exprs_to_patterns(list(zip(split_expr, tail_p)) + tail, subst, kb)
+                                yield from match_exprs_to_patterns(list(zip(split_expr, tail_p)) + tail, subst, kb, two_sided)
 
             # list matching for non-flat and symmetric operators (do not allow different lengths)
             case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (not kb.is_flat(op_p) and kb.is_sym(op_p)):
@@ -2696,7 +2696,7 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                         if len(tail_e) == len(tail_p):
                             perms = itertools.permutations(tail_e)
                             for perm in perms:
-                                yield from match_exprs_to_patterns(list(zip(perm, tail_p)) + tail, subst, kb)
+                                yield from match_exprs_to_patterns(list(zip(perm, tail_p)) + tail, subst, kb, two_sided)
 
             # list matching for flat and symmetric operators (do allow different length)
             case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and kb.is_sym(op_p)):
@@ -2710,11 +2710,11 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                                 for perm in perms:
                                     # convert singletons into elements and add the operator to longer lists
                                     perm_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in perm]
-                                    yield from match_exprs_to_patterns(list(zip(perm_expr, tail_p)) + tail, subst, kb)
+                                    yield from match_exprs_to_patterns(list(zip(perm_expr, tail_p)) + tail, subst, kb, two_sided)
 
             # list matching (same length, no special operators)
             case [*_] if isinstance(expr, list) and len(expr)==len(pattern):
-                yield from match_exprs_to_patterns(list(zip(expr, pattern)) + tail, subst, kb)
+                yield from match_exprs_to_patterns(list(zip(expr, pattern)) + tail, subst, kb, two_sided)
 
             case _:
                 # we didn't match the pattern, so we cannot extend the substitution
@@ -2811,8 +2811,8 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         conclusion = formula_expr
 
     # to match `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
-    for subst in match_exprs_to_patterns([(expr, conclusion)], {}, kb):
-        debug(f'{subst}')
+    for subst in match_exprs_to_patterns([(expr, conclusion)], {}, kb, two_sided=False):
+        debug(f'substitution {subst}')
         if premise is None:
             debug(f'bingo! {expr_str(conclusion, kb)} implies {expr_str(expr, kb)} with {subst}')
             break           # bingo!  we found one
@@ -2830,7 +2830,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         if is_implication(formula_expr):
             # maybe we shouldn't split it into premise and conclusion
             premise = None
-            optional_subst = _first_or_none(match_exprs_to_patterns([(expr, formula_expr)], {}, kb))
+            optional_subst = _first_or_none(match_exprs_to_patterns([(expr, formula_expr)], {}, kb, two_sided=False))
             if optional_subst is None:
                 debug(f'failed: could not show {expr_str(formula_expr, kb)} implies {expr_str(expr, kb)}')
                 return ''    # no luck this time

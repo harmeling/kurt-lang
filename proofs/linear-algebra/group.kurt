@@ -19,13 +19,13 @@ proof
     fix x
         -(x + -x) + (x + -x)              = 0   ; by G3
         -(x + -x) + (x + (0 + -x))        = 0   ; by G2
-        todo -(x + -x) + (x + ((-x + x) + -x)) = 0   ; by G3
-        todo -(x + -x) + ((x + (-x + x)) + -x) = 0   ; by G1
-        todo -(x + -x) + (((x + -x) + x) + -x) = 0   ; by G1
-        todo -(x + -x) + ((x + -x) + (x + -x)) = 0   ; by G1
-        todo (-(x + -x) + (x + -x)) + (x + -x) = 0   ; by G1
-        todo 0 + (x + -x)                      = 0   ; by G3
-        todo x + -x = 0
+        -(x + -x) + (x + ((-x + x) + -x)) = 0   ; by G3
+        -(x + -x) + ((x + (-x + x)) + -x) = 0   ; by G1
+        -(x + -x) + (((x + -x) + x) + -x) = 0   ; by G1
+        -(x + -x) + ((x + -x) + (x + -x)) = 0   ; by G1
+        (-(x + -x) + (x + -x)) + (x + -x) = 0   ; by G1
+        0 + (x + -x)                      = 0   ; by G3
+        x + -x = 0
     thus x + -x = 0
 qed
 
@@ -33,10 +33,10 @@ qed
 show x + 0 = x                      "G5" ; right neutral
 proof
     fix x
-        todo x + 0 = x + (-x + x)       ; by G3
-        todo x + 0 = (x + -x) + x       ; by G1
+        x + 0 = x + (-x + x)       ; by G3
+        x + 0 = (x + -x) + x       ; by G1
         x + 0 = 0 + x              ; by G4
-        todo x + 0 = x
+        x + 0 = x
     thus x + 0 = x                 ; by G2
 qed
 ;;; Proof checked.
