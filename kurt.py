@@ -2617,6 +2617,7 @@ def _transform(e: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
 # each "case" with a recursive call loops over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
+# `subst` is for the pattern
 # `two_sided` means that variables in the exprs can also be assigned
 def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, kb: KnowledgeBase, two_sided: bool) -> Iterator[Subst]:
     debug(f'{[(expr_str(e, kb), expr_str(f, kb)) for (e, f) in exprs_patterns]} subst={subst}')
@@ -2752,7 +2753,7 @@ def trigger_sub(expr: Expr, kb: KnowledgeBase) -> Expr:
             return expr      # no sub operator, so we return the original expression
 
 # match the theory against a a list of expressions (not the other way around) and grow the substitution
-def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[Formula]]:
+def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tuple[bool, list[Formula]]:
     #debug(f'exprs: [{", ".join([expr_str(e, kb) for e in exprs])}]')
     match exprs:
 
@@ -2766,10 +2767,9 @@ def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[F
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that create a match
                 # IMPORTANT: match the candidate to the expression (not vice versa)
-                for subst in match_exprs_to_patterns([(candidate.simplified_expr, expr)], {}, kb, two_sided=True):
-                    # try to match the rest of the expressions (the `tail`), but first apply the subst
-                    tail_local = [_transform(e, subst, kb) for e in tail]
-                    success, found_formulas = match_all_theory(tail_local, kb)
+                for subst_local in match_exprs_to_patterns([(candidate.simplified_expr, expr)], subst, kb, two_sided=True):
+                    # try to match the rest of the expressions (the `tail`)
+                    success, found_formulas = match_all_theory(tail, subst_local, kb)
                     if success:
                         return True, [candidate, *found_formulas]   # match was found!  BINGO!
             # no match so far, however, possibly `expr` is a conjunction that we can split into pieces
@@ -2778,7 +2778,7 @@ def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[F
                 case [Token(label='SYMBOL', value=v), *exprs] if v == AND_SYMBOL:
                     # the only place where we might call `match_all_theory` with a list longer than one
                     assert len(exprs) > 0
-                    return match_all_theory(exprs + tail, kb)  # try to match the arguments of the conjunction
+                    return match_all_theory(exprs + tail, subst, kb)  # try to match the arguments of the conjunction
             # still no match, so we return `None` and an empty list
             return False, []       # could not find a match among the candidate `patterns`
 
@@ -2817,14 +2817,10 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
             debug(f'bingo! {expr_str(conclusion, kb)} implies {expr_str(expr, kb)} with {subst}')
             break           # bingo!  we found one
         else:
-            # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
-            # and we have to apply the various substitutions to it, which might change from call to call
-            premise_local = _transform(premise, subst, kb)
-
             # search for the premise as well, i.e., match the theory against the `premise`
-            success, matched_formulas = match_all_theory([premise_local], kb)
+            success, matched_formulas = match_all_theory([premise], subst, kb)
             if success:
-                debug(f'bingo! {expr_str(premise_local, kb)} follows from {[expr_str(f.expr, kb) for f in matched_formulas]} with {subst}')
+                debug(f'bingo! {expr_str(premise, kb)} follows from {[expr_str(f.expr, kb) for f in matched_formulas]} with {subst}')
                 break           # bingo!  we found one
     else:
         if is_implication(formula_expr):
