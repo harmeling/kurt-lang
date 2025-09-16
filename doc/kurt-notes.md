@@ -2040,3 +2040,12 @@ two issues:
       + boolean variables in B are matched against boolean variables in A ***or against expressions***
       - expressions in B can be matched against expressions in A or against boolean variables in A (and against sub-expressions in A) [maybe we don't allow the latter for now]
       - subst-expressions in B are matched against subst-expressions in A ***or against expressions***
+
+## 2025-09-15
+
+possible problems:
+
+- assigning a free variable might introduce new free variables, which are then subsequently assigned
+
+- every subterm could become a property `lock`, which is locked once something is assigned
+
