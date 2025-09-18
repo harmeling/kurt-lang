@@ -1486,7 +1486,9 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     proven_f = kb.theory[-1]
     proven_expr  = proven_f.simplified_expr          # what actually has been proven
     reason = ''
-    optional_subst = _first_or_none(match_exprs_to_patterns([(planned_expr, proven_expr)], {}, False, kb))
+    unify_flag = False
+    blocked: set[str] = set()
+    optional_subst = _first_or_none(match_exprs_to_patterns([(planned_expr, proven_expr)], {}, blocked, unify_flag, kb))
     if optional_subst is None:
         raise KurtException(f'ProofError: planned formula `{planned_f}` does not match the last formula in the theory `{proven_f}`')
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -1786,9 +1788,11 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 v = subst[k]
                 if isinstance(v, Token) and isinstance(v.value, str):
                     subst_back[v.value] = k
+            unify_flag = False
+            blocked: set[str] = set()
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that create a match
-                for subst_cand in match_exprs_to_patterns([(candidate.simplified_expr, expr_alt)], {}, False, kb):
+                for subst_cand in match_exprs_to_patterns([(candidate.simplified_expr, expr_alt)], {}, blocked, unify_flag, kb):
                     subst_str = f'{expr_str(expr, kb)} '
                     subst_str += 'with ' 
                     subst_str += ', '.join([f'{subst_back[var]}={expr_str(subst_cand[var], kb)}' for var in subst_cand])
@@ -2210,7 +2214,7 @@ def apply_subst(expr: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
 
         # a token of an (at least locally) free variable, that appears in subst
         case Token(label='SYMBOL', value=free_v) if free_v in subst:
-            return subst[free_v]
+            return subst[free_v]          # TODO: problem, `subst[free_v]` might be substitutable as well, see walk
 
         # any other token is not modified
         case Token():
@@ -2486,7 +2490,7 @@ def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iter
 
 # couple of problems:
 # - also we are generating some wrong combinations where we replace bound variables in `%A` with `$x`, what is allowed, can `$a` contain any bound variables of `%A`?  probably not!
-def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
+def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, blocked: set[str], unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
 
     # check that `expr` is not a sub expression
     assert not is_sub(expr)
@@ -2549,7 +2553,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             if var_a is not None and expr_a is not None:
                 subst_local[var_a] = expr_a           # store the found substitutions for `$a`
             # now that we found a substitution for `$a` and `%A`
-            yield from match_exprs_to_patterns(tail, subst_local, unify_flag, kb)
+            yield from match_exprs_to_patterns(tail, subst_local, blocked, unify_flag, kb)
 
 # helper functions
 T = TypeVar('T')
@@ -2615,144 +2619,170 @@ def _transform(e: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
     e_local = trigger_sub(e_local, kb)   # trigger the `sub` operator
     return e_local
 
-def walk(t, subst: Subst, kb: KnowledgeBase) -> Expr:
-    match t:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
-            if v in subst:
-                return walk(subst[v], subst, kb)
-            else:
-                return t
-        case [*children]:
-            return [walk(child, subst, kb) for child in children]
-        case _:
-            return t
+# if `e` is a variable apply the substitution as long as possible
+def walk(e: Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) -> Expr:
+    while isinstance(e, Token) and e.label == 'SYMBOL':
+        u = e.value
+        if isinstance(u, str) and (kb.is_var(u) or kb.is_bool_var(u)):
+            if u in blocked:
+                break
+            if u in subst:
+                e = subst[u]
+                continue
+        break
+    return e
 
-def occur_check(v:str, e:Expr, subst: Subst, kb: KnowledgeBase) -> bool:
-    e = walk(e, subst, kb)   # apply the current substitutions
+def occurs(v:str, e:Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) -> bool:
+    e = walk(e, subst, blocked, kb)
     match e:
         case Token(label='SYMBOL', value=u) if isinstance(u, str) and (kb.is_var(u) or kb.is_bool_var(u)):
             return v == u
         case [*children]:
-            return any(occur_check(v, child, subst, kb) for child in children)
+            return any(occurs(v, child, subst, blocked, kb) for child in children)
         case _:
             return False
+
+def contains_blocked(e: Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) -> bool:
+    e = walk(e, subst, blocked, kb)
+    match e:
+        case Token(label='SYMBOL', value=name) if isinstance(name, str):
+            # treat blocked names as rigid atoms
+            return name in blocked
+        case [*children]:
+            return any(contains_blocked(c, subst, blocked, kb) for c in children)
+        case _:
+            return False
+
+def is_var_token(e:Expr, kb):
+    if not (isinstance(e, Token) and e.label == 'SYMBOL'):
+        return False
+    assert isinstance(e.value, str)
+    return kb.is_var(e.value)
+
+def is_bool_var_token(e:Expr, kb):
+    if not (isinstance(e, Token) and e.label == 'SYMBOL'):
+        return False
+    assert isinstance(e.value, str)
+    return kb.is_bool_var(e.value)
 
 # the non-recursive calls are having a single expr and a single pattern, the recursive calls then might have more
 # each "case" with a recursive call loops over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
 # `two_sided` means that variables in the exprs can also be assigned
-def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
+def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, blocked: set[str], unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
     debug(f'{[(expr_str(e, kb), expr_str(f, kb)) for (e, f) in exprs_patterns]} subst={subst}')
     if len(exprs_patterns) == 0:
         yield subst     # we emptied the matching tasks and found a substitution
     else:
         [(expr, pattern), *tail] = exprs_patterns   # unpack
 
-        expr = walk(expr, subst, kb)         # apply the current substitutions
-        pattern = walk(pattern, subst, kb)   # apply the current substitutions
+        # lazy style: apply `walk` before processing, i.e., apply the substitution
+        # (alternative: eager style: apply `walk` to the tail after each change to the substitution)
+        expr = walk(expr, subst, blocked, kb)
+        pattern = walk(pattern, subst, blocked, kb)
 
-        # special case if we match variables on both sides
-        if unify_flag:
-            match expr:
-                case Token(label='SYMBOL', value=u) if isinstance(u, str) and kb.is_var(u):
-                    match pattern:
-                        case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
-                            pass       # don't replace here variables, but later in the `match pattern`
-                        case _:
-                            if u in subst:
-                                if equal_expr(walk(subst[u], subst, kb), walk(pattern, subst, kb)):
-                                    # already assigned to `v`, but the same value
-                                    yield from match_exprs_to_patterns(tail, subst, unify_flag, kb)
-                                else:
-                                    pass                           # no match possible, since `v` was already assigned earlier
-                            elif not occur_check(u, pattern, subst, kb):
-                                # `u` is not assigned yet, so we have to assign it now
-                                subst_local: Subst = subst.copy()     # shallow copy
-                                subst_local[u] = pattern                  # extend the substitution
-                                yield from match_exprs_to_patterns(tail, subst_local, unify_flag, kb)
+        if equal_expr(expr, pattern):
+            # equal, just continue with the `tail`
+            yield from match_exprs_to_patterns(tail, subst, blocked, unify_flag, kb)
 
-        # matches `expr` against `pattern` and extends `subst` (which replaces stuff in `pattern`)
-        match pattern:
-            # variable matching
-            case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_bool_var(v)):
-                if v in subst:
-                    if equal_expr(walk(subst[v], subst, kb), walk(expr, subst, kb)):
-                        # already assigned to `v`, but the same value
-                        yield from match_exprs_to_patterns(tail, subst, unify_flag, kb)
-                    else:
-                        pass                           # no match possible, since `v` was already assigned earlier
-                elif not occur_check(v, expr, subst, kb):
-                    # `v` is not assigned yet, so we have to assign it now
-                    subst_local: Subst = subst.copy()     # shallow copy
-                    subst_local[v] = expr                 # extend the substitution
-                    yield from match_exprs_to_patterns(tail, subst_local, unify_flag, kb)
+        elif is_var_token(pattern, kb):
+            # `pattern` is a variable
+            assert isinstance(pattern, Token) and isinstance(pattern.value, str)
+            v = pattern.value
+            # we know that `v not in subst`, since we applied `walk` to `pattern`
+            if not occurs(v, expr, subst, blocked, kb) and not contains_blocked(expr, subst, blocked, kb):
+                # we can safely assign `v` without creating infinite substitutions
+                subst_local: Subst = subst.copy()     # shallow copy, since we don't want to mess with other branches
+                subst_local[v] = expr                 # extend the substitution
+                yield from match_exprs_to_patterns(tail, subst_local, blocked, unify_flag, kb)
 
-            # constant matching
-            case Token(label=l, value=v):
-                if isinstance(expr, Token) and l==expr.label and v==expr.value:
-                    yield from match_exprs_to_patterns(tail, subst, unify_flag, kb)
+        elif is_bool_var_token(pattern, kb):
+            # `pattern` is a boolean variable
+            assert isinstance(pattern, Token) and isinstance(pattern.value, str)
+            v = pattern.value
+            # we know that `v not in subst`, since we applied `walk` to `pattern`
+            if not occurs(v, expr, subst, blocked, kb) and not contains_blocked(expr, subst, blocked, kb):
+                # we can safely assign `v` without creating infinite substitutions
+                subst_local: Subst = subst.copy()     # shallow copy, since we don't want to mess with other branches
+                subst_local[v] = expr                 # extend the substitution
+                yield from match_exprs_to_patterns(tail, subst_local, blocked, unify_flag, kb)
 
-            # binding operator matching (rename bound variable)
-            case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
-                if op_p == SUB_SYMBOL:
-                    # optionally: a pattern with a `sub` is special and possibly matches many expressions
-                    if not is_sub(expr):   # however, don't call this function to match a `sub` expression to a `sub` pattern to avoid an infinite loop
-                        yield from match_against_sub(expr, pattern, tail, subst, unify_flag, kb)
-                # in any case: additionally binding ops match against their matching binding ops
-                match expr:
-                    case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
-                        if op_p==op_e and len(args_p)==len(args_e):
-                            subst_local = subst.copy()
-                            assert isinstance(v_p, str)
-                            # case 1: v_p == v_e
-                            #   block `v_p` from being assigned as a free var in `args_p`
-                            # case 2: v_p != v_e
-                            #   replace `v_p` with `v_e`
-                            subst_local[v_p] = expr[1]   # covers both cases!
-                            yield from match_exprs_to_patterns(list(zip(args_e, args_p)) + tail, subst_local, unify_flag, kb)
+        elif unify_flag and is_var_token(expr, kb):
+            # `expr` is a variable (the case where `expr` and `pattern` are both variables is handled by the previous case)
+            assert isinstance(expr, Token) and isinstance(expr.value, str)
+            u = expr.value
+            # we know that `u not in subst`, since we applied `walk` to `expr`
+            if not occurs(u, pattern, subst, blocked, kb):
+                # we can safely assign `u` without creating infinite substitutions
+                subst_local: Subst = subst.copy()     # shallow copy, since we don't want to mess with other branches
+                subst_local[u] = pattern              # extend the substitution
+                yield from match_exprs_to_patterns(tail, subst_local, blocked, unify_flag, kb)
 
-            # list matching for flat and non-symmetric operators (do allow different lengths)
-            case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and not kb.is_sym(op_p)):
-                match expr:
-                    case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
-                        if len(tail_e) >= len(tail_p):  # we can assign variables in `tail_p` to elements of `tail_e`
-                            splits = split_into_lists(tail_e, len(tail_p))
-                            for split in splits:
-                                # convert singletons into elements and add the operator to longer lists
-                                split_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in split]
-                                yield from match_exprs_to_patterns(list(zip(split_expr, tail_p)) + tail, subst, unify_flag, kb)
+        else:
+            # branch on `pattern` for matching (or unification if `unify_flag`)
+            match pattern:
 
-            # list matching for non-flat and symmetric operators (do not allow different lengths)
-            case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (not kb.is_flat(op_p) and kb.is_sym(op_p)):
-                match expr:
-                    case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
-                        if len(tail_e) == len(tail_p):
-                            perms = itertools.permutations(tail_e)
-                            for perm in perms:
-                                yield from match_exprs_to_patterns(list(zip(perm, tail_p)) + tail, subst, unify_flag, kb)
+                # binding operator matching (rename bound variable before!)
+                case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
+                    if op_p == SUB_SYMBOL:
+                        # optionally: a pattern with a `sub` is special and possibly matches many expressions
+                        if not is_sub(expr):   # however, don't call this function to match a `sub` expression to a `sub` pattern to avoid an infinite loop
+                            yield from match_against_sub(expr, pattern, tail, subst, blocked, unify_flag, kb)
+                    # in any case: additionally binding ops match against their matching binding ops
+                    match expr:
+                        case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
+                            assert isinstance(v_p, str) and isinstance(v_e, str)
+                            if op_p==op_e and len(args_p)==len(args_e):
+                                subst_local = subst.copy()
+                                blocked_local = blocked.copy()
+                                blocked_local.add(v_p)    # block the bound variable of the pattern
+                                blocked_local.add(v_e)    # block the bound variable of the expression
+                                if v_p != v_e:
+                                    subst_local[v_p] = expr[1]
+                                yield from match_exprs_to_patterns(list(zip(args_e, args_p)) + tail, subst_local, blocked_local, unify_flag, kb)
 
-            # list matching for flat and symmetric operators (do allow different length)
-            case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and kb.is_sym(op_p)):
-                match expr:
-                    case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
-                        if len(tail_e) >= len(tail_p):  # we can assign variables in `tail_p` to elements of `tail_e`
-                            subsets = partitions(tail_e, len(tail_p))  # get `len(tail_p)` many subsets of `tail_e`
-                            for subset in subsets:
-                                # get all permutations of the subsets
-                                perms = itertools.permutations(subset)
-                                for perm in perms:
+                # list matching for flat and non-symmetric operators (do allow different lengths)
+                case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and not kb.is_sym(op_p)):
+                    match expr:
+                        case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
+                            if len(tail_e) >= len(tail_p):  # we can assign variables in `tail_p` to elements of `tail_e`
+                                splits = split_into_lists(tail_e, len(tail_p))
+                                for split in splits:
                                     # convert singletons into elements and add the operator to longer lists
-                                    perm_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in perm]
-                                    yield from match_exprs_to_patterns(list(zip(perm_expr, tail_p)) + tail, subst, unify_flag, kb)
+                                    split_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in split]
+                                    yield from match_exprs_to_patterns(list(zip(split_expr, tail_p)) + tail, subst, blocked, unify_flag, kb)
 
-            # list matching (same length, no special operators)
-            case [*_] if isinstance(expr, list) and len(expr)==len(pattern):
-                yield from match_exprs_to_patterns(list(zip(expr, pattern)) + tail, subst, unify_flag, kb)
+                # list matching for non-flat and symmetric operators (do not allow different lengths)
+                case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (not kb.is_flat(op_p) and kb.is_sym(op_p)):
+                    match expr:
+                        case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
+                            if len(tail_e) == len(tail_p):
+                                perms = itertools.permutations(tail_e)
+                                for perm in perms:
+                                    yield from match_exprs_to_patterns(list(zip(perm, tail_p)) + tail, subst, blocked, unify_flag, kb)
 
-            case _:
-                # we didn't match the pattern, so we cannot extend the substitution
-                pass
+                # list matching for flat and symmetric operators (do allow different length)
+                case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and kb.is_sym(op_p)):
+                    match expr:
+                        case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
+                            if len(tail_e) >= len(tail_p):  # we can assign variables in `tail_p` to elements of `tail_e`
+                                subsets = partitions(tail_e, len(tail_p))  # get `len(tail_p)` many subsets of `tail_e`
+                                for subset in subsets:
+                                    # get all permutations of the subsets
+                                    perms = itertools.permutations(subset)
+                                    for perm in perms:
+                                        # convert singletons into elements and add the operator to longer lists
+                                        perm_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in perm]
+                                        yield from match_exprs_to_patterns(list(zip(perm_expr, tail_p)) + tail, subst, blocked, unify_flag, kb)
+
+                # list matching (same length, no special operators)
+                case [*_] if isinstance(expr, list) and len(expr)==len(pattern):
+                    yield from match_exprs_to_patterns(list(zip(expr, pattern)) + tail, subst, blocked, unify_flag, kb)
+
+                case _:
+                    # we didn't match the pattern, so we cannot extend the substitution
+                    pass
 
         
 def expr_without_boolean_var(expr: Expr, kb: KnowledgeBase) -> bool:
@@ -2769,12 +2799,9 @@ def trigger_sub(expr: Expr, kb: KnowledgeBase) -> Expr:
     # trigger the `sub` operator, i.e., replace `sub $x $a $x=0` with `$x=$a`
     # trigger only if there is no boolean variable in the sub expression
     match expr:
-        case [Token(label='SYMBOL', value=v), Token(label='SYMBOL', value=var_x), e_a, e_A] if isinstance(v, str) and v==SUB_SYMBOL:
-            if expr_without_boolean_var(e_A, kb):
-                assert isinstance(var_x, str)
-                return apply_subst(e_A, {var_x: e_a}, kb)  # replace `$x` with `a` in `A`
-            else:
-                return expr
+        case [Token(label='SYMBOL', value=v), Token(label='SYMBOL', value=var_x), e_a, e_A] if isinstance(v, str) and v==SUB_SYMBOL and expr_without_boolean_var(e_A, kb):
+            assert isinstance(var_x, str)
+            return apply_subst(e_A, {var_x: e_a}, kb)  # replace `$x` with `a` in `A`
         case [*children]:
             # recurse
             new_expr = []
@@ -2783,7 +2810,7 @@ def trigger_sub(expr: Expr, kb: KnowledgeBase) -> Expr:
                 new_expr.append(new_child)
             return new_expr
         case _:
-            return expr      # no sub operator, so we return the original expression
+            return expr      # no `sub` operator, so we return the original expression
 
 # unify a list of expression with the theory
 def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[Formula]]:
@@ -2797,10 +2824,12 @@ def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[F
         # still at least one to go
         case [expr, *tail]:
             # iterate over all formulas of the theory
+            unify_flag = True
+            blocked = set()   # no blocked variables
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that unify
-                # basically, this is two-sided matching, thus the parameter `True`
-                for subst in match_exprs_to_patterns([(candidate.simplified_expr, expr)], {}, True, kb):
+                # basically, this is two-sided matching, aka unification
+                for subst in match_exprs_to_patterns([(candidate.simplified_expr, expr)], {}, blocked, unify_flag, kb):
                     # try to unify the rest of the expressions (the `tail`)
                     tail_local = [_transform(e, subst, kb) for e in tail]
                     success, found_formulas = match_all_theory(tail_local, kb)
@@ -2845,7 +2874,9 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         conclusion = formula_expr
 
     # to match `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
-    for subst in match_exprs_to_patterns([(expr, conclusion)], {}, False, kb):
+    unify_flag = False   # only one-sided matching, i.e., we match `expr` against `conclusion`
+    blocked = set()
+    for subst in match_exprs_to_patterns([(expr, conclusion)], {}, blocked, unify_flag, kb):
         debug(f'substitution {subst}')
         if premise is None:
             debug(f'bingo! {expr_str(conclusion, kb)} implies {expr_str(expr, kb)} with {subst}')
@@ -2864,7 +2895,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         if is_implication(formula_expr):
             # maybe we shouldn't split it into premise and conclusion
             premise = None
-            optional_subst = _first_or_none(match_exprs_to_patterns([(expr, formula_expr)], {}, False, kb))
+            optional_subst = _first_or_none(match_exprs_to_patterns([(expr, formula_expr)], {}, blocked, unify_flag, kb))
             if optional_subst is None:
                 debug(f'failed: could not show {expr_str(formula_expr, kb)} implies {expr_str(expr, kb)}')
                 return ''    # no luck this time

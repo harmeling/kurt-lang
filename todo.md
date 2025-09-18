@@ -2,6 +2,9 @@
 
 ## NEXT
 
+- TODO: `match_exprs_with_patterns`, check the boolean variable case
+- TODO: merge `apply_subst` with `walk`, also replace boolean variables and trigger subs if possible
+
 - TODO impl_elim: are all universal quantifier removed?  (can be done in simplify)
 - TODO group.kurt
 - TODO check again what rules are hard-coded
