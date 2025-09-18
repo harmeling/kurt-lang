@@ -264,9 +264,6 @@ class Token:
 
     def __repr__(self) -> str:
         return f'{self.value}'
-    
-    def __lt__(self, other: Token) -> bool:
-        return str(self.value) < str(other.value)   # note: this is not a good ordering on integers
 
 def clone_token(expr: Token, new_value: Value|None=None) -> Token:
     return Token(
@@ -333,7 +330,7 @@ Expr: TypeAlias = list["Expr"] | Token
 def deepcopy_expr(expr: Expr) -> Expr:
     if isinstance(expr, Token):
         # Use shallow copy or clone to retain metadata if needed
-        return clone_token(expr)
+        return Token(expr.label, expr.value, expr.column, expr.origin)
     elif isinstance(expr, list):
         # Recursively copy the sub-expressions
         return [deepcopy_expr(e) for e in expr]
@@ -947,32 +944,6 @@ def equal_expr(t1: Expr, t2: Expr) -> bool:                                     
     else:                                                     # token and list are always non-equal
         return False
 
-def compare_expr(t1: Expr, t2: Expr) -> int:                                # "less than" for expressions
-    if isinstance(t1, Token) and isinstance(t2, list):
-        return -1                                        # e.g. 17 < [1,2]
-    elif isinstance(t1, list) and isinstance(t2, Token):
-        return 1                                         # e.g. [1,2] < 17
-    elif isinstance(t1, Token) and isinstance(t2, Token):
-        if t1 < t2:
-            return -1
-        elif t1 > t1:
-            return 1
-        else:
-            return 0
-    else:
-        assert isinstance(t1, list) and isinstance(t2, list), f'BUG: expression is either a list or token'
-        if len(t1) < len(t2):
-            return -1
-        elif len(t1) > len(t2):
-            return 1
-        else:
-            for (s1, s2) in zip(t1, t2):
-                c = compare_expr(s1, s2)
-                if c == 0:
-                    continue
-                return c
-            return 0
-
 def first_var(expr: Expr, kb: KnowledgeBase) -> str:
     match expr:
         case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_var(s):
@@ -1136,8 +1107,30 @@ def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr
         peek_lbp: int = kb.get_lbp(ts.peek)       # update peek_lbp for the iteration
     return left                                   # return the accumulated expression
 
-def sort_exprs(exprs: list[Expr]) -> list[Expr]:
-    return sorted(exprs, key=functools.cmp_to_key(compare_expr))
+def canonical_key(t: Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> tuple:
+    # head-normalize under current σ and scope
+    t = walk(t, subst, blocked, kb)
+
+    if isinstance(t, Token):
+        val = t.value
+        is_var = isinstance(val, str) and (kb.is_var(val) or kb.is_bool_var(val))
+        # Normalize the value for sorting (avoid mixing types)
+        val_key = ('S', val) if isinstance(val, str) else ('O', repr(val))
+        # Order: constants (0) < variables (1)
+        return (0 if not is_var else 1, 'T', t.label, val_key)
+
+    if isinstance(t, list):
+        # Recurse to see deeper substitutions in children
+        head_key = canonical_key(t[0], subst, blocked, kb) if t else ('Z',)
+        child_keys = tuple(canonical_key(c, subst, blocked, kb) for c in t[1:])
+        # Lists after atoms
+        return (2, 'L', head_key, len(t) - 1, child_keys)
+
+    # Fallback (shouldn’t normally happen)
+    return (3, 'Z', repr(t))
+
+def sort_exprs(exprs: list[Expr], subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> list[Expr]:
+    return sorted(exprs, key=lambda e: canonical_key(e, subst, blocked, kb))
 
 def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                        # symmetric operators can sort their args
     if isinstance(expr, list):
@@ -1147,7 +1140,7 @@ def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                  
             and isinstance(expr[0].value, str) 
             and kb.is_sym(expr[0].value) 
             and expr[0].value != SPACE_SYMBOL):  # we exclude the SPACE_SYMBOL, even though it is symmetric
-            expr = [expr[0]] + sort_exprs(expr[1:])
+            expr = [expr[0]] + sort_exprs(expr[1:], {}, frozenset(), kb)  # sort args of symmetric operator
         return expr
     elif isinstance(expr, Token):
         return expr
@@ -1487,7 +1480,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     proven_expr  = proven_f.simplified_expr          # what actually has been proven
     reason = ''
     unify_flag = False
-    blocked: set[str] = set()
+    blocked: frozenset[str] = frozenset()
     optional_subst = _first_or_none(match_exprs_to_patterns([(planned_expr, proven_expr)], {}, blocked, unify_flag, kb))
     if optional_subst is None:
         raise KurtException(f'ProofError: planned formula `{planned_f}` does not match the last formula in the theory `{proven_f}`')
@@ -1789,7 +1782,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 if isinstance(v, Token) and isinstance(v.value, str):
                     subst_back[v.value] = k
             unify_flag = False
-            blocked: set[str] = set()
+            blocked: frozenset[str] = frozenset()
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that create a match
                 for subst_cand in match_exprs_to_patterns([(candidate.simplified_expr, expr_alt)], {}, blocked, unify_flag, kb):
@@ -2126,8 +2119,8 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
     assumptions = [f.expr for f in kb.theory if not f.is_proven()]  # collect all assumptions on the current level
     if len(assumptions) != len(conditions):
         raise KurtException(f'EvalError: number of assumptions ({len(assumptions)}) on the current level must match the number of conditions ({len(conditions)}) in the forall expression')
-    assumptions = sort_exprs(assumptions)
-    conditions  = sort_exprs(conditions)
+    assumptions = sort_exprs(assumptions, {}, frozenset(), kb)
+    conditions  = sort_exprs(conditions, {}, frozenset(), kb)
     for (a, c) in zip(assumptions, conditions):
         if not equal_expr(a, c):
             raise KurtException(f'EvalError: condition {expr_str(c, kb)} does not match any assumption on the current level')
@@ -2359,7 +2352,7 @@ def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, subst: Subst|None = None,
                     new_free_v = new_var_name()
                 else:
                     new_free_v = new_bool_var_name()
-                new_expr = clone_token(expr, new_free_v)   # create a new token by modifying `expr`
+                new_expr = Token(label='SYMBOL', value=new_free_v, column=expr.column, origin=expr.origin)
                 subst[free_v] = new_expr
             return new_expr, subst
 
@@ -2490,7 +2483,7 @@ def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iter
 
 # couple of problems:
 # - also we are generating some wrong combinations where we replace bound variables in `%A` with `$x`, what is allowed, can `$a` contain any bound variables of `%A`?  probably not!
-def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, blocked: set[str], unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
+def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], subst: Subst, blocked: frozenset[str], unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
 
     # check that `expr` is not a sub expression
     assert not is_sub(expr)
@@ -2620,7 +2613,7 @@ def _transform(e: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
     return e_local
 
 # if `e` is a variable apply the substitution as long as possible
-def walk(e: Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) -> Expr:
+def walk(e: Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> Expr:
     while isinstance(e, Token) and e.label == 'SYMBOL':
         u = e.value
         if isinstance(u, str) and (kb.is_var(u) or kb.is_bool_var(u)):
@@ -2632,7 +2625,7 @@ def walk(e: Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) -> Expr:
         break
     return e
 
-def occurs(v:str, e:Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) -> bool:
+def occurs(v:str, e:Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> bool:
     e = walk(e, subst, blocked, kb)
     match e:
         case Token(label='SYMBOL', value=u) if isinstance(u, str) and (kb.is_var(u) or kb.is_bool_var(u)):
@@ -2642,12 +2635,12 @@ def occurs(v:str, e:Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) ->
         case _:
             return False
 
-def contains_blocked(e: Expr, subst: Subst, blocked: set[str], kb: KnowledgeBase) -> bool:
+def contains_blocked(e: Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> bool:
     e = walk(e, subst, blocked, kb)
     match e:
-        case Token(label='SYMBOL', value=name) if isinstance(name, str):
+        case Token(label='SYMBOL', value=u) if isinstance(u, str):
             # treat blocked names as rigid atoms
-            return name in blocked
+            return u in blocked
         case [*children]:
             return any(contains_blocked(c, subst, blocked, kb) for c in children)
         case _:
@@ -2665,12 +2658,21 @@ def is_bool_var_token(e:Expr, kb):
     assert isinstance(e.value, str)
     return kb.is_bool_var(e.value)
 
+def rename_bound_var(e: Expr, old_v: str, new_v: str) -> Expr:
+    match e:
+        case Token(label='SYMBOL', value=v) if v == old_v:
+            return Token('SYMBOL', value=new_v)
+        case [*children]:
+            return [rename_bound_var(c, old_v, new_v) for c in children]
+        case _:
+            return e
+
 # the non-recursive calls are having a single expr and a single pattern, the recursive calls then might have more
 # each "case" with a recursive call loops over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
 # `two_sided` means that variables in the exprs can also be assigned
-def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, blocked: set[str], unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
+def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subst, blocked: frozenset[str], unify_flag: bool, kb: KnowledgeBase) -> Iterator[Subst]:
     debug(f'{[(expr_str(e, kb), expr_str(f, kb)) for (e, f) in exprs_patterns]} subst={subst}')
     if len(exprs_patterns) == 0:
         yield subst     # we emptied the matching tasks and found a substitution
@@ -2702,7 +2704,7 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
             assert isinstance(pattern, Token) and isinstance(pattern.value, str)
             v = pattern.value
             # we know that `v not in subst`, since we applied `walk` to `pattern`
-            if not occurs(v, expr, subst, blocked, kb) and not contains_blocked(expr, subst, blocked, kb):
+            if v not in blocked and not occurs(v, expr, subst, blocked, kb) and not contains_blocked(expr, subst, blocked, kb):
                 # we can safely assign `v` without creating infinite substitutions
                 subst_local: Subst = subst.copy()     # shallow copy, since we don't want to mess with other branches
                 subst_local[v] = expr                 # extend the substitution
@@ -2713,7 +2715,7 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
             assert isinstance(expr, Token) and isinstance(expr.value, str)
             u = expr.value
             # we know that `u not in subst`, since we applied `walk` to `expr`
-            if not occurs(u, pattern, subst, blocked, kb):
+            if u not in blocked and not occurs(u, pattern, subst, blocked, kb):
                 # we can safely assign `u` without creating infinite substitutions
                 subst_local: Subst = subst.copy()     # shallow copy, since we don't want to mess with other branches
                 subst_local[u] = pattern              # extend the substitution
@@ -2734,13 +2736,10 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                         case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
                             assert isinstance(v_p, str) and isinstance(v_e, str)
                             if op_p==op_e and len(args_p)==len(args_e):
-                                subst_local = subst.copy()
-                                blocked_local = blocked.copy()
-                                blocked_local.add(v_p)    # block the bound variable of the pattern
-                                blocked_local.add(v_e)    # block the bound variable of the expression
-                                if v_p != v_e:
-                                    subst_local[v_p] = expr[1]
-                                yield from match_exprs_to_patterns(list(zip(args_e, args_p)) + tail, subst_local, blocked_local, unify_flag, kb)
+                                args_p = [deepcopy_expr(args_p_i) for args_p_i in args_p]
+                                args_p = [rename_bound_var(args_p_i, v_p, v_e) for args_p_i in args_p]
+                                blocked_local = blocked | {v_p, v_e}
+                                yield from match_exprs_to_patterns(list(zip(args_e, args_p)) + tail, subst, blocked_local, unify_flag, kb)
 
                 # list matching for flat and non-symmetric operators (do allow different lengths)
                 case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and not kb.is_sym(op_p)):
@@ -2752,15 +2751,25 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                                     # convert singletons into elements and add the operator to longer lists
                                     split_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in split]
                                     yield from match_exprs_to_patterns(list(zip(split_expr, tail_p)) + tail, subst, blocked, unify_flag, kb)
+                            elif unify_flag:
+                                splits = split_into_lists(tail_p, len(tail_e))
+                                for split in splits:
+                                    # convert singletons into elements and add the operator to longer lists
+                                    split_pattern: list[Expr] = [child[0] if len(child)==1 else [pattern[0], *child] for child in split]
+                                    yield from match_exprs_to_patterns(list(zip(tail_e, split_pattern)) + tail, subst, blocked, unify_flag, kb)
+
 
                 # list matching for non-flat and symmetric operators (do not allow different lengths)
                 case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (not kb.is_flat(op_p) and kb.is_sym(op_p)):
                     match expr:
-                        case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e==op_p:
-                            if len(tail_e) == len(tail_p):
-                                perms = itertools.permutations(tail_e)
-                                for perm in perms:
-                                    yield from match_exprs_to_patterns(list(zip(perm, tail_p)) + tail, subst, blocked, unify_flag, kb)
+                        case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e == op_p and len(tail_e) == len(tail_p):
+
+                            # Canonicalize order on BOTH sides (after current substitution/scope)
+                            tail_p_s = sort_exprs(tail_p, subst, blocked, kb)
+                            tail_e_s = sort_exprs(tail_e, subst, blocked, kb)
+
+                            # Pairwise unify in that order
+                            yield from match_exprs_to_patterns(list(zip(tail_e_s, tail_p_s)) + tail, subst, blocked, unify_flag, kb)
 
                 # list matching for flat and symmetric operators (do allow different length)
                 case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and kb.is_sym(op_p)):
@@ -2775,6 +2784,15 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                                         # convert singletons into elements and add the operator to longer lists
                                         perm_expr: list[Expr] = [child[0] if len(child)==1 else [expr[0], *child] for child in perm]
                                         yield from match_exprs_to_patterns(list(zip(perm_expr, tail_p)) + tail, subst, blocked, unify_flag, kb)
+                            elif unify_flag:
+                                subsets = partitions(tail_p, len(tail_e))  # get `len(tail_e)` many subsets of `tail_p`
+                                for subset in subsets:
+                                    # get all permutations of the subsets
+                                    perms = itertools.permutations(subset)
+                                    for perm in perms:
+                                        # convert singletons into elements and add the operator to longer lists
+                                        perm_pattern: list[Expr] = [child[0] if len(child)==1 else [pattern[0], *child] for child in perm]
+                                        yield from match_exprs_to_patterns(list(zip(tail_e, perm_pattern)) + tail, subst, blocked, unify_flag, kb)
 
                 # list matching (same length, no special operators)
                 case [*_] if isinstance(expr, list) and len(expr)==len(pattern):
@@ -2825,7 +2843,7 @@ def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[F
         case [expr, *tail]:
             # iterate over all formulas of the theory
             unify_flag = True
-            blocked = set()   # no blocked variables
+            blocked = frozenset()   # no blocked variables
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that unify
                 # basically, this is two-sided matching, aka unification
@@ -2875,7 +2893,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
 
     # to match `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
     unify_flag = False   # only one-sided matching, i.e., we match `expr` against `conclusion`
-    blocked = set()
+    blocked = frozenset()
     for subst in match_exprs_to_patterns([(expr, conclusion)], {}, blocked, unify_flag, kb):
         debug(f'substitution {subst}')
         if premise is None:
