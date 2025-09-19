@@ -1481,6 +1481,8 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     reason = ''
     unify_flag = False
     blocked: frozenset[str] = frozenset()
+    debug(planned_expr)
+    debug(proven_expr)
     optional_subst = _first_or_none(match_exprs_to_patterns([(planned_expr, proven_expr)], {}, blocked, unify_flag, kb))
     if optional_subst is None:
         raise KurtException(f'ProofError: planned formula `{planned_f}` does not match the last formula in the theory `{proven_f}`')
@@ -1535,7 +1537,8 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename
                     assert quantifier == EXISTS_SYMBOL
                     subst: Subst = {bound_var: new_const_expr}
                     body = deepcopy_expr(body)
-                    body = apply_subst(body, subst, kb)
+                    blocked: frozenset[str] = frozenset()  # no blocked variables
+                    body = apply_subst(body, subst, blocked, kb)
                     if equal_expr(body, fact):
                         break  # end the loop without the `else` block
     else:
@@ -2202,30 +2205,35 @@ def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
 # apply substitution to free variables
 Subst: TypeAlias = dict[str, Expr]
 
-def apply_subst(expr: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
+def apply_subst(expr: Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> Expr:
+    """
+    Deeply apply `subst` to `expr`, capture-avoiding:
+    - Uses `walk` to head-normalize at each node.
+    - Extends `blocked` with the binder's bound variable when descending.
+    - Does not mutate `subst` (no delete/copy tricks).
+    """
+    expr = walk(expr, subst, blocked, kb)  # head-normalize first
+
     match expr:
-
-        # a token of an (at least locally) free variable, that appears in subst
-        case Token(label='SYMBOL', value=free_v) if free_v in subst:
-            return subst[free_v]          # TODO: problem, `subst[free_v]` might be substitutable as well, see walk
-
-        # any other token is not modified
+        # atom after head-normalization
         case Token():
             return expr
 
-        # in binding operator expressions the bound variable is not replaced by the substitution
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op) and bound_v in subst:
-            local_subst: Subst = subst.copy()                   # we need a local `subst`, since `bound_v` should not be changed
-            del local_subst[bound_v]                     # remove it from our local copy
-            expr2: Expr = apply_subst(expr[2:], local_subst, kb)
-            assert isinstance(expr2, list)
-            return [expr[0], expr[1], *expr2]
-
-        # recursively replace the children
-        case [*children] if len(children) > 0:
-            return [apply_subst(child, subst, kb) for child in children]
-
-    assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `apply_subst`'
+        # binding operator: recurse into body with extended blocked
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
+            assert isinstance(bound_v, str)
+            local_blocked = blocked | {bound_v}
+            body = expr[2:]
+            new_body = [apply_subst(c, subst, local_blocked, kb) for c in body]
+            return [expr[0], expr[1], *new_body]
+        
+        # general case: recurse into all children
+        case [*exprs]:
+            return [apply_subst(c, subst, blocked, kb) for c in exprs]
+        
+        # never reach this one!
+        case _:
+            assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `apply_subst`'
 
 def bool_vars(expr: Expr, kb: KnowledgeBase) -> set[str]:
     # return a set of the boolean variables in expression `e`
@@ -2284,27 +2292,18 @@ def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
     assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `free_bound_vars`'
 
 # new variable names just for internal use
-var_counter = 0
-def reset_var_counter() -> None:
-    assert False, f'BUG: are you sure, you should call the `reset_var_counter` function?'
-    global var_counter
-    var_counter = 0
-
 def new_var_name() -> str:
-    global var_counter
-    var_counter += 1
-    return f'$$var{var_counter}'   # the `$$` ensures that it is not a valid kurt variable
+    if not hasattr(new_var_name, "counter"):
+        new_var_name.counter = 0            # static variable of the function
+    new_var_name.counter += 1               # get a new number
+    return f'$$var{new_var_name.counter}'   # the `$$` ensures that it is not a kurt variable that the user can define
 
 # new boolean variable names just for internal use
-bool_var_counter = 0
-def reset_bool_var_counter() -> None:
-    assert False, f'BUG: are you sure, you should call the `reset_bool_var_counter` function?'
-    global bool_var_counter
-    bool_var_counter = 0
 def new_bool_var_name() -> str:
-    global bool_var_counter
-    bool_var_counter += 1
-    return f'%%bool{bool_var_counter}'   # the `%%` ensures that it is not a valid kurt variable
+    if not hasattr(new_bool_var_name, "counter"):
+        new_bool_var_name.counter = 0             # static variable of the function
+    new_bool_var_name.counter += 1                # get a new number
+    return f'%%bool{new_bool_var_name.counter}'   # the `%%` ensures that it is not a kurt variable that the user can define
 
 # ALL variables are renamed on the formula level
 # * rename free vars in `expr` with generated names to avoid clashes with other expressions
@@ -2321,14 +2320,18 @@ def new_bool_var_name() -> str:
 # * since symbols become `bound` on the fly, we have to maintain a set of bound variables that get globally replaced
 
 def rename_all_vars(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, Subst]:
-
+    debug(f'before {expr}')
     # chop off all outer universal quantifiers and rename their bound vars
     while is_forall(expr):          
         assert isinstance(expr, list) and len(expr) == 3
         assert isinstance(expr[1], Token) and isinstance(expr[1].value, str)
         bound_var = expr[1].value
+        debug(bound_var)
         free_var = new_var_name()
-        expr = apply_subst(expr[2], {bound_var: Token(label='SYMBOL', value=free_var)}, kb)
+        debug(free_var)
+        blocked = frozenset()  # no blocked vars, since we are at the top level
+        expr = apply_subst(expr[2], {bound_var: Token(label='SYMBOL', value=free_var)}, blocked, kb)
+    debug(f'after {expr}')
 
     # rename all variables (yes, some are renamed again, this can be improved later (TODO))
     return rename_all_vars_rec(expr, kb)
@@ -2343,17 +2346,18 @@ def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, subst: Subst|None = None,
     # `subst` contains the replacements so far, which are applied also down the AST
     match expr:
 
-        # a token of an (at least) locally free (boolean or not) variable will be replaced either by a known sub or with a new name
-        case Token(label='SYMBOL', value=free_v) if isinstance(free_v, str) and not kb.is_const(free_v) and (kb.is_var(free_v) or kb.is_bool_var(free_v) or free_v in bound_vars):
-            if free_v in subst:
-                new_expr = subst[free_v]                 # replace with known substitution
+        # a token of an (at least) locally free (boolean or not) variable will be replaced either by a known substitution or with a new name
+        case Token(label='SYMBOL', value=var) if isinstance(var, str) and not kb.is_const(var) and (kb.is_var(var) or kb.is_bool_var(var) or var in bound_vars):
+            if var in subst:
+                new_expr = subst[var]                 # replace with known substitution
             else:
-                if kb.is_var(free_v) or free_v in bound_vars:
-                    new_free_v = new_var_name()
+                if kb.is_var(var) or var in bound_vars:
+                    # note that `bound_vars` do not have to be declared as variables in `kb`, since from the binding operator it is clear that they are variables
+                    new_var = new_var_name()
                 else:
-                    new_free_v = new_bool_var_name()
-                new_expr = Token(label='SYMBOL', value=new_free_v, column=expr.column, origin=expr.origin)
-                subst[free_v] = new_expr
+                    new_var = new_bool_var_name()
+                new_expr = Token(label='SYMBOL', value=new_var, column=expr.column, origin=expr.origin)
+                subst[var] = new_expr
             return new_expr, subst
 
         # any other token is not modified
@@ -2476,7 +2480,8 @@ def generate_all_combinations_rec(expr: Expr, token_x: Token, expr_a: Expr|None,
             yield expr_a, expr            # $a=expr_a, $A = expr
 
 def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iterator[tuple[Expr|None, Expr]]:
-    cand_expr = apply_subst(expr_A, {var_x: expr_a}, kb)  # substitute `$x` with `expr_a`
+    blocked: frozenset[str] = frozenset()  # no blocked vars, since we are at the top level
+    cand_expr = apply_subst(expr_A, {var_x: expr_a}, blocked, kb)  # substitute `$x` with `expr_a`
     if equal_expr(cand_expr, expr):
         # we have a match, i.e., `expr = sub $x $a $A` where `$a` is `expr_a` and `$A` is `expr_A`
         yield expr_a, expr_A
@@ -2606,23 +2611,28 @@ def partitions(seq:list[T], k: int) -> Iterator[list[list[T]]]:
             new_part[i].append(first)
             yield new_part
 
-def _transform(e: Expr, subst: Subst, kb: KnowledgeBase) -> Expr:
-    e_local = deepcopy_expr(e)
-    e_local = apply_subst(e_local, subst, kb)
-    e_local = trigger_sub(e_local, kb)   # trigger the `sub` operator
-    return e_local
-
 # if `e` is a variable apply the substitution as long as possible
 def walk(e: Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> Expr:
+    """
+    Head-normalize a SYMBOL token through `subst`, stopping at binders (blocked),
+    with a small cycle guard. Lists are not traversed (by design).
+    """
+    visited: set[str] = set()
     while isinstance(e, Token) and e.label == 'SYMBOL':
         u = e.value
-        if isinstance(u, str) and (kb.is_var(u) or kb.is_bool_var(u)):
-            if u in blocked:
-                break
-            if u in subst:
-                e = subst[u]
-                continue
-        break
+        assert isinstance(u, str)
+        if u in blocked:
+            break
+        if u in visited:             # cycle guard
+            break
+        visited.add(u)
+        t = subst.get(u)
+        if t is None:
+            break
+        # avoid trivial self-map loops: $x -> $x
+        if isinstance(t, Token) and t.label == 'SYMBOL' and t.value == u:
+            break
+        e = t
     return e
 
 def occurs(v:str, e:Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> bool:
@@ -2702,12 +2712,12 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
         elif is_bool_var_token(pattern, kb):
             # `pattern` is a boolean variable
             assert isinstance(pattern, Token) and isinstance(pattern.value, str)
-            v = pattern.value
-            # we know that `v not in subst`, since we applied `walk` to `pattern`
-            if v not in blocked and not occurs(v, expr, subst, blocked, kb) and not contains_blocked(expr, subst, blocked, kb):
-                # we can safely assign `v` without creating infinite substitutions
+            V = pattern.value
+            # we know that `V not in subst`, since we applied `walk` to `pattern`
+            if not occurs(V, expr, subst, blocked, kb) and not contains_blocked(expr, subst, blocked, kb):
+                # we can safely assign `V` without creating infinite substitutions
                 subst_local: Subst = subst.copy()     # shallow copy, since we don't want to mess with other branches
-                subst_local[v] = expr                 # extend the substitution
+                subst_local[V] = expr                 # extend the substitution
                 yield from match_exprs_to_patterns(tail, subst_local, blocked, unify_flag, kb)
 
         elif unify_flag and is_var_token(expr, kb):
@@ -2813,25 +2823,133 @@ def expr_without_boolean_var(expr: Expr, kb: KnowledgeBase) -> bool:
         case [*children]:
             return all(expr_without_boolean_var(child, kb) for child in children)
 
-def trigger_sub(expr: Expr, kb: KnowledgeBase) -> Expr:
-    # trigger the `sub` operator, i.e., replace `sub $x $a $x=0` with `$x=$a`
-    # trigger only if there is no boolean variable in the sub expression
-    match expr:
-        case [Token(label='SYMBOL', value=v), Token(label='SYMBOL', value=var_x), e_a, e_A] if isinstance(v, str) and v==SUB_SYMBOL and expr_without_boolean_var(e_A, kb):
-            assert isinstance(var_x, str)
-            return apply_subst(e_A, {var_x: e_a}, kb)  # replace `$x` with `a` in `A`
-        case [*children]:
-            # recurse
-            new_expr = []
-            for child in children:
-                new_child = trigger_sub(child, kb)
-                new_expr.append(new_child)
-            return new_expr
-        case _:
-            return expr      # no `sub` operator, so we return the original expression
+def free_vars_only(e: Expr, kb: KnowledgeBase) -> set[str]:
+    return free_bound_vars(e, kb)[0]
+
+def alpha_rename_binder_body(body: list[Expr], old: str, new: str, kb: KnowledgeBase) -> list[Expr]:
+    # rename bound occurrences of `old` to `new` *inside this binder body only*.
+    # stop if we encounter an inner binder that also binds `old`.
+    def ren(e: Expr) -> Expr:
+        match e:
+            case Token(label='SYMBOL', value=s) if isinstance(s, str) and s == old:
+                # This occurrence is bound by the current binder thus rename
+                return Token(label='SYMBOL', value=new)
+            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *tail] \
+                 if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
+                if bv == old:
+                    # A new binder that *rebinds* `old` thus do not rename under it
+                    return [Token(label='SYMBOL', value=op),
+                            Token(label='SYMBOL', value=bv), *tail]
+                # Otherwise, keep renaming under this binder
+                return [Token(label='SYMBOL', value=op),
+                        Token(label='SYMBOL', value=bv),
+                        *[ren(c) for c in tail]]
+            case [*children]:
+                return [ren(c) for c in children]
+            case _:
+                return e
+    return [ren(c) for c in body]
+
+def fresh_like(name: str, avoid: set[str], kb: KnowledgeBase) -> str:
+    # make a fresh variable name of the same sort as `name` not in `avoid`.
+    # uses your generators; ensure kb treats them as variables.
+    if kb.is_bool_var(name):
+        while True:
+            cand = new_bool_var_name()
+            if cand not in avoid: return cand
+    else:
+        while True:
+            cand = new_var_name()
+            if cand not in avoid: return cand
+
+def capture_avoiding_replace(A: Expr, x: str, t: Expr, blocked: frozenset[str], kb: KnowledgeBase) -> Expr:
+    # compute A[x := t] with α-renaming to avoid capture.
+    # strategy:
+    #  1) if a binder in A binds `bv` where bv ∈ FV(t), α-rename that binder locally to a fresh name.
+    #  2) then perform the actual replacement using apply_subst({x: t}) with `blocked` handling.
+    FVt = free_vars_only(t, kb)
+
+    def go(e: Expr, blk: frozenset[str]) -> Expr:
+        # do NOT use apply_subst here (we are restructuring A itself).
+        match e:
+            case Token():
+                return e
+
+            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *body] if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
+                # if this binder binds x, x is not free below thus no substitution under it,
+                # but we still recurse structurally to catch nested binders that might need α-renaming
+                if bv == x:
+                    new_body = [go(c, blk | {bv}) for c in body]
+                    return [Token(label='SYMBOL', value=op),
+                            Token(label='SYMBOL', value=bv), *new_body]
+
+                # if bv occurs free in t, α-rename this binder locally
+                if bv in FVt:
+                    # Build an avoid set to keep name fresh w.r.t. t and current e
+                    avoid = FVt | free_vars_only([Token(label='SYMBOL', value=op),
+                                                  Token(label='SYMBOL', value=bv), *body], kb) \
+                            | {x} | set(blk)
+                    bv2 = fresh_like(bv, avoid, kb)
+                    body_ren = alpha_rename_binder_body(body, bv, bv2, kb)
+                    new_body = [go(c, blk | {bv2}) for c in body_ren]
+                    return [Token(label='SYMBOL', value=op),
+                            Token(label='SYMBOL', value=bv2), *new_body]
+
+                # Normal descent: no α-renaming needed
+                new_body = [go(c, blk | {bv}) for c in body]
+                return [Token(label='SYMBOL', value=op),
+                        Token(label='SYMBOL', value=bv), *new_body]
+
+            case [*children]:
+                return [go(c, blk) for c in children]
+
+        return e
+
+    # 1) α-rename binders in A that would capture free vars of t
+    A_alpha = go(A, blocked)
+
+    # 2) now do the capture-avoiding replacement using your apply_subst
+    #    (blocked prevents touching bound occurrences of x)
+    return apply_subst(A_alpha, {x: t}, blocked, kb)
+
+def trigger_sub(expr: Expr, subst: Subst, blocked: frozenset[str], kb: KnowledgeBase) -> Expr:
+    expr = deepcopy_expr(expr)
+    # fully apply current substitution (capture-avoiding via blocked)
+    expr = apply_subst(expr, subst, blocked, kb)
+
+    def trigger_sub_core(e: Expr, blocked: frozenset[str]) -> Expr:
+        e = walk(e, subst, blocked, kb)  # head-normalize again
+
+        match e:
+            # sub: [sub, $x, t, A] (must be the first case)
+            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), t, A] if isinstance(op, str) and op == SUB_SYMBOL:
+                assert isinstance(x, str)
+                t_s = trigger_sub_core(t, blocked)                 # normalize term
+                A_s = trigger_sub_core(A, blocked | {x})           # normalize body, block x
+
+                # only fire when the schema is concrete (no %A style bool vars)
+                if not contains_bool_vars(A_s, kb):
+                    return capture_avoiding_replace(A_s, x, t_s, blocked, kb)  # A[x:=t]
+                else:
+                    return [e[0], e[1], t_s, A_s]
+
+            # binding operator: [op, bv, *body]
+            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *body] if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
+                new_body = [trigger_sub_core(c, blocked | {bv}) for c in body]
+                return [e[0], e[1], *new_body]
+
+            # any other list
+            case [*children] if len(children) > 0:
+                return [trigger_sub_core(c, blocked) for c in children]
+
+            # any other token
+            case _:
+                return e
+
+    return trigger_sub_core(expr, blocked)
 
 # unify a list of expression with the theory
-def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[Formula]]:
+def match_all_theory(exprs: list[Expr], subst: Subst, kb: KnowledgeBase) -> tuple[bool, list[Formula]]:
     debug(f'exprs: [{", ".join([expr_str(e, kb) for e in exprs])}]')
     match exprs:
 
@@ -2847,10 +2965,10 @@ def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[F
             for candidate in kb.all_theory():
                 # iterate over all possible substitutions that unify
                 # basically, this is two-sided matching, aka unification
-                for subst in match_exprs_to_patterns([(candidate.simplified_expr, expr)], {}, blocked, unify_flag, kb):
+                for subst in match_exprs_to_patterns([(candidate.simplified_expr, expr)], subst, blocked, unify_flag, kb):
                     # try to unify the rest of the expressions (the `tail`)
-                    tail_local = [_transform(e, subst, kb) for e in tail]
-                    success, found_formulas = match_all_theory(tail_local, kb)
+                    tail_local = [trigger_sub(e, subst, blocked, kb) for e in tail]
+                    success, found_formulas = match_all_theory(tail_local, subst, kb)
                     if success:
                         return True, [candidate, *found_formulas]   # match was found!  BINGO!
             # no match so far, however, possibly `expr` is a conjunction that we can split into pieces
@@ -2859,7 +2977,7 @@ def match_all_theory(exprs: list[Expr], kb: KnowledgeBase) -> tuple[bool, list[F
                 case [Token(label='SYMBOL', value=v), *exprs] if v == AND_SYMBOL:
                     # the only place where we might call `match_all_theory` with a list longer than one
                     assert len(exprs) > 0
-                    return match_all_theory(exprs + tail, kb)  # try to match the arguments of the conjunction
+                    return match_all_theory(exprs + tail, subst, kb)  # try to match the arguments of the conjunction
             # still no match, so we return `None` and an empty list
             return False, []       # could not find a match among the candidate `patterns`
 
@@ -2902,10 +3020,10 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         else:
             # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
             # and we have to apply the various substitutions to it, which might change from call to call
-            premise_local = _transform(premise, subst, kb)
+            premise_local = trigger_sub(premise, subst, blocked, kb)
 
             # search for the premise as well, i.e., match the theory against the `premise`
-            success, matched_formulas = match_all_theory([premise_local], kb)
+            success, matched_formulas = match_all_theory([premise_local], subst, kb)
             if success:
                 debug(f'bingo! {expr_str(premise_local, kb)} follows from {[expr_str(f.expr, kb) for f in matched_formulas]} with {subst}')
                 break           # bingo!  we found one

@@ -2,6 +2,7 @@
 
 ## NEXT
 
+- TODO: who uses `apply_subst`
 - TODO: `match_exprs_with_patterns`, check the boolean variable case
 - TODO: merge `apply_subst` with `walk`, also replace boolean variables and trigger subs if possible
 
@@ -9,10 +10,10 @@
 - TODO group.kurt
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
+- TODO implement chains
 
 ## TOPICS before releasing 1.0
 
-- TODO have a fast match, that compares the last two formulas for changes (instead of full `generate all`)
 - TODO get group.kurt working with constants and with `var x, y, z`
 - TODO do calculations with integers and reals
 - TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?
@@ -23,7 +24,6 @@
 - TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 - TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 - TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
-- TODO implement chains
 - TODO `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
 - TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 - TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
