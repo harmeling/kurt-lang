@@ -5,8 +5,7 @@ from kurt import (
     Token, Expr, Subst,
     initial_kb,
     match_exprs_to_patterns,
-    walk,
-    apply_subst,
+    trigger_sub
 )
 
 # Try to import your SUB symbol name; fall back to "sub"
@@ -187,6 +186,34 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         self.assertIn("$v", sols[0])
         self.assertEqual(sols[0]["$v"], sym("$u"))
 
+    def test_exists_intro_matching_allows_blocked_in_schema(self):
+        kb = copy.deepcopy(initial_kb)
+        kb.add_arity('exists', 2)
+        kb.add_bindop('exists')
+        kb.add_arity('prime', 1)
+        kb.add_bool('prime', [0])
+
+        # goal: (exists z (prime z))
+        goal = [Token('SYMBOL','exists'), Token('SYMBOL','$z'), [Token('SYMBOL','prime'), Token('SYMBOL','$z')]]
+
+        # theory contains: prime 2
+        fact: list[Expr] = [Token('SYMBOL','prime'), Token('STRING','2')]
+        # pretend it's already in kb.theory, but here we only test the matcher on the rule itself
+
+        # rule: (sub $x $a %A) ⇒ (exists $x %A)
+        LHS: list[Expr] = [Token('SYMBOL','sub'), Token('SYMBOL','$x'), Token('SYMBOL','$a'), Token('SYMBOL','%A')]
+        RHS: list[Expr] = [Token('SYMBOL','exists'), Token('SYMBOL','$x'), Token('SYMBOL','%A')]
+
+        # First: match RHS with goal to get a σ that binds %A ≡ (prime $x) up to α
+        sols = list(match_exprs_to_patterns([(goal, RHS)], {}, frozenset(), False, kb))
+        assert len(sols) >= 1
+        sigma = sols[0]  # e.g. { '%A' : [prime, $z] } with binders aligned later
+
+        # Now instantiate LHS with σ, and check it can match the fact by picking $a = 2
+        LHS_inst = trigger_sub(LHS, sigma, frozenset(), kb)  # or apply_subst if you prefer
+        # We expect to be able to match (sub $x $a %A) to 'prime 2', i.e. choose a=2 and A=prime $x
+        sols2 = list(match_exprs_to_patterns([(fact, LHS_inst)], sigma, frozenset(), True, kb))
+        assert any( ('$z' in s and (isinstance(s['$z'], Token) and s['$z'].value=='2')) for s in sols2 )
 
 if __name__ == "__main__":
     unittest.main()

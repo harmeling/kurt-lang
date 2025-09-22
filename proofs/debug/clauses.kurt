@@ -6,10 +6,7 @@ use A
 use B
 use A and B implies C
 use A and B implies D
-; inference of `C and D` actually requires more steps:
-;     C         ; by impl-elim
-;     D         ; by impl-elim
-;     C and D   ; by and-intro (defined in "propositional.kurt")
-; however, our implementation can do it in one step (to avoid excessive and-intro)
+C
+D
 C and D
 ;;; Proof checked.

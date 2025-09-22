@@ -1,5 +1,4 @@
 ; example: exists-intro
-;load first-order
 load equality
 load first-order
 
