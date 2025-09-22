@@ -10,6 +10,9 @@ from __future__ import annotations
 # python -m cProfile -o kurt.prof kurt.py
 # python -m cProfile -s time kurt.py proofs/linear-algebra/group.kurt
 
+## merge the dev into main branch:
+# git checkout main && git pull && git merge dev && git push
+
 ## processing a kurt-file does the following steps in a single pass
 # level1: lexing
 # level2: parsing

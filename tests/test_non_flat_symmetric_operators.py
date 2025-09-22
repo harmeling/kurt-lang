@@ -88,7 +88,7 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         
         # Expression: [~, a, b, c] (has 3 operands)
         # This should NOT match because non-flat operators require exact length
-        expr = [self.token_tilde, self.token_a, self.token_b, self.token_c]
+        expr: kurt.Expr = [self.token_tilde, self.token_a, self.token_b, self.token_c]
         
         subst = {}
         blocked = frozenset()
