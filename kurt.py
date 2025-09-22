@@ -2401,9 +2401,7 @@ def bound_var_safe(expr: Expr, token_x: Token, expr_a: Expr|None, expr_A: Expr, 
         [_, bound_A] = free_bound_vars(expr_A, kb)     # ignore `free_A`
         return free_a.isdisjoint(bound_A)
 
-# INFO: there are two places that can call `yield` several substitutions per function call
-# - `generate_all_combinations`
-# - binding operator case in `match_exprs_to_patterns`
+
 def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, kb: KnowledgeBase) -> Iterator[tuple[Expr|None, Expr]]:
     # generate all `($a, %A)` such that `expr == sub $x $a %A`
     # however, two requirements:
@@ -2419,9 +2417,28 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, kb:
             if bound_var_safe(expr, token_x, cand_expr_a, cand_expr_A, kb):     # requirement (2)
                 yield (cand_expr_a, cand_expr_A)
 
-# more INFO
-# - goal: "all single-hole combinations"
-# - approach: "path method"
+def all_single_hole_decompositions(expr: Expr, token_x: Token) -> Iterator[tuple[Expr, Expr]]:
+    # For each node in expr, yield (node_value, expr_with_that_node_replaced_by_token_x).
+    def extract_at_path(e: Expr, path: list[int]) -> tuple[Expr, Expr]:
+        """Extract subterm at path and return (subterm, expr_with_hole)"""
+        subterm = get_at_path(e, path)
+        expr_with_hole = replace_at_path(e, path, token_x)
+        return (subterm, expr_with_hole)
+    
+    # Generate all paths in the expression tree
+    for path, _ in iter_nodes(expr):
+        subterm, expr_with_hole = extract_at_path(expr, path)
+        yield (subterm, expr_with_hole)
+
+def get_at_path(expr: Expr, path: list[int]) -> Expr:
+    """Get the subexpression at the given path."""
+    if len(path) == 0:
+        return expr
+    i = path[0]
+    assert isinstance(expr, list) and i < len(expr)
+    return get_at_path(expr[i], path[1:])
+
+
 def replace_at_path(expr: Expr, path: list[int], token_x: Token) -> Expr:
     """Return a deep copy of expr where the subexpression at `path` is replaced by `token`."""
     if len(path) == 0:
@@ -2440,28 +2457,6 @@ def iter_nodes(expr: Expr, path_prefix: list[int]|None = None) -> Iterator[tuple
     if isinstance(expr, list):
         for i, child in enumerate(expr):
             yield from iter_nodes(child, path_prefix + [i])
-
-def all_single_hole_decompositions(expr: Expr, token_x: Token) -> Iterator[tuple[Expr, Expr]]:
-    """Yield (a, A) where A == expr with exactly ONE subexpression replaced by `token_x`."""
-    for path, subexpression in iter_nodes(expr):
-        A = replace_at_path(expr, path, token_x)
-        yield subexpression, A
-
-def generate_all_combinations_rec(expr: Expr, token_x: Token, expr_a: Expr|None, partial: bool=False) -> Iterator[tuple[Expr|None, Expr]]:
-    assert False, 'BUGGY CODE, some cases are missing'
-    if isinstance(expr, list) and len(expr) == 0:
-        yield expr_a, []      # yield once and finish
-    else:
-        if expr_a is None or equal_expr(expr, expr_a):
-            if not partial and not is_sub(expr):
-                yield expr, token_x         # $a=expr, $A = $x
-        if isinstance(expr, list):
-            for (cand_a, cand_A_0) in generate_all_combinations_rec(expr[0], token_x, expr_a):
-                for (cand_cand_a, cand_A_tail) in generate_all_combinations_rec(expr[1:], token_x, cand_a, partial=True):
-                    assert isinstance(cand_A_tail, list)
-                    yield cand_cand_a, [cand_A_0, *cand_A_tail]
-        else:
-            yield expr_a, expr            # $a=expr_a, $A = expr
 
 def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iterator[tuple[Expr|None, Expr]]:
     blocked: frozenset[str] = frozenset()  # no blocked vars, since we are at the top level
@@ -2534,6 +2529,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             if var_a is not None and expr_a is not None:
                 subst_local[var_a] = expr_a           # store the found substitutions for `$a`
             # now that we found a substitution for `$a` and `%A`
+            debug(f'$a=`{expr_str(expr_a, kb) if expr_a is not None else "?"}`  %A=`{expr_str(expr_A, kb)}`', kb)
             yield from match_exprs_to_patterns(tail, subst_local, blocked, unify_flag, kb)
 
 # helper functions
@@ -2764,18 +2760,13 @@ def match_exprs_to_patterns(exprs_patterns: list[tuple[Expr, Expr]], subst: Subs
                                     split_pattern: list[Expr] = [child[0] if len(child)==1 else [pattern[0], *child] for child in split]
                                     yield from match_exprs_to_patterns(list(zip(tail_e, split_pattern)) + tail, subst, blocked, unify_flag, kb)
 
-
                 # list matching for non-flat and symmetric operators (do not allow different lengths)
                 case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (not kb.is_flat(op_p) and kb.is_sym(op_p)):
                     match expr:
                         case [Token(label='SYMBOL', value=op_e), *tail_e] if isinstance(op_e, str) and op_e == op_p and len(tail_e) == len(tail_p):
-
-                            # Canonicalize order on BOTH sides (after current substitution/scope)
-                            tail_p_s = sort_exprs(tail_p, subst, blocked, kb)
-                            tail_e_s = sort_exprs(tail_e, subst, blocked, kb)
-
-                            # Pairwise unify in that order
-                            yield from match_exprs_to_patterns(list(zip(tail_e_s, tail_p_s)) + tail, subst, blocked, unify_flag, kb)
+                            # For symmetric operators, try all permutations of one side
+                            for perm_tail_e in itertools.permutations(tail_e):
+                                yield from match_exprs_to_patterns(list(zip(perm_tail_e, tail_p)) + tail, subst, blocked, unify_flag, kb)
 
                 # list matching for flat and symmetric operators (do allow different length)
                 case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and kb.is_sym(op_p)):
@@ -3024,7 +3015,6 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
             success, matched_formulas, final_subst = match_all_theory([premise_local], matched_subst, kb)
             if success:
                 debug(f'bingo! {expr_str(premise_local, kb)} follows from {[expr_str(f.expr, kb) for f in matched_formulas]}')
-                debug(f'in between {matched_subst}')
                 break           # bingo!  we found one
     else:
         if is_implication(formula_expr):
@@ -3050,7 +3040,6 @@ def impl_elim(expr: Expr, proven_formula: Formula, kb: KnowledgeBase, filename: 
         else:
             reason += f'{refs}, '
     reason += f'{formula_ref(proven_formula, filename, mainstream)}'
-    debug(f'finally: {final_subst}')
     return reason, final_subst    # bingo!  found an implication (and a substitution)
 
 def derive_expr(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool, subst: Subst) -> tuple[list[str], Subst]:
