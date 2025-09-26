@@ -2,6 +2,7 @@
 
 ## NEXT
 
+- TODO allow multiple replacement in one step (is that possible?)
 - TODO group.kurt
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster

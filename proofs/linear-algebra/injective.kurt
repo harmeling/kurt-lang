@@ -6,12 +6,23 @@ load equality
 
 infix ∘ 40 40                  ; composition
 use ($f∘$g)($x) = $f($g($x))   ; def of composition
+alias circ ∘
 
 const f, g
 
 use ∀x ∀y (f(x)=f(y) ⇒ x=y)          ; f is injective
 use ∀x ∀y (g(x)=g(y) ⇒ x=y)          ; g is injective
 
+; let's first proof a lemma
+show ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))
+proof
+    assume ($a ∘ $b)($c) = ($d ∘ $e)($f)
+        ($a ∘ $b)($c) = $d($e($f))
+        $a($b($c)) = $d($e($f))
+    thus ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))
+qed
+
+; theorem
 show ∀x ∀y ((f∘g)(x)=(f∘g)(y) ⇒ x=y) ; composition of f and g is injective
 proof
     fix x, y                              ; arbitrary but constant
