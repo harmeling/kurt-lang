@@ -39,19 +39,16 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         # Expression: a ~ b
         expr: kurt.Expr = [self.token_tilde, self.token_a, self.token_b]
         
-        subst = {}
-        blocked = frozenset()
-        unify_flag = False
-        
-        results = list(kurt.match_exprs_to_patterns(
-            [(expr, pattern)], subst, blocked, unify_flag, self.kb))
+        s = kurt.State.empty()
+        results = list(kurt.unify_exprs_with_patterns(
+            [(expr, pattern)], s, self.kb))
         
         # Should find matches for both orientations due to symmetry
         self.assertGreaterEqual(len(results), 1)
         
         # Check that we can match a~b against $$var1~$$var2
         found_direct = any(
-            r.get('$$var1') == self.token_a and r.get('$$var2') == self.token_b
+            r.lookup('$$var1') == self.token_a and r.lookup('$$var2') == self.token_b
             for r in results
         )
         self.assertTrue(found_direct, "Should match a~b with $$var1=a, $$var2=b")
@@ -64,19 +61,16 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         # Expression: a ~ b
         expr: kurt.Expr = [self.token_tilde, self.token_a, self.token_b]
         
-        subst = {}
-        blocked = frozenset()
-        unify_flag = False
-        
-        results = list(kurt.match_exprs_to_patterns(
-            [(expr, pattern)], subst, blocked, unify_flag, self.kb))
+        s = kurt.State.empty()
+        results = list(kurt.unify_exprs_with_patterns(
+            [(expr, pattern)], s, self.kb))
         
         # Should find matches for both orientations due to symmetry
         self.assertGreaterEqual(len(results), 1)
         
         # Check that we can match a~b against $$var1~$$var2 in swapped order
         found_swapped = any(
-            r.get('$$var1') == self.token_b and r.get('$$var2') == self.token_a
+            r.lookup('$$var1') == self.token_b and r.lookup('$$var2') == self.token_a
             for r in results
         )
         self.assertTrue(found_swapped, "Should match a~b with $$var1=b, $$var2=a (swapped)")
@@ -90,11 +84,9 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         # This should NOT match because non-flat operators require exact length
         expr: kurt.Expr = [self.token_tilde, self.token_a, self.token_b, self.token_c]
         
-        subst = {}
-        blocked = frozenset()
-        unify_flag = False
-        
-        results = list(kurt.match_exprs_to_patterns([(expr, pattern)], subst, blocked, unify_flag, self.kb))
+        s = kurt.State.empty()
+        results = list(kurt.unify_exprs_with_patterns(
+            [(expr, pattern)], s, self.kb))
         
         # Should not match because lengths are different (2 vs 2, but structure differs)
         # The pattern expects 2 operands, expr has different structure
@@ -108,12 +100,9 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         # Expression: a ~ b ~ c  
         expr: kurt.Expr = [self.token_tilde, self.token_a, self.token_b, self.token_c]
         
-        subst = {}
-        blocked = frozenset()
-        unify_flag = False
-        
-        results = list(kurt.match_exprs_to_patterns(
-            [(expr, pattern)], subst, blocked, unify_flag, self.kb))
+        s = kurt.State.empty()
+        results = list(kurt.unify_exprs_with_patterns(
+            [(expr, pattern)], s, self.kb))
         
         # Should find multiple permutations due to symmetry
         self.assertGreaterEqual(len(results), 1)
@@ -122,13 +111,15 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         var1_assignments = set()
         var2_assignments = set()
         for r in results:
-            if '$$var1' in r:
-                assert isinstance(r['$$var1'], kurt.Token)
-                var1_assignments.add(r['$$var1'].value if hasattr(r['$$var1'], 'value') else str(r['$$var1']))
-            if '$$var2' in r:
-                assert isinstance(r['$$var2'], kurt.Token)
-                var2_assignments.add(r['$$var2'].value if hasattr(r['$$var2'], 'value') else str(r['$$var2']))
-        
+            rv1 = r.lookup('$$var1')
+            rv2 = r.lookup('$$var2')
+            if rv1 is not None:
+                assert isinstance(rv1, kurt.Token)
+                var1_assignments.add(rv1.value if hasattr(rv1, 'value') else str(rv1))
+            if rv2 is not None:
+                assert isinstance(rv2, kurt.Token)
+                var2_assignments.add(rv2.value if hasattr(rv2, 'value') else str(rv2))
+
         # Due to symmetry, we should see permutations
         self.assertGreaterEqual(len(var1_assignments), 2, "Should see multiple values for $$var1 due to symmetry")
         
@@ -150,17 +141,14 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         expr_flat: kurt.Expr = [token_amp, self.token_a, self.token_b, self.token_c]
         pattern_flat: kurt.Expr = [token_amp, self.var1, self.var2]
         
-        subst = {}
-        blocked = frozenset()
-        unify_flag = False
-        
         # Non-flat matching (should fail - different lengths)
-        results_nonflat = list(kurt.match_exprs_to_patterns(
-            [(expr_nonflat, pattern_nonflat)], subst, blocked, unify_flag, self.kb))
-        
+        s = kurt.State.empty()
+        results_nonflat = list(kurt.unify_exprs_with_patterns(
+            [(expr_nonflat, pattern_nonflat)], s, self.kb))
+                
         # Flat matching (should succeed - can split)
-        results_flat = list(kurt.match_exprs_to_patterns(
-            [(expr_flat, pattern_flat)], subst, blocked, unify_flag, kb_flat))
+        results_flat = list(kurt.unify_exprs_with_patterns(
+            [(expr_flat, pattern_flat)], s, kb_flat))
         
         # Non-flat should fail due to length mismatch
         self.assertEqual(len(results_nonflat), 0, "Non-flat should reject different lengths")
@@ -178,18 +166,15 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
         inner_expr: kurt.Expr = [self.token_tilde, self.token_a, self.token_b]
         expr: kurt.Expr = [self.token_tilde, inner_expr, self.token_c]
         
-        subst = {}
-        blocked = frozenset()
-        unify_flag = False
-        
-        results = list(kurt.match_exprs_to_patterns(
-            [(expr, pattern)], subst, blocked, unify_flag, self.kb))
+        s = kurt.State.empty()
+        results = list(kurt.unify_exprs_with_patterns(
+            [(expr, pattern)], s, self.kb))
         
         self.assertGreater(len(results), 0, "Should match nested symmetric expressions")
         
         # Check that the inner pattern matched correctly
         found_correct = any(
-            r.get('$$var1') == self.token_a and r.get('$$var2') == self.token_b
+            r.lookup('$$var1') == self.token_a and r.lookup('$$var2') == self.token_b
             for r in results
         )
         self.assertTrue(found_correct, "Should correctly match inner variables")

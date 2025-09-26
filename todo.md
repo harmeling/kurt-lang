@@ -2,16 +2,12 @@
 
 ## NEXT
 
-- TODO: who uses `apply_subst`
-- TODO: `match_exprs_with_patterns`, check the boolean variable case
-- TODO: merge `apply_subst` with `walk`, also replace boolean variables and trigger subs if possible
-
-- TODO impl_elim: are all universal quantifier removed?  (can be done in simplify)
 - TODO group.kurt
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
 - TODO implement chains
 - TODO check conditions in `first-order.kurt`
+- TODO: make the Expr objects also frozen, create also some class for it
 
 ## TOPICS before releasing 1.0
 

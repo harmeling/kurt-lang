@@ -2,9 +2,9 @@ import unittest
 import copy
 
 from kurt import (
-    Token, Expr, Subst,
+    Token, Expr, State,
     initial_kb,
-    match_exprs_to_patterns,
+    unify_exprs_with_patterns,
     trigger_sub
 )
 
@@ -56,13 +56,10 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # expr: f(1,0), pattern: f($x,0)  -> {$x -> 1}
         expr = app("f", num(1), num(0))
         pat  = app("f", sym("$x"), num(0))
-        blocked = frozenset()
-        unify_flag = False
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         self.assertEqual(len(sols), 1)
-        self.assertIn("$x", sols[0])
-        self.assertEqual(sols[0]["$x"], num(1))
+        self.assertTrue(sols[0].lookup("$x") == num(1))
 
     # --- 2) boolean variable on pattern ---
     def test_match_bool_var_on_pattern(self):
@@ -70,37 +67,29 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # most kurt setups treat symbols like "%A" as boolean schema vars out of the box
         expr = app("P", sym("a"))
         pat  = sym("%A")   # boolean variable
-        blocked = frozenset()
-        unify_flag = False
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         self.assertEqual(len(sols), 1)
-        self.assertIn("%A", sols[0])
-        self.assertEqual(sols[0]["%A"], expr)
+        self.assertTrue(sols[0].lookup("%A") == expr)
 
     # --- 3) unification allows var on expr side ---
     def test_unify_var_on_expr_side(self):
         # unify: ($x, $y)  with unify_flag=True  → either bind pattern var first or expr var
         expr = sym("$x")
         pat  = sym("$y")
-        blocked = frozenset()
-        unify_flag = True
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         # Your code orients to the pattern var first → {$y: $x}
         self.assertEqual(len(sols), 1)
-        self.assertIn("$y", sols[0])
-        self.assertEqual(sols[0]["$y"], sym("$x"))
+        self.assertTrue(sols[0].lookup("$y") == sym("$x"))
 
     # --- 4) occurs-check blocks infinite terms ---
     def test_unify_occurs_check_blocks(self):
         # unify: $x  with  f($x)  must fail due to occurs check
         expr = sym("$x")
         pat  = app("f", sym("$x"))
-        blocked = frozenset()
-        unify_flag = True
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         self.assertEqual(sols, [])
 
     # --- 5) binder matching with different bound names ---
@@ -108,12 +97,10 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # expr: forall $z. P($z)   vs pattern: forall $x. P($x)  → match succeeds (no subst needed)
         expr = forall("$z", app("P", sym("$z")))
         pat  = forall("$x", app("P", sym("$x")))
-        blocked = frozenset()
-        unify_flag = False
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         self.assertEqual(len(sols), 1)
-        self.assertEqual(sols[0], {})   # no free vars → empty substitution
+        self.assertEqual(sols[0].subst, {})   # no free vars → empty substitution
 
     # --- 6) 'sub' special: match concrete expr against sub-pattern ---
     def test_match_against_sub_pattern(self):
@@ -121,41 +108,31 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # One valid solution: $a := b, %A := (= $x 0)
         expr = app("=", sym("b"), num(0))
         pat  = sub("$x", sym("$a"), sym("%A"))
-        blocked = frozenset()
-        unify_flag = False
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         # At least one solution with those bindings
-        self.assertTrue(any(
-            (("%A" in s) and ("$a" in s)
-             and s["$a"] == sym("b")
-             and s["%A"] == app("=", sym("$x"), num(0)))
-            for s in sols
-        ))
+        self.assertTrue(any(s.lookup("%A") == app("=", sym("$x"), num(0)) and s.lookup("$a") == sym("b") for s in sols))
 
     # --- 7) equal-expr short-circuit (after walk) ---
     def test_equal_short_circuit(self):
         # expr == pattern after applying existing σ → tail processed unchanged
         expr = app("f", sym("$x"))
         pat  = app("f", sym("$y"))
-        sigma: Subst = {"$y": sym("$x")}  # so walk(pattern) == expr
-        blocked = frozenset()
-        unify_flag = False
+        s = State({"$y": sym("$x")}, frozenset())
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], sigma, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], s, self.kb))
         # Should just propagate sigma; no new bindings needed
         self.assertEqual(len(sols), 1)
-        self.assertEqual(sols[0], sigma)
+        self.assertEqual(sols[0].lookup("$y"), sym("$x"))
 
     # --- 8) blocked prevents capturing/binding to blocked symbol ---
     def test_blocked_prevents_binding(self):
         # pattern var should NOT bind to a blocked symbol on expr side
         expr = sym("$z")
         pat  = sym("$x")
-        blocked = frozenset({"$z"})
-        unify_flag = False
+        s = State({}, frozenset({"$z"}))   # $z is blocked
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], s, self.kb))
         self.assertEqual(sols, [])
 
     # --- 9) unification with simple compound terms ---
@@ -163,14 +140,13 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # unify: f($x, 0)  with  f(1, $y)   → {$x=1, $y=0}
         expr = app("f", sym("$x"), num(0))
         pat  = app("f", num(1), sym("$y"))
-        blocked = frozenset()
-        unify_flag = True
+        s = State.empty()
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], s, self.kb))
         self.assertEqual(len(sols), 1)
         s = sols[0]
-        self.assertEqual(s.get("$x"), num(1))
-        self.assertEqual(s.get("$y"), num(0))
+        self.assertEqual(s.lookup("$x"), num(1))
+        self.assertEqual(s.lookup("$y"), num(0))
 
     # --- 10) binder with free variable under the binder body ---
     def test_binder_with_free_var_in_body(self):
@@ -178,13 +154,11 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # → should relate the free variables ($u) to ($v) via matching (pattern var $v binds to $u)
         expr = forall("$z", app("Q", sym("$z"), sym("$u")))
         pat  = forall("$x", app("Q", sym("$x"), sym("$v")))
-        blocked = frozenset()
-        unify_flag = False
+        s = State.empty()
 
-        sols = list(match_exprs_to_patterns([(expr, pat)], {}, blocked, unify_flag, self.kb))
+        sols = list(unify_exprs_with_patterns([(expr, pat)], s, self.kb))
         self.assertEqual(len(sols), 1)
-        self.assertIn("$v", sols[0])
-        self.assertEqual(sols[0]["$v"], sym("$u"))
+        self.assertEqual(sols[0].lookup("$v"), sym("$u"))
 
     def test_exists_intro_matching_allows_blocked_in_schema(self):
         kb = copy.deepcopy(initial_kb)
@@ -205,15 +179,17 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         RHS: list[Expr] = [Token('SYMBOL','exists'), Token('SYMBOL','$x'), Token('SYMBOL','%A')]
 
         # First: match RHS with goal to get a σ that binds %A ≡ (prime $x) up to α
-        sols = list(match_exprs_to_patterns([(goal, RHS)], {}, frozenset(), False, kb))
+        sols = list(unify_exprs_with_patterns([(goal, RHS)], State.empty(), kb))
         assert len(sols) >= 1
         sigma = sols[0]  # e.g. { '%A' : [prime, $z] } with binders aligned later
 
         # Now instantiate LHS with σ, and check it can match the fact by picking $a = 2
-        LHS_inst = trigger_sub(LHS, sigma, frozenset(), kb)  # or apply_subst if you prefer
+        LHS_inst = trigger_sub(LHS, sigma, kb)  # or apply_subst if you prefer
         # We expect to be able to match (sub $x $a %A) to 'prime 2', i.e. choose a=2 and A=prime $x
-        sols2 = list(match_exprs_to_patterns([(fact, LHS_inst)], sigma, frozenset(), True, kb))
-        assert any( ('$z' in s and (isinstance(s['$z'], Token) and s['$z'].value=='2')) for s in sols2 )
+        sols2 = list(unify_exprs_with_patterns([(fact, LHS_inst)], sigma, kb))
+        for s in sols2:
+            t = s.lookup('$z')
+            assert isinstance(t, Token) and t.value=='2'
 
 if __name__ == "__main__":
     unittest.main()

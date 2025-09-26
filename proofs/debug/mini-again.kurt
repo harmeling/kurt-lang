@@ -1,0 +1,18 @@
+; mini-again.kurt
+
+; equality
+infix = 20 20  ; lower binding power than space, equality is left-associative
+bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
+sym   =        ; equality is symmetric
+use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
+
+; define function symbols for infix and prefix notations
+infix  +  60 60           ; binary plus
+prefix -     80           ; unary minus
+
+var x, y, z
+use (x + y) + z = x + (y + z)       "G1" ; associativity
+use x + -x = 0                      "G4" ; right inverse
+
+x + 0 = x + (-x + x)       ; does it follow or not?
+;;; ProofError: can not derive expression
