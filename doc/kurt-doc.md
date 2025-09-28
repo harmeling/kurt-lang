@@ -216,3 +216,7 @@ To be continued!
 
     a = b
       = c
+
+## variables and constants
+
+in a file, variables are only for the files, while constants persist also when loaded

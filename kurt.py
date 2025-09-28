@@ -1427,7 +1427,7 @@ def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
 def _extract_new_consts(expr: Expr, kb: KnowledgeBase) -> list[str]:
     # extract all new constants from the expression
     match expr:
-        case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_const(s):
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_const(s) and not kb.is_var(s) and not kb.is_bool_var(s):
             return [s]        # new constant found
         case [*children]:
             new_consts = []
@@ -1440,7 +1440,7 @@ def extract_one_new_const(expr: Expr, kb: KnowledgeBase) -> str:
     # extract exactly one new constant from the expression and checks there is only one
     new_consts = _extract_new_consts(expr, kb)
     if len(new_consts) != 1:
-        raise KurtException(f'EvalError: expected exactly one new constant, got {len(new_consts)} in `{expr_str(expr, kb)}`')
+        raise KurtException(f'EvalError: expected exactly one new constant, got {new_consts} in `{expr_str(expr, kb)}`')
     return new_consts[0]
 
 def extract_zero_new_consts(expr: Expr, kb: KnowledgeBase) -> None:

@@ -2,13 +2,18 @@
 load first-order
 load equality
 
+; 1.  f is injective, use def
+; 2.  free vars not blocked, but different style, then again check for contain_blocked
+; 3.  before going through all sub, just match the current formula with the previous ones, to find the correct sub
+
 ; task: prove that the composition of two injective functions is injective
 
 infix ∘ 40 40                  ; composition
-use ($f∘$g)($x) = $f($g($x))   ; def of composition
+def ($f∘$g)($x) f = $f($g($x))   ; def of composition
 alias circ ∘
 
 const f, g
+arity f 1, g 1
 
 use ∀x ∀y (f(x)=f(y) ⇒ x=y)          ; f is injective
 use ∀x ∀y (g(x)=g(y) ⇒ x=y)          ; g is injective

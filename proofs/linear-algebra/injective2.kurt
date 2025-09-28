@@ -1,0 +1,64 @@
+; injective.kurt
+load first-order
+load equality
+
+; 1.  f is injective, use def
+; 2.  free vars not blocked, but different style, then again check for contain_blocked
+; 3.  before going through all sub, just match the current formula with the previous ones, to find the correct sub
+
+; task: prove that the composition of two injective functions is injective
+
+infix is 30 30                 ; as in "f is injective"
+infix ∘ 40 40                  ; composition
+
+; lemma
+show (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
+proof
+    fix A, B, C
+        bool A, B, C
+        assume (A ⇒ (B ⇒ C))
+            assume A ∧ B
+                A
+                B
+                B ⇒ C
+                C
+            thus A ∧ B ⇒ C
+        thus (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)
+    thus (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
+qed
+
+def ($f ∘ $g)($x) = $f($g($x))                                    "def of composition"
+def $f is injective  iff  ∀$x ∀$y ($f($x) = $f($y)  ⇒  $x = $y)   "def of injective"
+
+; lemma
+show ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))
+proof
+    assume ($a ∘ $b)($c) = ($d ∘ $e)($f)
+        ($a ∘ $b)($c) = $d($e($f))
+        $a($b($c)) = $d($e($f))
+    thus ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))
+qed
+
+const f, g
+arity f 1, g 1
+
+; theorem
+show f is injective ∧ g is injective ⇒ (f ∘ g) is injective
+proof
+    assume f is injective
+        ∀x ∀y (f(x)=f(y) ⇒ x=y)
+        assume g is injective
+            ∀x ∀y (g(x)=g(y) ⇒ x=y)
+            fix x, y
+                assume (f∘g)(x) = (f∘g)(y)
+                    f(g(x)) = f(g(y))             ; def of composition
+                    g(x) = g(y)                   ; f injective
+                    x = y                         ; g injective
+                thus (f∘g)(x)=(f∘g)(y) ⇒ x=y      ; impl-intro
+            thus ∀x ∀y ((f∘g)(x)=(f∘g)(y) ⇒ x=y)  ; forall-intro
+            (f ∘ g) is injective
+        thus g is injective  implies  (f ∘ g) is injective
+    thus f is injective  implies  (g is injective  implies  (f ∘ g) is injective)
+    f is injective ∧ g is injective  implies  (f ∘ g) is injective
+qed
+;;; Proof checked.
