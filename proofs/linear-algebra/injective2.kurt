@@ -5,6 +5,7 @@ load equality
 ; 1.  f is injective, use def
 ; 2.  free vars not blocked, but different style, then again check for contain_blocked
 ; 3.  before going through all sub, just match the current formula with the previous ones, to find the correct sub
+; 4. s.lookup(v) is None 
 
 ; task: prove that the composition of two injective functions is injective
 

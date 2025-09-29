@@ -118,7 +118,7 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # expr == pattern after applying existing σ → tail processed unchanged
         expr = app("f", sym("$x"))
         pat  = app("f", sym("$y"))
-        s = State({"$y": sym("$x")}, frozenset())
+        s = State({"$y": sym("$x")}, frozenset(), frozenset())
 
         sols = list(unify_exprs_with_patterns([(expr, pat)], s, self.kb))
         # Should just propagate sigma; no new bindings needed
@@ -127,10 +127,11 @@ class TestMatchExprsToPatterns(unittest.TestCase):
 
     # --- 8) blocked prevents capturing/binding to blocked symbol ---
     def test_blocked_prevents_binding(self):
-        # pattern var should NOT bind to a blocked symbol on expr side
+        # (1) pattern var should NOT bind to a "blocked as range" symbol on expr side
+        # (2) expr should NOT bind if it is a "blocked as domain" symbol on pattern side
         expr = sym("$z")
         pat  = sym("$x")
-        s = State({}, frozenset({"$z"}))   # $z is blocked
+        s = State({}, frozenset({"$z"}), frozenset({"$z"}))   # $z is always blocked
 
         sols = list(unify_exprs_with_patterns([(expr, pat)], s, self.kb))
         self.assertEqual(sols, [])

@@ -41,7 +41,7 @@ class TestWalk(unittest.TestCase):
 
     def test_walk_chain_deref(self):
         # σ = { $x -> $y, $y -> 1 }
-        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset())
+        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset(), frozenset())
         out = s.walk(sym("$x"))
         self.assertIsInstance(out, Token)
         assert isinstance(out, Token)
@@ -50,19 +50,19 @@ class TestWalk(unittest.TestCase):
 
     def test_walk_respects_blocked_head(self):
         # σ = { $x -> $y, $y -> 1 }, blocked={$x}  ⇒ remains $x
-        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset({"$x"}))
+        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset({"$x"}), frozenset())
         out = s.walk(sym("$x"))
         self.assertEqual(out, sym("$x"))
 
     def test_walk_respects_blocked_tail(self):
         # blocked={$y} only: $x resolves to $y and then stops at blocked
-        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset({"$y"}))
+        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset({"$y"}), frozenset())
         out = s.walk(sym("$x"))
         self.assertEqual(out, sym("$y"))
 
     def test_walk_non_var_term_unchanged(self):
         term: Expr = [sym("f"), sym("$x"), num(0)]
-        s = State({"$x": num(1)}, frozenset())
+        s = State({"$x": num(1)}, frozenset(), frozenset())
         # walk is head-only; lists that aren't variable heads stay as-is
         out = s.walk(term)
         self.assertEqual(out, term)
@@ -109,7 +109,7 @@ class TestTriggerSub(unittest.TestCase):
 
     def test_sub_combined_with_sigma_application(self):
         # σ = { $b -> $y, $y -> 0 }, (sub $x $b (= $x $y)) → (= $y 0) after trigger
-        s = State({"$b": sym("$y"), "$y": num(0)}, frozenset())
+        s = State({"$b": sym("$y"), "$y": num(0)}, frozenset(), frozenset())
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"), [sym("="), sym("$x"), sym("$y")]]
         out = trigger_sub(expr, s, kb=self.kb)
         self.assertEqual(out, [sym("="), num(0), num(0)])

@@ -370,63 +370,55 @@ class PeekableGenerator(Generic[T]):                 # a peekable generator
 # the state for the unification combines a substitution and a set of blocked variables
 @dataclass(frozen=True)
 class State:
-    subst: dict[str, Expr]   # private
-    blocked: frozenset[str]  # private
+    subst: dict[str, Expr]
+    blocked_as_domain: frozenset[str]
+    blocked_as_range: frozenset[str]
 
     @staticmethod
     def empty() -> State:
         """Initial state with no substitutions and no blocked vars."""
-        return State({}, frozenset())
+        return State({}, frozenset(), frozenset())
 
     # lookup
     def lookup(self, v: str) -> Expr | None:
         """Return the expression v is bound to, or None if unbound."""
         return self.subst.get(v)
 
-    def is_blocked(self, v: str) -> bool:
-        """Check if a variable is blocked."""
-        return v in self.blocked
+    def is_blocked_as_domain(self, v: str) -> bool:
+        """Check if a variable is blocked as a domain variable."""
+        return v in self.blocked_as_domain
+
+    def is_blocked_as_range(self, v: str) -> bool:
+        """Check if a variable is blocked as a range variable."""
+        return v in self.blocked_as_range
 
     # updates (return new States)
     def bind(self, v: str, e: Expr) -> State:
-        """Bind variable v to expression e.
-        Normally blocked variables cannot be bound; however, for matching schema rules
-        (e.g., exists-intro where a bound variable gets instantiated to a witness),
-        we allow binding a blocked variable *iff* the right-hand side contains no
-        blocked variables under the current scope. This preserves capture-avoidance
-        while permitting benign ground instantiations like $z -> 2.
-        """
-        # if v in self.blocked and self.contains_blocked(e):
-        #     raise ValueError(f"Variable {v} is blocked")
+        if v in self.blocked_as_domain:
+            raise ValueError(f"Variable {v} is blocked")
+        if self.contains_blocked_as_range(e):
+            raise ValueError(f"Expression {e} contains variable that is blocked as range")
         new_subst = dict(self.subst)   # shallow copy
         new_subst[v] = deepcopy_expr(e)
-        return State(new_subst, self.blocked)
+        return State(new_subst, self.blocked_as_domain, self.blocked_as_range)
 
-    def block(self, v: str) -> State:
-        """Block variable v (cannot be bound)."""
-        return State(dict(self.subst), self.blocked | {v})
+    def block_as_domain(self, v: str) -> State:
+        # this is for free variables of the goal, e.g.,
+        #   use A, B ⇒ C
+        #   D
+        # to prove D we first unify D with C, but must block the free variables of D as domain
+        return State(dict(self.subst), self.blocked_as_domain | {v}, self.blocked_as_range)
+
+    def block_always(self, v: str) -> State:
+        # this is for blocking bound variables
+        return State(dict(self.subst), self.blocked_as_domain | {v}, self.blocked_as_range | {v})
 
     def unblock(self, v: str) -> State:
-        """Remove v from blocked set (if present)."""
-        if v not in self.blocked:
-            return self
-        return State(dict(self.subst), self.blocked - {v})
-
-    # def unblock(self, v: str) -> State:
-    #     """Remove v from blocked set (if present)."""
-    #     return State(self.subst, self.blocked - {v})
-
-    # def unbind(self, v: str) -> State:
-    #     """Remove v from substitution (if present)."""
-    #     if v not in self.subst:
-    #         return self
-    #     new_subst = dict(self.subst)
-    #     del new_subst[v]
-    #     return State(new_subst, self.blocked)
+        return State(dict(self.subst), self.blocked_as_domain - {v}, self.blocked_as_range - {v})
 
     # walk and occurs
     def walk(self, e: Expr) -> Expr:
-        # head-normalize a SYMBOL token through `subst`, 
+        # head-normalize a SYMBOL token through `self.subst`, 
         # stopping at binders (blocked),
         # with a small cycle guard. 
         # lists are not traversed (by design).
@@ -434,7 +426,7 @@ class State:
         while isinstance(e, Token) and e.label == 'SYMBOL':
             u = e.value
             assert isinstance(u, str)
-            if self.is_blocked(u):
+            if self.is_blocked_as_domain(u):
                 break
             if u in visited:             # cycle guard
                 break
@@ -460,14 +452,14 @@ class State:
             case _:
                 return False
             
-    def contains_blocked(self, e: Expr) -> bool:
+    def contains_blocked_as_range(self, e: Expr) -> bool:
         e = self.walk(e)
         match e:
             case Token(label='SYMBOL', value=u) if isinstance(u, str):
                 # treat blocked names as rigid atoms
-                return self.is_blocked(u)
+                return self.is_blocked_as_range(u)
             case [*children]:
-                return any(self.contains_blocked(c) for c in children)
+                return any(self.contains_blocked_as_range(c) for c in children)
             case _:
                 return False
 
@@ -1638,7 +1630,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename
             match cand_expr:
                 case [Token(label='SYMBOL', value=quantifier), Token(label='SYMBOL', value=bound_var), body] if isinstance(bound_var, str):
                     assert quantifier == EXISTS_SYMBOL
-                    s = State({bound_var: new_const_expr}, frozenset())  # substitution {bound_var -> new_const_expr}
+                    s = State({bound_var: new_const_expr}, frozenset(), frozenset())
                     body = deepcopy_expr(body)
                     body = apply_subst(body, s, kb)
                     if equal_expr(body, fact):
@@ -2301,7 +2293,7 @@ def apply_subst(expr: Expr, s: State, kb: KnowledgeBase) -> Expr:
         case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
             assert isinstance(bound_v, str)
             body = expr[2:]
-            new_body = [apply_subst(c, s.block(bound_v), kb) for c in body]
+            new_body = [apply_subst(c, s.block_always(bound_v), kb) for c in body]
             return [expr[0], expr[1], *new_body]
         
         # general case: recurse into all children
@@ -2405,7 +2397,7 @@ def rename_all_vars(expr: Expr, kb: KnowledgeBase) -> Expr:
         assert isinstance(expr[1], Token) and isinstance(expr[1].value, str)
         bound_var = expr[1].value
         free_var = new_var_name()
-        s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset())
+        s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
         expr = apply_subst(expr[2], s, kb)
 
     # rename all variables (yes, some are renamed again, this can be improved later (TODO))
@@ -2540,7 +2532,7 @@ def iter_nodes(expr: Expr, path_prefix: list[int]|None = None) -> Iterator[tuple
 
 def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iterator[tuple[Expr|None, Expr]]:
     # no blocked vars, since we are at the top level
-    s = State({var_x: expr_a}, frozenset())   # substitute `$x` with `expr_a`
+    s = State({var_x: expr_a}, frozenset(), frozenset())   # substitute `$x` with `expr_a`
     cand_expr = apply_subst(expr_A, s, kb)
     if equal_expr(cand_expr, expr):
         # we have a match, i.e., `expr = sub $x $a $A` where `$a` is `expr_a` and `$A` is `expr_A`
@@ -2716,8 +2708,8 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 # `pattern` is a variable
                 assert isinstance(pattern, Token) and isinstance(pattern.value, str)
                 v = pattern.value
-                bound = s.lookup(v)
-                if bound is None and not s.occurs(v, expr) and not s.contains_blocked(expr):
+                assert s.lookup(v) is None
+                if not s.occurs(v, expr) and not s.is_blocked_as_domain(v) and not s.contains_blocked_as_range(expr):
                     # we can safely assign `v` without creating infinite substitutions
                     s = s.bind(v, expr)   # extend the substitution
                     debug(f'assigning: {v} to {expr_str(expr, kb)}')
@@ -2727,7 +2719,8 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 # `expr` is a variable (the case where `expr` and `pattern` are both variables is handled by the previous case)
                 assert isinstance(expr, Token) and isinstance(expr.value, str)
                 u = expr.value
-                if s.lookup(u) is None and not s.is_blocked(u) and not s.occurs(u, pattern):
+                assert s.lookup(u) is None
+                if not s.occurs(u, pattern) and not s.is_blocked_as_domain(u) and not s.contains_blocked_as_range(pattern):
                     # we can safely assign `u` without creating infinite substitutions
                     s = s.bind(u, pattern)   # extend the substitution
                     debug(f'assigning: {u} to {expr_str(pattern, kb)}')
@@ -2737,8 +2730,8 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 # `pattern` is a boolean variable
                 assert isinstance(pattern, Token) and isinstance(pattern.value, str)
                 V = pattern.value
-                # DO NOT block on `s.is_blocked(V)` here: %A lives in the current scope.
-                if s.lookup(V) is None and not s.occurs(V, expr):
+                assert s.lookup(V) is None
+                if not s.occurs(V, expr) and not s.is_blocked_as_domain(V):
                     # we can safely assign `V` without creating infinite substitutions
                     s = s.bind(V, expr)   # extend the substitution
                     yield from unify_exprs_with_patterns(tail, s, kb)
@@ -2747,7 +2740,8 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 # `expr` is a boolean variable
                 assert isinstance(expr, Token) and isinstance(expr.value, str)
                 W = expr.value
-                if s.lookup(W) is None and not s.occurs(W, pattern):
+                assert s.lookup(W) is None
+                if not s.occurs(W, pattern) and not s.is_blocked_as_domain(W):
                     # we can safely assign `W` without creating infinite substitutions
                     s = s.bind(W, pattern)   # extend the substitution
                     yield from unify_exprs_with_patterns(tail, s, kb)
@@ -2769,7 +2763,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                             if op_p==op_e and len(args_p)==len(args_e):
                                 args_p = [deepcopy_expr(args_p_i) for args_p_i in args_p]
                                 args_p = [rename_bound_var(args_p_i, v_p, v_e) for args_p_i in args_p]
-                                s = s.block(v_e).block(v_p)   # extend the blocked set of the substitution
+                                s = s.block_always(v_e).block_always(v_p)   # extend the blocked set of the substitution
                                 yield from unify_exprs_with_patterns(list(zip(args_e, args_p)) + tail, s, kb)
 
                 # list matching for flat and non-symmetric operators (do allow different lengths)
@@ -2922,7 +2916,7 @@ def capture_avoiding_replace(A: Expr, x: str, t: Expr, s: State, kb: KnowledgeBa
         return e
 
     # 1) α-rename binders in A that would capture free vars of t
-    A_alpha = go(A, s.blocked)
+    A_alpha = go(A, s.blocked_as_domain)
 
     # 2) now do the capture-avoiding replacement using your apply_subst
     #    (blocked prevents touching bound occurrences of x)
@@ -2941,7 +2935,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> Expr:
             case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), t, A] if isinstance(op, str) and op == SUB_SYMBOL:
                 assert isinstance(x, str)
                 t_s = trigger_sub_core(t, s)                    # normalize term
-                A_s = trigger_sub_core(A, s.block(x))           # normalize body, block x
+                A_s = trigger_sub_core(A, s.block_always(x))    # normalize body, block x
 
                 # only fire when the schema is concrete (no %A style bool vars)
                 if not contains_bool_vars(A_s, kb):
@@ -2951,7 +2945,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> Expr:
 
             # binding operator: [op, bv, *body]
             case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *body] if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
-                new_body = [trigger_sub_core(c, s.block(bv)) for c in body]
+                new_body = [trigger_sub_core(c, s.block_always(bv)) for c in body]
                 return [e[0], e[1], *new_body]
 
             # any other list
@@ -3024,8 +3018,8 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
 
     # to unify `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
     # however, we must not change bound variables, so we block the free variables of `expr` since they are universally quantified
-    blocked = frozenset(free_bound_vars(expr, kb)[0])   # block free variables of `expr`
-    s = State(s.subst, s.blocked | blocked)   # extend the blocked set of `s`
+    blocked_as_domain = frozenset(s.blocked_as_domain | free_bound_vars(expr, kb)[0])
+    s = State(s.subst, blocked_as_domain, s.blocked_as_range)
     debug(f'NEW: try to show {expr_str(expr, kb)} from {formula_ref(proven_formula, filename, mainstream)} which is {expr_str(formula_expr, kb)}')
     debug(f'match {expr_str(expr, kb)} against {expr_str(conclusion, kb)}')
     s_final: State | None = State.empty()

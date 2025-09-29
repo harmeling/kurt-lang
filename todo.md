@@ -10,6 +10,7 @@
 - TODO implement chains
 - TODO check conditions in `first-order.kurt`
 - TODO: make the Expr objects also frozen, create also some class for it
+- TODO allow several formulas to be separated by comma in one line, so far, separating stuff by comma is undefined
 
 ## TOPICS before releasing 1.0
 
