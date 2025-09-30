@@ -2,12 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Prompt for Args",
+      "name": "Python: Debug with -d",
       "type": "python",
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "args": ["${input:commandLineArgs}"],
+      "args": [
+        "-d",
+        "${input:filename}"
+      ],
       "cwd": "${workspaceFolder}",
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
@@ -34,11 +37,11 @@
       "console": "integratedTerminal"
     }
   ],
-  "inputs": [
+   "inputs": [
     {
-      "id": "commandLineArgs",
+      "id": "filename",
       "type": "promptString",
-      "description": "Enter command-line arguments"
+      "description": "Enter the filename to check"
     }
   ]
 }

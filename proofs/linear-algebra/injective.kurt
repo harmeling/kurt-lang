@@ -9,7 +9,7 @@ load equality
 ; task: prove that the composition of two injective functions is injective
 
 infix ∘ 40 40                  ; composition
-def ($f∘$g)($x) f = $f($g($x))   ; def of composition
+def ($f∘$g)($x) = $f($g($x))   ; def of composition
 alias circ ∘
 
 const f, g

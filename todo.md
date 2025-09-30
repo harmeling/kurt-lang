@@ -14,6 +14,7 @@
 
 ## TOPICS before releasing 1.0
 
+- TODO have a sandbox kurt, where we first try and try, and then store it to the theory
 - TODO get group.kurt working with constants and with `var x, y, z`
 - TODO do calculations with integers and reals
 - TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?

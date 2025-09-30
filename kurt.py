@@ -84,6 +84,8 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
+        if debug_counter == 152:
+            pass
         debug_counter += 1
 
 ## some pretty replacement of latex style symbols with unicode characters
@@ -394,10 +396,7 @@ class State:
 
     # updates (return new States)
     def bind(self, v: str, e: Expr) -> State:
-        if v in self.blocked_as_domain:
-            raise ValueError(f"Variable {v} is blocked")
-        if self.contains_blocked_as_range(e):
-            raise ValueError(f"Expression {e} contains variable that is blocked as range")
+        debug(f'{v}: {e}')
         new_subst = dict(self.subst)   # shallow copy
         new_subst[v] = deepcopy_expr(e)
         return State(new_subst, self.blocked_as_domain, self.blocked_as_range)
@@ -597,31 +596,51 @@ class KnowledgeBase:
 
     def is_infix(self, s: str) -> bool:
         return s in self.infix   or (self.parent is not None and self.parent.is_infix(s))
+
     def is_prefix(self, s: str) -> bool:
         return s in self.prefix  or (self.parent is not None and self.parent.is_prefix(s))
+
     def is_postfix(self, s: str) -> bool:
         return s in self.postfix or (self.parent is not None and self.parent.is_postfix(s))
+
     def is_bindop(self, s: str) -> bool:
         return s in self.bindop  or (self.parent is not None and self.parent.is_bindop(s))
+
     def is_flat(self, s: str) -> bool:
         return s in self.flat    or (self.parent is not None and self.parent.is_flat(s))
+
     def is_sym(self, s: str) -> bool:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
+
     def is_var(self, s: str) -> bool:
-        return s[0] == '$' or s in self.var or (self.parent is not None and self.parent.is_var(s))
+        if s in self.const:
+            assert s not in self.var
+            return False
+        else:
+            return s[0] == '$' or s in self.var or (self.parent is not None and self.parent.is_var(s))
+
     def is_local_var(self, s: str) -> bool:                # check only in the current level, used for `add_const`
         return s in self.var
+
     def is_bool_var(self, s: str) -> bool:
         # e.g. variable for formulas (in `sub x a A` the symbol `A` is boolean)
+        if s in self.const:
+            assert s not in self.var
         if s[0] == '%':
             return True
         if self.is_var(s):
             return 0 in self.bool_sig(s)
         return False
+
     def is_const(self, s: str) -> bool:
-        return s in self.const   or (self.parent is not None and self.parent.is_const(s))
+        if s in self.var:
+            assert s not in self.const
+            return False
+        else:
+            return s in self.const   or (self.parent is not None and self.parent.is_const(s))
     def is_used(self, s: str) -> bool:
         return s in self.used    or (self.parent is not None and self.parent.is_used(s))
+
     def is_alias(self, s: str) -> bool:
         return s in self.alias   or (self.parent is not None and self.parent.is_alias(s))
 
@@ -2752,19 +2771,20 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
 
                 # binding operator matching (rename bound variable before!)
                 case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
-                    if op_p == SUB_SYMBOL:
-                        # optionally: a pattern with a `sub` is special and possibly matches many expressions
-                        if not is_sub(expr):   # however, don't call this function to match a `sub` expression to a `sub` pattern to avoid an infinite loop
+                    if op_p == SUB_SYMBOL and not is_sub(expr):   
+                            # asymmetric:  don't match a `sub` expr to a `sub` pattern (an infinite loop!)
                             yield from match_against_sub(expr, pattern, tail, s, kb)
                     # in any case: additionally binding ops match against their matching binding ops
                     match expr:
                         case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
-                            assert isinstance(v_p, str) and isinstance(v_e, str)
                             if op_p==op_e and len(args_p)==len(args_e):
-                                args_p = [deepcopy_expr(args_p_i) for args_p_i in args_p]
-                                args_p = [rename_bound_var(args_p_i, v_p, v_e) for args_p_i in args_p]
-                                s = s.block_always(v_e).block_always(v_p)   # extend the blocked set of the substitution
-                                yield from unify_exprs_with_patterns(list(zip(args_e, args_p)) + tail, s, kb)
+                                assert isinstance(v_p, str) and isinstance(v_e, str)
+                                # Rename the expr-side binder body from v_e to v_p (alpha-eq) before unifying.
+                                args_e = [deepcopy_expr(args_e_i) for args_e_i in args_e]
+                                args_e = alpha_rename_binder_body(args_e, v_e, v_p, kb)
+                                # Block the pattern binder (domain+range) during descent
+                                s_local = s.block_always(v_p)
+                                yield from unify_exprs_with_patterns(list(zip(args_e, args_p)) + tail, s_local, kb)
 
                 # list matching for flat and non-symmetric operators (do allow different lengths)
                 case [Token(label='SYMBOL', value=op_p), *tail_p] if isinstance(op_p, str) and (kb.is_flat(op_p) and not kb.is_sym(op_p)):
@@ -2922,39 +2942,61 @@ def capture_avoiding_replace(A: Expr, x: str, t: Expr, s: State, kb: KnowledgeBa
     #    (blocked prevents touching bound occurrences of x)
     return apply_subst(A_alpha, s.bind(x, t), kb)
 
-def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> Expr:
+# trigger a single substitution in `expr` if possible, return the new expression and the new state
+def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
     expr = deepcopy_expr(expr)
     # fully apply current substitution (capture-avoiding via blocked)
     expr = apply_subst(expr, s, kb)
 
-    def trigger_sub_core(e: Expr, s: State) -> Expr:
+    def trigger_sub_core(e: Expr, s: State) -> tuple[Expr, State]:
         e = s.walk(e)  # head-normalize again
 
         match e:
             # sub: [sub, $x, t, A] (must be the first case)
             case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), t, A] if isinstance(op, str) and op == SUB_SYMBOL:
                 assert isinstance(x, str)
-                t_s = trigger_sub_core(t, s)                    # normalize term
-                A_s = trigger_sub_core(A, s.block_always(x))    # normalize body, block x
+                s_local = s
+                # normalize the pieces
+                t_s, s_local = trigger_sub_core(t, s_local)
+                # block x while normalizing A (x is a binder for A)
+                A_s, s_local = trigger_sub_core(A, s_local.block_always(x))
 
                 # only fire when the schema is concrete (no %A style bool vars)
                 if not contains_bool_vars(A_s, kb):
-                    return capture_avoiding_replace(A_s, x, t_s, s.unblock(x), kb)  # A[x:=t]
+                    # we're done with the binder x; unblock it BEFORE returning
+                    s_after = s_local.unblock(x)
+                    # perform capture-avoiding A[x:=t]
+                    A_repl = capture_avoiding_replace(A_s, x, t_s, s_after, kb)
+                    return A_repl, s_after
                 else:
-                    return [e[0], e[1], t_s, A_s]
+                    # do NOT leave x permanently blocked if we don't fire
+                    s_after = s_local.unblock(x)
+                    return [e[0], e[1], t_s, A_s], s_after
 
             # binding operator: [op, bv, *body]
             case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *body] if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
-                new_body = [trigger_sub_core(c, s.block_always(bv)) for c in body]
-                return [e[0], e[1], *new_body]
+                # enter binder scope
+                s_scope = s.block_always(bv)
+                new_body = []
+                for c in body:
+                    c_local, s_scope = trigger_sub_core(c, s_scope)
+                    new_body.append(c_local)
+                # leave binder scope (pop the block)
+                s_after = s_scope.unblock(bv)
+                return [e[0], e[1], *new_body], s_after
 
             # any other list
             case [*children] if len(children) > 0:
-                return [trigger_sub_core(c, s) for c in children]
+                result = []
+                s_local = s
+                for c in children:
+                    c_local, s_local = trigger_sub_core(c, s_local)
+                    result.append(c_local)
+                return result, s_local
 
             # any other token
             case _:
-                return e
+                return e, s
 
     return trigger_sub_core(expr, s)
 
@@ -2974,9 +3016,13 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                 # iterate over all possible substitutions that unify
                 # basically, this is two-sided matching, aka unification
 
-                for s_local in unify_exprs_with_patterns([(candidate.simplified_expr, expr)], s, kb):
+                for s_cand in unify_exprs_with_patterns([(candidate.simplified_expr, expr)], s, kb):
                     # try to unify the rest of the expressions (the `tail`)
-                    tail_local = [trigger_sub(e, s_local, kb) for e in tail]
+                    s_local = s_cand
+                    tail_local = []
+                    for e in tail:
+                        e_local, s_tail = trigger_sub(e, s_local, kb)
+                        tail_local.append(e_local)
                     success, found_formulas, s_final = match_all_theory(tail_local, s_local, kb)
                     if success:
                         return True, [candidate, *found_formulas], s_final   # match was found!  BINGO!
@@ -3032,12 +3078,12 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
         else:
             # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
             # and we have to apply the various substitutions to it, which might change from call to call
-            premise_local = trigger_sub(premise, s_matched, kb)
+            premise_local, s_local = trigger_sub(premise, s_matched, kb)
 
             # search for the premise as well, i.e., match the theory against the `premise`
             debug(f'match {expr_str(premise_local, kb)} against the theory')
             debug(f'matched_subst: {s_matched}')
-            success, matched_formulas, s_final = match_all_theory([premise_local], s_matched, kb)
+            success, matched_formulas, s_final = match_all_theory([premise_local], s_local, kb)
             if success:
                 debug(f'BINGO! {expr_str(premise_local, kb)} follows from {[expr_str(f.simplified_expr, kb) for f in matched_formulas]}')
                 debug(f'       with {s_final}')
@@ -3145,11 +3191,11 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
 ###########################
 
 def prompt(level: int, line: int, continued: bool=False) -> str:
-    s = '> ' * level
+    s = '>' * level
     if continued:
-        s += f'...[{line}] '                        # line continuation
+        s += f'.[{line}] '                        # line continuation
     else:
-        s += f'!!![{line}] '                        # the bangs mean "show!"
+        s += f'![{line}] '                        # the bangs mean "show!"
     return s
 
 def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False) -> KnowledgeBase:
@@ -3259,7 +3305,7 @@ def main() -> None:
     # debug flag?
     global debug_flag
     debug_flag = args.debug
-    debug_flag = not debug_flag    # swap the debug flag for "run and debug"
+    # debug_flag = not debug_flag    # swap the debug flag for "run and debug"
 
     # readline history
     if readline:

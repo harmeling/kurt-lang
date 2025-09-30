@@ -79,13 +79,13 @@ class TestTriggerSub(unittest.TestCase):
     def test_simple_substitution(self):
         # (sub $x $b ($x = 0))  ==>  ($b = 0)
         expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"), [sym("="), sym("$x"), num(0)]]
-        out = trigger_sub(expr, State.empty(), kb=self.kb)
+        out = trigger_sub(expr, State.empty(), kb=self.kb)[0]
         self.assertEqual(out, [sym("="), sym("$b"), num(0)])
 
     def test_sub_does_not_fire_with_schema_A(self):
         # (sub $x $b %A) should *not* fire while %A is schematic (boolean schema var)
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"), sym("%A")]
-        out = trigger_sub(expr, State.empty(), kb=self.kb)
+        out = trigger_sub(expr, State.empty(), kb=self.kb)[0]
         # Stays as a sub node (possibly normalized), not replaced by body.
         self.assertIsInstance(out, list)
         assert isinstance(out, list)
@@ -96,7 +96,7 @@ class TestTriggerSub(unittest.TestCase):
         # (sub $x $b (forall $x (P $x)))  ==>  (forall $x (P $x))  (no change inside binder)
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"),
                 [sym("forall"), sym("$x"), [sym("P"), sym("$x")]]]
-        out = trigger_sub(expr, State.empty(), kb=self.kb)
+        out = trigger_sub(expr, State.empty(), kb=self.kb)[0]
         self.assertEqual(out, [sym("forall"), sym("$x"), [sym("P"), sym("$x")]])
 
     def test_nested_subs(self):
@@ -104,14 +104,14 @@ class TestTriggerSub(unittest.TestCase):
         # inner fires to (= u 1); outer sees no $x anymore → leaves it
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), sym("t"),
                   [sym(SUB_SYMBOL), sym("$x"), sym("u"), [sym("="), sym("$x"), num(1)]]]
-        out = trigger_sub(expr, State.empty(), kb=self.kb)
+        out = trigger_sub(expr, State.empty(), kb=self.kb)[0]
         self.assertEqual(out, [ sym("="), sym("u"), num(1) ])
 
     def test_sub_combined_with_sigma_application(self):
         # σ = { $b -> $y, $y -> 0 }, (sub $x $b (= $x $y)) → (= $y 0) after trigger
         s = State({"$b": sym("$y"), "$y": num(0)}, frozenset(), frozenset())
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"), [sym("="), sym("$x"), sym("$y")]]
-        out = trigger_sub(expr, s, kb=self.kb)
+        out = trigger_sub(expr, s, kb=self.kb)[0]
         self.assertEqual(out, [sym("="), num(0), num(0)])
 
 
@@ -190,7 +190,7 @@ class TestCaptureAvoidingReplace(unittest.TestCase):
         t: Expr = sym("$b")
         Axt = capture_avoiding_replace(A, "$x", t, State.empty(), self.kb)   # (= $b 0)
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), t, Axt]           # (sub $x $b (= $b 0))
-        out = trigger_sub(expr, State.empty(), self.kb)
+        out = trigger_sub(expr, State.empty(), self.kb)[0]
         self.assertEqual(out, [sym("="), sym("$b"), num(0)])
 
 
