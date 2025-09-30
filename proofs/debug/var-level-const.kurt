@@ -1,6 +1,5 @@
 ; bool-level-const.kurt
 var x
-bool A
 assume A
   const x       ; that's ok, since on the current level there is no variable
   true

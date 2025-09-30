@@ -1,6 +1,5 @@
 ; simpler matching test
 use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"
-bool p, q           ; constants!
 use p implies q
 use q implies p
 p iff q

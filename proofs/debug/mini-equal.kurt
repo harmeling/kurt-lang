@@ -2,7 +2,7 @@
 
 ; equality
 infix = 20 20  ; lower binding power than space, equality is left-associative
-bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
+;bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
 sym   =        ; equality is symmetric
 
 use $a = $a                                               "equal-intro"

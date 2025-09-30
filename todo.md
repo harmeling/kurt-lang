@@ -2,8 +2,9 @@
 
 ## NEXT
 
+- TODO: bool, `a and b and c`, be careful for flat operators how to interpret bool_sig['and'] == [0,1,2] for further positions
+- TODO: check theories
 - TODO allow multiple replacement in one step (is that possible?)
-- TODO get rid of `bool`.  the first usage defines it.
 - TODO group.kurt
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
@@ -14,6 +15,7 @@
 
 ## TOPICS before releasing 1.0
 
+- TODO maybe the code gets simpler, when self.used and self.bool gets merged.  i.e., all used symbols have a type!
 - TODO have a sandbox kurt, where we first try and try, and then store it to the theory
 - TODO get group.kurt working with constants and with `var x, y, z`
 - TODO do calculations with integers and reals

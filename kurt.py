@@ -638,6 +638,7 @@ class KnowledgeBase:
             return False
         else:
             return s in self.const   or (self.parent is not None and self.parent.is_const(s))
+
     def is_used(self, s: str) -> bool:
         return s in self.used    or (self.parent is not None and self.parent.is_used(s))
 
@@ -650,6 +651,9 @@ class KnowledgeBase:
         if self.parent is None:
             return []
         return self.parent.bool_sig(s)
+
+    def is_bool(self, s: str) -> bool:
+        return 0 in self.bool_sig(s)
 
     def is_lbracket(self, s: str) -> bool:
         return s in self.brackets.values() or (self.parent is not None and self.parent.is_lbracket(s))
@@ -890,6 +894,11 @@ class KnowledgeBase:
 
     # add new symbols and also add them to the list of symbols that are used in formulas
     # we ignore all bound vars, since they are temporary
+
+    def add_new_symbols(self, e: Expr) -> None:
+        self._add_new_bools(e, True)
+        self._add_new_symbols(e, None)
+
     def _add_new_symbols(self, e: Expr, bound_vars: set[str]|None = None) -> None:
         if bound_vars is None:
             bound_vars = set()
@@ -913,17 +922,74 @@ class KnowledgeBase:
             case _:
                 pass                  # do nothing, might be other tokens
 
+    def _add_new_bools(self, e: Expr, bool_pos: bool) -> None:
+
+        # automatically infer whether a new symbol is boolean or not
+        def _get_new_bool_sigs(e: Expr, bool_pos: bool) -> dict[str, list[int]]:
+            match e:
+                case Token(label='SYMBOL', value=s):
+                    # case 1: just a token
+                    debug(f'case 1: {e}')
+                    assert isinstance(s, str), f'BUG: token value must be string'
+                    if bool_pos and s[0] not in ['$', '%'] and not self.is_used(s):
+                        if not self.is_bool(s):    # might be already declared as boolean
+                            return {s: [0]}   # mark as boolean
+
+                case [Token(label='SYMBOL', value=op), *args]:
+                    assert isinstance(op, str), f'BUG: token value must be string'
+                    bool_sigs = {}
+                    bool_sig_op = self.bool_sig(op)
+                    if len(bool_sig_op) > 0:
+                        # case 2: operator does already exist with some boolean signature
+                        debug(f'case 2: {e}')
+                        for i in range(len(args)):
+                            bool_sigs |= _get_new_bool_sigs(args[i], (i+1) in bool_sig_op)
+                        return bool_sigs
+                    else:
+                        if self.is_used(op):
+                            # case 3: operator has been used already, but has no boolean signature
+                            debug(f'case 3: {e}')
+                            for i in range(len(args)):
+                                bool_sigs |= _get_new_bool_sigs(args[i], False)
+                            return bool_sigs
+                        else:
+                            # case 4: operator has not been used
+                            debug(f'case 4: {e} with `{op}`')
+                            bool_sig_local = [0] if bool_pos else []  # no recursive call for the operator itself
+                            for i in range(len(args)):
+                                if bool_expr(args[i], self):
+                                    bool_sig_local.append(i+1)    # collect information from the args
+                                    bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], True)
+                                else:
+                                    bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], False)
+                            bool_sigs |= {op: bool_sig_local}
+                            return bool_sigs
+
+                case [*exprs]:
+                    # we don't know anything here, so just recurse
+                    bool_sigs = {}
+                    for e in exprs:
+                        bool_sigs |= _get_new_bool_sigs(e, False)  # false, since we don't know better
+                    return bool_sigs
+
+            return {}
+
+        bool_sig = _get_new_bool_sigs(e, bool_pos)
+        for s in bool_sig:
+            debug(f'adding `{s}` and {bool_sig[s]}')
+            self.add_bool(s, bool_sig[s])
+
     def theory_append(self, f: Formula, symbol_level_prev: bool = False) -> None:
         if symbol_level_prev:
             # add the symbols to the previous level
             assert self.parent is not None, f'BUG: can not add symbols one level up, check `assume` implementation'
-            self.parent._add_new_symbols(f.expr)
+            self.parent.add_new_symbols(f.expr)
         else:
-            self._add_new_symbols(f.expr)
+            self.add_new_symbols(f.expr)
         self.theory.append(f)
 
     def show_append(self, f: Formula) -> None:
-        self._add_new_symbols(f.expr)
+        self.add_new_symbols(f.expr)
         self.show.append(f)
 
     def show_str(self) -> str:
@@ -1460,7 +1526,7 @@ def extract_zero_new_consts(expr: Expr, kb: KnowledgeBase) -> None:
         raise KurtException(f'EvalError: expected no new constants, got {len(new_consts)} in `{expr_str(expr, kb)}`')
 
 def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, keyword: str, symbol_level_prev: bool=False) -> KnowledgeBase:
-    if not bool_expr(expr, kb):
+    if not bool_expr(expr, kb, strict=False):    # not strict, since we are possibly adding new symbols
         raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
     reason = 'without proof'
     if len(label) > 0:
@@ -1473,7 +1539,7 @@ def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int
     return kb
 
 def eval_show(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    if not bool_expr(expr, kb):
+    if not bool_expr(expr, kb, strict=False):   # not strict, since we are possibly adding new symbols
         raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
     reason = decorate_reason(mainstream, 'claim', filename, str(line))
     if len(label) > 0:
@@ -1992,7 +2058,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: Knowl
         # expression without keyword: try to derive the formula and add it to the theory
         if expr==[]:
             return kb
-        if not bool_expr(expr, kb):
+        if not bool_expr(expr, kb, strict=False):   # not strict, since we are possibly adding new symbols
             raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
         reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
         if len(reasons) == 1:
@@ -2044,18 +2110,23 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: Knowl
 ## kurt type checking ##
 ########################
 
-def bool_expr(expr: Expr, kb: KnowledgeBase) -> bool:
+def bool_expr(expr: Expr, kb: KnowledgeBase, strict: bool=True) -> bool:
+    # at some places we are strict
+    # at other places (like eval_use) we are not strict, since we are adding a new formula
     match expr:
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
             return True                    # boolean variables
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and not kb.is_bool_var(v):
-            return 0 in kb.bool_sig(v)
+            if strict or kb.is_used(v):
+                return 0 in kb.bool_sig(v)
+            else:
+                return True   # not used yet!  so it will soon be boolean
         case Token(label='TODO', value=''):
             return True
         case [Token(label='SYMBOL', value=v), *tail] if v==SUB_SYMBOL:
-            return bool_expr(tail[2], kb)
+            return bool_expr(tail[2], kb, strict)
         case [Token(label='SYMBOL', value=v), *_]:
-            return bool_expr(expr[0], kb)
+            return bool_expr(expr[0], kb, strict)
     return False
 
 def expr_column(expr : Expr) -> int:
@@ -2079,7 +2150,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
         case [Token(label='SYMBOL', value=op), *tail]:
             assert isinstance(op, str)
             for idx in range(1, len(tail)+1):
-                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb):
+                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb, strict=False):
                     raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(tail[idx-1], kb)}` must be boolean', column=expr_column(tail[idx-1]))
             if kb.is_bindop(op):
                 # check that the first argument is either a variable or a boolean expression
@@ -3305,7 +3376,6 @@ def main() -> None:
     # debug flag?
     global debug_flag
     debug_flag = args.debug
-    # debug_flag = not debug_flag    # swap the debug flag for "run and debug"
 
     # readline history
     if readline:
