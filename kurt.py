@@ -1405,7 +1405,7 @@ def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
             e: Expr = [expr[0]]                                       # the new expression
             for i in range(1, arity+1):
                 if len(tail) == 0:
-                    raise KurtException(f'EvalError: not enough arguments for `{op}`')
+                    raise KurtException(f'EvalError: not enough arguments for `{op}`', expr[0].column)
                 ei: Expr
                 tail: list[Expr]
                 ei, tail = group_by_arity(tail, kb)             # let the next one eat as many expr as it needs
@@ -2141,7 +2141,7 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: Knowl
                     match e:
                         case Token(label='SYMBOL', value=v) if v==COMMA_SYMBOL:
                             if len(args) == 0:
-                                raise KurtException(f'ParseError: nothing to separate with a comma, comma can not be used with `use`, `assume`, `show`, etc.')
+                                raise KurtException(f'ParseError: nothing to separate with a comma', e.column)
                             kb = eval_keyword_expression(keyword_token, args, label, kb, line, filename, mainstream)
                             args = []
                         case _:

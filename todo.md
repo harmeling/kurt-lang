@@ -2,10 +2,6 @@
 
 ## NEXT
 
-- TODO: _add_new_bool, there are unused variables `flat`, `sym`
-- TODO rethink type_check_...
-- TODO add column information to all KurtExceptions
-- TODO: bool, `a and b and c`, be careful for flat operators how to interpret bool_sig['and'] == [0,1,2] for further positions
 - TODO: check theories
 - TODO allow multiple replacement in one step (is that possible?)
 - TODO group.kurt

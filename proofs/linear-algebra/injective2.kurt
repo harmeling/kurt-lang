@@ -16,7 +16,6 @@ infix ∘ 40 40                  ; composition
 show (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
 proof
     fix A, B, C
-        bool A, B, C
         assume (A ⇒ (B ⇒ C))
             assume A ∧ B
                 A
