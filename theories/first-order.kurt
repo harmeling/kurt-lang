@@ -5,8 +5,8 @@ load propositional  ; syntax and rules for propositional logic
 arity  forall 2       ; universal quantification
 arity  exists 2       ; existential quantification
 bindop forall, exists
-bool   forall 0 2     ; position 1 must be a variable
-bool   exists 0 2     ; position 1 must be a variable
+bool   forall 0 2     ; position 1 is a variable or a boolean expression (with a variable)
+bool   exists 0 2     ; position 1 is a variable or a boolean expression (with a variable)
 alias  ∃ exists
 alias  ∀ forall
 

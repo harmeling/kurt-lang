@@ -714,15 +714,23 @@ class KnowledgeBase:
         elif self.is_const(op):   return 'const'
         else: assert False, f'BUG: call "_find_symbol" only for existing symbols'
 
+    def check_bool_sig_max(self, op: str, nargs: int) -> None:   # might raise exceptions
+        bool_sig = self.bool_sig(op)
+        if len(bool_sig) > 0:
+            if max(bool_sig) > nargs:
+                raise KurtException(f'EvalError: existing `bool` signature of `{op}` has more than {nargs} arg(s)')
+
     def add_prefix(self, op: str, rbp: int) -> None:
         if self.is_operator(op) and not self.is_infix(op):    # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
+        self.check_bool_sig_max(op, 1)
         self.prefix[op] = rbp
         self.nud[op] = lambda ts, kb, op_token: [op_token, parse_expression(ts, kb, rbp)]
 
     def add_infix(self, op: str, lbp: int, rbp: int) -> None:
         if self.is_operator(op) and not self.is_prefix(op):   # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
+        self.check_bool_sig_max(op, 2)
         self.infix[op] = (lbp, rbp)                           # to nicely list all operators
         self.led[op] = lambda ts, kb, left, op_token: [op_token, left, parse_expression(ts, kb, rbp)]
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
@@ -730,6 +738,7 @@ class KnowledgeBase:
     def add_postfix(self, op: str, lbp: int) -> None:
         if self.is_operator(op):
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
+        self.check_bool_sig_max(op, 1)
         self.postfix[op] = lbp                                # to nicely list all operators
         def led(_ts: PeekableGenerator, _kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
             return [op_token, left]
@@ -749,17 +758,31 @@ class KnowledgeBase:
     def add_bindop(self, fun: str) -> None:
         if self.is_used(fun):
             raise KurtException(f'EvalError: symbol `{fun}` has been already used in a formula')
+        if self.is_operator(fun):
+            raise KurtException(f'EvalError: symbol `{fun}` is already used as prefix, postfix, infix, or bracket')
         if fun not in self.arity:
             raise KurtException(f'EvalError: before declaring symbol `{fun}` as variable binding, you must set its arity')
         if self.arity[fun] < 2:
             raise KurtException(f'EvalError: arity of binding operators must be at least 2')
         self.bindop.add(fun)
 
+    def check_bool_sig_sym_flat(self, op: str) -> None:    # might raise exceptions, though
+        bool_sig = self.bool_sig(op)
+        # cases:
+        # 1. len(bool_sig) == 0, fine
+        # 2. (1 in bool_sig  iff  2 in bool_sig) and max(bool_sig) < 3
+        if len(bool_sig) > 0:
+            if (2 in bool_sig and 1 not in bool_sig) or (1 in bool_sig and 2 not in bool_sig):
+                raise KurtException(f'EvalError: existing `bool` signature does not work for flat operator')
+            if max(bool_sig) > 2:
+                raise KurtException(f'EvalError: existing `bool` signature contains info for more than two args')
+
     def add_flat(self, op: str) -> None:
         if not self.is_infix(op):
             raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare flatness')
         if self.is_flat(op):
             raise KurtException(f'EvalError: operator `{op}` is already declared "flat"')
+        self.check_bool_sig_sym_flat(op)
         self.flat.add(op)
 
     def add_sym(self, op) -> None:
@@ -767,6 +790,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare symmetry')
         if self.is_sym(op):
             raise KurtException(f'EvalError: operator `{op}` is already declared "sym"')
+        self.check_bool_sig_sym_flat(op)
         self.sym.add(op)
 
     def add_brackets(self, lbracket, rbracket) -> None:
@@ -924,7 +948,7 @@ class KnowledgeBase:
 
     def _add_new_bools(self, e: Expr, bool_pos: bool) -> None:
 
-        # automatically infer whether a new symbol is boolean or not
+        # automatically infer the `bool` signature
         def _get_new_bool_sigs(e: Expr, bool_pos: bool) -> dict[str, list[int]]:
             match e:
                 case Token(label='SYMBOL', value=s):
@@ -942,8 +966,12 @@ class KnowledgeBase:
                     if len(bool_sig_op) > 0:
                         # case 2: operator does already exist with some boolean signature
                         debug(f'case 2: {e}')
-                        for i in range(len(args)):
-                            bool_sigs |= _get_new_bool_sigs(args[i], (i+1) in bool_sig_op)
+                        for i in range(1, len(e)):
+                            if self.is_flat(op):
+                                bool_pos = 1 in bool_sig_op    # applies to all i
+                            else:
+                                bool_pos = i in bool_sig_op
+                            bool_sigs |= _get_new_bool_sigs(e[i], bool_pos)
                         return bool_sigs
                     else:
                         if self.is_used(op):
@@ -953,17 +981,32 @@ class KnowledgeBase:
                                 bool_sigs |= _get_new_bool_sigs(args[i], False)
                             return bool_sigs
                         else:
-                            # case 4: operator has not been used
+                            # case 4: operator has not been used, let's try to infer its `bool` signature
                             debug(f'case 4: {e} with `{op}`')
                             bool_sig_local = [0] if bool_pos else []  # no recursive call for the operator itself
-                            for i in range(len(args)):
-                                if bool_expr(args[i], self):
-                                    bool_sig_local.append(i+1)    # collect information from the args
-                                    bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], True)
-                                else:
-                                    bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], False)
-                            bool_sigs |= {op: bool_sig_local}
-                            return bool_sigs
+                            flat = self.is_flat(op)
+                            sym = self.is_sym(op)
+                            if flat or sym:
+                                # check whether at least one is boolean, then all are boolean
+                                all_bool = False
+                                for i in range(len(args)):
+                                    if bool_expr(args[i], self):
+                                        all_bool = True
+                                        break
+                                # next get all other bool signatures
+                                for i in range(len(args)):
+                                    bool_sigs |= _get_new_bool_sigs(args[i], all_bool)
+                                bool_sigs |= {op: bool_sig_local}
+                                return bool_sigs
+                            else:
+                                for i in range(len(args)):
+                                    if bool_expr(args[i], self):
+                                        bool_sig_local.append(i+1)    # collect information from the args
+                                        bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], True)
+                                    else:
+                                        bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], False)
+                                bool_sigs |= {op: bool_sig_local}
+                                return bool_sigs
 
                 case [*exprs]:
                     # we don't know anything here, so just recurse
@@ -2111,8 +2154,9 @@ def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: Knowl
 ########################
 
 def bool_expr(expr: Expr, kb: KnowledgeBase, strict: bool=True) -> bool:
-    # at some places we are strict
-    # at other places (like eval_use) we are not strict, since we are adding a new formula
+    # this is the non-deep check
+    # - at some places we are strict
+    # - at other places (like eval_use) we are not strict, since we are adding a new formula
     match expr:
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
             return True                    # boolean variables
@@ -2140,24 +2184,31 @@ def expr_column(expr : Expr) -> int:
 
 def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
     # this uses the declared boolean-ness of some symbols via `kb.bool` and `bool_expr`
+    # and in contrast to `bool_expr` it goes done the expression tree
     match expr:
 
-        # substitutions are always boolean
-        case [Token(label='SYMBOL', value=v), *_] if v==SUB_SYMBOL:
-            pass
+        # substitutions
+        case [Token(label='SYMBOL', value=v), var_x, a, A] if v==SUB_SYMBOL:
+            if not is_var_token(var_x, kb):
+                raise KurtException(f'TypeError: first arg of `sub` must be variable symbol (a boolean var is not allowed)')
+            if bool_expr(a, kb):
+                raise KurtException(f'TypeError: second arg of `sub` must be a non-boolean expression')
+            type_check_expression(A, kb)
 
         # most expressions: prefix, postfix, infix, bindop, ...
         case [Token(label='SYMBOL', value=op), *tail]:
             assert isinstance(op, str)
-            for idx in range(1, len(tail)+1):
-                if idx in kb.bool_sig(op) and not bool_expr(tail[idx-1], kb, strict=False):
-                    raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(tail[idx-1], kb)}` must be boolean', column=expr_column(tail[idx-1]))
+            # (1) do the args fit the declared type in `bool_sig`
+            for idx in range(1, len(expr)):
+                if idx in kb.bool_sig(op) and not bool_expr(expr[idx], kb, strict=False):
+                    raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(expr[idx], kb)}` must be boolean', column=expr_column(expr[idx]))
+            # (2) additional checks for binding operators
             if kb.is_bindop(op):
                 # check that the first argument is either a variable or a boolean expression
                 match tail[0]:
                     case Token(label='SYMBOL', value=v):
                         if not isinstance(v, str):
-                            raise KurtException(f'TypeError: first arg of binding operator must be boolean or new symbol, got {v}', column=expr_column(tail[0]))
+                            raise KurtException(f'TypeError: first arg of binding operator must be boolean expression or symbol, got {v}', column=expr_column(tail[0]))
                         if kb.is_const(v):
                             raise KurtException(f'TypeError: first arg of binding operator must not be constant, got a constant `{v}`', column=expr_column(tail[0]))
                         pass         # ok!
@@ -2170,6 +2221,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
                             raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
                     case _:
                         assert False, f'BUG: did not match {tail[0]} while type checking'
+            # (3) recursively go deep and check
             for e in tail:
                 type_check_expression(e, kb)
 
