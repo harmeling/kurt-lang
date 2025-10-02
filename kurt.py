@@ -1465,7 +1465,6 @@ def check_expr_label(expr: Expr, kb) -> tuple[Expr, str]:            # check [ex
             tail = expr
         case _:
             assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
-    check_no_keyword(tail)             # don't check the `keyword` and the `label`
     return tail, label
 
 def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
@@ -1502,7 +1501,7 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
         expr: Expr  = parse_expression(ts, kb, begin_rbp)     # parse expression
         expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
         expr_list = chop_off_comma(expr)
-        check_for_helper_keywords(expr)
+        check_for_helper_keywords(expr_list)
         if keyword == 'thus':
             # type check with the parent
             if kb.parent is None:
@@ -1513,6 +1512,7 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
         expr_list = list(ts)[:-1]                             # tokenizer already made a list of strings
     else:
         expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
+    check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
     return keyword_token, expr_list, label
 
 ## kurt eval
@@ -2128,7 +2128,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             kb = eval_use(kb, expr, label, filename, line, mainstream=False, keyword='use', symbol_level_prev=True)  # use the expression as an assumption
         if mainstream:
             reason = f'{line} open local scope with assumption'
-            log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
+            assumptions_str = ', '.join([expr_str(arg, kb) for arg in args])
+            log(f'{keyword} {assumptions_str}', reason, kb.level-1)  # log the new constant
     elif keyword == 'def':
         if len(args) == 0:
             print(kb.theory_str(keyword=keyword), file=sys.stdout)
