@@ -251,7 +251,7 @@ keywords: dict[str, str] = {
     }
 helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
-keywords_with_parsing = ['use', 'assume', 'def', 'fix', 'show', 'thus', 'todo']
+keywords_with_parsing = ['use', 'show', 'def', 'assume', 'fix', 'thus', 'todo', 'parse']
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END', 'TODO']
@@ -268,13 +268,13 @@ class Token:
     def __repr__(self) -> str:
         return f'{self.value}'
 
-def clone_token(expr: Token, new_value: Value|None=None) -> Token:
-    return Token(
-        label  = expr.label,
-        value  = expr.value if new_value is None else new_value,
-        column = expr.column,
-        origin = expr.origin
-    )
+    def clone(self, new_value: Value) -> Token:
+        return Token(
+            label  = self.label,
+            value  = new_value,
+            column = self.column,
+            origin = self.origin
+        )
 
 class Formula:
     next_id: int = 0
@@ -294,10 +294,10 @@ class Formula:
         # not proven is `self.keyword in ['use', 'show']`
         return self.keyword in ['', 'todo']
 
-    def clone(self, kb):
+    def clone(self, new_expr: Expr, kb: KnowledgeBase) -> Formula:
         cloned_f = Formula(
             kb,
-            expr     = self.expr,
+            expr     = new_expr,
             line     = self.line,
             filename = self.filename,
             label    = self.label,
@@ -396,7 +396,6 @@ class State:
 
     # updates (return new States)
     def bind(self, v: str, e: Expr) -> State:
-        debug(f'{v}: {e}')
         new_subst = dict(self.subst)   # shallow copy
         new_subst[v] = deepcopy_expr(e)
         return State(new_subst, self.blocked_as_domain, self.blocked_as_range)
@@ -897,10 +896,8 @@ class KnowledgeBase:
             yield f
             # can we chop of universal quantifier?
             while is_forall(f.simplified_expr):
-                f = f.clone(self)
                 assert isinstance(f.simplified_expr, list) and len(f.simplified_expr) == 3
-                f.simplified_expr = f.simplified_expr[2]
-                yield f
+                yield f.clone(f.simplified_expr[2], self)
         if self.parent is not None:
             yield from self.parent.all_theory()
 
@@ -953,7 +950,7 @@ class KnowledgeBase:
             match e:
                 case Token(label='SYMBOL', value=s):
                     # case 1: just a token
-                    debug(f'case 1: {e}')
+                    #debug(f'case 1: {e}')
                     assert isinstance(s, str), f'BUG: token value must be string'
                     if bool_pos and s[0] not in ['$', '%'] and not self.is_used(s):
                         if not self.is_bool(s):    # might be already declared as boolean
@@ -965,7 +962,7 @@ class KnowledgeBase:
                     bool_sig_op = self.bool_sig(op)
                     if len(bool_sig_op) > 0:
                         # case 2: operator does already exist with some boolean signature
-                        debug(f'case 2: {e}')
+                        #debug(f'case 2: {e}')
                         for i in range(1, len(e)):
                             if self.is_flat(op):
                                 bool_pos = 1 in bool_sig_op    # applies to all i
@@ -976,13 +973,13 @@ class KnowledgeBase:
                     else:
                         if self.is_used(op):
                             # case 3: operator has been used already, but has no boolean signature
-                            debug(f'case 3: {e}')
+                            #debug(f'case 3: {e}')
                             for i in range(len(args)):
                                 bool_sigs |= _get_new_bool_sigs(args[i], False)
                             return bool_sigs
                         else:
                             # case 4: operator has not been used, let's try to infer its `bool` signature
-                            debug(f'case 4: {e} with `{op}`')
+                            #debug(f'case 4: {e} with `{op}`')
                             bool_sig_local = [0] if bool_pos else []  # no recursive call for the operator itself
                             flat = self.is_flat(op)
                             sym = self.is_sym(op)
@@ -1019,7 +1016,7 @@ class KnowledgeBase:
 
         bool_sig = _get_new_bool_sigs(e, bool_pos)
         for s in bool_sig:
-            debug(f'adding `{s}` and {bool_sig[s]}')
+            #debug(f'adding `{s}` and {bool_sig[s]}')
             self.add_bool(s, bool_sig[s])
 
     def theory_append(self, f: Formula, symbol_level_prev: bool = False) -> None:
@@ -1405,7 +1402,7 @@ def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
             e: Expr = [expr[0]]                                       # the new expression
             for i in range(1, arity+1):
                 if len(tail) == 0:
-                    raise KurtException(f'EvalError: not enough arguments for `{op}`', expr[0].column)
+                    raise KurtException(f'EvalError: not enough arguments for `{op}`')
                 ei: Expr
                 tail: list[Expr]
                 ei, tail = group_by_arity(tail, kb)             # let the next one eat as many expr as it needs
@@ -1479,33 +1476,44 @@ def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
     expr = flatten_all(expr, kb)                        # flatten certain operators
     return expr, label
 
-def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, Expr, str]:
+def is_helper_keyword(e: Expr) -> bool:
+    return isinstance(e, Token) and e.value in helper_keywords
+
+def check_for_helper_keywords(e: Expr, top_level:bool = True):
+    # helper keywords can only appear on the top level
+    if isinstance(e, list):
+        for ei in e:
+            if not top_level and is_helper_keyword(ei):
+                raise KurtException(f'ParseError: helper keywords like `{ei}` are only allowed on the top level')
+            check_for_helper_keywords(ei, False)
+
+def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, list[Expr], str]:
     assert isinstance(ts.peek, Token)
-    keyword_token: Token | None
-    keyword: str
-    label: str
+    keyword_token: Token | None = None
+    keyword: str = ''
+    label: str = ''
     if ts.peek.label == 'SYMBOL' and ts.peek.value in keywords:
-        keyword  = ts.peek.value
+        keyword = ts.peek.value
         keyword_token = next(ts)                              # remove a keyword right away early
-    else:
-        keyword = ''
-        keyword_token = None
     if ts.peek.label == 'END': 
         return keyword_token, [], ''                          # empty token stream
+    expr_list: list[Expr]
     if keyword_token is None or keyword_token.value in keywords_with_parsing:
-        expr: Expr
-        expr        = parse_expression(ts, kb, begin_rbp)     # parse expression
+        expr: Expr  = parse_expression(ts, kb, begin_rbp)     # parse expression
         expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
+        expr_list = chop_off_comma(expr)
+        check_for_helper_keywords(expr)
         if keyword == 'thus':
             # type check with the parent
             if kb.parent is None:
                 raise KurtException(f'EvalError: "thus" can only be used after "fix", "take", or "assume"')
             kb = kb.parent
         type_check_expression(expr, kb)                       # (some) type checking
+    elif keyword_token.value == 'load':
+        expr_list = list(ts)[:-1]                             # tokenizer already made a list of strings
     else:
-        expr = list(ts)[:-1]                                  # [:-1] removes end_token
-        label = ''
-    return keyword_token, expr, label
+        expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
+    return keyword_token, expr_list, label
 
 ## kurt eval
 def create_usage(keyword: str, arg_labels: list[list[Label]]) -> str:
@@ -1729,6 +1737,7 @@ def eval_fix(kb: KnowledgeBase, expr: Expr, filename: str, line: int, mainstream
             case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
                 pass
             case _:
+                debug(expr)
                 raise KurtException(f'EvalError: expression must be new constant or boolean condition with new constant, got `{expr_str(expr, kb)}`')
     assert isinstance(new_const, str)
     if new_level:
@@ -1789,6 +1798,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             local_path = [current_path] + local_path
         if len(args) == 0:
             raise KurtException(f'ParseError: `{keyword}` takes at least one filename or several comma-separated', keyword_token.column)
+        debug(f'loading {len(args)} files')
+        debug(f'{args}')
         for arg in args:
             match arg:
                 case Token(label='STRING', value=fname):
@@ -1798,25 +1809,26 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                     assert False, f'BUG: `load` was scanned with wrong args'
     elif keyword == 'parse':
         if len(args) > 0:
-            tokenlist: Expr = args + [end_token]                               # add end token for parse_expression
-            ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
-            expr = parse_expression(ts, kb, begin_rbp)                         # parse the tokenlist
-            expr, label = post_process(kb, expr)                               # turn spaces into calls, symmetry
-            msg = f'{expr_sexpr(expr)}'
+            msg = ''
+            for args_i in args:
+                msg += f'{expr_sexpr(args_i)}, '
+            msg = msg[:-2]
             if len(label) > 0:
                 msg += f' "{label}"'
             print(msg, file=sys.stdout)
     elif keyword == 'tokenize':
         if len(args) > 0:
-            tokenlist: Expr = args + [end_token]                               # add end token for parse_expression
-            ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
-            msg = f'{"  ".join([str(t) for t in ts])}'
+            msg = ''
+            for args_i in args:            
+                tokenlist: Expr = args + [end_token]                               # add end token for parse_expression
+                ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
+                msg += f'{"  ".join([str(t) for t in ts])}'
             print(msg, file=sys.stdout)
     elif keyword == 'format':
         match args:
             case []:
                 print(kb.format, file=sys.stdout)
-            case [Token(label='SYMBOL', value=option)] if option in format_options:
+            case [[Token(label='SYMBOL', value=option)]] if option in format_options:
                 kb.format = option
             case _:
                 raise KurtException(f'only a single arg out of {format_options} is allowed"')
@@ -1833,159 +1845,220 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             print('; syntax')
             print(kb.syntax_str_all_levels(), file=sys.stdout)
     elif keyword == 'prefix':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=rbp)]:
-                assert isinstance(op, str)
-                assert isinstance(rbp, int)
-                kb.add_prefix(op, rbp)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'INT']])
-                raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=rbp)]:
+                    assert isinstance(op, str)
+                    assert isinstance(rbp, int)
+                    new_stuff.append((op, rbp))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'INT']])
+                    raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (op, rbp) in new_stuff:
+            kb.add_prefix(op, rbp)
     elif keyword == 'postfix':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp)]:
-                assert isinstance(op, str)
-                assert isinstance(lbp, int)
-                kb.add_postfix(op, lbp)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'INT']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp)]:
+                    assert isinstance(op, str)
+                    assert isinstance(lbp, int)
+                    new_stuff.append((op, lbp))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'INT']])
+                    raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (op, lbp) in new_stuff:
+            kb.add_postfix(op, lbp)
     elif keyword == 'infix':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp), Token(label='INT', value=rbp)]:
-                assert isinstance(op, str)
-                assert isinstance(lbp, int)
-                assert isinstance(rbp, int)
-                kb.add_infix(op, lbp, rbp)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'INT', 'INT']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=lbp), Token(label='INT', value=rbp)]:
+                    assert isinstance(op, str)
+                    assert isinstance(lbp, int)
+                    assert isinstance(rbp, int)
+                    new_stuff.append((op, lbp, rbp))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'INT', 'INT']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (op, lbp, rbp) in new_stuff:
+            kb.add_infix(op, lbp, rbp)
     elif keyword == 'arity':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=arity)]:
-                assert isinstance(op, str)
-                assert isinstance(arity, int)
-                kb.add_arity(op, arity)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'INT']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=arity)]:
+                    assert isinstance(op, str)
+                    assert isinstance(arity, int)
+                    new_stuff.append((op, arity))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'INT']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (op, arity) in new_stuff:
+            kb.add_arity(op, arity)
     elif keyword == 'brackets':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=lbracket), Token(label='STRING'|'SYMBOL', value=rbracket)]:
-                kb.add_brackets(lbracket, rbracket)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=lbracket), Token(label='STRING'|'SYMBOL', value=rbracket)]:
+                    assert isinstance(lbracket, str)
+                    assert isinstance(rbracket, str)
+                    new_stuff.append((lbracket, rbracket))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (lbracket, rbracket) in new_stuff:
+            kb.add_brackets(lbracket, rbracket)
     elif keyword == 'bindop':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op)]:
-                assert isinstance(op, str)
-                kb.add_bindop(op)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    new_stuff.append(op)    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for op in new_stuff:
+            kb.add_bindop(op)
     elif keyword == 'chain':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op), *tail]:
-                assert isinstance(op, str)
-                chain: list[str] = []
-                for t in tail:
-                    assert isinstance(t, Token) and t.label=='SYMBOL' and isinstance(t.value, str)
-                    chain.append(t.value)
-                kb.add_chain(op, chain)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'STRING'], ['STRING', 'STRING', 'STRING'], ['STRING', 'STRING', 'STRING', 'STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op), *tail]:
+                    assert isinstance(op, str)
+                    chain: list[str] = []
+                    for t in tail:
+                        assert isinstance(t, Token) and t.label=='SYMBOL' and isinstance(t.value, str)
+                        chain.append(t.value)
+                    new_stuff.append((op, chain))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'STRING'], ['STRING', 'STRING', 'STRING'], ['STRING', 'STRING', 'STRING', 'STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (op, chain) in new_stuff:
+            kb.add_chain(op, chain)
     elif keyword == 'flat':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op)]:
-                assert isinstance(op, str)
-                kb.add_flat(op)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    new_stuff.append(op)    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for op in new_stuff:
+            kb.add_flat(op)
     elif keyword == 'sym':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op)]:
-                kb.add_sym(op)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    new_stuff.append(op)    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for op in new_stuff:
+            kb.add_sym(op)
     elif keyword == 'bool':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op)]:
-                assert isinstance(op, str)
-                kb.add_bool(op, [0])
-            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a)]:
-                assert isinstance(op, str)
-                assert isinstance(a, int)
-                kb.add_bool(op, [a])
-            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b)]:
-                assert isinstance(op, str)
-                assert isinstance(a, int) and isinstance(b, int)
-                kb.add_bool(op, [a, b])
-            case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b), Token(label='INT', value=c)]:
-                assert isinstance(op, str)
-                assert isinstance(a, int) and isinstance(b, int) and isinstance(c, int)
-                kb.add_bool(op, [a, b, c])
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'INT'], ['STRING', 'INT', 'INT'], ['STRING', 'INT', 'INT', 'INT']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        for args_i in args:
+            match args_i:
+                case []:
+                    assert False, f'BUG: empty args in `bool` should have been caught earlier'
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    kb.add_bool(op, [0])
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a)]:
+                    assert isinstance(op, str)
+                    assert isinstance(a, int)
+                    kb.add_bool(op, [a])
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b)]:
+                    assert isinstance(op, str)
+                    assert isinstance(a, int) and isinstance(b, int)
+                    kb.add_bool(op, [a, b])
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b), Token(label='INT', value=c)]:
+                    assert isinstance(op, str)
+                    assert isinstance(a, int) and isinstance(b, int) and isinstance(c, int)
+                    kb.add_bool(op, [a, b, c])
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'INT'], ['STRING', 'INT', 'INT'], ['STRING', 'INT', 'INT', 'INT']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
     elif keyword == 'var':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op)]:
-                assert isinstance(op, str)
-                kb.add_var(op)
-                if mainstream:
-                    log(f'var {op}', f'added variable', kb.level)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for args_i in args:
+            match args_i:
+                case []:
+                    assert False, f'BUG: empty args in `var` should have been caught earlier'
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    new_stuff.append(op)    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for op in new_stuff:
+            kb.add_var(op)
+            if mainstream:
+                log(f'var {op}', f'added variable', kb.level)
     elif keyword == 'const':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=op)]:
-                assert isinstance(op, str)
-                kb.add_const(op)
-                if mainstream:
-                    log(f'const {op}', f'added constant', kb.level)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for args_i in args:
+            match args_i:
+                case []:
+                    assert False, f'BUG: empty args in `const` should have been caught earlier'
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    new_stuff.append(op)    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for op in new_stuff:
+            kb.add_const(op)
+            if mainstream:
+                log(f'const {op}', f'added constant', kb.level)
     elif keyword == 'alias':
-        match args:
-            case []:
-                print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
-            case [Token(label='STRING'|'SYMBOL', value=s), Token(label='STRING'|'SYMBOL', value=t)]:
-                assert isinstance(s, str) and isinstance(t, str)
-                kb.add_alias(s, t)
-            case _:
-                msg = create_usage(keyword, [[], ['STRING', 'STRING']])
-                raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if len(args) == 0:
+            print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
+        new_stuff = []
+        for args_i in args:
+            match args_i:
+                case []:
+                    assert False, f'BUG: empty args in `alias` should have been caught earlier'
+                case [Token(label='STRING'|'SYMBOL', value=s), Token(label='STRING'|'SYMBOL', value=t)]:
+                    assert isinstance(s, str) and isinstance(t, str)
+                    new_stuff.append((s, t))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (s, t) in new_stuff:
+            kb.add_alias(s, t)
+            if mainstream:
+                log(f'alias {s} {t}', f'added alias', kb.level  )
 
     # THEORY AND PROOF RELATED
     elif keyword == 'theory':
@@ -2002,25 +2075,29 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         if len(args) == 0:
             print(kb.theory_str(keyword=keyword), file=sys.stdout)
         else:
-            expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-            kb = eval_use(kb, expr, label, filename, line, mainstream, keyword)  # use the expression as an assumption
+            for expr in args:
+                kb = eval_use(kb, expr, label, filename, line, mainstream, keyword)  # use the expression as an assumption
     elif keyword == 'todo':
         # works like a joker!  however, what to store in the theory?  add a todo token
         if len(args) == 0:
             # `todo` inside proofs, a joker for the next statement, even a `qed`
             kb = eval_use(kb, todo_token, label, filename, line, mainstream, keyword)  # use the expression as an assumption
             todo = decorate_reason(False, f'todo', filename, str(line))
+            kb.todo_add(todo)
         else:
-            # `todo F`, adds `F` like an axiom and takes a note of the todo
-            expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-            kb = eval_use(kb, expr, label, filename, line, mainstream, keyword)  # use the expression as an assumption
-            todo = decorate_reason(False, f'todo {expr_str(expr, kb)}', filename, str(line))
-        kb.todo_add(todo)
+            for expr in args:
+                # `todo F`, adds `F` like an axiom and takes a note of the todo
+                kb = eval_use(kb, expr, label, filename, line, mainstream, keyword)  # use the expression as an assumption
+                todo = decorate_reason(False, f'todo {expr_str(expr, kb)}', filename, str(line))
+                kb.todo_add(todo)
     elif keyword == 'thus':
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
-        expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-        kb = eval_thus(kb, expr, label, filename, line, mainstream)  # use the expression as a conclusion
+        elif len(args) == 1:
+            expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
+            kb = eval_thus(kb, expr, label, filename, line, mainstream)  # use the expression as a conclusion
+        else:
+            raise KurtException(f'ParseError: `show` takes only one formula, no comma-separated list allowed')
     elif keyword == 'break':
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` does not take any arguments')
@@ -2030,9 +2107,11 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
     elif keyword == 'show':
         if len(args) == 0:
             print(kb.show_str(), file=sys.stdout)
-        else:
+        elif len(args) == 1:
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
             kb = eval_show(kb, expr, label, filename, line, mainstream)
+        else:
+            raise KurtException(f'ParseError: `show` takes only one formula, no comma-separated list allowed')
     elif keyword == 'proof':                  # opens a new block (scope)
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
@@ -2045,8 +2124,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         if len(args) == 0:
             raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
         kb = eval_openblock(kb, line, mainstream=False)  # open a new block
-        expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-        kb = eval_use(kb, expr, label, filename, line, mainstream=False, keyword='use', symbol_level_prev=True)  # use the expression as an assumption
+        for expr in args:
+            kb = eval_use(kb, expr, label, filename, line, mainstream=False, keyword='use', symbol_level_prev=True)  # use the expression as an assumption
         if mainstream:
             reason = f'{line} open local scope with assumption'
             log(f'{keyword} {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
@@ -2054,15 +2133,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         if len(args) == 0:
             print(kb.theory_str(keyword=keyword), file=sys.stdout)
         else:
-            expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-            kb = eval_def(kb, args, label, filename, line, mainstream)  # use the expression as a definition
+            for expr in args:
+                kb = eval_def(kb, expr, label, filename, line, mainstream)  # use the expression as a definition
     elif keyword == 'fix':
         msg = 'EvalError: `fix` takes new constants or boolean expressions'
         if len(args) == 0:
             raise KurtException(msg)
-        if is_comma_separated_list(args):
-            args = args[1:]    # remove the comma operator
-
         # add the new constants and their constraints (if boolean expressions are given)
         new_level = True
         for expr in args:  # args is a list of expressions
@@ -2076,11 +2152,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         msg = 'EvalError: `pick` takes a new constant, keyword `with` and a formula , e.g. `pick x with F(x)`'
         if len(args) == 0:
             raise KurtException(msg)
-        match args:
-            case [Token(label='SYMBOL', value=new_const), Token(label='SYMBOL', value='with'), *fact_expr] if isinstance(new_const, str) and not kb.is_const(new_const):
-                kb, fact = eval_pick(kb, args[0], fact_expr, filename, line, mainstream)
-            case _:
-                raise KurtException(msg)
+        for expr in args:
+            match expr:
+                case [Token(label='SYMBOL', value=new_const), Token(label='SYMBOL', value='with'), *fact_expr] if isinstance(new_const, str) and not kb.is_const(new_const):
+                    kb, fact = eval_pick(kb, expr[0], fact_expr, filename, line, mainstream)
+                case _:
+                    raise KurtException(msg)
         if mainstream:
             reason = f'{line} open local scope with new constant `{new_const}`'
             log(f'{keyword} {new_const} with {expr_str(fact, kb)}', reason, kb.level-1)  # log the new constants
@@ -2096,57 +2173,70 @@ def letter_generator() -> Iterator[str]:
         for combo in itertools.product(letters, repeat=size):
             yield ''.join(combo)
 
-def eval_expression(keyword_token: Token|None, expr: Expr, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
+def chop_off_comma(e: Expr) -> list[Expr]:
+    match e:
+        case [Token(label='SYMBOL', value=v), *tail] if v == COMMA_SYMBOL:
+            return tail
+        case _:
+            return [e]
+
+def split_by_comma(e: Expr) -> list[Expr]:
+    if isinstance(e, Token):
+        return [e]        # nothing to split
+    args = []
+    current_arg: list[Expr] = []
+    for ei in e:
+        match ei:
+            case Token(label='SYMBOL', value=v) if v==COMMA_SYMBOL:
+                if len(current_arg) == 0:
+                    raise KurtException(f'ParseError: nothing to separate with a comma', ei.column)
+                args.append(current_arg)
+                current_arg = []
+            case _:
+                current_arg.append(ei)
+    if len(current_arg) == 0 and len(args) > 0:
+        assert isinstance(e[-1], Token) and e[-1].label=='SYMBOL' and e[-1].value==COMMA_SYMBOL
+        raise KurtException(f'ParseError: nothing to separate with a comma', e[-1].column)
+    if len(current_arg) > 0:
+        args.append(current_arg)
+    return args
+
+def eval_expression(keyword_token: Token|None, expr_list: list[Expr], label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     if keyword_token is None:
         # expression without keyword: try to derive the formula and add it to the theory
-        if expr==[]:
+        if len(expr_list) == 0:
             return kb
-        if not bool_expr(expr, kb, strict=False):   # not strict, since we are possibly adding new symbols
-            raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
-        reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
-        if len(reasons) == 1:
-            reason = decorate_reason(mainstream, reasons[0], filename, str(line))
-        else:
-            assert len(reasons) > 1
-            assert isinstance(expr, list) and len(expr) > 2
-            assert len(expr) == len(reasons) + 1
-            line_strs: list[str] = []
-            for clause, reason, letter in zip(expr[1:], reasons, letter_generator()):
-                line_str = str(line) + letter
-                line_strs.append(line_str)
-                reason = decorate_reason(mainstream, reason, filename, line_str)
-                label = ''
-                sub_f = Formula(kb, clause, line_str, filename, label, reason, keyword='')
-                kb.theory_append(sub_f)                         # add sub to the knowledge base
-                if mainstream:
-                    log(sub_f.formula_str(kb), reason, kb.level)
-            reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
-        label = ''
-        f = Formula(kb, expr, str(line), filename, label, reason, keyword='')
-        kb.theory_append(f)                         # add it to the knowledge base
-        if mainstream:
-            log(f.formula_str(kb), reason, kb.level)
+        for expr in expr_list:
+            if not bool_expr(expr, kb, strict=False):   # not strict, since we are possibly adding new symbols
+                raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
+            reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
+            if len(reasons) == 1:
+                reason = decorate_reason(mainstream, reasons[0], filename, str(line))
+            else:
+                assert len(reasons) > 1
+                assert isinstance(expr, list) and len(expr) > 2
+                assert len(expr) == len(reasons) + 1
+                line_strs: list[str] = []
+                for clause, reason, letter in zip(expr[1:], reasons, letter_generator()):
+                    line_str = str(line) + letter
+                    line_strs.append(line_str)
+                    reason = decorate_reason(mainstream, reason, filename, line_str)
+                    label = ''
+                    sub_f = Formula(kb, clause, line_str, filename, label, reason, keyword='')
+                    kb.theory_append(sub_f)                         # add sub to the knowledge base
+                    if mainstream:
+                        log(sub_f.formula_str(kb), reason, kb.level)
+                reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
+            label = ''
+            f = Formula(kb, expr, str(line), filename, label, reason, keyword='')
+            kb.theory_append(f)                         # add it to the knowledge base
+            if mainstream:
+                log(f.formula_str(kb), reason, kb.level)
         return kb
     else:
-        if not isinstance(expr, list):
-            expr = [expr]
-        match keyword_token:
-            case Token(label='SYMBOL', value=v) if v in ['parse', 'tokenize', 'fix', 'pick', 'assume']:
-                kb = eval_keyword_expression(keyword_token, expr, label, kb, line, filename, mainstream)
-            case _:
-                # iterate over the expr to allow ',' in keyword expressions
-                # TODO: move this behavior to the scanner, see `load`
-                args = []
-                for e in expr:
-                    match e:
-                        case Token(label='SYMBOL', value=v) if v==COMMA_SYMBOL:
-                            if len(args) == 0:
-                                raise KurtException(f'ParseError: nothing to separate with a comma', e.column)
-                            kb = eval_keyword_expression(keyword_token, args, label, kb, line, filename, mainstream)
-                            args = []
-                        case _:
-                            args.append(e)
-                kb = eval_keyword_expression(keyword_token, args, label, kb, line, filename, mainstream)
+        # expression with a keyword
+        debug(expr_list)
+        kb = eval_keyword_expression(keyword_token, expr_list, label, kb, line, filename, mainstream)
         return kb
 
 ########################
@@ -2743,7 +2833,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             if var_a is not None and expr_a is not None:
                 s_local = s_local.bind(var_a, expr_a)   # extend the state with the new binding for `$a`
             # now that we found a substitution for `$a` and `%A`
-            debug(f'$a=`{expr_str(expr_a, kb) if expr_a is not None else "?"}`  %A=`{expr_str(expr_A, kb)}`', kb)
+            #debug(f'$a=`{expr_str(expr_a, kb) if expr_a is not None else "?"}`  %A=`{expr_str(expr_A, kb)}`', kb)
             yield from unify_exprs_with_patterns(tail, s_local, kb)
 
 # helper functions
@@ -2854,7 +2944,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 if not s.occurs(v, expr) and not s.is_blocked_as_domain(v) and not s.contains_blocked_as_range(expr):
                     # we can safely assign `v` without creating infinite substitutions
                     s = s.bind(v, expr)   # extend the substitution
-                    debug(f'assigning: {v} to {expr_str(expr, kb)}')
+                    #debug(f'assigning: {v} to {expr_str(expr, kb)}')
                     yield from unify_exprs_with_patterns(tail, s, kb)
 
             if is_var_token(expr, kb):
@@ -2865,7 +2955,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 if not s.occurs(u, pattern) and not s.is_blocked_as_domain(u) and not s.contains_blocked_as_range(pattern):
                     # we can safely assign `u` without creating infinite substitutions
                     s = s.bind(u, pattern)   # extend the substitution
-                    debug(f'assigning: {u} to {expr_str(pattern, kb)}')
+                    #debug(f'assigning: {u} to {expr_str(pattern, kb)}')
                     yield from unify_exprs_with_patterns(tail, s, kb)
 
             if is_bool_var_token(pattern, kb):
@@ -3182,6 +3272,21 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
         assert isinstance(formula_expr, list)
         premise    = formula_expr[1]
         conclusion = formula_expr[2]
+    elif is_iff(formula_expr):
+        assert isinstance(formula_expr, list)
+        op_token = formula_expr[0]
+        assert isinstance(op_token, Token)
+        LHS = formula_expr[1]
+        RHS = formula_expr[2]
+        LHSimpliesRHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), LHS, RHS], kb)
+        reason, s_local = impl_elim(expr, LHSimpliesRHS, filename, mainstream, s, kb)
+        if len(reason) > 0:
+            return reason, s_local
+        RHSimpliesLHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), RHS, LHS], kb)
+        reason, s_local = impl_elim(expr, RHSimpliesLHS, filename, mainstream, s, kb)
+        if len(reason) > 0:
+            return reason, s_local
+        return '', State.empty()    # no luck this time
     else:                                 # case 2: "implication" with an empty premise (think of `true implies $A`)
         conclusion = formula_expr
 
@@ -3189,14 +3294,14 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
     # however, we must not change bound variables, so we block the free variables of `expr` since they are universally quantified
     blocked_as_domain = frozenset(s.blocked_as_domain | free_bound_vars(expr, kb)[0])
     s = State(s.subst, blocked_as_domain, s.blocked_as_range)
-    debug(f'NEW: try to show {expr_str(expr, kb)} from {formula_ref(proven_formula, filename, mainstream)} which is {expr_str(formula_expr, kb)}')
-    debug(f'match {expr_str(expr, kb)} against {expr_str(conclusion, kb)}')
+    #debug(f'NEW: try to show {expr_str(expr, kb)} from {formula_ref(proven_formula, filename, mainstream)} which is {expr_str(formula_expr, kb)}')
+    #debug(f'match {expr_str(expr, kb)} against {expr_str(conclusion, kb)}')
     s_final: State | None = State.empty()
     for s_matched in unify_exprs_with_patterns([(expr, conclusion)], s, kb):
         if premise is None:
             s_final = s_matched
-            debug(f'BINGO! {expr_str(conclusion, kb)} implies {expr_str(expr, kb)}')
-            debug(f'       with {s_final}')
+            #debug(f'BINGO! {expr_str(conclusion, kb)} implies {expr_str(expr, kb)}')
+            #debug(f'       with {s_final}')
             break           # bingo!  we found one
         else:
             # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
@@ -3204,12 +3309,12 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
             premise_local, s_local = trigger_sub(premise, s_matched, kb)
 
             # search for the premise as well, i.e., match the theory against the `premise`
-            debug(f'match {expr_str(premise_local, kb)} against the theory')
-            debug(f'matched_subst: {s_matched}')
+            #debug(f'match {expr_str(premise_local, kb)} against the theory')
+            #debug(f'matched_subst: {s_matched}')
             success, matched_formulas, s_final = match_all_theory([premise_local], s_local, kb)
             if success:
-                debug(f'BINGO! {expr_str(premise_local, kb)} follows from {[expr_str(f.simplified_expr, kb) for f in matched_formulas]}')
-                debug(f'       with {s_final}')
+                #debug(f'BINGO! {expr_str(premise_local, kb)} follows from {[expr_str(f.simplified_expr, kb) for f in matched_formulas]}')
+                #debug(f'       with {s_final}')
                 break           # bingo!  we found one
     else:
         if is_implication(formula_expr):
@@ -3217,10 +3322,10 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
             premise = None
             s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s, kb))
             if s_final is None:
-                debug(f'failed: could not show {expr_str(formula_expr, kb)} implies {expr_str(expr, kb)}')
+                #debug(f'failed: could not show {expr_str(formula_expr, kb)} implies {expr_str(expr, kb)}')
                 return '', State.empty()    # no luck this time
         else:
-            debug(f'failed: could not show {expr_str(conclusion, kb)} implies {expr_str(expr, kb)}')
+            #debug(f'failed: could not show {expr_str(conclusion, kb)} implies {expr_str(expr, kb)}')
             return '', State.empty()     # no luck this time
 
     # create meaningful `reason`
@@ -3275,8 +3380,8 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
 
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
     ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
-    keyword_token, expr, label = parse_tokenstream(ts, kb)       # parser
-    kb   = eval_expression(keyword_token, expr, label, kb, line, filename, mainstream) # evaluation
+    keyword_token, expr_list, label = parse_tokenstream(ts, kb)       # parser
+    kb   = eval_expression(keyword_token, expr_list, label, kb, line, filename, mainstream) # evaluation
     return kb
 
 def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:

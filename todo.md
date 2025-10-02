@@ -2,6 +2,9 @@
 
 ## NEXT
 
+- TODO: allow lists of formulas
+- TODO: repairs messages for 'pick', 'fix', 'assume'
+- TODO: why not 'parse' with parsing?
 - TODO: check theories
 - TODO allow multiple replacement in one step (is that possible?)
 - TODO group.kurt

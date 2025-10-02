@@ -12,26 +12,13 @@ load equality
 infix is 30 30                 ; as in "f is injective"
 infix ∘ 40 40                  ; composition
 
-; lemma
-show (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
-proof
-    fix A, B, C
-        assume (A ⇒ (B ⇒ C))
-            assume A ∧ B
-                A
-                B
-                B ⇒ C
-                C
-            thus A ∧ B ⇒ C
-        thus (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)
-    thus (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
-qed
+use (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)    "lemma"
 
+const is   ; must be introduced already for the definition
 def ($f ∘ $g)($x) = $f($g($x))                                    "def of composition"
 def $f is injective  iff  ∀$x ∀$y ($f($x) = $f($y)  ⇒  $x = $y)   "def of injective"
 
-; lemma
-show ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))
+show ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))  "composition rule"
 proof
     assume ($a ∘ $b)($c) = ($d ∘ $e)($f)
         ($a ∘ $b)($c) = $d($e($f))
