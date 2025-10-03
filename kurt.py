@@ -47,11 +47,11 @@ except ImportError:
     readline = None
 
 # config: general information
-version        = 0.2
+version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
 
 # BEGIN:COMMIT
-COMMIT = 'ae83eeaee014'
+COMMIT = '4a7d4a4'
 # END:COMMIT
 
 # config: the indentation for the different blocks
@@ -3545,7 +3545,7 @@ def run_tests() -> None:
     print('Status:   ' + ('✅ Passed' if result.wasSuccessful() else '❌ Failed'))
 
 def main() -> None:
-    print(f'This is Kurt, Version {version} [commit {COMMIT}] ({made_by})', file=sys.stdout)
+    print(f'This is Kurt, v{version} [commit {COMMIT}] ({made_by})', file=sys.stdout)
     args = parse_args()
 
     # run tests?

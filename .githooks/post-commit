@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FILE="kurt.py"
+
+# Prefer a human-friendly id; falls back to short hash.
+HASH="$(git rev-parse --short HEAD)"
+
+# Update the line in-place using a tiny Python one-liner for reliability across macOS/Linux
+python - "$FILE" "$HASH" <<'PY'
+import sys, re, pathlib
+p = pathlib.Path(sys.argv[1]); commit = sys.argv[2]
+s = p.read_text(encoding="utf-8")
+block = re.compile(r'(# BEGIN:COMMIT\n)(.*?)(\n# END:COMMIT)', re.S)
+def repl(m):
+    return f"{m.group(1)}COMMIT = '{commit}'{m.group(3)}"
+ns, n = block.subn(repl, s, count=1)
+if n == 0:
+    ns = s + f"\n# BEGIN:COMMIT\nCOMMIT = '{commit}'\n# END:COMMIT\n"
+p.write_text(ns, encoding="utf-8")
+PY
+
+# Stage the change so the file in the working tree matches the repo history
+git add "$FILE" || true
