@@ -51,7 +51,7 @@ version        = 0.2
 made_by        = 'made by Stefan Harmeling, 2025'
 
 # BEGIN:COMMIT
-COMMIT = 'backup/dev-before-sync-7-g1f6610c'
+COMMIT = 'ae83eeaee014'
 # END:COMMIT
 
 # config: the indentation for the different blocks
@@ -3545,7 +3545,7 @@ def run_tests() -> None:
     print('Status:   ' + ('✅ Passed' if result.wasSuccessful() else '❌ Failed'))
 
 def main() -> None:
-    print(f'This is Kurt, Version {version} ({made_by})', file=sys.stdout)
+    print(f'This is Kurt, Version {version} [commit {COMMIT}] ({made_by})', file=sys.stdout)
     args = parse_args()
 
     # run tests?
