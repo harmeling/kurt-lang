@@ -50,10 +50,6 @@ except ImportError:
 version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
 
-# BEGIN:COMMIT
-COMMIT = '9af07d3'
-# END:COMMIT
-
 # config: the indentation for the different blocks
 md_indent      =  7       # for markdown files ignore all lines not starting with `md_indent` many spaces
 proof_indent   =  4       # how much to indent for a `proof` block
@@ -3545,7 +3541,7 @@ def run_tests() -> None:
     print('Status:   ' + ('✅ Passed' if result.wasSuccessful() else '❌ Failed'))
 
 def main() -> None:
-    print(f'This is Kurt, v{version} [commit {COMMIT}] ({made_by})', file=sys.stdout)
+    print(f'This is Kurt, v{version} ({made_by})', file=sys.stdout)
     args = parse_args()
 
     # run tests?
