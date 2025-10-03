@@ -2,9 +2,13 @@
 
 ## NEXT
 
-- TODO: todo for whole proofs
-- TODO: repairs messages for 'pick', 'fix', 'assume'
-- TODO: check theories
+- TODO fix, pick, assume: what if we fail half-way through, how to recover?  just drop the current level!
+
+- TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
+- TODO todo for whole proofs
+- TODO repairs messages for 'pick', 'fix', 'assume'
+- TODO check  if lbp > rbp then left-assoc else right-assoc
+- TODO check theories
 - TODO allow multiple replacement in one step (is that possible?)
 - TODO group.kurt
 - TODO check again what rules are hard-coded

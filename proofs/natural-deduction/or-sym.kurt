@@ -7,7 +7,6 @@ load propositional
 show %a ∨ %b  ⇔  %b ∨ %a   "or-sym"
 proof
     fix a, b
-        bool a, b
         assume a ∨ b
             assume a
                 b ∨ a
