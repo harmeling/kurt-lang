@@ -51,7 +51,7 @@ version        = 0.2
 made_by        = 'made by Stefan Harmeling, 2025'
 
 # BEGIN:COMMIT
-COMMIT         = 'UNKNOWN'             # updated by git hook
+COMMIT = 'backup/dev-before-sync-7-g1f6610c'
 # END:COMMIT
 
 # config: the indentation for the different blocks
