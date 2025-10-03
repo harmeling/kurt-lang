@@ -1,4 +1,16 @@
 ; lemma.kurt
+load propositional
+
+show %E ∧ %F  ⇒  %F ∧ %E
+proof
+    fix E, F
+        assume E ∧ F
+            E
+            F
+            F ∧ E
+        thus E ∧ F ⇒ F ∧ E
+    thus %E ∧ %F  ⇒  %F ∧ %E
+qed
 
 show (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
 proof

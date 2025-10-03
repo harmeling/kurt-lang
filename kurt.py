@@ -47,8 +47,12 @@ except ImportError:
     readline = None
 
 # config: general information
-version        = 0.1
+version        = 0.2
 made_by        = 'made by Stefan Harmeling, 2025'
+
+# BEGIN:COMMIT
+COMMIT         = 'UNKNOWN'             # updated by git hook
+# END:COMMIT
 
 # config: the indentation for the different blocks
 md_indent      =  7       # for markdown files ignore all lines not starting with `md_indent` many spaces
@@ -589,6 +593,9 @@ class KnowledgeBase:
                         self.dict_or_set_str('brackets'),
                         self.dict_or_set_str('flat'),
                         self.dict_or_set_str('sym'),
+                        self.dict_or_set_str('alias'),
+                        self.dict_or_set_str('var'),
+                        self.dict_or_set_str('const'),
                         self.dict_or_set_str('bool')]
         s += '\n'.join([syntax for syntax in all_syntax if syntax != ''])
         return s
@@ -888,6 +895,13 @@ class KnowledgeBase:
             return end_lbp           # this is to finish the while loop in 'expression'
         # the default value
         return space_lbp             # this is used for 'f x y'
+
+    def all_flat(self) -> Iterator[str]:
+        # iterate over all levels
+        for f in self.flat:
+            yield f
+        if self.parent is not None:
+            yield from self.parent.all_flat()
 
     # THEORY RELATED
     def all_theory(self) -> Iterator[Formula]:
@@ -1269,8 +1283,11 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
         elif label == 'LOAD':
             body = match.group('LOAD_BODY')
             yield Token('SYMBOL', 'load', column + 4)
-            for name in split_filenames(body):
+            names = split_filenames(body)
+            for i, name in enumerate(names):
                 yield Token('STRING', name, column + 4 + len(name))
+                if i < len(names) - 1:
+                    yield Token('SYMBOL', COMMA_SYMBOL, column + 4 + len(name))
         elif label == 'ERROR':  # error
             raise KurtException(f'SyntaxError: scanning error while scanning `{value}`', column)
         else:
@@ -1390,7 +1407,7 @@ def flatten_op(flat_op: str, expr: Expr) -> Expr:                               
     assert False, f'BUG: expression must be list or Token, got {expr_str(expr, kb)}'
 
 def flatten_all(expr: Expr, kb: KnowledgeBase) -> Expr:
-    for op in kb.flat:
+    for op in kb.all_flat():
         expr = flatten_op(op, expr)       # flatten certain operators
     return expr
 
@@ -1437,9 +1454,22 @@ def remove_round_brackets(expr: Expr) -> Expr:
         case _:
             assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
 
-def check_no_keyword(expr: Expr) -> None:
+def is_helper_keyword(e: Expr) -> bool:
+    return isinstance(e, Token) and e.value in helper_keywords
+
+def check_for_helper_keywords(e: Expr, top_level:bool = True):
+    # helper keywords can only appear on the top level
+    if isinstance(e, list):
+        for ei in e:
+            if not top_level and is_helper_keyword(ei):
+                raise KurtException(f'ParseError: helper keywords like `{ei}` are only allowed on the top level')
+            check_for_helper_keywords(ei, False)
+
+def check_no_keyword(expr: Expr, top_level:bool = True) -> None:
     match expr:
-        case Token(label='SYMBOL', value=v) if v in keywords or v in helper_keywords:
+        case Token(label='SYMBOL', value=v) if v in keywords:
+            raise KurtException(f'SyntaxError: keywords not allowed inside expressions', expr.column)
+        case Token(label='SYMBOL', value=v) if v in helper_keywords and not top_level:
             raise KurtException(f'SyntaxError: keywords not allowed inside expressions', expr.column)
         case [*_]:
             for e in expr:
@@ -1475,17 +1505,6 @@ def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
     expr = flatten_all(expr, kb)                        # flatten certain operators
     return expr, label
 
-def is_helper_keyword(e: Expr) -> bool:
-    return isinstance(e, Token) and e.value in helper_keywords
-
-def check_for_helper_keywords(e: Expr, top_level:bool = True):
-    # helper keywords can only appear on the top level
-    if isinstance(e, list):
-        for ei in e:
-            if not top_level and is_helper_keyword(ei):
-                raise KurtException(f'ParseError: helper keywords like `{ei}` are only allowed on the top level')
-            check_for_helper_keywords(ei, False)
-
 def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, list[Expr], str]:
     assert isinstance(ts.peek, Token)
     keyword_token: Token | None = None
@@ -1501,18 +1520,17 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|N
         expr: Expr  = parse_expression(ts, kb, begin_rbp)     # parse expression
         expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
         expr_list = chop_off_comma(expr)
-        check_for_helper_keywords(expr_list)
+        check_for_helper_keywords(expr_list)    # `with` is only allowed on top level
+        check_no_keyword(expr_list)             # keywords are not allowed in expressions
         if keyword == 'thus':
             # type check with the parent
             if kb.parent is None:
                 raise KurtException(f'EvalError: "thus" can only be used after "fix", "take", or "assume"')
             kb = kb.parent
         type_check_expression(expr, kb)                       # (some) type checking
-    elif keyword_token.value == 'load':
-        expr_list = list(ts)[:-1]                             # tokenizer already made a list of strings
     else:
         expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
-    check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
+        check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
     return keyword_token, expr_list, label
 
 ## kurt eval
@@ -1660,11 +1678,12 @@ def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
             return False
 
 def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    # `thus` is closing a block opened by `consider`, but also for `not-intro`, `forall-intro`, `impl-intro`, `exists-elim`
+    # `thus` is closing a block opened by `assume`, `fix` and `pick`
+    # but also for `not-intro`, `forall-intro`, `impl-intro`, `exists-elim`
 
     # check that there are no constant symbols on this level appearing in `expr`
     # (1) for `assume` (not-intro and impl-impl) create new constants already on the level below
-    # (2) for `fix` and `pick` (forall-intro) create new constants on the new level
+    # (2) for `fix` (forall-intro) and `pick` (exists-elim) create new constants on the new level
 
     # the constants on the current level are not allowed, however, the variables of the previous level are allowed (see `de-morgan.kurt`)
     assert kb.parent is not None
@@ -1680,15 +1699,7 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
     elif is_implication(expr):
         reason = impl_intro(expr, kb)
     else:
-        # finally `exists-elim`, maybe written as `exists_elim`
-        # (1) check there are no assumptions
-        unproven_exprs = [f.expr for f in kb.theory if not f.is_proven()]
-        if len(unproven_exprs) > 0:   # (i)
-            raise KurtException(f'ProofError: there are assumptions on the current level, `thus` can thus only conclude an implication or an universal quantified formula to close the block, got `{expr_str(unproven_exprs[-1], kb)}`')
-        # (2) derive the expression
-        reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)
-        reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
-        reason += f', then by "exist-elim"'
+        reason = exists_elim(expr, kb, filename, mainstream)
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
     f = Formula(kb, expr, str(line), filename, label, reason, keyword='')
@@ -1801,7 +1812,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         debug(f'loading {len(args)} files')
         debug(f'{args}')
         for arg in args:
-            match arg:
+            assert isinstance(arg, list) and len(arg) == 1, f'BUG: `load` expects [[fname1], [fname2]]'
+            match arg[0]:
                 case Token(label='STRING', value=fname):
                     assert isinstance(fname, str)
                     kb = load_file(fname, kb, path=local_path, mainstream=False)
@@ -2137,6 +2149,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             for expr in args:
                 kb = eval_def(kb, expr, label, filename, line, mainstream)  # use the expression as a definition
     elif keyword == 'fix':
+        debug(args)
         msg = 'EvalError: `fix` takes new constants or boolean expressions'
         if len(args) == 0:
             raise KurtException(msg)
@@ -2442,13 +2455,24 @@ def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
         raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(last_expr, kb)}')
     return f'by "forall-intro" (derived from last local scope)'
 
+def exists_elim(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
+    # finally `exists_elim`
+    # (1) check there are no assumptions
+    unproven_exprs = [f.expr for f in kb.theory if not f.is_proven()]
+    if len(unproven_exprs) > 0:   # (i)
+        raise KurtException(f'ProofError: there are assumptions on the current level, `thus` can thus only conclude an implication or an universal quantified formula to close the block, got `{expr_str(unproven_exprs[-1], kb)}`')
+    # (2) derive the expression
+    reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)
+    reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
+    reason += f', then by "exist-elim"'
+    return reason
+
 def not_intro(expr: Expr, kb: KnowledgeBase) -> str:
 
     # step 0: ensure we are one level up
     if kb.level == 0:
         raise KurtException(f'EvalError: neg-intro requires one level up')
     assert kb.parent is not None
-    kb_parent: KnowledgeBase = kb.parent
 
     # step 1: dissect the `not` expression
     assert isinstance(expr, list)      # must be true, since `expr` is a not-expression
@@ -2459,7 +2483,7 @@ def not_intro(expr: Expr, kb: KnowledgeBase) -> str:
     if len(assumptions) == 1:              # assumptions is one formula
         assumptions = assumptions[0]
     else:                                  # assumptions is a conjunction
-        assumptions = flatten_all([Token(label='SYMBOL', value=AND_SYMBOL)] + assumptions, kb)   # bring to normalform
+        assumptions = flatten_all([Token(label='SYMBOL', value=AND_SYMBOL)] + assumptions, kb)   # flatten, since some assumptions might be conjunctions as well, and this is a normalform, useful for direct comparison
     if not equal_expr(assumptions, body):
         raise KurtException(f'EvalError: {expr_str(body, kb)} does not match any assumption on the current level')
 
