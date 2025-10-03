@@ -19,7 +19,7 @@ if not m:
     sys.exit(0)
 
 commit_in_file = m.group(1)
-if commit_in_file != head:
+if not head.startswith(commit_in_file):
     print(f"⚠️  kurt.py banner commit is '{commit_in_file}', "
           f"but HEAD is '{head}'.", file=sys.stderr)
     print("   Did you forget to run ./scripts/install-hooks.sh ?", file=sys.stderr)

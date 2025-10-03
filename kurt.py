@@ -51,7 +51,7 @@ version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
 
 # BEGIN:COMMIT
-COMMIT = '5ca47d7'
+COMMIT = '9af07d3'
 # END:COMMIT
 
 # config: the indentation for the different blocks
