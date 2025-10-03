@@ -2,8 +2,7 @@
 
 ## NEXT
 
-- TODO fix, pick, assume: what if we fail half-way through, how to recover?  just drop the current level!
-
+- TODO automatically fix the free variables of a formula once a proof started
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
 - TODO todo for whole proofs
 - TODO repairs messages for 'pick', 'fix', 'assume'

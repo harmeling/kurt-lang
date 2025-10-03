@@ -3,18 +3,19 @@ load propositional
 
 show %E ∧ %F  ⇒  %F ∧ %E
 proof
-    fix E, F
-        assume E ∧ F
-            E
-            F
-            F ∧ E
-        thus E ∧ F ⇒ F ∧ E
+    fix %E, %F
+        assume %E ∧ %F
+            %E
+            %F
+            %F ∧ %E
+        thus %E ∧ %F ⇒ %F ∧ %E
     thus %E ∧ %F  ⇒  %F ∧ %E
 qed
 
-show (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
+var A, B, C
+show (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)
 proof
-    fix A, B, C
+    fix A, B, C                              ; variables must be fixed
         assume (A ⇒ (B ⇒ C))
             assume A ∧ B
                 A
@@ -22,7 +23,7 @@ proof
                 B ⇒ C
                 C
             thus A ∧ B ⇒ C
-        thus (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)
-    thus (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
+        thus (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)   ; here A, B, C are constant
+    thus (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)       ; here again variable
 qed
 ;;; Proof checked.

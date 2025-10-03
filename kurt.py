@@ -84,7 +84,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 152:
+        if debug_counter == 7:
             pass
         debug_counter += 1
 
@@ -1067,6 +1067,12 @@ class KnowledgeBase:
         else:
             return self.var | self.parent.all_vars()   # set union
 
+    def all_bool_vars(self) -> set[str]:
+        if self.parent is None:
+            return self.var
+        else:
+            return self.var | self.parent.all_bool_vars()   # set union
+
 # create initial knowledge base and define some important constant for the parser
 initial_kb: KnowledgeBase = KnowledgeBase()
 begin_rbp:    int = 0                                      # right binding power of beginning of input line
@@ -1578,30 +1584,6 @@ def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
     assert kb.parent is not None, f'BUG: we should be one level up'
     return kb.parent                        # drop current level
 
-def _extract_new_consts(expr: Expr, kb: KnowledgeBase) -> list[str]:
-    # extract all new constants from the expression
-    match expr:
-        case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_const(s) and not kb.is_var(s) and not kb.is_bool_var(s):
-            return [s]        # new constant found
-        case [*children]:
-            new_consts = []
-            for child in children:
-                new_consts += _extract_new_consts(child, kb)
-            return new_consts
-    return []
-
-def extract_one_new_const(expr: Expr, kb: KnowledgeBase) -> str:
-    # extract exactly one new constant from the expression and checks there is only one
-    new_consts = _extract_new_consts(expr, kb)
-    if len(new_consts) != 1:
-        raise KurtException(f'EvalError: expected exactly one new constant, got {new_consts} in `{expr_str(expr, kb)}`')
-    return new_consts[0]
-
-def extract_zero_new_consts(expr: Expr, kb: KnowledgeBase) -> None:
-    new_consts = _extract_new_consts(expr, kb)
-    if len(new_consts) != 0:
-        raise KurtException(f'EvalError: expected no new constants, got {len(new_consts)} in `{expr_str(expr, kb)}`')
-
 def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, keyword: str) -> Formula:
     if not bool_expr(expr, kb, strict=False):    # not strict, since we are possibly adding new symbols
         raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
@@ -1631,11 +1613,18 @@ def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
     kb = increase_level(kb, ('proof', []))          # add a new level/scope to the knowledgebase
     return kb
 
+# def
+# LHS: exactly one unused symbol that is not a variable or boolean variable
 def eval_def(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> tuple[Formula, str]:
     match expr:
         case [Token(label='SYMBOL', value=s), LHS, RHS] if isinstance(s, str) and (s== EQUAL_SYMBOL or s==IFF_SYMBOL):
-            lhs_const = extract_one_new_const(LHS, kb)  # extract exactly one new constants from the left-hand side
-            extract_zero_new_consts(RHS, kb)                 # check there are no new constants on the right-hand side
+            lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bool_var(s))
+            if len(lhs_candidates) != 1:
+                raise KurtException(f'EvalError: `def` requires exactly one new constant on the left-hand side, got `{lhs_candidates}` in `{expr_str(expr, kb)}`')
+            lhs_const = lhs_candidates[0]
+            rhs_candidates = extract_by_condition(RHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bool_var(s))
+            if len(rhs_candidates) != 0:
+                raise KurtException(f'EvalError: `def` does not allow new symbols on the right-hand side, got `{rhs_candidates}` in `{expr_str(expr, kb)}`')
         case _:
             raise KurtException(f'EvalError: `def` only allowed with `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got `{expr_str(expr, kb)}`')
     return eval_use(kb, expr, label, filename, line, keyword='def', mainstream=False), lhs_const
@@ -1686,7 +1675,8 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
 
     # the constants on the current level are not allowed, however, the variables of the previous level are allowed (see `de-morgan.kurt`)
     assert kb.parent is not None
-    not_allowed = kb.const - kb.parent.all_vars()   # set difference creating new set
+    kb_parent = kb.parent
+    not_allowed = set(filter(lambda s: not kb_parent.is_bool_var(s) and not kb_parent.is_var(s), kb.const))
     if contains(expr, not_allowed, kb):
         raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of `thus`, got `{expr_str(expr, kb)}`')
 
@@ -1701,10 +1691,10 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
             else:
                 raise KurtException(f'ProofError: current block opened by `assume` but conclusion of `thus` is neither negation nor implication, got `{expr_str(expr, kb)}`')
         case 'fix':         # forall-intro
-            n_fv = len(free_vars_only(expr, kb))
-            n_fv_bool = len(free_bool_vars_only(expr, kb))
+            n_fv = len(free_vars_only(expr, kb_parent))
+            n_fv_bool = len(free_bool_vars_only(expr, kb_parent))
             if is_forall(expr) or n_fv > 0 or n_fv_bool > 0:
-                reason = forall_intro(expr, kb)
+                reason = forall_intro(expr, kb, filename, mainstream)
             else:
                 raise KurtException(f'ProofError: current block opened by `fix` but conclusion of `thus` is neither universal quantification nor contains free variables, got `{expr_str(expr, kb)}`')
         case 'pick':        # exists-elim
@@ -1752,18 +1742,31 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         #log(f.formula_str(kb), reason, kb.level)
     return kb
 
+def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
+    return kb.is_var(s) or kb.is_bool_var(s) or not kb.is_used(s)
+
+def extract_by_condition(e: Expr, c: Callable[[str], bool]) -> list[str]:
+    match e:
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and c(s):
+            return [s]        # new string fulfilling the condition
+        case [*children]:
+            found = []
+            for child in children:
+                found += extract_by_condition(child, c)
+            return found
+    return []
+
+# what is allowed for `fix`?
+#     fix x      ; x must be new constant or existing variable
+#     fix x>0    ; x must be new constant or existing variable
+# in the block that is opened, `x` will be constant
+# `x` can not be an existing constant
 def eval_fix(kb: KnowledgeBase, expr: Expr, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     with_condition = isinstance(expr, list) and bool_expr(expr, kb)
-    if with_condition:
-        new_const = extract_one_new_const(expr, kb)  # extract exactly one new constant from the expression
-    else:
-        match expr:
-            case Token(label='SYMBOL', value=new_const) if isinstance(new_const, str):
-                pass
-            case _:
-                debug(expr)
-                raise KurtException(f'EvalError: expression must be new constant or boolean condition with new constant, got `{expr_str(expr, kb)}`')
-    assert isinstance(new_const, str)
+    new_consts = extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb))
+    if len(new_consts) != 1:
+        raise KurtException(f'EvalError: expected exactly one new symbol or existing, got {new_consts} in `{expr_str(expr, kb)}`')
+    new_const = new_consts[0]
     kb.add_const(new_const)          # add the new constant to the knowledgebase
     if with_condition:
         f = eval_use(kb, expr, 'fix', filename, line, keyword='use', mainstream=False)  # use the expression as an assumption
@@ -2239,6 +2242,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             reason = f'{line} open local scope with (possibly constrained) new constants'
             args_str = [expr_str(expr, kb) for expr in args]
             log(f'{keyword} {", ".join(args_str)}', reason, kb.level-1)  # log the new constants
+
     elif keyword == 'pick':
         msg = 'EvalError: `pick` takes a new constant, keyword `with` and a formula , e.g. `pick x with F(x)`'
         if len(args) == 0:
@@ -2460,62 +2464,45 @@ def log(s: str, reason: str, level: int) -> None:
 #       thus ∀ε F(ε)    ; forall-intro
 # ensure that the current level contains only ε as a new symbol and nothing else (also no assumptions)
 
-def forall_intro(expr: Expr, kb: KnowledgeBase) -> str:
+def forall_intro(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
 
     # step 0: ensure we are one level up
     if kb.level == 0:
         raise KurtException(f'EvalError: forall-intro requires one level up')
     assert kb.parent is not None
     kb_parent: KnowledgeBase = kb.parent
+    fv = free_vars_only(expr, kb_parent) | free_bool_vars_only(expr, kb_parent)  # collect all free variables in the expression to prove
 
     # step 1: dissect the forall quantified expression
-    # - chop off forall quantifiers from `expr` until we can not find the corresponding new constant
-    # - collect the chopped-off new constants
-    # - collect the chopped-off premises
-    the_consts: list[str] = []
-    conditions: list[Expr] = []    # the list `the_consts` and `conditions` can have different lengths
+    # - check the bounded variables and collect conditions
+    # - chop-off the quantifiers
+    fix_expr = kb.mode_expr
+    assert isinstance(fix_expr, list)    # must be true, since `fix` takes a list of expressions
     body = expr  # this is the loop variable, where we will chop off the forall quantifiers
-    while True:
+    for i in range(len(fix_expr)):
         match body:
             case [Token(label='SYMBOL', value=op), bound_v_expr, inner_body] if op == FORALL_SYMBOL:
-                match bound_v_expr:
-                    case Token(label='SYMBOL', value=the_const) if isinstance(the_const, str):
-                        if the_const not in kb.const:      # check whether `the_const` is a new constant on the current level
-                            if len(the_consts) > 0:
-                                break # we have found some forall quantifiers with new constants, some quantifiers will remain in the `body`
-                            else:
-                                raise KurtException(f'EvalError: at least one new constant must be defined on this level, use `fix`, `let`, or `take` to define it')
-                        the_consts.append(the_const)  # collect the new constant
-                        # no condition to add
-                    case [*condition]:
-                        the_const = extract_one_new_const(condition, kb_parent)  # extract `the_const` that was new one level up
-                        the_consts.append(the_const)  # collect the new constant
-                        conditions.append(condition)  # collect the premise
-                    case _:
-                        raise KurtException(f'SyntaxError: bounded variable expected or condition expected, got {bound_v_expr}')
+                # forall quantifier found
+                if not equal_expr(bound_v_expr, fix_expr[i]):
+                    raise KurtException(f'EvalError: the bound variable in the forall quantifier must match the expression of the `fix` statement, got `{expr_str(bound_v_expr, kb)}` instead of `{expr_str(fix_expr[i], kb)}`')
                 body = inner_body  # continue with the body of the forall, this is the loop increment
             case _:
-                break
-    # now we continue with `the_consts`, `conditions` and `body`
+                # no forall quantifier found, possibly we have a matching free variable
+                fix_expr_i = fix_expr[i]
+                if is_var_token(fix_expr_i, kb_parent) or is_bool_var_token(fix_expr_i, kb_parent):
+                    assert isinstance(fix_expr_i, Token) and isinstance(fix_expr_i.value, str)
+                    if fix_expr_i.value not in fv:
+                        raise KurtException(f'EvalError: the fixed variable `{fix_expr_i.value}` must occur free in the expression to prove, got `{expr_str(expr, kb)}`')
+                else:
+                    raise KurtException(f'EvalError: the fixed expression must be a variable symbol, got `{expr_str(fix_expr_i, kb)}`')
 
-    # step 2: check that all assumptions on the current level correspond to the conditions
-    assumptions: list[Expr] = [f.expr for f in kb.theory if not f.is_proven()]  # collect all assumptions on the current level
-    if len(assumptions) != len(conditions):
-        raise KurtException(f'EvalError: number of assumptions ({len(assumptions)}) on the current level must match the number of conditions ({len(conditions)}) in the forall expression')
-    s = State.empty()
-    assumptions = sort_exprs(assumptions, s, kb)
-    conditions  = sort_exprs(conditions, s, kb)
-    for (a, c) in zip(assumptions, conditions):
-        if not equal_expr(a, c):
-            raise KurtException(f'EvalError: condition {expr_str(c, kb)} does not match any assumption on the current level')
-
-    # step 3: the remaining body must have been derived
+    # step 2: the remaining body must have been derived
     if len(kb.theory) == 0:
         raise KurtException(f'Nothing was proved in the last local scope')
-    last_expr = kb.theory[-1].expr
-    if not equal_expr(last_expr, body):
-        raise KurtException(f'ProofError: could not prove    {expr_str(body, kb)}\n            instead got        {expr_str(last_expr, kb)}')
-    return f'by "forall-intro" (derived from last local scope)'
+    reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)
+    reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
+    reason += f', then by "forall-intro"'
+    return reason
 
 def exists_elim(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool) -> str:
     # finally `exists_elim`

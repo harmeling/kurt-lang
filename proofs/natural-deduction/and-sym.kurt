@@ -4,7 +4,8 @@ load propositional
 ; the key is that there are no quantifier for bool vars, but
 ; they are implicitly universally quantified
 
-show %a ∧ %b  ⇔  %b ∧ %a   "and-sym"
+var a, b
+show a ∧ b  ⇔  b ∧ a   "and-sym"
 proof
     fix a, b
         assume a ∧ b
@@ -17,6 +18,6 @@ proof
             a
             a ∧ b
         thus b ∧ a ⇒ a ∧ b
-    thus %a ∧ %b  ⇔  %b ∧ %a
+    thus a ∧ b  ⇔  b ∧ a
 qed
 ;;; Proof checked.

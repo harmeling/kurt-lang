@@ -1,7 +1,7 @@
 ; equality
 
 ;; syntax
-infix = 25 25  ; higher binding power than space, equality is left-associative
+infix = 20 20  ; higher binding power than space, equality is left-associative
 bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
 sym   =        ; equality is symmetric
 
