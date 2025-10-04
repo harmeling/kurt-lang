@@ -6,7 +6,7 @@ load first-order, equality
 infix  +  60 60           ; binary plus
 prefix -     80           ; unary minus
 
-parse ∀z -(z + -z) + (z + (0 + -z)) = 0
+parse ∀z (-(z + -z) + (z + (0 + -z)) = 0)
 
 var x, y, z
 
@@ -17,5 +17,5 @@ use -x + x = 0                      "G3" ; left inverse
 fix z
     -(z + -z) + (z + -z)              = 0   ; by G3
     -(z + -z) + (z + (0 + -z))        = 0   ; by G2
-thus ∀z -(z + -z) + (z + (0 + -z)) = 0
+thus ∀z (-(z + -z) + (z + (0 + -z)) = 0)
 ;;; Proof checked.

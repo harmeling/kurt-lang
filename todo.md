@@ -2,6 +2,7 @@
 
 ## NEXT
 
+- TODO check why injective.kurt is not working
 - TODO automatically fix the free variables of a formula once a proof started
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
 - TODO todo for whole proofs

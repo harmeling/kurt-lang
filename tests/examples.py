@@ -141,6 +141,6 @@ examples = [
     # equality vs space
     ("a = b c d = e",
      '[(SYMBOL "a"), (SYMBOL "="), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "d"), (SYMBOL "="), (SYMBOL "e"), (END "$$$")]',
-     "((= a b) c (= d e))")
+     "(= (= a (b c d)) e)")
 ]
 

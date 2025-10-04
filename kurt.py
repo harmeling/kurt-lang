@@ -84,7 +84,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 7:
+        if debug_counter == 66:
             pass
         debug_counter += 1
 
@@ -283,7 +283,9 @@ class Formula:
     next_id: int = 0
     def __init__(self, kb: KnowledgeBase, expr:Expr, line:str, filename:str, label:str, reason:str, keyword:str):
         self.expr: Expr            = expr               # expression of the formula
-        self.simplified_expr: Expr = rename_all_vars(expr, kb)
+        self.simplified_expr = expr
+        self.simplified_expr: Expr = remove_outer_forall_quantifiers(self.simplified_expr, kb)
+        self.simplified_expr: Expr = rename_all_vars(self.simplified_expr, kb)
         self.line: str             = line               # line of this formula, string since we also want '16a', etc
         self.filename: str         = filename           # file of this formula
         self.label: str            = label              # basically, a name of the formula, e.g., "impl-intro"
@@ -957,7 +959,7 @@ class KnowledgeBase:
             case [*children]:
                 match children:
                     case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail]:
-                        if op in self.bindop:
+                        if isinstance(op, str) and self.is_bindop(op):
                             assert isinstance(v, str), f'BUG: symbol must be string'
                             bound_vars = bound_vars | {v}   # add v to a copy of `bound_vars`
                 for child in children:
@@ -2499,7 +2501,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool)
     # step 2: the remaining body must have been derived
     if len(kb.theory) == 0:
         raise KurtException(f'Nothing was proved in the last local scope')
-    reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)
+    reasons, _ = derive_expr(body, filename, mainstream, State.empty(), kb)
     reason  = ' '.join(reasons) if len(reasons) > 0 else ''  # join all reasons
     reason += f', then by "forall-intro"'
     return reason
@@ -2680,6 +2682,19 @@ def new_bool_var_name() -> str:
     new_bool_var_name.counter += 1                # get a new number
     return f'%%bool{new_bool_var_name.counter}'   # the `%%` ensures that it is not a kurt variable that the user can define
 
+def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> Expr:
+    expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
+
+    # chop off all outer universal quantifiers and rename their bound vars
+    while is_forall(expr):          
+        assert isinstance(expr, list) and len(expr) == 3
+        assert isinstance(expr[1], Token) and isinstance(expr[1].value, str)
+        bound_var = expr[1].value
+        free_var = new_var_name()
+        s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
+        expr = apply_subst(expr[2], s, kb)
+    return expr
+
 # ALL variables are renamed on the formula level
 # * rename free vars in `expr` with generated names to avoid clashes with other expressions
 #   this is necessary, because free variables are implicitly universally bound per formula,
@@ -2693,18 +2708,8 @@ def new_bool_var_name() -> str:
 # * however, renaming bound variables globally (for the whole formula) is fine, since it enables requirement (1) in `generate_all_combinations`
 #   so the renaming of bound variables makes also "exists-elim" possible
 # * since symbols become `bound` on the fly, we have to maintain a set of bound variables that get globally replaced
-
 def rename_all_vars(expr: Expr, kb: KnowledgeBase) -> Expr:
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
-
-    # chop off all outer universal quantifiers and rename their bound vars
-    while is_forall(expr):          
-        assert isinstance(expr, list) and len(expr) == 3
-        assert isinstance(expr[1], Token) and isinstance(expr[1].value, str)
-        bound_var = expr[1].value
-        free_var = new_var_name()
-        s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
-        expr = apply_subst(expr[2], s, kb)
 
     # rename all variables (yes, some are renamed again, this can be improved later (TODO))
     expr = rename_all_vars_rec(expr, kb)[0]
@@ -3359,14 +3364,14 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
     premise: Expr|None = None
     if is_implication(formula_expr):      # case 1: implication with a premise
         assert isinstance(formula_expr, list)
-        premise    = formula_expr[1]
-        conclusion = formula_expr[2]
+        premise    = remove_outer_forall_quantifiers(formula_expr[1], kb)
+        conclusion = remove_outer_forall_quantifiers(formula_expr[2], kb)
     elif is_iff(formula_expr):
         assert isinstance(formula_expr, list)
         op_token = formula_expr[0]
         assert isinstance(op_token, Token)
-        LHS = formula_expr[1]
-        RHS = formula_expr[2]
+        LHS = remove_outer_forall_quantifiers(formula_expr[1], kb)
+        RHS = remove_outer_forall_quantifiers(formula_expr[2], kb)
         LHSimpliesRHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), LHS, RHS], kb)
         reason, s_local = impl_elim(expr, LHSimpliesRHS, filename, mainstream, s, kb)
         if len(reason) > 0:
@@ -3440,7 +3445,8 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
                 return ['by a miracle (todo)'], s
 
     # rename variables
-    expr = rename_all_vars(expr, kb)    # rename variables and remove quantifiers
+    expr = remove_outer_forall_quantifiers(expr, kb)
+    expr = rename_all_vars(expr, kb)    # rename variables
 
     # "top-intro"
     if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
