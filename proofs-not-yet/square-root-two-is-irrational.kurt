@@ -26,15 +26,14 @@ qed
 
 show not (sqrt(2) in Q)
 proof
-    x := sqrt(2)
+    def x = sqrt(2)
     assume x in Q
-    exists (m0, n0) m0/n0=x
-    coprime(m0,n0) or not coprime(m0,n0)
-    begin
-        assume coprime(m0, n0)
-        m := m0
-        n := n0
-        coprime(m, n) and x = m/n
+	      exists (m0, n0) m0/n0=x
+	      coprime(m0,n0) or not coprime(m0,n0)
+		    assume coprime(m0, n0)
+            def m = m0
+            def n = n0
+            coprime(m, n) and x = m/n
     end
     begin
         assume not coprime(m0, n0)
