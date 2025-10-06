@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import io
 import copy
@@ -14,6 +15,18 @@ def file_last_line(fname):
 
 def str_last_line(s):
     return s.strip().split('\n')[-1]
+
+def normalize_path_in_line(line: str) -> str:
+    # Match typical filesystem paths (Windows or Unix)
+    path_pattern = r"([A-Za-z]:)?[\\/][\w .\\/-]+"
+
+    def normalize_match(match):
+        path = match.group(0)
+        return os.path.normpath(path)
+
+    # Normalize all path-like substrings
+    normalized_line = re.sub(path_pattern, normalize_match, line)
+    return normalized_line
 
 class TestProving(unittest.TestCase):
     def test_proving(self):
@@ -36,6 +49,9 @@ class TestProving(unittest.TestCase):
                     # stderr was redirected in the with-block, so use what was captured.
                     actual_last_line = str_last_line(err_buf.getvalue() or e.msg)
 
+                # Normalize paths in both lines before comparison
+                actual_last_line = normalize_path_in_line(actual_last_line)
+                true_last_line = normalize_path_in_line(true_last_line)
                 self.assertEqual(actual_last_line, true_last_line)
 
 # class Test_Proving(unittest.TestCase):
