@@ -14,11 +14,17 @@ y < x
 
 infix iff 5 5
 bool  iff 0 1 2
+infix impliesback 5 5
+bool  impliesback 0 1 2
 chain iff implies
+chain iff impliesback   ; implies backwards
 
 use $A iff $B, $B implies $C
 A iff B
     iff C
     implies C
     implies C
+
+A implies B
+  iff D
 ;;; Proof checked.

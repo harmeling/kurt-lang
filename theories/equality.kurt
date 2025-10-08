@@ -4,6 +4,7 @@
 infix = 20 20  ; higher binding power than space, equality is left-associative
 bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
 sym   =        ; equality is symmetric
+chain =        ; equality is chainable
 
 ;; inference rules
 use $a = $a                                               "equal-intro"

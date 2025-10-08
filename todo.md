@@ -23,7 +23,7 @@
 
 ## TOPICS before releasing 1.0
 
-- TODO get rid of labels, just make the first word of the comment after a formula its label
+- TODO get rid of labels, just make the first word of the comment after a formula its label, get rid of string data type
 - TODO space binding: for quantifier it should be higher, for limits, sums higher
 - TODO maybe the code gets simpler, when self.used and self.bool gets merged.  i.e., all used symbols have a type!
 - TODO have a sandbox kurt, where we first try and try, and then store it to the theory

@@ -817,8 +817,8 @@ class KnowledgeBase:
             if not self.is_infix(op):
                 raise KurtException(f'EvalError: all operators of a chain must be infix, operator `{c}` is not')
         self.check_with_other_chains(c)
-        if len(c) < 2:
-            raise KurtException(f'EvalError: chain of operators must have at least two elements')
+        if len(c) < 1:
+            raise KurtException(f'EvalError: chain of operators must have at least one element')
         self.chain.append(c)
 
     def add_bindop(self, fun: str) -> None:
@@ -2052,8 +2052,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         for arg in args:
             assert isinstance(arg, list)
             chain: list[str] = []
-            if len(arg) < 2:
-                raise KurtException(f'ParseError: chains must contain at least two infix operators')
+            if len(arg) < 1:
+                raise KurtException(f'ParseError: chains must contain at least one infix operator')
             for op_token in arg:
                 match op_token:
                     case Token(label='STRING'|'SYMBOL', value=op):
@@ -3568,7 +3568,7 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
                         chained = True
                         ts.prepend(LHS_token)             # add dummy token to the front
                     else:
-                        raise KurtException(f'ParseError: invalid chain of operators {" ".join(ops)} at line {line} in {filename}')
+                        raise KurtException(f'ParseError: invalid chain of operators `{ops}` at line {line} in {filename}')
 
     # the usual parsing (raises exception if `chained=False` but `first_token` is chainable)
     keyword_token, expr_list, label = parse_tokenstream(ts, kb)  # runs the parser
