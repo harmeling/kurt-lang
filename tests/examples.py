@@ -5,11 +5,11 @@ examples = [
     # left associative
     ("1 - 1 + 1",
      '[(INT "1"), (SYMBOL "-"), (INT "1"), (SYMBOL "+"), (INT "1"), (END "$$$")]',
-     "(+ (- 1 1) 1)"),
+     "(+ 1 (- 1 1))"),
     # left associative
     ("(1 - 1) + 1",
      '[(SYMBOL "("), (INT "1"), (SYMBOL "-"), (INT "1"), (SYMBOL ")"), (SYMBOL "+"), (INT "1"), (END "$$$")]',
-     "(+ (- 1 1) 1)"),
+     "(+ 1 (- 1 1))"),
     # right associative
     ("1 - (1 + 1)",
      '[(INT "1"), (SYMBOL "-"), (SYMBOL "("), (INT "1"), (SYMBOL "+"), (INT "1"), (SYMBOL ")"), (END "$$$")]',
@@ -25,7 +25,7 @@ examples = [
     # simple sum with flatness
     ("17 + 42 + 100",
      '[(INT "17"), (SYMBOL "+"), (INT "42"), (SYMBOL "+"), (INT "100"), (END "$$$")]',
-     "(+ 17 42 100)"),
+     "(+ 100 17 42)"),
     # unary minus
     ("-1",
      '[(SYMBOL "-"), (INT "1"), (END "$$$")]',
@@ -45,7 +45,7 @@ examples = [
     # unary minus in sum with flatness
     ("-1 + 18 + -15",
      '[(SYMBOL "-"), (INT "1"), (SYMBOL "+"), (INT "18"), (SYMBOL "+"), (SYMBOL "-"), (INT "15"), (END "$$$")]',
-     "(+ (- 1) 18 (- 15))"),
+     "(+ 18 (- 1) (- 15))"),
     # unary minus in product
     ("3 * -5",
      '[(INT "3"), (SYMBOL "*"), (SYMBOL "-"), (INT "5"), (END "$$$")]',
@@ -85,7 +85,7 @@ examples = [
     # product before sum
     ("a * b + c",
      '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "b"), (SYMBOL "+"), (SYMBOL "c"), (END "$$$")]',
-     "(+ (* a b) c)"),
+     "(+ c (* a b))"),
     # sum before product with brackets
     ("a * (b + c)",
      '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "("), (SYMBOL "b"), (SYMBOL "+"), (SYMBOL "c"), (SYMBOL ")"), (END "$$$")]',

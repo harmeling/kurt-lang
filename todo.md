@@ -2,7 +2,10 @@
 
 ## NEXT
 
-- TODO check why injective.kurt is not working
+- TODO check the add_chain stuff, check group.kurt and simplify it with chains
+- TODO next implement adding numbers
+- TODO do the `arith.kurt`, do `set.kurt`
+- TODO check what to output, to show what has been parsed
 - TODO automatically fix the free variables of a formula once a proof started
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
 - TODO todo for whole proofs
@@ -20,6 +23,8 @@
 
 ## TOPICS before releasing 1.0
 
+- TODO get rid of labels, just make the first word of the comment after a formula its label
+- TODO space binding: for quantifier it should be higher, for limits, sums higher
 - TODO maybe the code gets simpler, when self.used and self.bool gets merged.  i.e., all used symbols have a type!
 - TODO have a sandbox kurt, where we first try and try, and then store it to the theory
 - TODO get group.kurt working with constants and with `var x, y, z`
