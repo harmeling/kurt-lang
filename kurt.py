@@ -36,7 +36,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass
-from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, assert_never
+from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -196,11 +196,11 @@ def replace_latex_syntax(line: str) -> str:
     return COMMAND_RE.sub(command_replacer, line)
 
 class KurtException(Exception):
-    def __init__(self, msg:str, column:int|None=None, line:int|None=None, filename:str|None=None) -> None:
-        self.msg:      str      = msg
-        self.column:   int|None = column
-        self.line:     int|None = line
-        self.filename: str|None = filename
+    def __init__(self, msg:str, column:Optional[int]=None, line:Optional[int]=None, filename:Optional[str]=None) -> None:
+        self.msg:      str           = msg
+        self.column:   Optional[int] = column
+        self.line:     Optional[int] = line
+        self.filename: Optional[str] = filename
 
 ## the syntax is stored in a hierarchical knowledge base called `KnowledgeBase`
 format_options: list[Format] = ['sexpr', 'normal']         # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
@@ -265,8 +265,8 @@ Format: TypeAlias = Literal['sexpr', 'normal']
 class Token:
     label: Label
     value: Value
-    column: int | None = None
-    origin: Value | None = None
+    column: Optional[int] = None
+    origin: Optional[Value] = None
 
     def __repr__(self) -> str:
         return f'{self.value}'
@@ -278,6 +278,15 @@ class Token:
             column = self.column,
             origin = self.origin
         )
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Token):
+            return NotImplemented
+        return (self.label == other.label) and (self.value == other.value)
+
+    def __hash__(self) -> int:
+        # to use Token as keys in sets or dictionaries
+        return hash((self.label, self.value))
 
 class Formula:
     next_id: int = 0
@@ -349,9 +358,9 @@ def deepcopy_expr(expr: Expr) -> Expr:
 T = TypeVar('T')
 class PeekableGenerator(Generic[T]):                 # a peekable generator
     def __init__(self, gen: Iterator[T]) -> None:
-        self.gen: Iterator[T] = gen                  # the generator
-        self.eog: bool        = False                # end-of-generator, are we done yet?
-        self.peek: T | None   = None                 # initial peek is None
+        self.gen: Iterator[T]  = gen                  # the generator
+        self.eog: bool         = False                # end-of-generator, are we done yet?
+        self.peek: Optional[T] = None                 # initial peek is None
         self._advance()                              # possibly modifies self.eog
     def __iter__(self) -> PeekableGenerator[T]:
         return self
@@ -387,7 +396,7 @@ class State:
         return State({}, frozenset(), frozenset())
 
     # lookup
-    def lookup(self, v: str) -> Expr | None:
+    def lookup(self, v: str) -> Optional[Expr]:
         """Return the expression v is bound to, or None if unbound."""
         return self.subst.get(v)
 
@@ -434,7 +443,7 @@ class State:
             if u in visited:             # cycle guard
                 break
             visited.add(u)
-            t: Expr | None = self.lookup(u)
+            t: Optional[Expr] = self.lookup(u)
             if t is None:
                 break
             # avoid trivial self-map loops: $x -> $x
@@ -474,9 +483,9 @@ Led: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Expr, Token], Exp
 Mode: TypeAlias = tuple[str, Expr]  # where the str is one of ['root', 'proof', 'assume', 'fix', 'pick']
 
 class KnowledgeBase:
-    def __init__(self, parent:KnowledgeBase|None=None, mode: Mode=('root', [])) -> None:
+    def __init__(self, parent:Optional[KnowledgeBase]=None, mode: Mode=('root', [])) -> None:
         # general
-        self.parent: KnowledgeBase|None = parent
+        self.parent: Optional[KnowledgeBase] = parent
         self._todos: list[str]     = []                   # list of todos (only relevant on level 0)
         self.level: int            = 0 if parent is None else parent.level + 1
         self.mode_str: str         = mode[0]              # one of ['root', 'proof', 'assume', 'fix', 'pick']
@@ -489,7 +498,7 @@ class KnowledgeBase:
         self.prefix:   dict[str, int]            = {}     # right binding power of prefix operator
         self.brackets: dict[str, str]            = {}     # keys are right brackets, values are left brackets
         self.arity:    dict[str, int]            = {}     # for non-zero arities
-        self.chain:    dict[str, list[str]]      = {}     # for chaining operators, i.e., 18 = 1+17 <= 20 < 21
+        self.chain:    list[list[str]]           = []     # for chaining operators, i.e., 18 = 1+17 <= 20 < 21
         self.bindop:   set[str]                  = set()  # set for variable binding operators
         self.flat:     set[str]                  = set()  # set for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
         self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
@@ -655,6 +664,46 @@ class KnowledgeBase:
         else:
             return s in self.const   or (self.parent is not None and self.parent.is_const(s))
 
+    def is_chainable(self, s: str) -> bool:
+        for c in self.all_chains():
+            if s in c:
+                return True
+        return False
+
+    def starts_a_chain(self, e: Expr) -> bool:
+        if isinstance(e, list) and len(e) == 3:   # must be infix operator
+            e0 = e[0]
+            if isinstance(e0, Token) and isinstance(e0.value, str):
+                if self.is_chainable(e0.value):
+                    return True
+        return False
+
+    def get_chain_op(self, chain_so_far: list[str]) -> Optional[str]:
+        # find the chain that matches `chain_so_far` and return the operator that is at the largest index matched so far
+        for c in self.all_chains():
+            try:
+                indices: list[int] = []
+                for op in chain_so_far:
+                    indices.append(c.index(op))
+                return c[max(indices)]
+            except ValueError:
+                continue
+        return None
+
+    # all chains define a transitive relation without cycles, i.e., a directed acyclic graph (DAG)
+    def check_with_other_chains(self, c: list[str]) -> None:
+        # a chain `c` must not be in conflict with the ordering of the other chains
+        for other_c in self.all_chains():
+            current = -1  # `current` must go through an strictly increasing sequence for all other chains
+            for op in c:
+                try:
+                    idx = other_c.index(op)     # might raise ValueError
+                    if idx <= current:
+                        raise KurtException(f'EvalError: chain `{c}` is in conflict with `{other_c}`, creates a cycle')
+                    current = idx
+                except ValueError:
+                    continue  # if not found, there is no constraint on `op`
+
     def is_used(self, s: str) -> bool:
         return s in self.used    or (self.parent is not None and self.parent.is_used(s))
 
@@ -691,7 +740,7 @@ class KnowledgeBase:
         else:
             return 0
 
-    def get_alias(self, s: str) -> str | None:
+    def get_alias(self, s: str) -> Optional[str]:
         if s in self.alias:
             return self.alias[s]
         elif self.parent is not None:
@@ -699,7 +748,7 @@ class KnowledgeBase:
         else:
             return None
 
-    def get_load_level(self, fname: str) -> int | None:
+    def get_load_level(self, fname: str) -> Optional[int]:
         if fname in self.libs:
             return self.level
         elif self.parent is not None:
@@ -761,15 +810,16 @@ class KnowledgeBase:
         self.led[op] = led
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
-    def add_chain(self, op: str, chain: list[str]) -> None:
-        if not self.is_infix(op):
-            raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare chain')
-        for c in chain:
-            if not self.is_infix(c):
-                raise KurtException(f'EvalError: operator `{c}` must be infix operator to declare chain')
-        if len(chain) < 1:
+    def add_chain(self, c: list[str]) -> None:
+        if len(c) != len(set(c)):
+            raise KurtException(f'EvalError: all operators of a chain must be different, found duplicates in `{c}`')
+        for op in c:
+            if not self.is_infix(op):
+                raise KurtException(f'EvalError: all operators of a chain must be infix, operator `{c}` is not')
+        self.check_with_other_chains(c)
+        if len(c) < 2:
             raise KurtException(f'EvalError: chain of operators must have at least two elements')
-        self.chain[op] = chain
+        self.chain.append(c)
 
     def add_bindop(self, fun: str) -> None:
         if self.is_used(fun):
@@ -891,7 +941,7 @@ class KnowledgeBase:
             return led              # same as for postfix
         raise KurtException(f'SyntaxError: infix or postfix operator expected, got {token.value}', token.column)
 
-    def get_lbp(self, token: Token|None) -> int:
+    def get_lbp(self, token: Optional[Token]) -> int:
         if token is None:
             raise StopIteration
         if token.label == 'SYMBOL':
@@ -913,6 +963,12 @@ class KnowledgeBase:
         if self.parent is not None:
             yield from self.parent.all_flat()
 
+    def all_chains(self) -> Iterator[list[str]]:
+        for c in self.chain:
+            yield c
+        if self.parent is not None:
+            yield from self.parent.all_chains()
+
     # THEORY RELATED
     def all_theory(self) -> Iterator[Formula]:
         # iterate over all levels
@@ -925,7 +981,7 @@ class KnowledgeBase:
         if self.parent is not None:
             yield from self.parent.all_theory()
 
-    def theory_str(self, op:str|None=None, keyword:str|None=None) -> str:
+    def theory_str(self, op:Optional[str]=None, keyword:Optional[str]=None) -> str:
         s: str = self.parent.theory_str(op=op) if self.parent is not None else ''
         s += f'; on level {self.level}\n'
         for f in self.theory:
@@ -1281,8 +1337,8 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
             continue                       # whitespace is ignored
         elif label == 'SYMBOL':
             assert isinstance(value, str)
-            alias:  str | None = kb.get_alias(value)
-            origin: str | None = None
+            alias:  Optional[str] = kb.get_alias(value)
+            origin: Optional[str] = None
             if alias is not None:
                 origin = value             # store for string generation
                 value  = alias
@@ -1387,14 +1443,15 @@ def canonical_key(t: Expr, s: State, kb: KnowledgeBase) -> tuple:
 def sort_exprs(exprs: list[Expr], s: State, kb: KnowledgeBase) -> list[Expr]:
     return sorted(exprs, key=lambda e: canonical_key(e, s, kb))
 
-def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                        # symmetric operators can sort their args
+def symmetrize_all(expr: Expr, kb: KnowledgeBase) -> Expr: # symmetric operators can sort their args
+    ignore = [EQUAL_SYMBOL, IFF_SYMBOL] # we never sort the args of `=` and `iff`, because that would break `def` which requires LHS and RHS to be in a certain order
     if isinstance(expr, list):
-        expr = [sort_symmetric_ops(kb, e) for e in expr] # start inside
+        expr = [symmetrize_all(e, kb) for e in expr] # start inside
         if (isinstance(expr[0], Token) 
             and expr[0].label == 'SYMBOL' 
             and isinstance(expr[0].value, str) 
             and kb.is_sym(expr[0].value) 
-            and expr[0].value != SPACE_SYMBOL):  # we exclude the SPACE_SYMBOL, even though it is symmetric
+            and expr[0].value not in ignore):
             s = State.empty()  # empty substitution and no bound vars
             expr = [expr[0]] + sort_exprs(expr[1:], s, kb)  # sort args of symmetric operator
         return expr
@@ -1403,7 +1460,7 @@ def sort_symmetric_ops(kb: KnowledgeBase, expr: Expr) -> Expr:                  
     else:
         assert False, f'BUG: expression must be list or Token, got {expr_str(expr, kb)}'
 
-def flatten_op(flat_op: str, expr: Expr) -> Expr:                                # flatten nested 'op'-expressions
+def flatten_op(flat_op: str, expr: Expr) -> Expr:  # flatten nested 'op'-expressions
     # e.g. [',', 17, [',', 42, 100]] --> [',', 17, 42, 100]
     match expr:
         case [Token(label='SYMBOL', value=op), *tail] if op==flat_op:
@@ -1518,12 +1575,13 @@ def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
     expr = process_arity(expr, kb)                      # turns space operators into function calls according to arities
     expr = remove_round_brackets(expr)                  # remove round brackets for grouping
     expr, label = check_expr_label(expr, kb)       # check and split `expr` and `label`
-    expr = flatten_all(expr, kb)                        # flatten certain operators
+    expr = flatten_all(expr, kb)                        # flatten `flat` operators
+    expr = symmetrize_all(expr, kb)                     # symmetrize `sym` operators
     return expr, label
 
-def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Token|None, list[Expr], str]:
+def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optional[Token], list[Expr], str]:
     assert isinstance(ts.peek, Token)
-    keyword_token: Token | None = None
+    keyword_token: Optional[Token] = None
     keyword: str = ''
     label: str = ''
     if ts.peek.label == 'SYMBOL' and ts.peek.value in keywords:
@@ -1712,7 +1770,7 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
         log('thus ' + f.formula_str(kb), reason, kb.level)
     return kb
 
-def _first_or_none(xs: Iterator[State]) -> State | None:
+def _first_or_none(xs: Iterator[State]) -> Optional[State]:
     return next(iter(xs), None)
 
 def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
@@ -1992,19 +2050,23 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
         new_stuff = []
         for arg in args:
-            match arg:
-                case [Token(label='STRING'|'SYMBOL', value=op), *tail]:
-                    assert isinstance(op, str)
-                    chain: list[str] = []
-                    for t in tail:
-                        assert isinstance(t, Token) and t.label=='SYMBOL' and isinstance(t.value, str)
-                        chain.append(t.value)
-                    new_stuff.append((op, chain))    # first collect
-                case _:
-                    msg = create_usage(keyword, [[], ['STRING', 'STRING'], ['STRING', 'STRING', 'STRING'], ['STRING', 'STRING', 'STRING', 'STRING']])
-                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-        for (op, chain) in new_stuff:
-            kb.add_chain(op, chain)
+            assert isinstance(arg, list)
+            chain: list[str] = []
+            if len(arg) < 2:
+                raise KurtException(f'ParseError: chains must contain at least two infix operators')
+            for op_token in arg:
+                match op_token:
+                    case Token(label='STRING'|'SYMBOL', value=op):
+                        assert isinstance(op, str)
+                        chain.append(op)
+                    case _:
+                        msg = create_usage(keyword, [[], ['STRING', 'STRING'], ['STRING', 'STRING', 'STRING'], ['STRING', 'STRING', 'STRING', 'STRING']])
+                        raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+            kb.check_with_other_chains(chain)  # might raise an exception
+            new_stuff.append(chain)    # first collect
+        for chain in new_stuff:
+            kb.add_chain(chain)
+
     elif keyword == 'flat':
         if len(args) == 0:
             print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
@@ -2302,7 +2364,7 @@ def split_by_comma(e: Expr) -> list[Expr]:
         args.append(current_arg)
     return args
 
-def eval_expression(keyword_token: Token|None, expr_list: list[Expr], label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
+def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     if keyword_token is None:
         # expression without keyword: try to derive the formula and add it to the theory
         if len(expr_list) == 0:
@@ -2534,7 +2596,8 @@ def not_intro(expr: Expr, kb: KnowledgeBase) -> str:
     if len(assumptions) == 1:              # assumptions is one formula
         assumptions = assumptions[0]
     else:                                  # assumptions is a conjunction
-        assumptions = flatten_all([Token(label='SYMBOL', value=AND_SYMBOL)] + assumptions, kb)   # flatten, since some assumptions might be conjunctions as well, and this is a normalform, useful for direct comparison
+        # some assumptions might be conjunctions as well, so flattening might help
+        assumptions = flatten_all([Token(label='SYMBOL', value=AND_SYMBOL)] + assumptions, kb)   # flatten
     if not equal_expr(assumptions, body):
         raise KurtException(f'EvalError: {expr_str(body, kb)} does not match any assumption on the current level')
 
@@ -2715,7 +2778,7 @@ def rename_all_vars(expr: Expr, kb: KnowledgeBase) -> Expr:
     expr = rename_all_vars_rec(expr, kb)[0]
     return expr
 
-def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: State|None = None, bound_vars: set[str]|None = None) -> tuple[Expr, State]:
+def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: Optional[State] = None, bound_vars: set[str]|None = None) -> tuple[Expr, State]:
     # initialize the bound_vars if not given (don't put `set()` as the default value into the signature, since it is only called once and then modified, THIS LEADS TO A VERY SUBTLE BUG)
     if bound_vars is None:
         bound_vars = set()
@@ -2776,7 +2839,7 @@ def is_sub(expr):
 
 # check that `expr_a` does not contain freely any variables that are bound at the locations of `token_x` in `expr_A`
 # that's quite complicated, so instead we check whether they are among the bound variables of `expr_A`
-def bound_var_safe(expr: Expr, token_x: Token, expr_a: Expr|None, expr_A: Expr, kb: KnowledgeBase) -> bool:
+def bound_var_safe(expr: Expr, token_x: Token, expr_a: Optional[Expr], expr_A: Expr, kb: KnowledgeBase) -> bool:
     if expr_a is None:
         return True
     else:
@@ -2785,7 +2848,7 @@ def bound_var_safe(expr: Expr, token_x: Token, expr_a: Expr|None, expr_A: Expr, 
         return free_a.isdisjoint(bound_A)
 
 
-def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Expr|None, kb: KnowledgeBase) -> Iterator[tuple[Expr|None, Expr]]:
+def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr], kb: KnowledgeBase) -> Iterator[tuple[Optional[Expr], Expr]]:
     # generate all `($a, %A)` such that `expr == sub $x $a %A`
     # however, two requirements:
     # (1) `$x` does not appear in `expr` as a free or bound variable, this is ensured by renaming bound variables in `expr`
@@ -2841,7 +2904,7 @@ def iter_nodes(expr: Expr, path_prefix: list[int]|None = None) -> Iterator[tuple
         for i, child in enumerate(expr):
             yield from iter_nodes(child, path_prefix + [i])
 
-def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iterator[tuple[Expr|None, Expr]]:
+def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iterator[tuple[Optional[Expr], Expr]]:
     # no blocked vars, since we are at the top level
     s = State({var_x: expr_a}, frozenset(), frozenset())   # substitute `$x` with `expr_a`
     cand_expr = apply_subst(expr_A, s, kb)
@@ -2868,8 +2931,8 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
     # `sub $x $a  A` or
     # `sub $x  a %A` or
     # `sub $x $a %A`
-    var_a:  str|None
-    a:     Expr|None
+    var_a:  Optional[str]
+    a:      Optional[Expr]
     if isinstance(p_a, Token) and isinstance(p_a.value, str) and kb.is_var(p_a.value):
         var_a = p_a.value
         a = s.lookup(var_a)    # `$a` might have been assigned earlier, will be None otherwise
@@ -2878,8 +2941,8 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         var_a = None
         a = p_a                                       # `a` is fixed
 
-    all_combinations: Iterator[tuple[Expr|None, Expr]]  # generator of `a` and `A` that create a match
-    var_A: str|None
+    all_combinations: Iterator[tuple[Optional[Expr], Expr]]  # generator of `a` and `A` that create a match
+    var_A: Optional[str]
     if isinstance(p_A, Token) and isinstance(p_A.value, str) and kb.is_bool_var(p_A.value):
         var_A = p_A.value
         A = s.lookup(var_A)    # `%A` might have been assigned earlier, will be None otherwise
@@ -3361,7 +3424,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
     formula_expr: Expr = proven_formula.simplified_expr
 
     # assign `conclusion` and `premises`
-    premise: Expr|None = None
+    premise: Optional[Expr] = None
     if is_implication(formula_expr):      # case 1: implication with a premise
         assert isinstance(formula_expr, list)
         premise    = remove_outer_forall_quantifiers(formula_expr[1], kb)
@@ -3390,7 +3453,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
     s = State(s.subst, blocked_as_domain, s.blocked_as_range)
     #debug(f'NEW: try to show {expr_str(expr, kb)} from {formula_ref(proven_formula, filename, mainstream)} which is {expr_str(formula_expr, kb)}')
     #debug(f'match {expr_str(expr, kb)} against {expr_str(conclusion, kb)}')
-    s_final: State | None = State.empty()
+    s_final: Optional[State] = State.empty()
     for s_matched in unify_exprs_with_patterns([(expr, conclusion)], s, kb):
         if premise is None:
             s_final = s_matched
@@ -3473,10 +3536,75 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
 
+LHS_token = Token('SYMBOL', value='$$LHS$$') # a special token to mark the LHS of the last row
+
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
-    ts   = PeekableGenerator(scan_string(input_line, kb))                                                   # lexer
-    keyword_token, expr_list, label = parse_tokenstream(ts, kb)       # parser
+
+    # we store the LHS of the initial line that starts a chain and the infix operators seen so far
+    if not hasattr(scan_parse_check_eval, "_initial_LHS"):     # use static variable of the function
+        scan_parse_check_eval._initial_LHS = None              # LHS of the line starting the chain
+    if not hasattr(scan_parse_check_eval, "_chained_ops"):     # use static variable of the function
+        scan_parse_check_eval._chained_ops = []                # infix operators of the chain seen so far
+
+    # read the static variables
+    lhs: Optional[Expr] = scan_parse_check_eval._initial_LHS
+    ops: list[str] = scan_parse_check_eval._chained_ops
+
+    # scan the input line and prepare for the parsing
+    ts = PeekableGenerator(scan_string(input_line, kb))    # runs the lexer
+
+    # chain management before parsing
+    chained = False
+    first_token: Optional[Token] = ts.peek # do we have a chainable operator at the start?
+    if first_token is not None:
+        first_label = first_token.label
+        first_value = first_token.value
+        if first_label == 'SYMBOL' and isinstance(first_value, str):
+            if first_value not in keywords and kb.is_chainable(first_value):
+                if lhs is not None and ops != []:       # did we start a chain before?
+                    ops.append(first_value)   # add to the chain so far
+                    resulting_op: Optional[str] = kb.get_chain_op(ops)
+                    if resulting_op is not None:
+                        chained = True
+                        ts.prepend(LHS_token)             # add dummy token to the front
+                    else:
+                        raise KurtException(f'ParseError: invalid chain of operators {" ".join(ops)} at line {line} in {filename}')
+
+    # the usual parsing (raises exception if `chained=False` but `first_token` is chainable)
+    keyword_token, expr_list, label = parse_tokenstream(ts, kb)  # runs the parser
+
+    # chain management continued
+    if chained:
+        # case 1: continue chain
+        assert isinstance(expr_list, list)
+        if len(expr_list) != 1:
+            raise KurtException(f'ParseError: expected exactly continued chain, not several comma-separated ones')
+        assert isinstance(expr_list[0], list)
+        assert len(expr_list[0]) == 3 and expr_list[0][1] == LHS_token, f'ParseError: expected exactly continued chain, not {expr_list}'
+        assert resulting_op is not None    # otherwise we wouldn't be in `chained` mode
+        expr_list[0][0] = Token('SYMBOL', resulting_op)   # replace the infix operator
+        assert lhs is not None
+        expr_list[0][1] = deepcopy_expr(lhs)      # replace the dummy token
+    else:
+        if len(expr_list) == 1 and kb.starts_a_chain(expr_list[0]):
+            # case 2: start new chain
+            assert isinstance(expr_list[0], list)
+            assert len(expr_list[0]) == 3
+            e0, e1, _ = expr_list[0]
+            assert isinstance(e0, Token) and isinstance(e0.value, str)
+            lhs = e1           # store the LHS (which is after parsing the second token)
+            ops = [e0.value]   # store the initial operator (which is after parsing the first token)
+        else:
+            # case 3: reset the chain
+            lhs = None
+            ops = []
+
+    # evaluate
     kb   = eval_expression(keyword_token, expr_list, label, kb, line, filename, mainstream) # evaluation
+
+    # write back the static variables
+    scan_parse_check_eval._initial_LHS = lhs
+    scan_parse_check_eval._chained_ops = ops
     return kb
 
 def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:

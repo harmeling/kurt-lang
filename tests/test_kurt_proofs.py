@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 import io
 import copy
 import unittest
@@ -53,36 +52,6 @@ class TestProving(unittest.TestCase):
                 actual_last_line = normalize_path_in_line(actual_last_line)
                 true_last_line = normalize_path_in_line(true_last_line)
                 self.assertEqual(actual_last_line, true_last_line)
-
-# class Test_Proving(unittest.TestCase):
-#     def test_proving(self):
-#         examples = list(pathlib.Path('proofs').rglob('*.kurt'))
-# #        examples = list(pathlib.Path('proofs').rglob('simple-test.kurt'))
-#         for i in range(len(examples)):
-#             kb = copy.deepcopy(kurt.initial_kb)
-#             fname = str(examples[i])
-#             with self.subTest(msg=examples[i], i=i):
-#                 try:
-#                     true_last_line = file_last_line(fname)
-#                     captured_stdout = io.StringIO()
-#                     captured_stderr = io.StringIO()
-#                     sys.stdout = captured_stdout                 # redirect stdout
-#                     sys.stderr = captured_stderr                 # redirect stderr
-#                     _ = kurt.load_file(fname, kb, mainstream=False)
-#                     print('Proof checked.', file=sys.stdout)
-#                     actual_last_line = str_last_line(captured_stdout.getvalue())
-#                     self.assertEqual(actual_last_line, true_last_line)
-#                 except kurt.KurtException as e:
-#                     print(e.msg, file=sys.stderr)
-#                     actual_last_line = str_last_line(captured_stderr.getvalue())
-#                     self.assertEqual(actual_last_line, true_last_line)
-#                 except AssertionError:
-#                     raise
-#                 except Exception as e:
-#                     self.fail(f"Subtest {fname} failed with unexpected exception: {e}")                
-#                 finally:
-#                     sys.stdout = sys.__stdout__                  # reset redirect
-#                     sys.stderr = sys.__stderr__                  # reset redirect
 
 if __name__ == '__main__':
     unittest.main()

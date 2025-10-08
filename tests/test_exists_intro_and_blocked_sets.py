@@ -61,7 +61,7 @@ class TestExistsIntroAndBlockedSets(unittest.TestCase):
         sigma1 = sols1[0]
 
         # The schema %A should now be some body equivalent to (prime $z) up to α
-        body: Expr|None = sigma1.lookup("%A")
+        body: Optional[Expr] = sigma1.lookup("%A")
         self.assertIsNotNone(body)
         # Don’t bind the bound var itself:
         self.assertIsNone(sigma1.lookup("$z"))

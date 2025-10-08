@@ -1,0 +1,24 @@
+; chain.kurt
+
+infix = 10 10, ≤ 10 10, < 10 10
+chain = ≤ <
+
+use $x = $y, $x ≤ $y, $x < $y
+z = y
+  = y
+  ≤ x
+y < x
+  ≤ a
+  = b
+  = c
+
+infix iff 5 5
+bool  iff 0 1 2
+chain iff implies
+
+use $A iff $B, $B implies $C
+A iff B
+    iff C
+    implies C
+    implies C
+;;; Proof checked.
