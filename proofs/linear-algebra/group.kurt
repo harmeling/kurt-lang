@@ -4,7 +4,6 @@ load equality
 ; define function symbols for infix and prefix notations
 infix  +  60 60           ; binary plus
 prefix -     80           ; unary minus
-
 var x, y, z
 
 ; group axioms
@@ -17,15 +16,15 @@ use -x + x = 0                      "G3" ; left inverse
 show x + -x = 0                     "G4" ; right inverse
 proof
     fix x
-        -(x + -x) + (x + -x)              = 0   ; by G3
-        -(x + -x) + (x + (0 + -x))        = 0   ; by G2  (wrong reason)
-        -(x + -x) + (x + ((-x + x) + -x)) = 0   ; by G3
-        -(x + -x) + ((x + (-x + x)) + -x) = 0   ; by G1
-        -(x + -x) + (((x + -x) + x) + -x) = 0   ; by G1
-        -(x + -x) + ((x + -x) + (x + -x)) = 0   ; by G1
-        (-(x + -x) + (x + -x)) + (x + -x) = 0   ; by G1
-        0 + (x + -x)                      = 0   ; by G3  (wrong reason)
-        x + -x                            = 0   ; by G2
+        0 = -(x + -x) + (x + -x)                ; by G3
+          = -(x + -x) + (x + (0 + -x))          ; by G2  (wrong reason)
+          = -(x + -x) + (x + ((-x + x) + -x))   ; by G3
+          = -(x + -x) + ((x + (-x + x)) + -x)   ; by G1
+          = -(x + -x) + (((x + -x) + x) + -x)   ; by G1
+          = -(x + -x) + ((x + -x) + (x + -x))   ; by G1
+          = (-(x + -x) + (x + -x)) + (x + -x)   ; by G1
+          = 0 + (x + -x)                        ; by G3  (wrong reason)
+          = x + -x                              ; by G2
     thus x + -x = 0
 qed
 
@@ -34,10 +33,10 @@ show x + 0 = x                      "G5" ; right neutral
 proof
     fix x
         x + 0 = x + 0              ; by "equal-intro"
-        x + 0 = x + (-x + x)       ; by G3  (wrong reason)
-        x + 0 = (x + -x) + x       ; by G1
-        x + 0 = 0 + x              ; by G4  (wrong reason)
-        x + 0 = x                  ; by G2
+              = x + (-x + x)       ; by G3  (wrong reason)
+              = (x + -x) + x       ; by G1
+              = 0 + x              ; by G4  (wrong reason)
+              = x                  ; by G2
     thus x + 0 = x
 qed
 ;;; Proof checked.

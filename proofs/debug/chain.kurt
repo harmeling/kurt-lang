@@ -14,17 +14,25 @@ y < x
 
 infix iff 5 5
 bool  iff 0 1 2
-infix impliesback 5 5
-bool  impliesback 0 1 2
-chain iff implies
-chain iff impliesback   ; implies backwards
+alias ⇔ iff
 
-use $A iff $B, $B implies $C
+infix invimplies 50 50
+bool  invimplies 0 1 2
+alias ⇐ invimplies
+
+chain iff implies      ; implies forwards
+chain iff invimplies   ; implies backwards
+
+use $A iff $B, $B invimplies $C
 A iff B
-    iff C
-    implies C
-    implies C
+  iff C
+  implies C
+  implies C
+A ⇔ B
+  ⇔ C
+  ⇒ C
+  ⇒ C
 
-A implies B
-  iff D
+A ⇐ B
+  ⇔ D
 ;;; Proof checked.

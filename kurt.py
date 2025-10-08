@@ -98,6 +98,7 @@ REPLACEMENTS: dict[str, str] = {
     '\\iff':     '⇔',
     '\\equiv':   '≡',
     '\\implies': '⇒',
+    '\\invimplies': '⇐',
     '\\bottom':  '⊥',
     '\\top':     '⊤',
 
@@ -815,7 +816,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: all operators of a chain must be different, found duplicates in `{c}`')
         for op in c:
             if not self.is_infix(op):
-                raise KurtException(f'EvalError: all operators of a chain must be infix, operator `{c}` is not')
+                raise KurtException(f'EvalError: all operators of a chain must be infix, operator `{op}` is not')
         self.check_with_other_chains(c)
         if len(c) < 1:
             raise KurtException(f'EvalError: chain of operators must have at least one element')
@@ -3554,6 +3555,7 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
     ts = PeekableGenerator(scan_string(input_line, kb))    # runs the lexer
 
     # chain management before parsing
+    debug(f'chain management before parsing: {lhs=}, {ops=}, {input_line=}')
     chained = False
     first_token: Optional[Token] = ts.peek # do we have a chainable operator at the start?
     if first_token is not None:
@@ -3567,6 +3569,7 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
                     if resulting_op is not None:
                         chained = True
                         ts.prepend(LHS_token)             # add dummy token to the front
+                        debug(f'continuing chain with {first_value=}, resulting in {resulting_op=}')
                     else:
                         raise KurtException(f'ParseError: invalid chain of operators `{ops}` at line {line} in {filename}')
 

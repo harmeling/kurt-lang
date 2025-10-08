@@ -13,21 +13,26 @@
 ; alias  ∧ and
 
 ;; syntax
-prefix not        18  ; logical not
-bool   not     0 1    ; `not` and its inputs have type bool
-infix  or      14 14  ; logical or
-flat   or             ; (a or b) or c  iff  a or b or c
-sym    or             ; a or b  iff  b or a
-bool   or      0 1 2  ; `or` and its inputs have type bool
-infix  iff     10 10  ; logical if-and-only-if
-bool   iff     0 1 2  ; `and` and its inputs have type bool
-bool   false          ; false has type bool
-chain  iff implies
+prefix not        18     ; logical not
+bool   not     0 1       ; `not` and its inputs have type bool
+infix  or      14 14     ; logical or
+flat   or                ; (a or b) or c  iff  a or b or c
+sym    or                ; a or b  iff  b or a
+bool   or      0 1 2     ; `or` and its inputs have type bool
+infix  invimplies 13 12  ; logical implies backwards, right associative (since 13>12)
+bool   invimplies 0 1 2  ; `invimplies` and its inputs have type bool
+infix  iff     10 10     ; logical if-and-only-if
+bool   iff     0 1 2     ; `and` and its inputs have type bool
+bool   false             ; false has type bool
+chain  iff implies       ; implies left-to-right
+chain  iff invimplies    ; implies right-to-left
+alias  
 alias  ¬ not
 alias  ∨ or
 alias  ⊥ false
 alias  contradiction false
 alias  ⇔ iff
+alias  ⇐ invimplies
 alias  ≡ iff
 
 ;; inference rules
