@@ -1,0 +1,10 @@
+; todo.kurt
+load first-order, equality
+
+show p ⇒ q
+proof
+    todo
+qed
+;;; the output will be something like: '  todo.kurt:6 todo'
+;;; however, the `test_kurt_proofs.py` will print:
+;;; Proof checked.

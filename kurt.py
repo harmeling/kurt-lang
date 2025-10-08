@@ -1785,15 +1785,21 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         raise KurtException(f'ProofError: no formula has been proven, `qed` can only be used after a successful proof')
     proven_f = kb.theory[-1]               # check the last formula
     proven_expr  = proven_f.simplified_expr         # what actually has been proven
-    reason = ''
-    # block all free variables of the planned expression, since they are universally quantified
-    blocked_as_domain = frozenset(free_vars_only(planned_expr, kb))
-    s = State({}, blocked_as_domain, frozenset())
-    optional_s = _first_or_none(unify_exprs_with_patterns([(planned_expr, proven_expr)], s, kb))
-    if optional_s is None:
-        raise KurtException(f'ProofError: planned formula `{planned_expr}` does not match the last formula in the theory `{proven_expr}`')
-    reason = decorate_reason(mainstream, reason, filename, str(line))
-    label = ''
+    if proven_expr == todo_token:
+        reason = f'by a miracle'
+        if mainstream:
+            log('todo', reason, kb.level)
+        label = ''
+    else:
+        reason = ''
+        # block all free variables of the planned expression, since they are universally quantified
+        blocked_as_domain = frozenset(free_vars_only(planned_expr, kb))
+        s = State({}, blocked_as_domain, frozenset())
+        optional_s = _first_or_none(unify_exprs_with_patterns([(planned_expr, proven_expr)], s, kb))
+        if optional_s is None:
+            raise KurtException(f'ProofError: planned formula `{planned_expr}` does not match the last formula in the theory `{proven_expr}`')
+        reason = decorate_reason(mainstream, reason, filename, str(line))
+        label = ''
     f = Formula(kb, planned_f.expr, str(planned_f.line), filename, label, reason, keyword='')
     kb = decrease_level(kb)                    # drop current level and perform some checks
     kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now

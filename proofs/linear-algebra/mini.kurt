@@ -15,7 +15,7 @@ use 0 + x = x                       "G2" ; neutral element
 use -x + x = 0                      "G3" ; left inverse
 
 fix z
-    -(z + -z) + (z + -z)              = 0   ; by G3
-    -(z + -z) + (z + (0 + -z))        = 0   ; by G2
+    0 = -(z + -z) + (z + -z)                 ; by G3
+      = -(z + -z) + (z + (0 + -z))           ; by G2
 thus ∀z (-(z + -z) + (z + (0 + -z)) = 0)
 ;;; Proof checked.
