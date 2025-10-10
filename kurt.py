@@ -552,26 +552,21 @@ class KnowledgeBase:
     def _entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix {key} {value}'
         elif keyword == 'infix':    
-            if isinstance(value, tuple) and len(value) == 2:
-                if key == ' ':
-                    return f'infix " " {value[0]} {value[1]}'
-                else:
-                    return f'infix {key} {value[0]} {value[1]}'
-            assert False, f'BUG!  Unexpected value for `infix`, got {value}'
+            assert isinstance(value, tuple) and len(value) == 2, f'BUG!  Unexpected value for `infix`, got {value}'
+            if key == ' ':
+                return f'infix " " {value[0]} {value[1]}'
+            else:
+                return f'infix {key} {value[0]} {value[1]}'
         elif keyword == 'postfix':  return f'postfix {key} {value}'
         elif keyword == 'brackets': return f'brackets {value} {key}'
-        elif keyword == 'chain':
-            if isinstance(value, list):
-                return f'chain {key} {" ".join(map(str, value))}'
-            assert False, f'BUG!  Unexpected value for `chain`, got {value}'
+        elif keyword == 'chain':    return f'chain {" ".join(key)}'
         elif keyword == 'arity':    return f'arity {key} {value}'
         elif keyword == 'flat':     return f'flat {key}'
         elif keyword == 'sym':      return f'sym {key}'
         elif keyword == 'bindop':   return f'bindop {key}'
         elif keyword == 'bool':     
-            if isinstance(value, list):
-                return f'bool {key} {" ".join(map(str, value))}'
-            assert False, f'BUG!  Unexpected value for `bool`, got {value}'
+            assert isinstance(value, list), f'BUG!  Unexpected value for `bool`, got {value}'
+            return f'bool {key} {" ".join(map(str, value))}'
         elif keyword == 'var':      return f'var {key}'
         elif keyword == 'const':
             if key == ' ':
@@ -579,10 +574,11 @@ class KnowledgeBase:
             else:
                 return f'const {key}'
         elif keyword == 'alias':    return f'alias {key} {value}'
-        else: assert False, f'BUG: unknown keyword, got {keyword}'
+        else: 
+            assert False, f'BUG: unknown keyword, got {keyword}'
 
     def dict_or_set_str(self, keyword: str) -> str:
-        some_dict_or_set: dict[str, str|int|tuple[int,int]|list[int]|list[str]] | set[str] = getattr(self, keyword)
+        some_dict_or_set: dict[str, str|int|tuple[int,int]|list[int]|list[str]]|set[str] = getattr(self, keyword)
         if isinstance(some_dict_or_set, dict):
             lines = [self._entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set]
         else:
@@ -697,13 +693,11 @@ class KnowledgeBase:
         for other_c in self.all_chains():
             current = -1  # `current` must go through an strictly increasing sequence for all other chains
             for op in c:
-                try:
+                if op in other_c:
                     idx = other_c.index(op)     # might raise ValueError
                     if idx <= current:
                         raise KurtException(f'EvalError: chain `{c}` is in conflict with `{other_c}`, creates a cycle')
                     current = idx
-                except ValueError:
-                    continue  # if not found, there is no constraint on `op`
 
     def is_used(self, s: str) -> bool:
         return s in self.used    or (self.parent is not None and self.parent.is_used(s))
@@ -1082,11 +1076,13 @@ class KnowledgeBase:
                                         bool_sigs |= _get_new_bool_sigs(args[i], True)
                                     else:
                                         bool_sigs |= _get_new_bool_sigs(args[i], False)
-                                if op[0] in '$':
-                                    raise KurtException(f'EvalError: variable `{op}` appearing at boolean position, but can not be declared boolean, maybe you forgot to declare an infix/prefix/postfix operator in `{e=}`?')
-                                if op[0] in '%':
-                                    raise KurtException(f'EvalError: variable `{op}` appearing at boolean operator position, but can not be an operator, maybe you forgot to declare an infix/prefix/postfix operator in `{e=}`?')
-                                bool_sigs |= {op: bool_sig_local}
+                                if len(bool_sig_local) > 0:
+                                    # we found at least one boolean position, so we can declare the operator boolean
+                                    if op[0] in '$':
+                                        raise KurtException(f'EvalError: variable `{op}` appearing at boolean position, but can not be declared boolean, maybe you forgot to declare an infix/prefix/postfix operator in `{e=}`?')
+                                    if op[0] in '%':
+                                        raise KurtException(f'EvalError: variable `{op}` appearing at boolean operator position, but can not be an operator, maybe you forgot to declare an infix/prefix/postfix operator in `{e=}`?')
+                                    bool_sigs |= {op: bool_sig_local}
                                 return bool_sigs
 
                 case [*exprs]:
@@ -1609,8 +1605,11 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optiona
         try:
             type_check_expression(expr, kb)                       # (some) type checking
         except KurtException as e:
-            print(f'parsed as: {expr_str(expr, kb)}', file=sys.stderr)
-            raise e      # reraise it
+            if keyword_token in ['parse']:
+                print(f'type check failed', file=sys.stderr)
+            else:
+                print(f'parsed as: {expr_str(expr, kb)}', file=sys.stderr)
+                raise e      # reraise it
     else:
         expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
         check_no_keyword(expr_list)             # don't check the `keyword` and the `label`

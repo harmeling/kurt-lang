@@ -1,0 +1,5 @@
+; compositional.kurt
+load equality
+infix ∘ 40 40                  ; composition
+def ($f∘$g)($x) = $f($g($x))   ; def of composition
+;;; Proof checked.

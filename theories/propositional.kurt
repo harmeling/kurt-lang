@@ -26,7 +26,6 @@ bool   iff     0 1 2     ; `and` and its inputs have type bool
 bool   false             ; false has type bool
 chain  iff implies       ; implies left-to-right
 chain  iff invimplies    ; implies right-to-left
-alias  
 alias  ¬ not
 alias  ∨ or
 alias  ⊥ false

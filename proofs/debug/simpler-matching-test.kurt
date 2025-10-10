@@ -1,3 +1,5 @@
+load propositional
+
 ; simpler matching test
 use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"
 use p implies q

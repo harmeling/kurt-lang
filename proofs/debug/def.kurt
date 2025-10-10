@@ -1,6 +1,6 @@
 ; def test
-load equality
 load propositional
+load equality
 
 def q iff true
 def p iff q
