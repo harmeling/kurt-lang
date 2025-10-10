@@ -1,6 +1,11 @@
 ; todo.kurt
 load first-order, equality
 
+show p
+proof
+    todo p
+qed
+
 show p ⇒ q
 proof
     todo

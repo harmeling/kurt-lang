@@ -6,9 +6,18 @@ bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
 sym   =        ; equality is symmetric
 chain =        ; equality is chainable
 
+
+infix ≠ 20 20 ; inequality, note it is not chainable
+bool  ≠ 0
+sym   ≠
+; chain ≠  ; not chainable
+
 ;; inference rules
 use $a = $a                                               "equal-intro"
 use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
+
+use not ($a = $b) implies  $a ≠ $b                        "not-equal-intro"
+use $a ≠ $b       implies  not ($a = $b)                  "not-equal-elim"
 
 ;; anything else?
 ;  we can also combine both rules

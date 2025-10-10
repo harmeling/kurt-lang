@@ -2,13 +2,13 @@
 
 ## NEXT
 
-- TODO check the add_chain stuff, check group.kurt and simplify it with chains
+- TODO bool-again.kurt, why the bool $a?  how has added this?
+- TODO allow chains of equations
 - TODO next implement adding numbers
 - TODO do the `arith.kurt`, do `set.kurt`
 - TODO check what to output, to show what has been parsed
 - TODO automatically fix the free variables of a formula once a proof started
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
-- TODO todo for whole proofs
 - TODO repairs messages for 'pick', 'fix', 'assume'
 - TODO check  if lbp > rbp then left-assoc else right-assoc
 - TODO check theories

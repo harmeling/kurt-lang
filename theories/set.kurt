@@ -17,4 +17,4 @@ use ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)  ⇒  $a = $b   "extensionality"
 use ∃ $b ∀ $a ¬ ($a ∈ $b)                    "empty-set"      ; there exists a set with no elements
 
 ; there exists a set that contains 
-use forall $a forall $b exists $c forall $d ($d in $c iff ($a in $d or $b in $d)) "pair"
+use ∀ $a ∀ $b ∃ $c ∀ $d ($d ∈ $c ⇔ ($a ∈ $d ∨ $b ∈ $d))      ; pair set {a, b}

@@ -84,7 +84,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 66:
+        if debug_counter == 295:
             pass
         debug_counter += 1
 
@@ -918,6 +918,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{s}` is already declared bool')
         if self.is_bindop(s) and 1 in v:
             raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
+        debug(f'Adding bool signature {v} for symbol `{s}`')
         self.bool[s] = v          # add a key and set the value to the tuple of positions that are bool
 
     def get_nud(self, token: Token) -> Nud:
@@ -1025,13 +1026,13 @@ class KnowledgeBase:
                 pass                  # do nothing, might be other tokens
 
     def _add_new_bools(self, e: Expr, bool_pos: bool) -> None:
+        # bool_pos indicates whether the current expression is in a position that must be boolean
 
         # automatically infer the `bool` signature
         def _get_new_bool_sigs(e: Expr, bool_pos: bool) -> dict[str, list[int]]:
             match e:
                 case Token(label='SYMBOL', value=s):
                     # case 1: just a token
-                    #debug(f'case 1: {e}')
                     assert isinstance(s, str), f'BUG: token value must be string'
                     if bool_pos and s[0] not in ['$', '%'] and not self.is_used(s):
                         if not self.is_bool(s):    # might be already declared as boolean
@@ -1043,7 +1044,6 @@ class KnowledgeBase:
                     bool_sig_op = self.bool_sig(op)
                     if len(bool_sig_op) > 0:
                         # case 2: operator does already exist with some boolean signature
-                        #debug(f'case 2: {e}')
                         for i in range(1, len(e)):
                             if self.is_flat(op):
                                 bool_pos = 1 in bool_sig_op    # applies to all i
@@ -1054,18 +1054,16 @@ class KnowledgeBase:
                     else:
                         if self.is_used(op):
                             # case 3: operator has been used already, but has no boolean signature
-                            #debug(f'case 3: {e}')
                             for i in range(len(args)):
                                 bool_sigs |= _get_new_bool_sigs(args[i], False)
                             return bool_sigs
                         else:
-                            # case 4: operator has not been used, let's try to infer its `bool` signature
-                            #debug(f'case 4: {e} with `{op}`')
+                            # case 4: operator has not been used and has no boolean signature, let's try to infer its `bool` signature
                             bool_sig_local = [0] if bool_pos else []  # no recursive call for the operator itself
                             flat = self.is_flat(op)
                             sym = self.is_sym(op)
                             if flat or sym:
-                                # check whether at least one is boolean, then all are boolean
+                                # for flat or sym operators, check whether at least one is boolean, then all are boolean
                                 all_bool = False
                                 for i in range(len(args)):
                                     if bool_expr(args[i], self):
@@ -1077,12 +1075,17 @@ class KnowledgeBase:
                                 bool_sigs |= {op: bool_sig_local}
                                 return bool_sigs
                             else:
+                                # just a normal operator
                                 for i in range(len(args)):
                                     if bool_expr(args[i], self):
                                         bool_sig_local.append(i+1)    # collect information from the args
-                                        bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], True)
+                                        bool_sigs |= _get_new_bool_sigs(args[i], True)
                                     else:
-                                        bool_sigs = bool_sigs | _get_new_bool_sigs(args[i], False)
+                                        bool_sigs |= _get_new_bool_sigs(args[i], False)
+                                if op[0] in '$':
+                                    raise KurtException(f'EvalError: variable `{op}` appearing at boolean position, but can not be declared boolean, maybe you forgot to declare an infix/prefix/postfix operator in `{e=}`?')
+                                if op[0] in '%':
+                                    raise KurtException(f'EvalError: variable `{op}` appearing at boolean operator position, but can not be an operator, maybe you forgot to declare an infix/prefix/postfix operator in `{e=}`?')
                                 bool_sigs |= {op: bool_sig_local}
                                 return bool_sigs
 
@@ -1091,13 +1094,14 @@ class KnowledgeBase:
                     bool_sigs = {}
                     for e in exprs:
                         bool_sigs |= _get_new_bool_sigs(e, False)  # false, since we don't know better
+                    debug(f'case 5: multiple expressions, adding bool signatures {bool_sigs}')
                     return bool_sigs
 
             return {}
 
         bool_sig = _get_new_bool_sigs(e, bool_pos)
         for s in bool_sig:
-            #debug(f'adding `{s}` and {bool_sig[s]}')
+            debug(f'adding `{s}` and {bool_sig[s]}')
             self.add_bool(s, bool_sig[s])
 
     def theory_append(self, f: Formula, symbol_level_prev: bool = False) -> None:
@@ -1602,7 +1606,11 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optiona
             if kb.parent is None:
                 raise KurtException(f'EvalError: "thus" can only be used after "fix", "take", or "assume"')
             kb = kb.parent
-        type_check_expression(expr, kb)                       # (some) type checking
+        try:
+            type_check_expression(expr, kb)                       # (some) type checking
+        except KurtException as e:
+            print(f'parsed as: {expr_str(expr, kb)}', file=sys.stderr)
+            raise e      # reraise it
     else:
         expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
         check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
@@ -2179,8 +2187,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
         for (s, t) in new_stuff:
             kb.add_alias(s, t)
-            if mainstream:
-                log(f'alias {s} {t}', f'added alias', kb.level  )
 
     # THEORY AND PROOF RELATED
     elif keyword == 'theory':
