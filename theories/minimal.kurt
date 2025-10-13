@@ -22,3 +22,6 @@ use (%A implies false) implies not %A             "not-intro"   ; see `not_intro
 ;; substitution operator
 arity  sub 3                                 ; operator for substitutions
 bindop sub                                   ; first arg must be a variable that is bound
+
+; for automatic testing we add the following line (in this case we should fail, because of `false`):
+;;; ProofError: can not derive expression

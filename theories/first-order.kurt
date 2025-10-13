@@ -39,3 +39,6 @@ use sub $x $a %A                        implies  exists $x %A      "exists-intro
 ;     we match `%B implies %A` where we can assign `$%1` appropriately, since it appears free
 ;   - case 2: we match `%B` using `%B implies %A`, then we use that `%B` to match against
 ;     `exists $%1 %B`
+
+; for automatic testing we add the following line:
+;;; Proof checked.

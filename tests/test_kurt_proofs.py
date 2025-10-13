@@ -30,6 +30,7 @@ def normalize_path_in_line(line: str) -> str:
 class TestProving(unittest.TestCase):
     def test_proving(self):
         example_paths = sorted(pathlib.Path("proofs").rglob("*.kurt"))
+        example_paths += sorted(pathlib.Path("theories").rglob("*.kurt"))
         # Optional: make sure we actually found something to test
         self.assertTrue(example_paths, "No .kurt files found under proofs/")
 

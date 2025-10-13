@@ -1,1 +1,4 @@
 ; induction
+
+; for automatic testing we add the following line:
+;;; Proof checked.

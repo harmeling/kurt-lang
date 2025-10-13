@@ -25,3 +25,6 @@ use $a ≠ $b       implies  not ($a = $b)                  "not-equal-elim"
 ;  e.g.
 ;  other notation
 ;  $a = $b and $f($a) = $f($a)  implies  $f($a) = $f($b)
+
+; for automatic testing we add the following line:
+;;; Proof checked.

@@ -14,3 +14,6 @@ use □(p ⇒ q) ⇒ (□p ⇒ □q)    "K"
 
 ; system T
 use p ⇒ ◇p
+
+; for automatic testing we add the following line:
+;;; Proof checked.

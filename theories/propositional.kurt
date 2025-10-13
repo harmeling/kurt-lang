@@ -72,3 +72,6 @@ use false implies %A                                                "bottom-elim
 
 use (%A implies false) implies not %A                               "not-intro"
 use not not %A implies %A                                           "not-elim"
+
+; for automatic testing we add the following line:
+;;; Proof checked.

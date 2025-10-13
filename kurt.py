@@ -345,6 +345,17 @@ class Formula:
 # not a class itself, instead just a type alias
 Expr: TypeAlias = list["Expr"] | Token
 
+def get_token_set(e: Expr) -> set[Token]:
+    def get_token_list(e: Expr) -> list[Token]:
+        if isinstance(e, list):
+            tokens: list[Token] = []
+            for item in e:
+                tokens += get_token_list(item)
+            return tokens
+        else:
+            return [e]
+    return set(get_token_list(e))
+
 def deepcopy_expr(expr: Expr) -> Expr:
     if isinstance(expr, Token):
         # Use shallow copy or clone to retain metadata if needed
@@ -577,12 +588,26 @@ class KnowledgeBase:
         else: 
             assert False, f'BUG: unknown keyword, got {keyword}'
 
-    def dict_or_set_str(self, keyword: str) -> str:
+    def dict_or_set_str(self, keyword: str, key: Optional[str]=None) -> str:
         some_dict_or_set: dict[str, str|int|tuple[int,int]|list[int]|list[str]]|set[str] = getattr(self, keyword)
+        def select(k: str) -> bool:
+            if key is None:
+                return True
+            else:
+                return key == k
         if isinstance(some_dict_or_set, dict):
-            lines = [self._entry_str(keyword, key, some_dict_or_set[key]) for key in some_dict_or_set]
+            lines = [self._entry_str(keyword, k, some_dict_or_set[k]) for k in some_dict_or_set if select(k)]
+            # next check whether the values of the dicts are strings, if yes, check for key there as well
+            if key is not None:
+                d = some_dict_or_set
+                if isinstance(next(iter(d.values()), None), str):   # check whether the values are strings
+                    for key_for_value in (k for k, v in d.items() if v == key):
+                        lines += [self._entry_str(keyword, key_for_value, some_dict_or_set[key_for_value])] 
         else:
-            lines = [self._entry_str(keyword, key) for key in some_dict_or_set]
+            lines = [self._entry_str(keyword, key) for key in some_dict_or_set if select(key) ]
+
+        # put the level at indent 42
+        lines = [f'{line:<42} ; level {self.level}' for line in lines]
         lines.sort()
         return '\n'.join(lines)
 
@@ -590,30 +615,43 @@ class KnowledgeBase:
         s: str = ''
         if self.parent is not None:
             s += self.parent.dict_or_set_str_all_levels(keyword) + '\n'
-        s += f'; level {self.level}\n'
         s += self.dict_or_set_str(keyword)
         return s
 
     # SYNTAX RELATED
-    def syntax_str_all_levels(self) -> str:
+    def info(self, t: Token) -> str:
+        label, value = t.label, t.value
+        if label == 'SYMBOL':
+            assert isinstance(value, str)
+            return self.syntax_str_all_levels(value)
+        elif label == 'INT':
+            return f'; `{str(value)}` is an integer'
+        elif label == 'FLOAT':
+            return f'; `{str(value)}` is a float'
+        elif label == 'STRING':
+            return f'; "{value}" is a string'
+        else:
+            return ''
+
+    def syntax_str_all_levels(self, key: Optional[str]=None) -> str:
         s = ''
         if self.parent is not None:
-            s += self.parent.syntax_str_all_levels() + '\n'
-        s += f'; level {self.level}\n'
-        all_syntax = [self.dict_or_set_str('prefix'),
-                        self.dict_or_set_str('infix'),
-                        self.dict_or_set_str('postfix'),
-                        self.dict_or_set_str('arity'),
-                        self.dict_or_set_str('chain'),
-                        self.dict_or_set_str('bindop'),
-                        self.dict_or_set_str('brackets'),
-                        self.dict_or_set_str('flat'),
-                        self.dict_or_set_str('sym'),
-                        self.dict_or_set_str('alias'),
-                        self.dict_or_set_str('var'),
-                        self.dict_or_set_str('const'),
-                        self.dict_or_set_str('bool')]
+            s += self.parent.syntax_str_all_levels(key) + '\n'
+        all_syntax = [self.dict_or_set_str('prefix', key),
+                        self.dict_or_set_str('infix', key),
+                        self.dict_or_set_str('postfix', key),
+                        self.dict_or_set_str('arity', key),
+                        self.dict_or_set_str('chain', key),
+                        self.dict_or_set_str('bindop', key),
+                        self.dict_or_set_str('brackets', key),
+                        self.dict_or_set_str('flat', key),
+                        self.dict_or_set_str('sym', key),
+                        self.dict_or_set_str('alias', key),
+                        self.dict_or_set_str('var', key),
+                        self.dict_or_set_str('const', key),
+                        self.dict_or_set_str('bool', key)]
         s += '\n'.join([syntax for syntax in all_syntax if syntax != ''])
+        s += '\n'    # we should end with a newline
         return s
 
     def is_infix(self, s: str) -> bool:
@@ -1281,9 +1319,8 @@ scanner: re.Pattern = re.compile(fr'''
   (?P<SYMBOL>  [$%@]?[A-Za-z][A-Za-z0-9]*         | # symbols 1: identifiers with at most one leading '$' or '%' or '@'
                [()]                               | # symbols 2: round brackets
                [,]                                | # symbols 3: comma
-               [.]                                | # symbols 4: dot for namespaces
-               [:=+\-*/#&^'∈!<>{{}}[\]|_]+        | # symbols 5: standard operators including literal {{ }}
-               [{re.escape(SPECIAL_SYMBOLS)}])    | # symbols 6: logic, Greek and other math symbols (always single char)
+               [.:=+\-*/#&^'∈!<>{{}}[\]|_]+       | # symbols 4: standard operators including literal {{ }}
+               [{re.escape(SPECIAL_SYMBOLS)}])    | # symbols 5: logic, Greek and other math symbols (always single char)
   (?P<NEWLINE> [\n])                              | # newline
   (?P<WHITE>   [^\S\n\r]+)                        | # whitespace (not newline)
   (?P<ERROR>   .)                                 # anything else is an error
@@ -1910,12 +1947,18 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                     assert False, f'BUG: `load` was scanned with wrong args'
     elif keyword == 'parse':
         if len(args) > 0:
-            msg = ''
+            msg = '; sexpr\n'
             for args_i in args:
                 msg += f'{expr_sexpr(args_i)}, '
-            msg = msg[:-2]
-            if len(label) > 0:
-                msg += f' "{label}"'
+            msg = msg[:-2] + '\n' # remove last ', ' and add newline
+            msg += '; syntax info'
+            for args_i in args:
+                tokens = get_token_set(args_i)
+                info = ''
+                for t in tokens:
+                    info += '\n' + kb.info(t)
+            info = '\n'.join(sorted([line for line in info.split('\n') if len(line) > 0]))
+            msg += f'\n{info}'
             print(msg, file=sys.stdout)
     elif keyword == 'tokenize':
         if len(args) > 0:
@@ -1964,11 +2007,22 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
 
     # SYNTAX RELATED
     elif keyword == 'syntax':
-        if len(args) > 0:
-            raise KurtException(f'ParseError: `{keyword}` does not take any arguments', keyword_token.column)
+        if len(args) == 0:
+            print(kb.syntax_str_all_levels().strip(), file=sys.stdout)
         else:
-            print('; syntax')
-            print(kb.syntax_str_all_levels(), file=sys.stdout)
+            msg = ''
+            for arg in args:
+                match arg:
+                    case [Token(label='STRING'|'SYMBOL', value=s)]:
+                        assert isinstance(s, str)
+                        info = kb.syntax_str_all_levels(s).strip()
+                        if len(info) > 0:
+                            msg += info + '\n'
+                    case _:
+                        msg = create_usage(keyword, [[], ['STRING'], ['SYMBOL']])
+                        raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+            msg = '\n'.join(sorted([line for line in msg.split('\n') if len(line) > 0]))
+            print(msg, file=sys.stdout)
     elif keyword == 'prefix':
         if len(args) == 0:
             print(kb.dict_or_set_str_all_levels(keyword), file=sys.stdout)
@@ -3732,6 +3786,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
     parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading `filename`')
     parser.add_argument('-m', '--markdown',     action='store_true', help=f'run on `.md` files instead of `.kurt`, will ignore everything that is not indented by {md_indent} spaces')
+    parser.add_argument('-r', '--reason-indent', type=int, default=reason_indent, help=f'specify the indentation for reasons (default: {reason_indent})')
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
@@ -3769,6 +3824,10 @@ def main() -> None:
     # debug flag?
     global debug_flag
     debug_flag = args.debug
+
+    # set reason indentation
+    global reason_indent
+    reason_indent = args.reason_indent
 
     # readline history
     if readline:

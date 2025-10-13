@@ -2,23 +2,23 @@
 
 ## NEXT
 
-- TODO bool-again.kurt, why the bool $a?  how has added this?
-- TODO allow chains of equations
+- TODO show also all alias, brackets
+- TODO `chain`s are transitive
+- TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`
+- TODO dependencies: who loads what?  a theory should load all necessary stuff, let theories load their own dependencies
+- TODO allow single-line chains of equations
 - TODO next implement adding numbers
 - TODO do the `arith.kurt`, do `set.kurt`
-- TODO check what to output, to show what has been parsed
 - TODO automatically fix the free variables of a formula once a proof started
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
 - TODO repairs messages for 'pick', 'fix', 'assume'
 - TODO check  if lbp > rbp then left-assoc else right-assoc
 - TODO check theories
 - TODO allow multiple replacement in one step (is that possible?)
-- TODO group.kurt
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
-- TODO implement chains
 - TODO check conditions in `first-order.kurt`
-- TODO: make the Expr objects also frozen, create also some class for it
+- TODO make the Expr objects also frozen, create also some class for it
 - TODO allow several formulas to be separated by comma in one line, so far, separating stuff by comma is undefined
 
 ## TOPICS before releasing 1.0
@@ -37,7 +37,6 @@
 - TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 - TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 - TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
-- TODO `kurt proofs/debug/chains.kurt`: why is the proof ok?  next, turn chain into inequalities, `chain` must be a list of chains
 - TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 - TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
 - TODO do multi-line equations and iff, (no indentation necessary, just must be part of a chain, and previous line must be a chain)

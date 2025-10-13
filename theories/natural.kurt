@@ -1,11 +1,12 @@
 ; natural numbers
+load equality
 
 ;; syntax
-const 0, 1
 infix + 10 10
+brackets { }
 
 ;; inference rules
-use Nat = {0, 1, 2, ...}
+def Nat = {0, 1, 2, ...}
 
 ; alternatively
 use 0 in Nat
@@ -16,3 +17,6 @@ use $n in Nat  implies  $n+1 in Nat
 
 ; A(0)  and  forall n (A(n) -> A(n+1))   implies   forall n A(n)
 use ((sub $x 0 %A) ∧ (∀ $n ∈ Nat  (sub $x $n %A  ⇒  sub $x ($n+1) %A)))   ⇒ ∀ $n in Nat  (sub $x $n %A)   "induction"
+
+; for automatic testing we add the following line:
+;;; Proof checked.

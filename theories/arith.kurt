@@ -103,3 +103,6 @@ use $a >  $b ∧ $a <= $b  ⇒  false
 
 ;; trichotomy
 use $a < $b ∨ $a = $b ∨ $a > $b
+
+; for automatic testing we add the following line:
+;;; Proof checked.

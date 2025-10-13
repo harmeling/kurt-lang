@@ -1,4 +1,5 @@
 ; set theory
+load equality
 
 ; syntax
 infix    in 55 55        ; element
@@ -18,3 +19,6 @@ use ∃ $b ∀ $a ¬ ($a ∈ $b)                    "empty-set"      ; there exi
 
 ; there exists a set that contains 
 use ∀ $a ∀ $b ∃ $c ∀ $d ($d ∈ $c ⇔ ($a ∈ $d ∨ $b ∈ $d))      ; pair set {a, b}
+
+; for automatic testing we add the following line:
+;;; Proof checked.
