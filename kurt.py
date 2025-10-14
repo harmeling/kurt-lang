@@ -606,8 +606,8 @@ class KnowledgeBase:
         else:
             lines = [self._entry_str(keyword, key) for key in some_dict_or_set if select(key) ]
 
-        # put the level at indent 42
-        lines = [f'{line:<42} ; level {self.level}' for line in lines]
+        # put the level at the `reason_indent` column
+        lines = [f'{line:<{reason_indent}}; level {self.level}' for line in lines]
         lines.sort()
         return '\n'.join(lines)
 
