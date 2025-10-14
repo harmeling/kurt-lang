@@ -4,6 +4,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO typing `load` shows all loading libraries
 - TODO have calc on or off
 - TODO `chain`s are transitive
 - TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`

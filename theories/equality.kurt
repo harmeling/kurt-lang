@@ -1,4 +1,5 @@
 ; equality
+load propositional
 
 ;; syntax
 infix = 20 20  ; higher binding power than space, equality is left-associative

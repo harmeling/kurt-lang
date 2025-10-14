@@ -53,7 +53,7 @@ made_by        = 'made by Stefan Harmeling, 2025'
 # config: the indentation for the different blocks
 md_indent      =  7       # for markdown files ignore all lines not starting with `md_indent` many spaces
 proof_indent   =  4       # how much to indent for a `proof` block
-reason_indent  = 60       # how much the reason is indented
+comment_indent = 60       # how much the reason is indented
 tab_indent     =  4       # tabs get converted to four spaces
 
 # config: the basic symbols of the kurt language as constants
@@ -231,8 +231,7 @@ keywords: dict[str, str] = {
     'const':       'declare symbols as fresh constants, i.e., they have not been used or declared before',
     'alias':       'add some aliases for a symbol',
 
-    'theory':      'print all formulas',
-    'implications':'print all implications',
+    'theory':      'print all formulas, or print formulas that have a certain top level symbol',
 
     # formulas
     'use':         'use a formula without proof as a axiom',
@@ -498,10 +497,10 @@ class KnowledgeBase:
     def __init__(self, parent:Optional[KnowledgeBase]=None, mode: Mode=('root', [])) -> None:
         # general
         self.parent: Optional[KnowledgeBase] = parent
-        self._todos: list[str]     = []                   # list of todos (only relevant on level 0)
+        self._todos: list[str]     = []                   # list of todos (only relevant on level 0, all todos are collected there)
         self.level: int            = 0 if parent is None else parent.level + 1
-        self.mode_str: str         = mode[0]              # one of ['root', 'proof', 'assume', 'fix', 'pick']
-        self.mode_expr: Expr       = mode[1]              # the expression that opened the current block (empty for 'root' and 'proof')
+        self.mode_str: str         = mode[0]              # one of ['root', 'tmp', 'proof', 'assume', 'fix', 'pick']
+        self.mode_expr: Expr       = mode[1]              # expression that opened the current block (empty for 'root', 'tmp', 'proof')
         self.libs: list[str]       = []                   # the filenames of loaded libraries
 
         # syntax
@@ -538,7 +537,51 @@ class KnowledgeBase:
 
         # misc
         self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
-        self.verbose: bool  = False if parent is None else parent.verbose           # extra information or not
+        self.verbose: bool  = False if parent is None else parent.verbose             # extra information or not
+
+    def check_all_shown_proved(self):
+        if len(self.show) > 0:                  # any planned formulas inside the current proof?
+            s = '\nNot shown:\n'
+            for f in self.show:
+                s += f'    {f.formula_str(self):<{comment_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
+            raise KurtException(f'{s}\n\nEvalError: not all promised formulas were proven.')
+
+    def push_level(self, mode: Mode) -> KnowledgeBase:
+        return KnowledgeBase(parent=self, mode=mode)
+
+    def pop_level(self) -> KnowledgeBase:
+        if self.level == 0:
+            raise KurtException(f'EvalError: no block to close')
+        self.check_all_shown_proved()  # check that all `show` formulas have been proved
+        assert self.parent is not None, f'BUG: we should be one level up'
+        parent = self.parent
+        self.parent = None        # detaching it might help the garbage collector
+        return parent
+
+    def merge_and_pop(self) -> KnowledgeBase:
+        assert self.parent is not None, f'BUG: cannot merge and pop the top level'
+        # there shouldn't be any promised formulas in self
+        if len(self.show) > 0:
+            raise KurtException(f'EvalError: cannot merge and pop a level with promised formulas, got {len(self.show)} formulas.')
+
+        # merge all attributes except the excluded ones into the parent
+        exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show"}
+        for attr, child_attr in self.__dict__.items():
+            if attr in exclude:
+                continue
+            if hasattr(self.parent, attr):
+                parent_attr = getattr(self.parent, attr)
+                if hasattr(parent_attr, 'update'):
+                    parent_attr.update(child_attr)
+                elif hasattr(parent_attr, 'extend'):
+                    parent_attr.extend(child_attr)
+                else:
+                    assert False, f'BUG: cannot merge attribute {attr}, got type {type(parent_attr)}'
+            else:
+                setattr(self.parent, attr, child_attr)
+
+        # return the parent
+        return self.pop_level()
 
     def nice_mode_str(self) -> str:
         if isinstance(self.mode_expr, list):
@@ -559,6 +602,13 @@ class KnowledgeBase:
         else:
             assert len(self._todos) == 0, f'BUG: `todos` must be stored in the top level'
             return self.todos()
+
+    def loaded_files_str(self) -> str:
+        s = ''
+        if self.parent is not None:
+            s += self.parent.loaded_files_str() + '\n'
+        s += '\n'.join([f'{lib:<{comment_indent}}; level {self.level}' for lib in self.libs]) if len(self.libs) > 0 else '; no files loaded'
+        return s
 
     def _entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix {key} {value}'
@@ -606,8 +656,8 @@ class KnowledgeBase:
         else:
             lines = [self._entry_str(keyword, key) for key in some_dict_or_set if select(key) ]
 
-        # put the level at the `reason_indent` column
-        lines = [f'{line:<{reason_indent}}; level {self.level}' for line in lines]
+        # put the level at the `comment_indent` column
+        lines = [f'{line:<{comment_indent}}; level {self.level}' for line in lines]
         lines.sort()
         return '\n'.join(lines)
 
@@ -949,7 +999,7 @@ class KnowledgeBase:
         if len(self.bool_sig(s)) > 0:
             raise KurtException(f'EvalError: symbol `{s}` is already declared bool')
         if self.is_bindop(s) and 1 in v:
-            raise KurtException(f'EvalError: the first position of binding operators can not be declared boolean')
+            raise KurtException(f'EvalError: first position of binding operator `{s}` can not be declared boolean')
         debug(f'Adding bool signature {v} for symbol `{s}`')
         self.bool[s] = v          # add a key and set the value to the tuple of positions that are bool
 
@@ -1196,6 +1246,7 @@ initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
 initial_kb.add_sym   (AND_SYMBOL)                          # and is symmetric
 initial_kb.add_arity (SUB_SYMBOL, 3)                       # sub takes three args
 initial_kb.add_bindop(SUB_SYMBOL)                          # sub is a binding operator
+initial_kb.used.add(SUB_SYMBOL)                            # sub can be boolean or non-boolean
 initial_kb.add_alias('⊤', TRUE_SYMBOL)                     # alias for true
 initial_kb.add_alias('⇒', IMPL_SYMBOL)                     # alias for implies
 initial_kb.add_alias('∧', AND_SYMBOL)                      # alias for implies
@@ -1678,17 +1729,6 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str)
     else:
         return f'{os.path.basename(filename)}:{line_str} {reason}'
 
-def increase_level(kb:KnowledgeBase, mode: Mode) -> KnowledgeBase:
-    return KnowledgeBase(parent=kb, mode=mode)
-
-def decrease_level(kb:KnowledgeBase) -> KnowledgeBase:
-    if kb.level == 0:
-        raise KurtException(f'EvalError: no block to close')
-    if len(kb.show) > 0:                  # any planned formulas inside the current proof?
-        raise KurtException(f'ProofError: planned formula `{expr_str(kb.show[-1].expr, kb)}` in current proof is unproven')
-    assert kb.parent is not None, f'BUG: we should be one level up'
-    return kb.parent                        # drop current level
-
 def eval_use(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool, keyword: str) -> Formula:
     if not bool_expr(expr, kb, strict=False):    # not strict, since we are possibly adding new symbols
         raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
@@ -1715,7 +1755,7 @@ def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
         raise KurtException(f'ProofError: can not start proof since there is no planned formula on current level')
     if mainstream:
         log('proof', '', kb.level)
-    kb = increase_level(kb, ('proof', []))          # add a new level/scope to the knowledgebase
+    kb = kb.push_level(('proof', []))          # add a new level/scope to the knowledgebase
     return kb
 
 # def
@@ -1738,7 +1778,7 @@ def eval_openblock(kb: KnowledgeBase, mode: Mode, line: int, mainstream: bool) -
     if mainstream:
         reason = f'{line} open local scope'
         log('openblock', reason, kb.level)
-    kb = increase_level(kb, mode)          # add a new level/scope to the knowledgebase
+    kb = kb.push_level(mode)          # add a new level/scope to the knowledgebase
     return kb
 
 def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
@@ -1809,7 +1849,7 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
     reason = decorate_reason(mainstream, reason, filename, str(line))
     label = ''
     f = Formula(kb, expr, str(line), filename, label, reason, keyword='')
-    kb = decrease_level(kb)                    # drop current level and perform some checks
+    kb = kb.pop_level()                    # drop current level and perform some checks
     kb.theory_append(f)                        # add a copy to the theory
     if mainstream:
         log('thus ' + f.formula_str(kb), reason, kb.level)
@@ -1845,7 +1885,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         reason = decorate_reason(mainstream, reason, filename, str(line))
         label = ''
     f = Formula(kb, planned_f.expr, str(planned_f.line), filename, label, reason, keyword='')
-    kb = decrease_level(kb)                    # drop current level and perform some checks
+    kb = kb.pop_level()                    # drop current level and perform some checks
     kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
     kb.theory_append(f)                        # add a copy to the current theory
     if mainstream:
@@ -1929,22 +1969,25 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
     if keyword == 'help':
         for k in keywords.keys(): print(f'  {k:<12} {keywords[k]}', file=sys.stdout)
     elif keyword == 'load':
-        current_path: str = os.path.split(filename)[0]    # search first at the current path
-        local_path = theory_path
-        if len(current_path) > 0:
-            local_path = [current_path] + local_path
         if len(args) == 0:
-            raise KurtException(f'ParseError: `{keyword}` takes at least one filename or several comma-separated', keyword_token.column)
-        debug(f'loading {len(args)} files')
-        debug(f'{args}')
-        for arg in args:
-            assert isinstance(arg, list) and len(arg) == 1, f'BUG: `load` expects [[fname1], [fname2]]'
-            match arg[0]:
-                case Token(label='STRING', value=fname):
-                    assert isinstance(fname, str)
-                    kb = load_file(fname, kb, path=local_path, mainstream=False)
-                case _:
-                    assert False, f'BUG: `load` was scanned with wrong args'
+            print(kb.loaded_files_str().strip(), file=sys.stdout)
+        else:
+            current_path: str = os.path.split(filename)[0]    # search first at the current path
+            local_path = theory_path
+            if len(current_path) > 0:
+                local_path = [current_path] + local_path
+            if len(args) == 0:
+                raise KurtException(f'ParseError: `{keyword}` takes at least one filename or several comma-separated', keyword_token.column)
+            kb = kb.push_level(('tmp', []))          # add a new level/scope to the knowledgebase
+            for arg in args:
+                assert isinstance(arg, list) and len(arg) == 1, f'BUG: `load` expects [[fname1], [fname2]]'
+                match arg[0]:
+                    case Token(label='STRING', value=fname):
+                        assert isinstance(fname, str)
+                        kb = load_file(fname, kb, path=local_path, mainstream=False)
+                    case _:
+                        assert False, f'BUG: `load` was scanned with wrong args'
+            kb = kb.merge_and_pop()  # merge the temporary level into the previous one
     elif keyword == 'parse':
         if len(args) > 0:
             msg = '; sexpr\n'
@@ -2243,16 +2286,22 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
 
     # THEORY AND PROOF RELATED
     elif keyword == 'theory':
-        if len(args) > 0:
-            msg = create_usage(keyword, [[]])
-            raise KurtException(f'EvalError: {keyword} does not take any arguments', keyword_token.column)
-        print(kb.theory_str(), file=sys.stdout)
-
-    elif keyword == 'implications':
-        if len(args) > 0:
-            msg = create_usage(keyword, [[]])
-            raise KurtException(f'EvalError: {keyword} does not take any arguments', keyword_token.column)
-        print(kb.theory_str(op=IMPL_SYMBOL), file=sys.stdout)
+        if len(args) == 0:
+            print(kb.theory_str().strip(), file=sys.stdout)
+        else:
+            msg = ''
+            for arg in args:
+                match arg:
+                    case [Token(label='STRING'|'SYMBOL', value=s)]:
+                        assert isinstance(s, str)
+                        info = kb.theory_str(op=s).strip()
+                        if len(info) > 0:
+                            msg += info + '\n'
+                    case _:
+                        msg = create_usage(keyword, [[], ['STRING'], ['SYMBOL']])
+                        raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+            msg = '\n'.join(sorted([line for line in msg.split('\n') if len(line) > 0]))
+            print(msg, file=sys.stdout)
 
     elif keyword == 'use':
         if len(args) == 0:
@@ -2263,7 +2312,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 try:
                     formulas.append(eval_use(kb, expr, label, filename, line, mainstream, keyword))  # use the expression as an assumption
                 except KurtException:
-                    # let's forget about the `formulas`
+                    # let's forget about the new `formulas` and raise an exception
                     raise
             for f in formulas:
                 kb.theory_append(f)
@@ -2316,7 +2365,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
     elif keyword == 'break':
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` does not take any arguments')
-        kb = decrease_level(kb)                    # drop current level and perform some checks
+        kb = kb.pop_level()                    # drop current level and perform some checks
         if mainstream:
             log('break', f'{line} forget the last proof or local scope', kb.level)
 
@@ -2348,7 +2397,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 f = eval_use(kb, expr, label, filename, line, mainstream=False, keyword='use')  # use the expression as an assumption
                 kb.theory_append(f, symbol_level_prev=True)
             except KurtException:
-                kb = decrease_level(kb)
+                kb = kb.pop_level()
                 raise
         if mainstream:
             reason = f'{line} open local scope with assumption'
@@ -2366,7 +2415,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             try:
                 kb = eval_fix(kb, expr, filename, line, mainstream)
             except KurtException:
-                kb = decrease_level(kb)  # close the block on error
+                kb = kb.pop_level()  # close the block on error
                 raise      # the same exception again
         if mainstream:
             reason = f'{line} open local scope with (possibly constrained) new constants'
@@ -2385,7 +2434,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                     case _:
                         raise KurtException(msg)
             except KurtException:
-                kb = decrease_level(kb)
+                kb = kb.pop_level()
                 raise
         if mainstream:
             reason = f'{line} open local scope with new constant `{new_const}`'
@@ -2508,10 +2557,14 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
 
         # substitutions
         case [Token(label='SYMBOL', value=v), var_x, a, A] if v==SUB_SYMBOL:
-            if not is_var_token(var_x, kb):
-                raise KurtException(f'TypeError: first arg of `sub` must be variable symbol (a boolean var is not allowed)')
-            if bool_expr(a, kb):
-                raise KurtException(f'TypeError: second arg of `sub` must be a non-boolean expression')
+            if is_bool_var_token(var_x, kb):
+                if not bool_expr(a, kb):
+                    raise KurtException(f'TypeError: first arg of `sub` is boolean variable, but second is not', column=expr_column(a))
+            elif is_var_token(var_x, kb):
+                if bool_expr(a, kb):
+                    raise KurtException(f'TypeError: first arg of `sub` is variable, but second is boolean expression', column=expr_column(a))
+            else:
+                raise KurtException(f'TypeError: first arg of `sub` must be variable symbol, got `{expr_str(var_x, kb)}`', column=expr_column(var_x))
             type_check_expression(A, kb)
 
         # most expressions: prefix, postfix, infix, bindop, ...
@@ -2569,7 +2622,7 @@ def log(s: str, reason: str, level: int) -> None:
         if len(reason) == 0:
             print(indent+s, file=sys.stdout)
         else:
-            print(f'{(indent+s):<{reason_indent}}; {reason}', file=sys.stdout)
+            print(f'{(indent+s):<{comment_indent}}; {reason}', file=sys.stdout)
 
 # how to derive a formula?
 # - equalities lead to two rules
@@ -3676,8 +3729,7 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
     return kb
 
 def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:
-    # files are always loaded into level
-    level = kb.level       # save current level
+    # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
     if not filename.endswith('.kurt'):
         filename += '.kurt'
     try:    # just for handling OS errors
@@ -3686,22 +3738,25 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
             raise OSError
         load_level = kb.get_load_level(fname)
         if load_level is not None:
-            raise KurtException(f'EvalError: can not load library `{fname}` twice, it has already been loaded on level {load_level}')
+            print(f'; file `{fname}` has already been loaded on level {load_level}, skipping.', file=sys.stdout)
+            return kb
         with open(fname, encoding='utf-8') as f:
+            kb = kb.push_level(('tmp', []))     # new level just for loading the file, if there are problems, we can just drop it
+            level = kb.level      # save current level, this one we want to reach after loading
             kb = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open `{filename}` searching at {path}') from None
     
     # checks after closing the file
-    if kb.level != level:
-        kb.level = level       # set levels back before raising the exception
-        raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed, missing "qed"?')
-    if len(kb.show) != 0:
-        s = '\nNot shown:\n'
-        for f in kb.show:
-            s += f'    {f.formula_str(kb):<{reason_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
-        raise KurtException(f'{s}\n\nEvalError: inside `{fname}` not all promised formulas were proven.')
+    if kb.level > level:
+        # drop all opened levels and raise exception
+        while kb.level > level:
+            kb = kb.pop_level()
+        raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed.')
+    elif kb.level < level:
+        assert False, f'BUG: `load_file` decreased the level from {level} to {kb.level}'
+    kb = kb.merge_and_pop()   # this ensures that we only keep the level if everything was ok
     kb.libs.append(fname)
     return kb
 
@@ -3715,7 +3770,7 @@ def prompt(level: int, line: int, continued: bool=False) -> str:
         s += f'.[{line}] '                        # line continuation
     else:
         s += f'![{line}] '                        # the bangs mean "show!"
-    return s
+    return '; ' + s
 
 def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False) -> KnowledgeBase:
     is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
@@ -3786,7 +3841,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
     parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading `filename`')
     parser.add_argument('-m', '--markdown',     action='store_true', help=f'run on `.md` files instead of `.kurt`, will ignore everything that is not indented by {md_indent} spaces')
-    parser.add_argument('-r', '--reason-indent', type=int, default=reason_indent, help=f'specify the indentation for reasons (default: {reason_indent})')
+    parser.add_argument('-r', '--comment-indent', type=int, default=comment_indent, help=f'specify the indentation for comments (default: {comment_indent})')
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
@@ -3826,8 +3881,8 @@ def main() -> None:
     debug_flag = args.debug
 
     # set reason indentation
-    global reason_indent
-    reason_indent = args.reason_indent
+    global comment_indent
+    comment_indent = args.comment_indent
 
     # readline history
     if readline:

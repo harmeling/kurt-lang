@@ -8,7 +8,7 @@ true       ; will be always provable.
 ; with the script `kurt.py` by pressing the `Run` button (on the top left). 
 ; It will go through it line by line.  For each line it will be checked 
 ; how it can be inferred from the previous lines.  Since `true` 
-; is always true, there is nothing to aprove.
+; is always true, there is nothing to prove.
 
 ; So we can continue for now with:
 

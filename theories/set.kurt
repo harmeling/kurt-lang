@@ -3,22 +3,29 @@ load equality
 
 ; syntax
 infix    in 55 55        ; element
-infix    |  30 30        ; separator for set comprehension
+infix    |  10 10        ; separator for set comprehension
+infix    ⊂  15 15        ; subset
+infix    ∪  30 30        ; union
+infix    ∩  40 40        ; intersection
 bool     in 0
+bool     ⊂ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
 brackets [ ]             ; squared brackets
 
 ; we assume that all objects are sets
 
-; Zermelo-Fraenkel axioms
-use $a = $b  ⇒  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)  "extensionality" ; two sets are equal iff they have the same elements
-use ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)  ⇒  $a = $b   "extensionality"
+; axioms for {, |, }
+use $a ∈ { $z | sub $x $z %F }  ≡  sub $x $a %F
 
-use ∃ $b ∀ $a ¬ ($a ∈ $b)                    "empty-set"      ; there exists a set with no elements
+; axioms for =, ∅, ∩, ∪, Pow
+use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)      "extensionality" ; two sets are equal iff they have the same elements
+def ∅ = { $a | false }                         "empty set"
+def $a ∩ $b = { $c | $c ∈ $a and $c ∈ $b }     "intersection"
+def $a ∪ $b = { $c | $c ∈ $a or $c ∈ $b }      "union"
+def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)  "subset"
+def Pow($a) = { $b | $b ⊂ $a }                 "power-set"
 
-; there exists a set that contains 
-use ∀ $a ∀ $b ∃ $c ∀ $d ($d ∈ $c ⇔ ($a ∈ $d ∨ $b ∈ $d))      ; pair set {a, b}
 
 ; for automatic testing we add the following line:
 ;;; Proof checked.

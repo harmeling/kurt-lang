@@ -1,0 +1,15 @@
+; contraposition.kurt
+load propositional
+
+var A, B
+use A ⇒ B  ≡  ¬A ∨ B     ; truth table
+use B ≡ ¬¬B
+
+show (A ⇒ B)  ⇔  (¬B ⇒ ¬A)   "contraposition"
+proof
+    A ⇒ B  ≡  ¬A ∨ B
+           ≡  B ∨ ¬A
+           ≡  ¬¬B ∨ ¬A
+           ≡  ¬B ⇒ ¬A
+qed
+
