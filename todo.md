@@ -1,5 +1,7 @@
 # TODOs
 
+git checkout main && git pull && git merge dev && git push && git checkout dev
+
 ## NEXT
 
 - TODO have calc on or off
