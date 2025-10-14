@@ -6,7 +6,7 @@ from examples import examples
 class Test_Parsing(unittest.TestCase):
     def test_parsing(self):
         kb = copy.deepcopy(kurt.initial_kb)
-        kurt.load_file('all.kurt', kb)
+        kurt.load_file('arith.kurt', kb)
         kb.format = 'sexpr'
         for i in range(len(examples)):
             (input_line, _, true_output) = examples[i]               # pick input, parsed

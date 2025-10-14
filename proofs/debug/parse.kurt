@@ -1,4 +1,0 @@
-; parse.kurt
-load equality
-use a = a
-parse a

@@ -1,7 +1,0 @@
-; syntax for many tasks
-load first-order     ; loads "propositional" as well
-load arith           ; loads "equality" as well
-load set
-
-; for automatic testing we add the following line:
-;;; Proof checked.

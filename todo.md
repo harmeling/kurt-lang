@@ -2,7 +2,7 @@
 
 ## NEXT
 
-- TODO show also all alias, brackets
+- TODO have calc on or off
 - TODO `chain`s are transitive
 - TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`
 - TODO dependencies: who loads what?  a theory should load all necessary stuff, let theories load their own dependencies
