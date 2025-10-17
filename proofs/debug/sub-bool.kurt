@@ -8,13 +8,3 @@ use A iff B
 C and A  iff  C and A
 C and A  iff  C and B
 ;;; Proof checked.
-
-; use A iff (not (not A))
-
-; F iff (not (not F))                  ; why use and-elim?
-; (A or B) iff (not (not (A or B)))    ; why use the previous formula?
-; syntax F
-; var
-
-
-; (A or B) iff (A or (not (not B)))    ; can not derive expression

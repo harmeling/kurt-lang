@@ -1,6 +1,10 @@
 ;;; two-equal sets
+
 load set
+
 var A, B, C, M, N
+use M ⊂ N  ⇔  ∀x (x ∈ M ⇒ x ∈ N)    "subset-def"  ; subset
+use M = N  ⇔  M ⊂ N  ∧  N ⊂ M       "eq-def"      ; equality of sets
 
 show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
 proof
@@ -11,15 +15,19 @@ proof
                 x ∈ A  ∧  x ∈ B ∪ C
                 x ∈ A
                 x ∈ B ∪ C
-                case x ∈ B
+                assume x ∈ B
                     x ∈ A  ∧  x ∈ B
                     x ∈ A ∩ B
                     x ∈ (A ∩ B) ∪ (A ∩ C)
-                case x ∈ C
+                thus x ∈ B  ⇒  x ∈ (A ∩ B) ∪ (A ∩ C)
+                assume x ∈ C
                     x ∈ A  ∧  x ∈ C
                     x ∈ A ∩ C
                     x ∈ (A ∩ B) ∪ (A ∩ C)
+                thus x ∈ C  ⇒  x ∈ (A ∩ B) ∪ (A ∩ C)
                 x ∈ (A ∩ B) ∪ (A ∩ C)
+            thus x ∈ A ∩ (B ∪ C)  ⇒  x ∈ (A ∩ B) ∪ (A ∩ C)
+        thus ∀ $x  $x ∈ A ∩ (B ∪ C)  ⇒  $x ∈ (A ∩ B) ∪ (A ∩ C)
     qed
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     proof
@@ -30,11 +38,14 @@ proof
                     x ∈ A
                     x ∈ B ∪ C
                     x ∈ A ∩ (B ∪ C)
+                thus x ∈ A ∩ B ⇒ x ∈ A ∩ (B ∪ C)
                 assume x ∈ A ∩ C
                     x ∈ A  ∧  x ∈ C
                     x ∈ A
                     x ∈ B ∪ C
                     x ∈ A ∩ (B ∪ C)
+                thus x ∈ A ∩ C ⇒ x ∈ A ∩ (B ∪ C)
+            thus x ∈ (A ∩ B) ∪ (A ∩ C) ⇒ x ∈ A ∩ (B ∪ C)
     qed
 qed
 ;;; Proof checked.

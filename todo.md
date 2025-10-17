@@ -4,8 +4,8 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO better inference rules that should make part of `impl_elim` not necessary: when iterating through `all_theory()` also iterate over RHS of implications where the LHS is part of the theory
 - TODO implement `case` (see `001-two-equal-sets.kurt`)
-- TODO check all `is_var` since it triggers also for boolean variables
 - TODO allow automatic line continuation with `sym a,`, i.e., after comma as well
 - TODO checkout `sub $x $a $A`, i.e., with `$A` instead of `%A`
 - TODO have calc on or off

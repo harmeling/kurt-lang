@@ -84,7 +84,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 54:
+        if debug_counter == 100:
             pass
         debug_counter += 1
 
@@ -758,18 +758,22 @@ class KnowledgeBase:
                     return True
         return False
 
-    def get_chain_op(self, chain_so_far: list[str]) -> Optional[str]:
+    def get_chain_op(self, chain_so_far: list[Token]) -> Optional[Token]:
         # find the chain that matches `chain_so_far` and return the operator that is at the largest index matched so far
         for c in self.all_chains():
-            indices: list[int] = []
+            max_index: int = -1
+            max_op: Optional[Token] = None
             for op in chain_so_far:
-                if op in c:
-                    indices.append(c.index(op))
+                assert isinstance(op.value, str)
+                if op.value in c:
+                    max_index = max(max_index, c.index(op.value))
+                    max_op = op
                 else:
-                    indices = []   # one of the ops not found, so try another chain
+                    max_index = -1
+                    max_op = None
                     break
-            if len(indices) > 0:   # all ops were found, return the one with the largest index
-                return c[max(indices)]
+            if max_op is not None:   # all ops were found, return the one with the largest index
+                return max_op
         return None
 
     # all chains define a transitive relation without cycles, i.e., a directed acyclic graph (DAG)
@@ -979,6 +983,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{s}` is already a variable on this level or starts with "$"')
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol `{s}` is already a constant and can not be declared freshly again')
+        debug(f'Adding new constant `{s}` on level {self.level}')
         self.const.add(s)
 
     def add_alias(self, s: str, t: str) -> None:
@@ -1078,6 +1083,7 @@ class KnowledgeBase:
 
     def add_new_symbols(self, e: Expr) -> None:
         self._add_new_bools(e, True)
+        debug(f'Adding new symbols from expression: {expr_str(e,self)}')
         self._add_new_symbols(e, None)
 
     def _add_new_symbols(self, e: Expr, bound_vars: set[str]|None = None) -> None:
@@ -1097,6 +1103,7 @@ class KnowledgeBase:
                     case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail]:
                         if isinstance(op, str) and self.is_bindop(op):
                             assert isinstance(v, str), f'BUG: symbol must be string'
+                            debug(f'Found bound variable `{v}` in binding operator `{op}`')
                             bound_vars = bound_vars | {v}   # add v to a copy of `bound_vars`
                 for child in children:
                     self._add_new_symbols(child, bound_vars)
@@ -1870,7 +1877,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         s = State({}, blocked_as_domain, frozenset())
         optional_s = _first_or_none(unify_exprs_with_patterns([(planned_expr, proven_expr)], s, kb))
         if optional_s is None:
-            raise KurtException(f'ProofError: planned formula `{planned_expr}` does not match the last formula in the theory `{proven_expr}`')
+            raise KurtException(f'ProofError: planned formula `{expr_str(planned_expr, kb)}` does not match the last formula in the theory `{expr_str(proven_expr, kb)}`')
         reason = decorate_reason(mainstream, reason, filename, str(line))
         label = ''
     f = Formula(kb, planned_f.expr, str(planned_f.line), filename, label, reason, keyword='')
@@ -1883,7 +1890,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     return kb
 
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
-    return kb.is_var(s) or not kb.is_used(s)
+    return kb.is_var(s) or not kb.is_const(s)
 
 def extract_by_condition(e: Expr, c: Callable[[str], bool]) -> list[str]:
     match e:
@@ -3176,6 +3183,12 @@ def is_var_token(e:Expr, kb) -> bool:
     assert isinstance(e.value, str)
     return kb.is_var(e.value)
 
+def is_bool_var_token(e:Expr, kb) -> bool:
+    if not (isinstance(e, Token) and e.label == 'SYMBOL'):
+        return False
+    assert isinstance(e.value, str)
+    return kb.is_var(e.value) and kb.is_bool(e.value)
+
 def rename_bound_var(e: Expr, old_v: str, new_v: str) -> Expr:
     match e:
         case Token(label='SYMBOL', value=v) if v == old_v:
@@ -3443,7 +3456,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
 
                 # only fire when the schema is concrete (no %A style bool vars)
                 debug(f'considering triggering sub for `{expr_str(e, kb)}` with `{expr_str(t_s, kb)}` and `{expr_str(A_s, kb)}`')
-                if not contains_bool_vars(A_s, kb):
+                if not is_bool_var_token(A_s, kb):
                     # we're done with the binder x; unblock it BEFORE returning
                     s_after = s_local.unblock(x)
                     # perform capture-avoiding A[x:=t]
@@ -3668,7 +3681,7 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
 
     # read the static variables
     lhs: Optional[Expr] = scan_parse_check_eval._initial_LHS
-    ops: list[str] = scan_parse_check_eval._chained_ops
+    ops: list[Token] = scan_parse_check_eval._chained_ops
 
     # scan the input line and prepare for the parsing
     ts = PeekableGenerator(scan_string(input_line, kb))    # runs the lexer
@@ -3682,8 +3695,8 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
         if first_label == 'SYMBOL' and isinstance(first_value, str):
             if first_value not in keywords and kb.is_chainable(first_value):
                 if lhs is not None and ops != []:       # did we start a chain before?
-                    ops.append(first_value)   # add to the chain so far
-                    resulting_op: Optional[str] = kb.get_chain_op(ops)
+                    ops.append(first_token)   # add to the chain so far
+                    resulting_op: Optional[Token] = kb.get_chain_op(ops)
                     if resulting_op is not None:
                         chained = True
                         ts.prepend(LHS_token)             # add dummy token to the front
@@ -3702,7 +3715,7 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
         assert isinstance(expr_list[0], list)
         assert len(expr_list[0]) == 3 and expr_list[0][1] == LHS_token, f'ParseError: expected exactly continued chain, not {expr_list}'
         assert resulting_op is not None    # otherwise we wouldn't be in `chained` mode
-        expr_list[0][0] = Token('SYMBOL', resulting_op)   # replace the infix operator
+        expr_list[0][0] = resulting_op     # replace the infix operator
         assert lhs is not None
         expr_list[0][1] = deepcopy_expr(lhs)      # replace the dummy token
     else:
@@ -3712,8 +3725,8 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
             assert len(expr_list[0]) == 3
             e0, e1, _ = expr_list[0]
             assert isinstance(e0, Token) and isinstance(e0.value, str)
-            lhs = e1           # store the LHS (which is after parsing the second token)
-            ops = [e0.value]   # store the initial operator (which is after parsing the first token)
+            lhs = e1     # store the LHS (which is after parsing the second token)
+            ops = [e0]   # store the initial operator (which is after parsing the first token)
         else:
             # case 3: reset the chain
             lhs = None
