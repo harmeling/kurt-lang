@@ -3,14 +3,14 @@
 infix = 10 10, ≤ 10 10, < 10 10
 chain = ≤ <
 
-use $x = $y, $x ≤ $y, $x < $y
-z = y
-  = y
-  ≤ x
-y < x
-  ≤ a
-  = b
-  = c
+; use $x = $y, $x ≤ $y, $x < $y
+; z = y
+;   = y
+;   ≤ x
+; y < x
+;   ≤ a
+;   = b
+;   = c
 
 infix iff 5 5
 bool  iff 0 1 2
@@ -23,7 +23,7 @@ alias ⇐ invimplies
 chain iff implies      ; implies forwards
 chain iff invimplies   ; implies backwards
 
-use $A iff $B, $B invimplies $C
+use %A iff %B, %B invimplies %C
 A iff B
   iff C
   implies C

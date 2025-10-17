@@ -1,5 +1,4 @@
 ; simple modus ponens proof
-bool A, B
 use A implies B
 use A
 B

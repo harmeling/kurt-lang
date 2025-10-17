@@ -56,6 +56,9 @@ alias  ≡ iff
 
 use %A  and  %B   implies   %A and %B                               "and-intro"
 use %A  and  %B   implies   %A                                      "and-elim"   ; `and` is symmetric and flat
+; notes
+; "and-intro" looks somewhat weird:  however, it will be used from the python code
+; such that the formulas of the LHS conjunction will be searched for in the theory
 
 use %A   implies   %A or %B                                         "or-intro"   ; `or` is symmetric and flat
 use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"

@@ -2,6 +2,7 @@
 
 import unittest
 import copy
+from typing import Optional
 
 from kurt import (
     Token, Expr, State,

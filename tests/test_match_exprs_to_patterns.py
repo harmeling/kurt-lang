@@ -42,6 +42,7 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         if hasattr(self.kb, "add_arity"):
             self.kb.add_arity("forall", 2)
             self.kb.add_arity("exists", 2)
+            self.kb.add_arity("P", 1)
         if hasattr(self.kb, "add_bindop"):
             self.kb.add_bindop("forall")
             self.kb.add_bindop("exists")
@@ -50,6 +51,7 @@ class TestMatchExprsToPatterns(unittest.TestCase):
             self.kb.add_arity("=", 2)
         if hasattr(self.kb, "add_bool"):
             self.kb.add_bool("=", [0])
+            self.kb.add_bool("P", [0])
 
     # --- 1) plain one-sided matching ---
     def test_match_plain_var_on_pattern(self):
@@ -185,11 +187,11 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         sigma = sols[0]  # e.g. { '%A' : [prime, $z] } with binders aligned later
 
         # Now instantiate LHS with σ, and check it can match the fact by picking $a = 2
-        LHS_inst = trigger_sub(LHS, sigma, kb)  # or apply_subst if you prefer
+        LHS_inst = trigger_sub(LHS, sigma, kb)[0]  # or apply_subst if you prefer
         # We expect to be able to match (sub $x $a %A) to 'prime 2', i.e. choose a=2 and A=prime $x
         sols2 = list(unify_exprs_with_patterns([(fact, LHS_inst)], sigma, kb))
         for s in sols2:
-            t = s.lookup('$z')
+            t = s.lookup('$a')
             assert isinstance(t, Token) and t.value=='2'
 
 if __name__ == "__main__":

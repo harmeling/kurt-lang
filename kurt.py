@@ -84,7 +84,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 295:
+        if debug_counter == 54:
             pass
         debug_counter += 1
 
@@ -292,9 +292,7 @@ class Formula:
     next_id: int = 0
     def __init__(self, kb: KnowledgeBase, expr:Expr, line:str, filename:str, label:str, reason:str, keyword:str):
         self.expr: Expr            = expr               # expression of the formula
-        self.simplified_expr = expr
-        self.simplified_expr: Expr = remove_outer_forall_quantifiers(self.simplified_expr, kb)
-        self.simplified_expr: Expr = rename_all_vars(self.simplified_expr, kb)
+        self.simplified_expr       = expr               # will be simplified later when adding to the knowledge base
         self.line: str             = line               # line of this formula, string since we also want '16a', etc
         self.filename: str         = filename           # file of this formula
         self.label: str            = label              # basically, a name of the formula, e.g., "impl-intro"
@@ -468,7 +466,6 @@ class State:
         e = self.walk(e)
         match e:
             case Token(label='SYMBOL', value=u):
-                #if isinstance(u, str) and (kb.is_var(u) or kb.is_bool_var(u)):
                 return v == u
             case [*children]:
                 return any(self.occurs(v, child) for child in children)
@@ -537,7 +534,8 @@ class KnowledgeBase:
 
         # misc
         self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
-        self.verbose: bool  = False if parent is None else parent.verbose             # extra information or not
+        self.verbose: bool  = False if parent is None else parent.verbose             # show extra information or not
+        self.calc: bool = False if parent is None else parent.calc                    # whether to calculate numerical expressions
 
     def check_all_shown_proved(self):
         if len(self.show) > 0:                  # any planned formulas inside the current proof?
@@ -565,7 +563,9 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: cannot merge and pop a level with promised formulas, got {len(self.show)} formulas.')
 
         # merge all attributes except the excluded ones into the parent
-        exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show"}
+        exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show", "calc"}
+        exclude |= {"var"}   # variables are local to a file/block
+        # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
             if attr in exclude:
                 continue
@@ -723,24 +723,19 @@ class KnowledgeBase:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
 
     def is_var(self, s: str) -> bool:
+        # is_var checks whether a symbol is a variable (could be non-boolean or boolean)
         if s in self.const:
             assert s not in self.var
             return False
+        elif s[0] in ['$', '%']:
+            return True
+        elif s in self.var:
+            return True
         else:
-            return s[0] == '$' or s in self.var or (self.parent is not None and self.parent.is_var(s))
+            return self.parent is not None and self.parent.is_var(s)
 
     def is_local_var(self, s: str) -> bool:                # check only in the current level, used for `add_const`
         return s in self.var
-
-    def is_bool_var(self, s: str) -> bool:
-        # e.g. variable for formulas (in `sub x a A` the symbol `A` is boolean)
-        if s in self.const:
-            assert s not in self.var
-        if s[0] == '%':
-            return True
-        if self.is_var(s):
-            return 0 in self.bool_sig(s)
-        return False
 
     def is_const(self, s: str) -> bool:
         if s in self.var:
@@ -766,13 +761,15 @@ class KnowledgeBase:
     def get_chain_op(self, chain_so_far: list[str]) -> Optional[str]:
         # find the chain that matches `chain_so_far` and return the operator that is at the largest index matched so far
         for c in self.all_chains():
-            try:
-                indices: list[int] = []
-                for op in chain_so_far:
+            indices: list[int] = []
+            for op in chain_so_far:
+                if op in c:
                     indices.append(c.index(op))
+                else:
+                    indices = []   # one of the ops not found, so try another chain
+                    break
+            if len(indices) > 0:   # all ops were found, return the one with the largest index
                 return c[max(indices)]
-            except ValueError:
-                continue
         return None
 
     # all chains define a transitive relation without cycles, i.e., a directed acyclic graph (DAG)
@@ -801,7 +798,7 @@ class KnowledgeBase:
         return self.parent.bool_sig(s)
 
     def is_bool(self, s: str) -> bool:
-        return 0 in self.bool_sig(s)
+        return 0 in self.bool_sig(s)  or  s[0] == '%'
 
     def is_lbracket(self, s: str) -> bool:
         return s in self.brackets.values() or (self.parent is not None and self.parent.is_lbracket(s))
@@ -988,7 +985,7 @@ class KnowledgeBase:
         if self.is_used(s):
             raise KurtException(f'EvalError: symbol `{s}` has been already used in a formula')
         if self.is_var(s):
-            raise KurtException(f'EvalError: symbol `{s}` is already a variable or starts with $')
+            raise KurtException(f'EvalError: symbol `{s}` is already a variable or starts with `$` or `%`')
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol `{s}` is already a constant')
         self.alias[s] = t         # add a key `s` with value `t`
@@ -1000,7 +997,6 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{s}` is already declared bool')
         if self.is_bindop(s) and 1 in v:
             raise KurtException(f'EvalError: first position of binding operator `{s}` can not be declared boolean')
-        debug(f'Adding bool signature {v} for symbol `{s}`')
         self.bool[s] = v          # add a key and set the value to the tuple of positions that are bool
 
     def get_nud(self, token: Token) -> Nud:
@@ -1090,7 +1086,7 @@ class KnowledgeBase:
         match e:
             case Token(label='SYMBOL', value=s):
                 assert isinstance(s, str), f'BUG: token value must be string`'
-                if self.is_var(s) or self.is_bool_var(s) or self.is_const(s):
+                if self.is_var(s) or self.is_const(s):
                     pass
                 elif not self.is_used(s):
                     if s not in bound_vars:
@@ -1178,14 +1174,12 @@ class KnowledgeBase:
                     bool_sigs = {}
                     for e in exprs:
                         bool_sigs |= _get_new_bool_sigs(e, False)  # false, since we don't know better
-                    debug(f'case 5: multiple expressions, adding bool signatures {bool_sigs}')
                     return bool_sigs
 
             return {}
 
         bool_sig = _get_new_bool_sigs(e, bool_pos)
         for s in bool_sig:
-            debug(f'adding `{s}` and {bool_sig[s]}')
             self.add_bool(s, bool_sig[s])
 
     def theory_append(self, f: Formula, symbol_level_prev: bool = False) -> None:
@@ -1195,10 +1189,14 @@ class KnowledgeBase:
             self.parent.add_new_symbols(f.expr)
         else:
             self.add_new_symbols(f.expr)
+        f.simplified_expr = remove_outer_forall_quantifiers(f.simplified_expr, self)
+        f.simplified_expr = rename_all_vars(f.simplified_expr, self)
         self.theory.append(f)
 
     def show_append(self, f: Formula) -> None:
         self.add_new_symbols(f.expr)
+        f.simplified_expr = remove_outer_forall_quantifiers(f.simplified_expr, self)
+        f.simplified_expr = rename_all_vars(f.simplified_expr, self)
         self.show.append(f)
 
     def show_str(self) -> str:
@@ -1341,15 +1339,6 @@ def equal_expr(t1: Expr, t2: Expr) -> bool:                                     
         return all([equal_expr(a, b) for (a,b) in zip(t1, t2)])
     else:                                                     # token and list are always non-equal
         return False
-
-def first_var(expr: Expr, kb: KnowledgeBase) -> str:
-    match expr:
-        case Token(label='SYMBOL', value=s) if isinstance(s, str) and not kb.is_var(s):
-            return s
-        case [head, *tail]:
-            return first_var(head, kb)
-        case _:
-            assert False, 'empty expression?'
 
 # special tokens that are made for the parser and sometimes artificially generated
 space_token: Token = Token('SYMBOL', SPACE_SYMBOL)  # for expressions like 'f x'
@@ -1513,7 +1502,7 @@ def canonical_key(t: Expr, s: State, kb: KnowledgeBase) -> tuple:
 
     if isinstance(t, Token):
         val = t.value
-        is_var = isinstance(val, str) and (kb.is_var(val) or kb.is_bool_var(val))
+        is_var = isinstance(val, str) and kb.is_var(val)
         # Normalize the value for sorting (avoid mixing types)
         val_key = ('S', val) if isinstance(val, str) else ('O', repr(val))
         # Order: constants (0) < variables (1)
@@ -1763,11 +1752,11 @@ def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
 def eval_def(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> tuple[Formula, str]:
     match expr:
         case [Token(label='SYMBOL', value=s), LHS, RHS] if isinstance(s, str) and (s== EQUAL_SYMBOL or s==IFF_SYMBOL):
-            lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bool_var(s))
+            lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s))
             if len(lhs_candidates) != 1:
                 raise KurtException(f'EvalError: `def` requires exactly one new constant on the left-hand side, got `{lhs_candidates}` in `{expr_str(expr, kb)}`')
             lhs_const = lhs_candidates[0]
-            rhs_candidates = extract_by_condition(RHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bool_var(s))
+            rhs_candidates = extract_by_condition(RHS, lambda s: not kb.is_const(s) and not kb.is_var(s))
             if len(rhs_candidates) != 0:
                 raise KurtException(f'EvalError: `def` does not allow new symbols on the right-hand side, got `{rhs_candidates}` in `{expr_str(expr, kb)}`')
         case _:
@@ -1784,7 +1773,7 @@ def eval_openblock(kb: KnowledgeBase, mode: Mode, line: int, mainstream: bool) -
 def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
     # check whether the expression contains any boolean variables
     match expr:
-        case Token(label='SYMBOL', value=s) if isinstance(s, str) and kb.is_bool_var(s):
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and kb.is_var(s) and kb.is_bool(s):
             return True
         case [*children]:
             return any(contains_bool_vars(c, kb) for c in children)
@@ -1821,7 +1810,7 @@ def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: in
     # the constants on the current level are not allowed, however, the variables of the previous level are allowed (see `de-morgan.kurt`)
     assert kb.parent is not None
     kb_parent = kb.parent
-    not_allowed = set(filter(lambda s: not kb_parent.is_bool_var(s) and not kb_parent.is_var(s), kb.const))
+    not_allowed = set(filter(lambda s: not kb_parent.is_var(s), kb.const))
     if contains(expr, not_allowed, kb):
         raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of `thus`, got `{expr_str(expr, kb)}`')
 
@@ -1894,7 +1883,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     return kb
 
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
-    return kb.is_var(s) or kb.is_bool_var(s) or not kb.is_used(s)
+    return kb.is_var(s) or not kb.is_used(s)
 
 def extract_by_condition(e: Expr, c: Callable[[str], bool]) -> list[str]:
     match e:
@@ -2405,7 +2394,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             log(f'{keyword} {assumptions_str}', reason, kb.level-1)  # log the new constant
 
     elif keyword == 'fix':
-        debug(args)
         msg = 'EvalError: `fix` takes new constants or boolean expressions'
         if len(args) == 0:
             raise KurtException(msg)
@@ -2513,7 +2501,6 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], label
         return kb
     else:
         # expression with a keyword
-        debug(expr_list)
         kb = eval_keyword_expression(keyword_token, expr_list, label, kb, line, filename, mainstream)
         return kb
 
@@ -2526,13 +2513,19 @@ def bool_expr(expr: Expr, kb: KnowledgeBase, strict: bool=True) -> bool:
     # - at some places we are strict
     # - at other places (like eval_use) we are not strict, since we are adding a new formula
     match expr:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
             return True                    # boolean variables
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and not kb.is_bool_var(v):
+        case Token(label='SYMBOL', value=v):
+            assert isinstance(v, str)
             if strict or kb.is_used(v):
                 return 0 in kb.bool_sig(v)
             else:
-                return True   # not used yet!  so it will soon be boolean
+                if v[0] == '$':
+                    return False
+                elif v[0] == '%':
+                    return True
+                else:
+                    return True   # not used yet and unclear name!  so it will soon be boolean
         case Token(label='TODO', value=''):
             return True
         case [Token(label='SYMBOL', value=v), *tail] if v==SUB_SYMBOL:
@@ -2544,8 +2537,10 @@ def bool_expr(expr: Expr, kb: KnowledgeBase, strict: bool=True) -> bool:
 def expr_column(expr : Expr) -> int:
     match expr:
         case Token():
-            assert isinstance(expr.column, int)
-            return expr.column
+            if expr.column is None:
+                return 0
+            else:
+                return expr.column
         case [*children]:
             assert len(children) > 0
             return expr_column(children[0])
@@ -2557,23 +2552,27 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
 
         # substitutions
         case [Token(label='SYMBOL', value=v), var_x, a, A] if v==SUB_SYMBOL:
-            if is_bool_var_token(var_x, kb):
-                if not bool_expr(a, kb):
-                    raise KurtException(f'TypeError: first arg of `sub` is boolean variable, but second is not', column=expr_column(a))
-            elif is_var_token(var_x, kb):
-                if bool_expr(a, kb):
-                    raise KurtException(f'TypeError: first arg of `sub` is variable, but second is boolean expression', column=expr_column(a))
-            else:
+            assert isinstance(v, str), f'BUG: a token with label `SYMBOL` must have string-valued value'
+            if not is_var_token(var_x, kb):
                 raise KurtException(f'TypeError: first arg of `sub` must be variable symbol, got `{expr_str(var_x, kb)}`', column=expr_column(var_x))
+            assert isinstance(var_x, Token) and isinstance(var_x.value, str)
+            bv = kb.is_bool(var_x.value)         # a bool variable
+            be = bool_expr(a, kb)
+            if bv and not be:
+                raise KurtException(f'TypeError: first arg of `sub` is boolean variable, but second is not', column=expr_column(a))
+            if be and not bv:
+                raise KurtException(f'TypeError: first arg of `sub` is variable, but second is boolean expression', column=expr_column(a))
             type_check_expression(A, kb)
 
-        # most expressions: prefix, postfix, infix, bindop, ...
+        # most expressions: prefix, postfix, infix, bindop (but not `sub`, see above), ...
         case [Token(label='SYMBOL', value=op), *tail]:
             assert isinstance(op, str)
             # (1) do the args fit the declared type in `bool_sig`
             for idx in range(1, len(expr)):
-                if idx in kb.bool_sig(op) and not bool_expr(expr[idx], kb, strict=False):
-                    raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(expr[idx], kb)}` must be boolean', column=expr_column(expr[idx]))
+                ei = expr[idx]
+                if idx in kb.bool_sig(op) and not bool_expr(ei, kb, strict=False):
+                    if ei != LHS_token:
+                        raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(expr[idx], kb)}` must be boolean', column=expr_column(expr[idx]))
             # (2) additional checks for binding operators
             if kb.is_bindop(op):
                 # check that the first argument is either a variable or a boolean expression
@@ -2672,7 +2671,7 @@ def forall_intro(expr: Expr, kb: KnowledgeBase, filename: str, mainstream: bool)
             case _:
                 # no forall quantifier found, possibly we have a matching free variable
                 fix_expr_i = fix_expr[i]
-                if is_var_token(fix_expr_i, kb_parent) or is_bool_var_token(fix_expr_i, kb_parent):
+                if is_var_token(fix_expr_i, kb_parent):
                     assert isinstance(fix_expr_i, Token) and isinstance(fix_expr_i.value, str)
                     if fix_expr_i.value not in fv:
                         raise KurtException(f'EvalError: the fixed variable `{fix_expr_i.value}` must occur free in the expression to prove, got `{expr_str(expr, kb)}`')
@@ -2799,7 +2798,7 @@ def bool_vars(expr: Expr, kb: KnowledgeBase) -> set[str]:
     match expr:
 
         # the token of a boolean
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
             return set([v])
         
         # any other token is not a boolean variable
@@ -2894,7 +2893,9 @@ def rename_all_vars(expr: Expr, kb: KnowledgeBase) -> Expr:
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
 
     # rename all variables (yes, some are renamed again, this can be improved later (TODO))
+    debug(f'expr before renaming: {expr}')
     expr = rename_all_vars_rec(expr, kb)[0]
+    debug(f'expr after renaming: {expr}')
     return expr
 
 def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: Optional[State] = None, bound_vars: set[str]|None = None) -> tuple[Expr, State]:
@@ -2908,14 +2909,18 @@ def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: Optional[State] = None
     match expr:
 
         # a token of an (at least) locally free (boolean or not) variable will be replaced either by a known substitution or with a new name
-        case Token(label='SYMBOL', value=var) if isinstance(var, str) and not kb.is_const(var) and (kb.is_var(var) or kb.is_bool_var(var) or var in bound_vars):
+        case Token(label='SYMBOL', value=var) if isinstance(var, str) and not kb.is_const(var) and (kb.is_var(var) or var in bound_vars):
             new_expr = s.lookup(var)
             if new_expr is None:
-                if kb.is_var(var) or var in bound_vars:
-                    # note that `bound_vars` do not have to be declared as variables in `kb`, since from the binding operator it is clear that they are variables
-                    new_var = new_var_name()
+                if var in bound_vars or kb.is_var(var):
+                    # note that `bound_vars` do not have to be declared as variables in `kb`, since they are bound they must be variables
+                    if kb.is_bool(var):
+                        # a bound variable that is boolean must begin with `%`
+                        new_var = new_bool_var_name()
+                    else:
+                        new_var = new_var_name()
                 else:
-                    new_var = new_bool_var_name()
+                    raise KurtException(f'BUG: variable `{var}` is neither a variable nor a boolean variable, but appears in the expression `{expr_str(expr, kb)}`')
                 new_expr = Token(label='SYMBOL', value=new_var, column=expr.column, origin=expr.origin)
             return new_expr, s.bind(var, new_expr)  # extend the state with the new binding
 
@@ -2931,7 +2936,7 @@ def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: Optional[State] = None
             # operator gets processed with current scope (actually nothing to do)
             head1, s = rename_all_vars_rec(expr[0], kb, s, bound_vars)
 
-            # `bind_var` and `body` are processed in the context, that `bind_var in bound_vars`
+            # `bind_var` and `body` are processed in the context, that `bind_var in bound_vars` hold
             new_bound_vars = bound_vars | {bind_var}
             head2, s = rename_all_vars_rec(expr[1], kb, s, new_bound_vars)
 
@@ -2969,12 +2974,15 @@ def bound_var_safe(expr: Expr, token_x: Token, expr_a: Optional[Expr], expr_A: E
 
 def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr], kb: KnowledgeBase) -> Iterator[tuple[Optional[Expr], Expr]]:
     # generate all `($a, %A)` such that `expr == sub $x $a %A`
+    # (alternatively: all `($a, %A)` such that `expr == sub %x %a %A`)
     # however, two requirements:
     # (1) `$x` does not appear in `expr` as a free or bound variable, this is ensured by renaming bound variables in `expr`
     # (2) `$a` does not contain freely any variables that are bound in `%A` (actually only bound at the locations of `$x`)
     [free, bound] = free_bound_vars(expr, kb)
     var_x = token_x.value
-    assert var_x not in free and var_x not in bound, f'BUG: `{var_x}` must not appear in `{expr_str(expr, kb)}`'
+
+    if var_x in free or var_x in bound:
+        return    # no combinations possible, since `$x` appears in `expr`, so `sub $x $a %A` is impossible
 
     ### allow only one subterm to be replaced, much more efficient
     for (cand_expr_a, cand_expr_A) in all_single_hole_decompositions(expr, token_x):
@@ -3033,6 +3041,10 @@ def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iter
 
 # couple of problems:
 # - also we are generating some wrong combinations where we replace bound variables in `%A` with `$x`, what is allowed, can `$a` contain any bound variables of `%A`?  probably not!
+#
+# this should work for:
+# (1) `sub $x a A`  with variable `$x`
+# (2) `sub %x a A`  with boolean variable `%x`
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], s: State, kb: KnowledgeBase) -> Iterator[State]:
 
     # check that `expr` is not a sub expression
@@ -3043,18 +3055,21 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
     token_sub, token_x, p_a, p_A = pattern
     assert isinstance(token_sub, Token) and token_sub.value == SUB_SYMBOL
     assert isinstance(token_x, Token) and isinstance(token_x.value, str)
-    ## assert kb.is_var(token_x.value)   # we don't require bound variables to be declared variable already
     var_x = token_x.value
 
     # `sub $x  a  A` or
     # `sub $x $a  A` or
     # `sub $x  a %A` or
-    # `sub $x $a %A`
+    # `sub $x $a %A` or
+    # `sub %x  a  A` or
+    # `sub %x %a  A` or
+    # `sub %x  a %A` or
+    # `sub %x %a %A`
     var_a:  Optional[str]
     a:      Optional[Expr]
     if isinstance(p_a, Token) and isinstance(p_a.value, str) and kb.is_var(p_a.value):
         var_a = p_a.value
-        a = s.lookup(var_a)    # `$a` might have been assigned earlier, will be None otherwise
+        a = s.lookup(var_a)    # `$a`/`%a` might have been assigned earlier, will be None otherwise
         #  `a` is none, we can choose it later
     else:
         var_a = None
@@ -3062,7 +3077,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
 
     all_combinations: Iterator[tuple[Optional[Expr], Expr]]  # generator of `a` and `A` that create a match
     var_A: Optional[str]
-    if isinstance(p_A, Token) and isinstance(p_A.value, str) and kb.is_bool_var(p_A.value):
+    if isinstance(p_A, Token) and isinstance(p_A.value, str) and kb.is_var(p_A.value) and kb.is_bool(p_A.value):
         var_A = p_A.value
         A = s.lookup(var_A)    # `%A` might have been assigned earlier, will be None otherwise
         if A is None:
@@ -3094,7 +3109,6 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
             if var_a is not None and expr_a is not None:
                 s_local = s_local.bind(var_a, expr_a)   # extend the state with the new binding for `$a`
             # now that we found a substitution for `$a` and `%A`
-            #debug(f'$a=`{expr_str(expr_a, kb) if expr_a is not None else "?"}`  %A=`{expr_str(expr_A, kb)}`', kb)
             yield from unify_exprs_with_patterns(tail, s_local, kb)
 
 # helper functions
@@ -3156,16 +3170,11 @@ def partitions(seq:list[T], k: int) -> Iterator[list[list[T]]]:
             yield new_part
 
 def is_var_token(e:Expr, kb) -> bool:
+    # can be either boolean or non-boolean
     if not (isinstance(e, Token) and e.label == 'SYMBOL'):
         return False
     assert isinstance(e.value, str)
     return kb.is_var(e.value)
-
-def is_bool_var_token(e:Expr, kb) -> bool:
-    if not (isinstance(e, Token) and e.label == 'SYMBOL'):
-        return False
-    assert isinstance(e.value, str)
-    return kb.is_bool_var(e.value)
 
 def rename_bound_var(e: Expr, old_v: str, new_v: str) -> Expr:
     match e:
@@ -3196,48 +3205,32 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
             # equal, just continue with the `tail`
             yield from unify_exprs_with_patterns(tail, s, kb)
 
-        elif is_var_token(pattern, kb) or is_var_token(expr, kb) or is_bool_var_token(expr, kb) or is_bool_var_token(pattern, kb):
+        elif is_var_token(pattern, kb) or is_var_token(expr, kb):
             if is_var_token(pattern, kb):
-                # `pattern` is a variable
+                # `pattern` is a variable (maybe `expr` as well)
                 assert isinstance(pattern, Token) and isinstance(pattern.value, str)
                 v = pattern.value
                 assert s.lookup(v) is None
-                if not s.occurs(v, expr) and not s.is_blocked_as_domain(v) and not s.contains_blocked_as_range(expr):
-                    # we can safely assign `v` without creating infinite substitutions
-                    s = s.bind(v, expr)   # extend the substitution
-                    #debug(f'assigning: {v} to {expr_str(expr, kb)}')
-                    yield from unify_exprs_with_patterns(tail, s, kb)
+                bp = kb.is_bool(v)
+                be = bool_expr(expr, kb)
+                if ((bp and be) or (not bp and not be and not s.contains_blocked_as_range(expr))):                
+                    if not s.occurs(v, expr) and not s.is_blocked_as_domain(v):
+                        # we can safely assign `v` without creating infinite substitutions
+                        s = s.bind(v, expr)   # extend the substitution
+                        yield from unify_exprs_with_patterns(tail, s, kb)
 
             if is_var_token(expr, kb):
-                # `expr` is a variable (the case where `expr` and `pattern` are both variables is handled by the previous case)
+                # `expr` is a variable (maybe `pattern` as well)
                 assert isinstance(expr, Token) and isinstance(expr.value, str)
                 u = expr.value
                 assert s.lookup(u) is None
-                if not s.occurs(u, pattern) and not s.is_blocked_as_domain(u) and not s.contains_blocked_as_range(pattern):
-                    # we can safely assign `u` without creating infinite substitutions
-                    s = s.bind(u, pattern)   # extend the substitution
-                    #debug(f'assigning: {u} to {expr_str(pattern, kb)}')
-                    yield from unify_exprs_with_patterns(tail, s, kb)
-
-            if is_bool_var_token(pattern, kb):
-                # `pattern` is a boolean variable
-                assert isinstance(pattern, Token) and isinstance(pattern.value, str)
-                V = pattern.value
-                assert s.lookup(V) is None
-                if not s.occurs(V, expr) and not s.is_blocked_as_domain(V):
-                    # we can safely assign `V` without creating infinite substitutions
-                    s = s.bind(V, expr)   # extend the substitution
-                    yield from unify_exprs_with_patterns(tail, s, kb)
-
-            if is_bool_var_token(expr, kb):
-                # `expr` is a boolean variable
-                assert isinstance(expr, Token) and isinstance(expr.value, str)
-                W = expr.value
-                assert s.lookup(W) is None
-                if not s.occurs(W, pattern) and not s.is_blocked_as_domain(W):
-                    # we can safely assign `W` without creating infinite substitutions
-                    s = s.bind(W, pattern)   # extend the substitution
-                    yield from unify_exprs_with_patterns(tail, s, kb)
+                be = kb.is_bool(u)
+                bp = bool_expr(expr, kb)
+                if ((bp and be) or (not bp and not be and not s.contains_blocked_as_range(pattern))):
+                    if not s.occurs(u, pattern) and not s.is_blocked_as_domain(u):
+                        # we can safely assign `u` without creating infinite substitutions
+                        s = s.bind(u, pattern)   # extend the substitution
+                        yield from unify_exprs_with_patterns(tail, s, kb)
 
         else:
             # branch on `pattern` for unification
@@ -3320,7 +3313,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
 def expr_without_boolean_var(expr: Expr, kb: KnowledgeBase) -> bool:
     # check whether `expr` is a final expression, i.e., it does not contain any boolean variables
     match expr:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
             return False  # boolean variable
         case Token():
             return True   # not a boolean variable
@@ -3332,10 +3325,8 @@ def free_vars_only(e: Expr, kb: KnowledgeBase) -> set[str]:
 
 def free_bool_vars_only(e: Expr, kb: KnowledgeBase) -> set[str]:
     match e:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_bool_var(v):
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
             return {v}
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
-            return set()
         case Token():
             return set()
         case [*children]:
@@ -3372,7 +3363,7 @@ def alpha_rename_binder_body(body: list[Expr], old: str, new: str, kb: Knowledge
 def fresh_like(name: str, avoid: set[str], kb: KnowledgeBase) -> str:
     # make a fresh variable name of the same sort as `name` not in `avoid`.
     # uses your generators; ensure kb treats them as variables.
-    if kb.is_bool_var(name):
+    if kb.is_bool(name):
         while True:
             cand = new_bool_var_name()
             if cand not in avoid: return cand
@@ -3451,6 +3442,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                 A_s, s_local = trigger_sub_core(A, s_local.block_always(x))
 
                 # only fire when the schema is concrete (no %A style bool vars)
+                debug(f'considering triggering sub for `{expr_str(e, kb)}` with `{expr_str(t_s, kb)}` and `{expr_str(A_s, kb)}`')
                 if not contains_bool_vars(A_s, kb):
                     # we're done with the binder x; unblock it BEFORE returning
                     s_after = s_local.unblock(x)
@@ -3540,6 +3532,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
 def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[str, State]:
 
     # continue with the renamed and simplified variant of `proven_formula` that is generated during the construction of it
+    debug(f'trying `{expr=}` with `{proven_formula}`')
     formula_expr: Expr = proven_formula.simplified_expr
 
     # assign `conclusion` and `premises`
@@ -3554,14 +3547,21 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
         assert isinstance(op_token, Token)
         LHS = remove_outer_forall_quantifiers(formula_expr[1], kb)
         RHS = remove_outer_forall_quantifiers(formula_expr[2], kb)
+        # first attempt: LHS implies RHS
         LHSimpliesRHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), LHS, RHS], kb)
         reason, s_local = impl_elim(expr, LHSimpliesRHS, filename, mainstream, s, kb)
         if len(reason) > 0:
             return reason, s_local
+        # second attempt: RHS implies LHS
         RHSimpliesLHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), RHS, LHS], kb)
         reason, s_local = impl_elim(expr, RHSimpliesLHS, filename, mainstream, s, kb)
         if len(reason) > 0:
             return reason, s_local
+        # third attempt: LHS iff RHS directly
+        s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s, kb))
+        if s_final is not None:
+            reason = f'by {formula_ref(proven_formula, filename, mainstream)}'
+            return reason, s_final
         return '', State.empty()    # no luck this time
     else:                                 # case 2: "implication" with an empty premise (think of `true implies $A`)
         conclusion = formula_expr
@@ -3571,7 +3571,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
     blocked_as_domain = frozenset(s.blocked_as_domain | free_bound_vars(expr, kb)[0])
     s = State(s.subst, blocked_as_domain, s.blocked_as_range)
     #debug(f'NEW: try to show {expr_str(expr, kb)} from {formula_ref(proven_formula, filename, mainstream)} which is {expr_str(formula_expr, kb)}')
-    #debug(f'match {expr_str(expr, kb)} against {expr_str(conclusion, kb)}')
+    debug(f'match {expr_str(expr, kb)} against {expr_str(conclusion, kb)}')
     s_final: Optional[State] = State.empty()
     for s_matched in unify_exprs_with_patterns([(expr, conclusion)], s, kb):
         if premise is None:
@@ -3655,7 +3655,8 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive expression')
 
-LHS_token = Token('SYMBOL', value='$$LHS$$') # a special token to mark the LHS of the last row
+LHS_value = '$$LHS$$'
+LHS_token = Token('SYMBOL', value=LHS_value) # a special token to mark the LHS of the last row
 
 def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
 
@@ -3673,7 +3674,6 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
     ts = PeekableGenerator(scan_string(input_line, kb))    # runs the lexer
 
     # chain management before parsing
-    debug(f'chain management before parsing: {lhs=}, {ops=}, {input_line=}')
     chained = False
     first_token: Optional[Token] = ts.peek # do we have a chainable operator at the start?
     if first_token is not None:
@@ -3687,7 +3687,6 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
                     if resulting_op is not None:
                         chained = True
                         ts.prepend(LHS_token)             # add dummy token to the front
-                        debug(f'continuing chain with {first_value=}, resulting in {resulting_op=}')
                     else:
                         raise KurtException(f'ParseError: invalid chain of operators `{ops}` at line {line} in {filename}')
 

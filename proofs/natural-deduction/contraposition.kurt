@@ -1,15 +1,29 @@
 ; contraposition.kurt
-load propositional
+
+;; syntax
+prefix not        18     ; logical not
+infix  or      14 14     ; logical or
+infix  iff     10 10     ; logical if-and-only-if
+bool   not     0 1       ; `not` and its inputs have type bool
+bool   or      0 1 2     ; `or` and its inputs have type bool
+bool   iff     0 1 2     ; `and` and its inputs have type bool
+chain  iff implies       ; implies left-to-right
+alias  ¬ not
+alias  ∨ or
+alias  ⇔ iff
+alias  ≡ iff
+
+; minimal set of rules for this example
+use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
 
 var A, B
 use A ⇒ B  ≡  ¬A ∨ B     ; truth table
 use B ≡ ¬¬B
 
-show (A ⇒ B)  ⇔  (¬B ⇒ ¬A)   "contraposition"
+show (A ⇒ B)  ≡  (¬B ⇒ ¬A)   "contraposition"
 proof
     A ⇒ B  ≡  ¬A ∨ B
            ≡  B ∨ ¬A
            ≡  ¬¬B ∨ ¬A
            ≡  ¬B ⇒ ¬A
 qed
-

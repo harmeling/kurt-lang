@@ -4,7 +4,10 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
-- TODO typing `load` shows all loading libraries
+- TODO implement `case` (see `001-two-equal-sets.kurt`)
+- TODO check all `is_var` since it triggers also for boolean variables
+- TODO allow automatic line continuation with `sym a,`, i.e., after comma as well
+- TODO checkout `sub $x $a $A`, i.e., with `$A` instead of `%A`
 - TODO have calc on or off
 - TODO `chain`s are transitive
 - TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`
@@ -23,6 +26,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO check conditions in `first-order.kurt`
 - TODO make the Expr objects also frozen, create also some class for it
 - TODO allow several formulas to be separated by comma in one line, so far, separating stuff by comma is undefined
+- TODO some tokens (e.g. SPACE) have no column number
 
 ## TOPICS before releasing 1.0
 
