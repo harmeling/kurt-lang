@@ -56,38 +56,38 @@ proof
     show ¬(p∨q) ⇒ ¬p ∧ ¬q
     proof
         fix p, q
-        assume ¬(p∨q)
-        assume p
-        p ∨ q
-        ⊥
-        thus p ⇒ ⊥
-        ¬p
-        assume q
-        p ∨ q
-        ⊥
-        thus q ⇒ ⊥
-        ¬q
-        ¬p ∧ ¬q
-        thus ¬(p∨q) ⇒ ¬p ∧ ¬q
+            assume ¬(p∨q)
+                assume p
+                    p ∨ q
+                    ⊥
+                thus p ⇒ ⊥
+                ¬p
+                assume q
+                    p ∨ q
+                    ⊥
+                thus q ⇒ ⊥
+                ¬q
+                ¬p ∧ ¬q
+            thus ¬(p∨q) ⇒ ¬p ∧ ¬q
         thus ¬(p∨q) ⇒ ¬p ∧ ¬q
     qed
     show ¬p ∧ ¬q ⇒ ¬(p∨q)
     proof
         fix p, q             ; locally make them constants
-        assume ¬p ∧ ¬q
-        assume p∨q
-        assume p
-        ¬p
-        ⊥
-        thus p ⇒ ⊥
-        assume q
-        ¬q
-        ⊥
-        thus q ⇒ ⊥
-        ⊥
-        thus p∨q ⇒ ⊥
-        ¬(p∨q)
-        thus ¬p ∧ ¬q ⇒ ¬(p∨q)
+            assume ¬p ∧ ¬q
+                assume p∨q
+                    assume p
+                        ¬p
+                        ⊥
+                    thus p ⇒ ⊥
+                    assume q
+                        ¬q
+                        ⊥
+                    thus q ⇒ ⊥
+                    ⊥
+                thus p∨q ⇒ ⊥
+                ¬(p∨q)
+            thus ¬p ∧ ¬q ⇒ ¬(p∨q)
         thus ¬p ∧ ¬q ⇒ ¬(p∨q)
     qed
     ¬(p∨q) ≡ ¬p ∧ ¬q
