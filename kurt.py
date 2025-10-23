@@ -35,7 +35,7 @@ import atexit       # atexit.register
 import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional
 
 try:
@@ -254,8 +254,9 @@ keywords: dict[str, str] = {
     }
 helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
-keywords_with_parsing = ['use', 'show', 'def', 'assume', 'fix', 'thus', 'todo', 'parse']
-
+keywords_with_parsing = ['use', 'show', 'def', 'assume', 'fix', 'todo', 'parse']
+keywords_opening_blocks = ['proof', 'assume', 'fix', 'pick', 'sandbox']
+keywords_closing_blocks = ['qed', 'back']
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END', 'TODO']
 Value:  TypeAlias = str | int | float
@@ -601,7 +602,7 @@ class KnowledgeBase:
             return self._todos
         else:
             assert len(self._todos) == 0, f'BUG: `todos` must be stored in the top level'
-            return self.todos()
+            return self.parent.todos()
 
     def loaded_files_str(self) -> str:
         s = ''
@@ -1266,7 +1267,7 @@ initial_kb.add_alias('∧', AND_SYMBOL)                      # alias for implies
 
 def expr_str(expr: Expr, kb: KnowledgeBase) -> str:
     if kb.format == 'sexpr':
-        return expr_sexpr(expr)
+        return expr_sexpr(expr, kb)
     elif kb.format == 'normal':
         s: str = expr_normal(expr, kb)
         if len(s) > 0  and  s[0] == '(' and s[-1] == ')':
@@ -1275,7 +1276,7 @@ def expr_str(expr: Expr, kb: KnowledgeBase) -> str:
     else:
         assert False, f'BUG: unknown expression format, got {kb.format}'
 
-def expr_sexpr(expr: Expr) -> str:                      # create s-expression
+def expr_sexpr(expr: Expr, kb: KnowledgeBase) -> str:                      # create s-expression
     match expr:
         case Token(label='STRING', value=v):
             return f'"{v}"'       # quotation marks
@@ -1285,13 +1286,13 @@ def expr_sexpr(expr: Expr) -> str:                      # create s-expression
             else:
                 return str(origin)
         case [*entries]:
-            return f'({" ".join([expr_sexpr(e) for e in entries])})'
+            return f'({" ".join([expr_sexpr(e, kb) for e in entries])})'
     assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
 
 def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression
     match expr:
         case Token():
-            return expr_sexpr(expr)            # reuse implementation from expr_sexpr
+            return expr_sexpr(expr, kb)            # reuse implementation from expr_sexpr
         case [e0]:
             return expr_normal(e0, kb)
         case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_prefix(a):
@@ -1545,13 +1546,13 @@ def symmetrize_all(expr: Expr, kb: KnowledgeBase) -> Expr: # symmetric operators
     else:
         assert False, f'BUG: expression must be list or Token, got {expr_str(expr, kb)}'
 
-def flatten_op(flat_op: str, expr: Expr) -> Expr:  # flatten nested 'op'-expressions
+def flatten_op(flat_op: str, expr: Expr, kb: KnowledgeBase) -> Expr:  # flatten nested 'op'-expressions
     # e.g. [',', 17, [',', 42, 100]] --> [',', 17, 42, 100]
     match expr:
         case [Token(label='SYMBOL', value=op), *tail] if op==flat_op:
             e: Expr = [expr[0]]
             for child in tail:
-                ee: Expr = flatten_op(flat_op, child)
+                ee: Expr = flatten_op(flat_op, child, kb)
                 if is_op_expr(ee, flat_op):
                     assert isinstance(ee, list) and len(ee) > 1
                     e.extend(ee[1:])
@@ -1559,14 +1560,14 @@ def flatten_op(flat_op: str, expr: Expr) -> Expr:  # flatten nested 'op'-express
                     e.append(ee)
             return e
         case [*_]:
-            return [flatten_op(flat_op, e) for e in expr]
+            return [flatten_op(flat_op, e, kb) for e in expr]
         case Token():
             return expr
     assert False, f'BUG: expression must be list or Token, got {expr_str(expr, kb)}'
 
 def flatten_all(expr: Expr, kb: KnowledgeBase) -> Expr:
     for op in kb.all_flat():
-        expr = flatten_op(op, expr)       # flatten certain operators
+        expr = flatten_op(op, expr, kb)       # flatten certain operators
     return expr
 
 def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
@@ -1601,14 +1602,14 @@ def process_arity(expr: Expr, kb: KnowledgeBase) -> Expr:
     assert isinstance(expr, list)
     return [process_arity(e, kb) for e in expr]
 
-def remove_round_brackets(expr: Expr) -> Expr:
+def remove_round_brackets(expr: Expr, kb: KnowledgeBase) -> Expr:
     match expr:
         case Token():
             return expr
         case [Token(label='SYMBOL', value='($$$)'), sub_expr]:
-            return remove_round_brackets(sub_expr)
+            return remove_round_brackets(sub_expr, kb)
         case [*list_expr]:
-            return [remove_round_brackets(e) for e in list_expr]
+            return [remove_round_brackets(e, kb) for e in list_expr]
         case _:
             assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
 
@@ -1656,9 +1657,9 @@ def check_expr_label(expr: Expr, kb) -> tuple[Expr, str]:            # check [ex
     return tail, label
 
 def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
-    expr = flatten_op(SPACE_SYMBOL, expr)               # flatten all space operators
+    expr = flatten_op(SPACE_SYMBOL, expr, kb)               # flatten all space operators
     expr = process_arity(expr, kb)                      # turns space operators into function calls according to arities
-    expr = remove_round_brackets(expr)                  # remove round brackets for grouping
+    expr = remove_round_brackets(expr, kb)                  # remove round brackets for grouping
     expr, label = check_expr_label(expr, kb)       # check and split `expr` and `label`
     expr = flatten_all(expr, kb)                        # flatten `flat` operators
     expr = symmetrize_all(expr, kb)                     # symmetrize `sym` operators
@@ -1956,7 +1957,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename
     kb.theory_append(f)
     return kb, fact
 
-def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
+def eval_keyword_expression(keyword_token: Token, args: Expr, delta: int, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
     assert isinstance(args, list)
@@ -1988,7 +1989,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
         if len(args) > 0:
             msg = '; sexpr\n'
             for args_i in args:
-                msg += f'{expr_sexpr(args_i)}, '
+                msg += f'{expr_sexpr(args_i, kb)}, '
             msg = msg[:-2] + '\n' # remove last ', ' and add newline
             msg += '; syntax info'
             for args_i in args:
@@ -2474,7 +2475,7 @@ def split_by_comma(e: Expr) -> list[Expr]:
         args.append(current_arg)
     return args
 
-def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
+def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], delta: int, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     if keyword_token is None:
         # expression without keyword: try to derive the formula and add it to the theory
         if len(expr_list) == 0:
@@ -2508,8 +2509,7 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], label
         return kb
     else:
         # expression with a keyword
-        kb = eval_keyword_expression(keyword_token, expr_list, label, kb, line, filename, mainstream)
-        return kb
+        return eval_keyword_expression(keyword_token, expr_list, delta, label, kb, line, filename, mainstream)
 
 ########################
 ## kurt type checking ##
@@ -3671,20 +3671,68 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
 LHS_value = '$$LHS$$'
 LHS_token = Token('SYMBOL', value=LHS_value) # a special token to mark the LHS of the last row
 
-def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> KnowledgeBase:
+# create a state object for the lexer
+@dataclass
+class LexerState:
+    # for the chaining of infix operators across multiple lines
+    initial_LHS: Optional[Expr] = None                           # LHS of the line starting the chain
+    chained_ops: list[Token] = field(default_factory=list)       # infix operators of the chain seen so far
+    # for the indentation handling
+    indent_stack: list[int] = field(default_factory=lambda: [0]) # stack of indentation levels (in spaces)
+    indent_requester: str = ''                  # the keyword requesting an indented block
+    # for good diagnostics
+    line: int = 0                                                # current line number
+    col: int = 0                                                 # current column number
 
-    # we store the LHS of the initial line that starts a chain and the infix operators seen so far
-    if not hasattr(scan_parse_check_eval, "_initial_LHS"):     # use static variable of the function
-        scan_parse_check_eval._initial_LHS = None              # LHS of the line starting the chain
-    if not hasattr(scan_parse_check_eval, "_chained_ops"):     # use static variable of the function
-        scan_parse_check_eval._chained_ops = []                # infix operators of the chain seen so far
+def count_leading_spaces(s: str) -> int:
+    """Count leading spaces and reject tabs."""
+    leading = s[:len(s) - len(s.lstrip())]
+    if '\t' in leading:
+        raise KurtException('ParseError: tabs are not allowed for indentation, use spaces only')
+    return len(leading)
 
-    # read the static variables
-    lhs: Optional[Expr] = scan_parse_check_eval._initial_LHS
-    ops: list[Token] = scan_parse_check_eval._chained_ops
+def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> tuple[KnowledgeBase, LexerState]:
+
+    # read some lexer state variables
+    lhs: Optional[Expr] = lexer_state.initial_LHS
+    ops: list[Token] = lexer_state.chained_ops
+
+    # count the indentation and strip leading spaces
+    leading_spaces = count_leading_spaces(input_line)
+    input_line = input_line.lstrip()   # remove leading spaces for parsing
 
     # scan the input line and prepare for the parsing
     ts = PeekableGenerator(scan_string(input_line, kb))    # runs the lexer
+
+    # indentation handling before parsing
+    # three cases:
+    # 1. increased indentation, check that we expected it or that we are starting a chain
+    # 2. same indentation, do nothing or continue chain
+    # 3. decreased indentation, pop levels until we reach the new level or stop a chain
+    if leading_spaces > lexer_state.indent_stack[-1]:
+        if len(lexer_state.indent_requester) > 0:
+            lexer_state.indent_requester = ''       # reset expectation
+        elif len(ops) == 1:
+            # we are starting a chain, once allow increased indentation
+            pass 
+        else:
+            raise KurtException(f'ParseError: unexpected increased indentation at line {line} in {filename}')
+        # no error, so push the new indentation level
+        lexer_state.indent_stack.append(leading_spaces)
+        delta = 1   # increased by one level, will need one INDENT
+    else:
+        # either case 2 or case 3
+        if len(lexer_state.indent_requester) > 0:
+            raise KurtException(f'ParseError: expected increased indentation at line {line} in {filename} after `{lexer_state.indent_requester}`.')
+        # calculate number of DEDENTS
+        delta = 0   # how many levels should we pop?
+        assert len(lexer_state.indent_stack) > 0, 'BUG: indentation stack empty during decrease, no zero?'
+        while leading_spaces < lexer_state.indent_stack[-1]:
+            lexer_state.indent_stack.pop()
+            delta = delta - 1
+            assert len(lexer_state.indent_stack) > 0, 'BUG: indentation stack empty during decrease, no zero?'
+        if leading_spaces != lexer_state.indent_stack[-1]:
+            raise KurtException(f'ParseError: indentation at line {line} in {filename} does not match any outer block level')
 
     # chain management before parsing
     chained = False
@@ -3702,6 +3750,9 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
                         ts.prepend(LHS_token)             # add dummy token to the front
                     else:
                         raise KurtException(f'ParseError: invalid chain of operators `{ops}` at line {line} in {filename}')
+
+    # NEW
+    # put a try-except around the parsing, to handle the continuation lines properly
 
     # the usual parsing (raises exception if `chained=False` but `first_token` is chainable)
     keyword_token, expr_list, label = parse_tokenstream(ts, kb)  # runs the parser
@@ -3733,12 +3784,18 @@ def scan_parse_check_eval(input_line: str, kb: KnowledgeBase, line: int, filenam
             ops = []
 
     # evaluate
-    kb   = eval_expression(keyword_token, expr_list, label, kb, line, filename, mainstream) # evaluation
+    kb = eval_expression(keyword_token, expr_list, delta, label, kb, line, filename, mainstream) # evaluation
 
-    # write back the static variables
-    scan_parse_check_eval._initial_LHS = lhs
-    scan_parse_check_eval._chained_ops = ops
-    return kb
+    # update lexer state for indentation handling
+    if keyword_token is not None and keyword_token.value in keywords_opening_blocks:
+        lexer_state.indent_requester = keyword_token.value  # next line should be indented
+    else:
+        lexer_state.indent_requester = ''
+
+    # update lexer state for chaining
+    lexer_state.initial_LHS = lhs
+    lexer_state.chained_ops = ops
+    return kb, lexer_state
 
 def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
@@ -3776,26 +3833,25 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
 ## commandline interface ##
 ###########################
 
-def prompt(level: int, line: int, continued: bool=False) -> str:
-    s = '>' * level
-    if continued:
-        s += f'.[{line}] '                        # line continuation
-    else:
-        s += f'![{line}] '                        # the bangs mean "show!"
-    return '; ' + s
+def kurt_prompt(level: int, line: int, continued: bool=False) -> str:
+    p = level*'    '    # current level
+    p += '.' if continued else '!'     # continuation?
+    p += f'[{line}] '                  # line number
+    return p
 
 def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False) -> KnowledgeBase:
     is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
     line       = 1
     continued  = False
+    lexer_state = LexerState()   # lexer state for indentation management
     input_line = ''
     if not is_file and readline:
         readline.parse_and_bind("tab: complete")    # enable tab completion
     while True:
         try:
             if not is_file:
-                prompt_text = prompt(kb.level, line, continued)
-                new_line = input(prompt_text).rstrip()     # uses readline
+                prompt_text = kurt_prompt(kb.level, line, continued)
+                new_line = input(prompt_text).rstrip()
                 new_line = replace_latex_syntax(new_line)  # automatic replacements in the shell before running the scanner
             else:
                 new_line = input_stream.readline()
@@ -3810,8 +3866,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                     continue                              # ignore the line
             input_line += new_line
             try:
-                kb = scan_parse_check_eval(input_line, kb, line, input_stream.name, mainstream)
-            except StopIteration:
+                kb, lexer_state = scan_parse_check_eval(input_line, lexer_state, kb, line, input_stream.name, mainstream)
+            except StopIteration:  # while parsing: need more input, i.e., `kb` has not changed yet, `lexer_state` has not changed either
                 input_line += ' '  # add a space to the input line
                 continued = True
                 line += 1
