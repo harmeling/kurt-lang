@@ -243,14 +243,14 @@ keywords: dict[str, str] = {
 
     'todo':        'without a formula it is a joker for the next one, with a formula it is a joker for that one',
 
-    # opening blocks
-    'assume':      'open a block and assume a formula, the block must be finished with `thus`, made for `impl-intro`',
-    'fix':         'fix a new constant, possibly as an assumption, the block must be finished with `thus`, made for `forall-intro`',
-    'pick':        'picks a new constant `with` assumption, made for `exists-elim`',
+    # opening blocks (besides `proof`)
+    'assume':      'open a block and assume a formula (made for "impl-intro"), block must be indented',
+    'fix':         'fix a new constant, possibly as an assumption (made for "forall-intro"), block must be indented',
+    'pick':        'pick a new constant "with" assumption (made for "exists-elim"), block must be indented',
+    'sandbox':     'open a temporary block, useful for trying out things, the block must be indented',
 
-    # closing blocks
-    'thus':        'finish a block that was started with `assume`, `fix` or `pick`, and prove the given formula using the previous block',
-    'break':       'break the current proof block without proving anything, should only be used in the shell'
+    # closing blocks (besides `qed`)
+    'back':        'close the current block, is only be required in the shell'
     }
 helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
@@ -1807,11 +1807,10 @@ def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
         case _:
             return False
 
-def eval_thus(kb: KnowledgeBase, expr: Expr, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    # `thus` is closing a block opened by `assume`, `fix` and `pick`
+def eval_back(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
+    # DEDENT or `back` is closing a block opened by `assume`, `fix` and `pick`
     # but also for `not-intro`, `forall-intro`, `impl-intro`, `exists-elim`
 
-    # check that there are no constant symbols on this level appearing in `expr`
     # (1) for `assume` (not-intro and impl-impl) create new constants already on the level below
     # (2) for `fix` (forall-intro) and `pick` (exists-elim) create new constants on the new level
 
@@ -2350,21 +2349,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, delta: int, label:
                 todo = decorate_reason(False, f'todo {expr_str(expr, kb)}', filename, str(line))
                 kb.todo_add(todo)
 
-    elif keyword == 'thus':
-        if len(args) == 0:
-            raise KurtException(f'EvalError: `{keyword}` takes an expression as argument')
-        elif len(args) == 1:
-            expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-            kb = eval_thus(kb, expr, label, filename, line, mainstream)  # use the expression as a conclusion
-        else:
-            raise KurtException(f'ParseError: `show` takes only one formula, no comma-separated list allowed')
-
-    elif keyword == 'break':
+    elif keyword == 'back':
         if len(args) > 0:
-            raise KurtException(f'EvalError: `{keyword}` does not take any arguments')
-        kb = kb.pop_level()                    # drop current level and perform some checks
-        if mainstream:
-            log('break', f'{line} forget the last proof or local scope', kb.level)
+            raise KurtException(f'ParseError: `{keyword}` does not take any arguments')
+        kb = eval_back(kb, filename, line, mainstream)  # use the expression as a conclusion
 
     elif keyword == 'show':
         if len(args) == 0:
@@ -2738,7 +2726,7 @@ def not_intro(expr: Expr, kb: KnowledgeBase) -> str:
             raise KurtException(msg)
     return f'by "not-intro" (derived from last local scope)'
 
-# this function is called in one case of `eval_thus`
+# this function is called in one case of `eval_back`
 def impl_intro(expr: Expr, kb: KnowledgeBase) -> str:
     
     # step 1: collect all assumptions of the current level

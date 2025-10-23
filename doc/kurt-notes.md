@@ -2049,3 +2049,9 @@ possible problems:
 
 - every subterm could become a property `lock`, which is locked once something is assigned
 
+
+## 2025-10-23
+
+- strict exact indentation
+- allow continuation with `\`
+- allow chains with indentation

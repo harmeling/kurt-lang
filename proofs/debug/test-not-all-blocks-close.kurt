@@ -3,4 +3,4 @@
 load propositional
 show true
 proof
-;;; EvalError: inside `./proofs/debug/test-not-all-blocks-close.kurt` not all blocks closed.
+;;; ParseError: expected increased indentation at line 6 in ./proofs/debug/test-not-all-blocks-close.kurt after `proof`.

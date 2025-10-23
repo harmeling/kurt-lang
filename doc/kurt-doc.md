@@ -224,4 +224,3 @@ in a file, variables are only for the files, while constants persist also when l
 ## blocks
 
 ### 'fix' for forall-intro
-
