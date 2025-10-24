@@ -1,0 +1,11 @@
+; assume-thus.kurt
+use B
+assume A
+    B
+    done
+A implies B
+
+assume C
+    B
+theory
+;;; Proof checked.

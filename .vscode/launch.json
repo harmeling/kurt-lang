@@ -2,21 +2,27 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Debug with -d",
-      "type": "python",
+      "name": "Python: Debug (without args prompt)",
+      "type": "debugpy",
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "args": [
-        "-d",
-        "${input:filename}"
-      ],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "Python: Debug (with args prompt)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "args": ["${input:args}"],
       "cwd": "${workspaceFolder}",
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
       "name": "Python: Debug Tests",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "purpose": ["debug-test"],      // used by the Test Explorer / CodeLens
       // ⚠️ no "program"/"module"/"code" here
@@ -27,7 +33,7 @@
     },
     {
       "name": "unittest: Debug (discover tests/)",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "unittest",
       "args": ["discover", "-s", "tests", "-p", "test_*.py", "-v"],
@@ -42,6 +48,11 @@
       "id": "filename",
       "type": "promptString",
       "description": "Enter the filename to check"
+    },
+    {
+      "id": "args",
+      "type": "promptString",
+      "description": "Enter args to pass to the program"
     }
   ]
 }

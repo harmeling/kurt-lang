@@ -10,10 +10,9 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
           c
         a    \ ; put explicit continuation symbol
         + c    ; would be nice to have, however, how do you know after the first line something is coming?
-- TODO remove `thus` and `break`, implement `sandbox`
 - TODO iterate over the formulas in theory and over all conclusions (RHS of implications) as well
 - TODO rename `fix` to `let`, what about `let x`, shouldn't everything belong to something?
-
+- TODO make a good verbose mode for teaching/being helpful
 - TODO better inference rules that should make part of `impl_elim` not necessary: when iterating through `all_theory()` also iterate over RHS of implications where the LHS is part of the theory
 - TODO syntactic sugar implement `case` (see `001-two-equal-sets.kurt`)
 - TODO allow automatic line continuation with `sym a,`, i.e., after comma as well
@@ -39,6 +38,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## TOPICS before releasing 1.0
 
+- TODO don't create all those Tokens on-the-fly, but some like the `not_token` can be created and reused.
 - TODO get rid of labels, just make the first word of the comment after a formula its label, get rid of string data type
 - TODO space binding: for quantifier it should be higher, for limits, sums higher
 - TODO maybe the code gets simpler, when self.used and self.bool gets merged.  i.e., all used symbols have a type!
