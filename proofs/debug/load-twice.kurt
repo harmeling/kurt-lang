@@ -2,7 +2,8 @@ show true
 proof
     load modal
     true
-qed                 ; remove the stuff loaded from "model"
+    trail
+qed               ; remove the stuff loaded from "model"
 show true
 proof
     load modal    ; should be alright

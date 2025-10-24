@@ -16,24 +16,21 @@ const q
 show ⊥ ⇒ q  "ex-falso-quodlibet"
 proof
     assume ⊥
-        assume ¬ q
+        assume ¬q
             ⊥
-        thus ¬ q ⇒ ⊥
-        ¬ ¬ q
+        ¬¬q
         q
-    thus ⊥ ⇒ q             ; impl-intro
 qed
 
 show ⊥ ⇒ %q  "ex-falso-quodlibet"
 proof
-    fix %q
+    let %q
         assume ⊥
-            assume ¬ %q
+            assume ¬%q
                 ⊥
-            thus ¬ %q ⇒ ⊥
-            ¬ ¬ %q
+            ¬¬%q
             %q
-        thus ⊥ ⇒ %q        ; impl-intro
-    thus ⊥ ⇒ %q            ; forall-intro
+        ⊥ ⇒ %q
+    ⊥ ⇒ %q
 qed
 ;;; Proof checked.

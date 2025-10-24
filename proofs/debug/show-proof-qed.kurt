@@ -5,6 +5,5 @@ show E implies F
 proof
     assume E
         F
-    thus E implies F
 qed
 ;;; Proof checked.

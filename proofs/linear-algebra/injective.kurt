@@ -19,18 +19,15 @@ proof
     assume ($a ∘ $b)($c) = ($d ∘ $e)($f)
         ($a ∘ $b)($c) = $d($e($f))
         $a($b($c)) = $d($e($f))
-    thus ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))
 qed
 
 ; theorem
 show ∀x ∀y ((f∘g)(x)=(f∘g)(y) ⇒ x=y) ; composition of f and g is injective
 proof
-    fix x, y                              ; arbitrary but constant
+    let x, y                              ; arbitrary but constant
         assume (f∘g)(x) = (f∘g)(y)
             f(g(x)) = f(g(y))             ; def of composition
             g(x) = g(y)                   ; f injective
             x = y                         ; g injective
-        thus (f∘g)(x)=(f∘g)(y) ⇒ x=y      ; impl-intro
-    thus ∀x ∀y ((f∘g)(x)=(f∘g)(y) ⇒ x=y)  ; forall-intro
 qed
 ;;; Proof checked.

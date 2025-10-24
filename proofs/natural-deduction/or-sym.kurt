@@ -7,25 +7,20 @@ load propositional
 var a, b
 show a ∨ b  ⇔  b ∨ a   "or-sym"
 proof
-    fix a, b
+    let a, b
         assume a ∨ b
             assume a
                 b ∨ a
-            thus a ⇒ b ∨ a
             assume b
                 b ∨ a
-            thus b ⇒ b ∨ a
             b ∨ a
-        thus a ∨ b ⇒ b ∨ a
         assume b ∨ a
             assume b
                 a ∨ b
-            thus b ⇒ a ∨ b
             assume a
                 a ∨ b
-            thus a ⇒ a ∨ b
             a ∨ b
-        thus b ∨ a ⇒ a ∨ b
-    thus a ∨ b  ⇔  b ∨ a
+        a ∨ b  ⇔  b ∨ a
+    a ∨ b  ⇔  b ∨ a
 qed
 ;;; Proof checked.

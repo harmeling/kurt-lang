@@ -12,7 +12,6 @@ proof
     assume p
         q
         ⊥
-    thus p ⇒ ⊥    ; with extra step
     ¬p
 qed
 ;;; Proof checked.

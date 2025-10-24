@@ -4,5 +4,5 @@
 load propositional
 assume p ∨ q
     q ∨ p
-thus p ∨ q ⇒ q ∨ p
+p ∨ q ⇒ q ∨ p
 ;;; Proof checked.

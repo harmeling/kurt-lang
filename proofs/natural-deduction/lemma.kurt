@@ -1,29 +1,23 @@
 ; lemma.kurt
 load propositional
-
-show %E ∧ %F  ⇒  %F ∧ %E
-proof
-    fix %E, %F
-        assume %E ∧ %F
-            %E
-            %F
-            %F ∧ %E
-        thus %E ∧ %F ⇒ %F ∧ %E
-    thus %E ∧ %F  ⇒  %F ∧ %E
-qed
-
 var A, B, C
 show (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)
 proof
-    fix A, B, C                              ; variables must be fixed
+    let A, B, C                              ; `let` turns variables into constants
         assume (A ⇒ (B ⇒ C))
             assume A ∧ B
                 A
                 B
                 B ⇒ C
                 C
-            thus A ∧ B ⇒ C
-        thus (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)   ; here A, B, C are constant
-    thus (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)       ; here again variable
+qed
+
+show %E ∧ %F  ⇒  %F ∧ %E
+proof
+    let %E, %F
+        assume %E ∧ %F
+            %E
+            %F
+            %F ∧ %E
 qed
 ;;; Proof checked.

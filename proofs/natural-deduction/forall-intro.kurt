@@ -9,31 +9,27 @@ use ∀ $x B $x
 
 show ∀ $x (A $x ∧ B $x)
 proof
-    fix x
+    let x
         A x
         B x
         A x ∧ B x
-    thus ∀ x (A x ∧ B x)
 qed
 
 show ∀ $x (A $x ∨ C $x)
 proof
-    fix x
+    let x
         A x
         A x ∨ C x
-    thus ∀ x (A x ∨ C x)   ; must use `x` since it was introduced with `fix x`
 qed
 
 use ∀ $x (D $x ⇒ E $x)
 show (∀ $x D $x) ⇒ (∀ $x E $x)
 proof
     assume ∀ $x D $x
-        fix x
+        let x
             D x
             D x ⇒ E x
             E x
-        thus ∀ x E x       ; must use `x` since it was introduced with `fix x`
         ∀ $x E $x
-    thus (∀ $x D $x) ⇒ (∀ $x E $x)
 qed
 ;;; Proof checked.

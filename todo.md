@@ -4,13 +4,23 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO forall-intro should not create quantifier for boolean variables
+- TODO implement indentation based blocks, checkout continuations and chains, infix and brackets
+  - continuations:
+        a +
+          c
+        a    \ ; put explicit continuation symbol
+        + c    ; would be nice to have, however, how do you know after the first line something is coming?
+- TODO iterate over the formulas in theory and over all conclusions (RHS of implications) as well
+- TODO rename `fix` to `let`, what about `let x`, shouldn't everything belong to something?
+- TODO make a good verbose mode for teaching/being helpful
 - TODO better inference rules that should make part of `impl_elim` not necessary: when iterating through `all_theory()` also iterate over RHS of implications where the LHS is part of the theory
-- TODO implement `case` (see `001-two-equal-sets.kurt`)
+- TODO syntactic sugar implement `case` (see `001-two-equal-sets.kurt`)
 - TODO allow automatic line continuation with `sym a,`, i.e., after comma as well
 - TODO checkout `sub $x $a $A`, i.e., with `$A` instead of `%A`
 - TODO have calc on or off
-- TODO `chain`s are transitive
-- TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`
+- TODO `chain`s are always transitive
+- TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`, if it is transitive also more
 - TODO dependencies: who loads what?  a theory should load all necessary stuff, let theories load their own dependencies
 - TODO allow single-line chains of equations
 - TODO next implement adding numbers
@@ -25,15 +35,16 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
 - TODO check conditions in `first-order.kurt`
 - TODO make the Expr objects also frozen, create also some class for it
-- TODO allow several formulas to be separated by comma in one line, so far, separating stuff by comma is undefined
 - TODO some tokens (e.g. SPACE) have no column number
 
 ## TOPICS before releasing 1.0
 
+- TODO don't create all those Tokens on-the-fly, but some like the `not_token` can be created and reused.
 - TODO get rid of labels, just make the first word of the comment after a formula its label, get rid of string data type
 - TODO space binding: for quantifier it should be higher, for limits, sums higher
 - TODO maybe the code gets simpler, when self.used and self.bool gets merged.  i.e., all used symbols have a type!
-- TODO have a sandbox kurt, where we first try and try, and then store it to the theory
+- TODO have a `save` command that stores the current theory and state
+- TODO have a `sandbox` block, where we first try and try, and then store it to the theory
 - TODO get group.kurt working with constants and with `var x, y, z`
 - TODO do calculations with integers and reals
 - TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?
@@ -46,7 +57,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
 - TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 - TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
-- TODO do multi-line equations and iff, (no indentation necessary, just must be part of a chain, and previous line must be a chain)
 - TODO write documentation/tutorial for the language
 - TODO refactoring: work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
 - TODO search all TODO in the code and check whether they are still relevant

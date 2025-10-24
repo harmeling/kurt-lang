@@ -18,12 +18,9 @@ proof
     assume p ∨ q
         assume p
             q ∨ p
-        thus p ⇒ q ∨ p
         assume q
             q ∨ p
-        thus q ⇒ (q ∨ p)
         q ∨ p
-    thus (p ∨ q) ⇒ (q ∨ p)
 qed
 ;;; Proof checked.
 
@@ -31,12 +28,9 @@ show (p ∨ q) ⇒ (q ∨ p)
 proof
     assume p
         q ∨ p
-    thus p ⇒ (q ∨ p)
     assume q
         q ∨ p
-    thus q ⇒ (q ∨ p)
     assume p ∨ q
         q ∨ p
-    thus (p ∨ q) ⇒ (q ∨ p)
 qed
 ;;; Proof checked.

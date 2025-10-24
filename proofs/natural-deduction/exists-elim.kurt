@@ -13,6 +13,6 @@ proof
     pick a with P(a)
         P(a) ⇒ B
         B
-    thus C
+    C
 qed
 ;;; Proof checked.

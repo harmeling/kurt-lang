@@ -11,6 +11,5 @@ proof
     assume p
         q
         ⊥
-    thus ¬p
 qed
 ;;; Proof checked.

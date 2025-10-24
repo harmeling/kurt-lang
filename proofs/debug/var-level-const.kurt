@@ -3,5 +3,5 @@ var x
 assume A
   const x       ; that's ok, since on the current level there is no variable
   true
-thus A ⇒ true
+A ⇒ true
 ;;; Proof checked.

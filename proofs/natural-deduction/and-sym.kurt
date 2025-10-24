@@ -7,17 +7,15 @@ load propositional
 var a, b
 show a ∧ b  ⇔  b ∧ a   "and-sym"
 proof
-    fix a, b
+    let a, b
         assume a ∧ b
             a
             b
             b ∧ a
-        thus a ∧ b ⇒ b ∧ a
         assume b ∧ a
             b
             a
             a ∧ b
-        thus b ∧ a ⇒ a ∧ b
-    thus a ∧ b  ⇔  b ∧ a
+    a ∧ b  ⇔  b ∧ a
 qed
 ;;; Proof checked.

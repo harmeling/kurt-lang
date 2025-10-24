@@ -4,7 +4,6 @@ show ¬⊥
 proof
     assume ⊥
         ⊥              ; restatement
-    thus ⊥ ⇒ ⊥         ; impl-intro
     ¬⊥                 ; not-intro
 qed
 

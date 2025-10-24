@@ -9,9 +9,7 @@ proof
         assume ¬p
             p ∧ ¬p
             ⊥
-        thus ¬p ⇒ ⊥
         ¬¬p
-    thus p ⇒ ¬¬p
 qed                     ; finally generalize from the local constant to a variable
 
 ; variant 2
@@ -21,8 +19,6 @@ proof
         assume ¬%p
             %p ∧ ¬%p
             ⊥
-        thus ¬%p ⇒ ⊥
         ¬¬%p
-    thus %p ⇒ ¬¬%p
 qed                     ; finally generalize from the local constant to a variable
 ;;; Proof checked.

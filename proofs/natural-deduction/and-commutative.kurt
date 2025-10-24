@@ -15,6 +15,5 @@ proof
         p
         q
         q AND p
-    thus p AND q ⇒ q AND p
 qed
 ;;; Proof checked.
