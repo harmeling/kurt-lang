@@ -4,6 +4,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO forall-intro should not create quantifier for boolean variables
 - TODO implement indentation based blocks, checkout continuations and chains, infix and brackets
   - continuations:
         a +

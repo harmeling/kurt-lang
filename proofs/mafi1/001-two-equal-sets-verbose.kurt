@@ -10,7 +10,7 @@ show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
 proof
     show A ∩ (B ∪ C) ⊂ (A ∩ B) ∪ (A ∩ C)
     proof
-        fix x
+        let x
             assume x ∈ A ∩ (B ∪ C)
                 x ∈ A  ∧  x ∈ B ∪ C
                 x ∈ A
@@ -19,33 +19,26 @@ proof
                     x ∈ A  ∧  x ∈ B
                     x ∈ A ∩ B
                     x ∈ (A ∩ B) ∪ (A ∩ C)
-                thus x ∈ B  ⇒  x ∈ (A ∩ B) ∪ (A ∩ C)
                 assume x ∈ C
                     x ∈ A  ∧  x ∈ C
                     x ∈ A ∩ C
                     x ∈ (A ∩ B) ∪ (A ∩ C)
-                thus x ∈ C  ⇒  x ∈ (A ∩ B) ∪ (A ∩ C)
                 x ∈ (A ∩ B) ∪ (A ∩ C)
-            thus x ∈ A ∩ (B ∪ C)  ⇒  x ∈ (A ∩ B) ∪ (A ∩ C)
-        thus ∀ $x  $x ∈ A ∩ (B ∪ C)  ⇒  $x ∈ (A ∩ B) ∪ (A ∩ C)
     qed
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     proof
-        fix x
+        let x
             assume x ∈ (A ∩ B) ∪ (A ∩ C)
                 assume x ∈ A ∩ B
                     x ∈ A  ∧  x ∈ B
                     x ∈ A
                     x ∈ B ∪ C
                     x ∈ A ∩ (B ∪ C)
-                thus x ∈ A ∩ B ⇒ x ∈ A ∩ (B ∪ C)
                 assume x ∈ A ∩ C
                     x ∈ A  ∧  x ∈ C
                     x ∈ A
                     x ∈ B ∪ C
                     x ∈ A ∩ (B ∪ C)
-                thus x ∈ A ∩ C ⇒ x ∈ A ∩ (B ∪ C)
-            thus x ∈ (A ∩ B) ∪ (A ∩ C) ⇒ x ∈ A ∩ (B ∪ C)
     qed
 qed
 ;;; Proof checked.

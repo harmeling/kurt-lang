@@ -79,7 +79,9 @@ use %A and not %A implies false                                     "bottom-intr
 use false implies %A                                                "bottom-elim"
 
 use (%A implies false) implies not %A                               "not-intro"
-use %A iff not not %A                                           "not-intro"
+use not not %A implies %A                                           "not-elim"
+use %A implies not not %A                                           "not-intro"
+use %A iff not not %A                                               "not-not"
 
 ; for automatic testing we add the following line:
 ;;; Proof checked.

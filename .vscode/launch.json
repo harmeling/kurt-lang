@@ -1,6 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [
+
     {
       "name": "Python: Debug (without args prompt)",
       "type": "debugpy",
@@ -11,12 +12,12 @@
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
-      "name": "Python: Debug (with args prompt)",
+      "name": "Python: Debug (with filename)",
       "type": "debugpy",
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "args": ["${input:args}"],
+      "args": ["-d", "${input:filename}"],
       "cwd": "${workspaceFolder}",
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },

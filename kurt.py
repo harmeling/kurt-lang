@@ -84,7 +84,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 100:
+        if debug_counter == 179:
             pass
         debug_counter += 1
 
@@ -1823,7 +1823,9 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             assert len(kb.mode_args) > 0, f'BUG: mode_args for "fix" must have length > 0, got `{kb.mode_args}`'
             expr = last_expr
             for condition in reversed(kb.mode_args):
-                expr = [Token('SYMBOL', FORALL_SYMBOL), condition, expr]
+                assert kb.parent is not None
+                if not is_bool_var_token(condition, kb.parent):
+                    expr = [Token('SYMBOL', FORALL_SYMBOL), condition, expr]
             reason = f'by "forall-intro"'
         case 'pick':
             # exists-elim
@@ -1886,7 +1888,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         reason = decorate_reason(mainstream, reason, filename, str(line))
         label = ''
     f = Formula(kb, planned_f.expr, str(planned_f.line), filename, label, reason, keyword='')
-    kb = kb.pop_level()                    # drop current level and perform some checks
+    kb = kb.pop_level()                        # drop current level and perform some checks
     kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
     kb.theory_append(f)                        # add a copy to the current theory
     if mainstream:
@@ -2354,10 +2356,16 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 todo = decorate_reason(False, f'todo {expr_str(expr, kb)}', filename, str(line))
                 kb.todo_add(todo)
 
+    elif keyword == 'qed':            # closes the last block (scope) and checks that the last promised formula has been proved
+        assert False, '`qed` should have been handled in `scan_parse_check_eval`'
+        pass    # do nothing, it was already handled in `scan_parse_check_eval`
+    
     elif keyword == 'done':
+        assert False, '`done` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
     elif keyword == 'break':
+        assert False, '`break` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
     elif keyword == 'inspect':
@@ -2380,11 +2388,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
         kb = eval_proof(kb, mainstream)
 
-    elif keyword == 'qed':            # closes the last block (scope) and checks that the last promised formula has been proved
-        if len(args) > 0:
-            raise KurtException(f'EvalError: `{keyword}` takes no arguments')
-        kb = eval_qed(kb, filename, line, mainstream)
-
     elif keyword == 'sandbox':
         if len(args) > 0:
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
@@ -2403,7 +2406,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
             kb = kb.pop_level()
             raise
         if mainstream:
-            reason = f'{line} open local scope with assumption'
+            reason = f'{line} open block with assumption'
             assumptions_str = ', '.join([expr_str(arg, kb) for arg in args])
             log(f'{keyword} {assumptions_str}', reason, kb.level-1)  # log the new constant
 
@@ -3545,7 +3548,7 @@ class LexerState:
     chained_ops: list[Token] = field(default_factory=list)       # infix operators of the chain seen so far
     # for the indentation handling
     indent_stack: list[int] = field(default_factory=lambda: [0]) # stack of indentation levels (in spaces)
-    indent_requester: str = ''                  # the keyword requesting an indented block
+    indent_requester: str = ''                                   # the keyword requesting an indented block
     # for good diagnostics
     line: int = 0                                                # current line number
     col: int = 0                                                 # current column number
@@ -3585,20 +3588,27 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             raise KurtException(f'ParseError: unexpected increased indentation at line {line} in {filename}')
         # no error, so push the new indentation level
         lexer_state.indent_stack.append(leading_spaces)
-        dedents = 0   # the pushing of a new level is handled during evaluation
+        indents = 1   # a single indent, this is required for starting a chain
+        dedents = 0   # the pushing of a new level is handled during evaluation (or we have a chain)
     else:
         # either case 2 or case 3
         if len(lexer_state.indent_requester) > 0:
             raise KurtException(f'ParseError: expected increased indentation at line {line} in {filename} after `{lexer_state.indent_requester}`.')
         # calculate number of DEDENTS
+        indents = 0   # no new indent
         dedents = 0   # how many levels should we pop?
         assert len(lexer_state.indent_stack) > 0, 'BUG: indentation stack empty during decrease, should at least contain zero.'
+        if len(ops) > 1 and leading_spaces < lexer_state.indent_stack[-1]:
+            # reset the chain on dedent, that counts as closing one block
+            lhs = None
+            ops = []
+            lexer_state.indent_stack.pop()
         while leading_spaces < lexer_state.indent_stack[-1]:
             lexer_state.indent_stack.pop()
             dedents += 1     # count the DEDENTs
             assert len(lexer_state.indent_stack) > 0, 'BUG: indentation stack empty during decrease, should at least contain zero.'
         if leading_spaces != lexer_state.indent_stack[-1]:
-            raise KurtException(f'ParseError: indentation at line {line} in {filename} does not match any outer block level.')
+            raise KurtException(f'ParseError: new indentation at line {line} in {filename} does not match any previous block.')
 
     # chain management before parsing
     chained = False
@@ -3608,8 +3618,12 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         first_value = first_token.value
         if first_label == 'SYMBOL' and isinstance(first_value, str):
             if first_value not in keywords and kb.is_chainable(first_value):
-                if lhs is not None and ops != []:       # did we start a chain before?
-                    ops.append(first_token)   # add to the chain so far
+                if lhs is not None and ops != []:         # did we start a chain before?
+                    if len(ops) == 1  and  indents != 1:
+                        raise KurtException(f'ParseError: expected indentation to start the chain at line {line} in {filename}')
+                    if len(ops) > 1  and  (indents != 0 or dedents != 0):
+                        raise KurtException(f'ParseError: unexpected indentation change in continued chain at line {line} in {filename}')
+                    ops.append(first_token)               # add to the chain so far
                     resulting_op: Optional[Token] = kb.get_chain_op(ops)
                     if resulting_op is not None:
                         chained = True
@@ -3621,7 +3635,11 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     # put a try-except around the parsing, to handle the continuation lines properly
 
     # the usual parsing (raises exception if `chained=False` but `first_token` is chainable)
-    keyword_token, expr_list, label = parse_tokenstream(ts, kb)  # runs the parser
+    kb_predecessor = kb
+    for i in range(dedents):
+        assert kb_predecessor.parent is not None, f'BUG: too many dedents at line {line} in {filename}'
+        kb_predecessor = kb_predecessor.parent   # go to the predecessor for parsing
+    keyword_token, expr_list, label = parse_tokenstream(ts, kb_predecessor)  # runs the parser
 
     # chain management continued
     if chained:
@@ -3631,10 +3649,10 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             raise KurtException(f'ParseError: expected exactly continued chain, not several comma-separated ones')
         assert isinstance(expr_list[0], list)
         assert len(expr_list[0]) == 3 and expr_list[0][1] == LHS_token, f'ParseError: expected exactly continued chain, not {expr_list}'
-        assert resulting_op is not None    # otherwise we wouldn't be in `chained` mode
-        expr_list[0][0] = resulting_op     # replace the infix operator
+        assert resulting_op is not None       # otherwise we wouldn't be in `chained` mode
+        expr_list[0][0] = resulting_op        # replace the infix operator
         assert lhs is not None
-        expr_list[0][1] = deepcopy_expr(lhs)      # replace the dummy token
+        expr_list[0][1] = deepcopy_expr(lhs)  # replace the dummy token
     else:
         if len(expr_list) == 1 and kb.starts_a_chain(expr_list[0]):
             # case 2: start new chain
@@ -3683,17 +3701,20 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         # dry run to check the block modes and that we are not closing too many levels
         dedents_check = dedents
         kb_check: KnowledgeBase = kb
-        while dedents_check > 0:
+        while dedents_check > 0:   # the last one is checked after the loop
             mode_str = kb_check.mode_str
             if mode_str == 'sandbox':
                 raise KurtException(f'EvalError: `qed` never closes `sandbox`es')
             elif mode_str == 'root':
                 assert False, f'BUG: `qed` closed too many levels at line {line} in {filename}'
+            elif dedents_check == 1 and mode_str != 'proof':
+                raise KurtException(f'EvalError: `qed` must close a `proof` block at line {line} in {filename}, not a `{mode_str}` block')
             assert kb_check.parent is not None, f'BUG: `qed` closed too many levels'
             kb_check = kb_check.parent   # don't pop yet, just check
             dedents_check -= 1
-        if kb_check.mode_str != 'proof':
-            raise KurtException(f'EvalError: `qed` must close a `proof` block')
+        if dedents == 0:
+            dedents = 1   # at least close the proof block
+            lexer_state.indent_stack.pop()  # pop one indentation level
         # now actually pop the levels
         dedents_total = dedents
         while dedents > 0:
@@ -3724,7 +3745,7 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     lexer_state.initial_LHS = lhs
     lexer_state.chained_ops = ops
 
-    debug(lexer_state)
+    debug(lexer_state.indent_stack)
     return kb, lexer_state
 
 def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:
@@ -3740,7 +3761,9 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
             print(f'; file `{fname}` has already been loaded on level {load_level}, skipping.', file=sys.stdout)
             return kb
         with open(fname, encoding='utf-8') as f:
-            kb = kb.push_level('sandbox', [])     # new level just for loading the file, if there are problems, we can just drop it
+            if not mainstream:
+                # we load the file in a sandbox level to avoid partial loads
+                kb = kb.push_level('sandbox', [])
             level = kb.level      # save current level, this one we want to reach after loading
             kb = read_eval_loop(f, kb, markdown, mainstream=mainstream)
     except OSError as e:
@@ -3755,7 +3778,9 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
         raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed.')
     elif kb.level < level:
         assert False, f'BUG: `load_file` decreased the level from {level} to {kb.level}'
-    kb = kb.merge_and_pop()   # this ensures that we only keep the level if everything was ok
+    if not mainstream:
+        # this ensures that we only keep the stuff in the sandbox level if everything was ok
+        kb = kb.merge_and_pop()
     kb.libs.append(fname)
     return kb
 
@@ -3764,9 +3789,9 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
 ###########################
 
 def kurt_prompt(level: int, line: int, continued: bool=False) -> str:
-    p = level*'    '           # current level  (for copy and pasting from the shell)
-    p += ';'                                  # commenting out (for copy and paste from the shell)
-    p += '...' if continued else f'[{line}] ' # continuation?
+    p = level*'    '            # current level  (for copy and pasting from the shell)
+    p += ';'                                   # commenting out (for copy and paste from the shell)
+    p += '... ' if continued else f'[{line}] ' # continuation?
     return p
 
 def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False) -> KnowledgeBase:

@@ -1,8 +1,7 @@
-; assume-thus.kurt
+; assume.kurt
 use B
 assume A
     B
-    done
 A implies B
 
 assume C

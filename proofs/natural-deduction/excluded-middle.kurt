@@ -5,19 +5,13 @@ load propositional
 ; variant 1: prove for a constant
 show p ∨ ¬p  "excluded-middle"
 proof
-    show ¬ (p ∨ ¬ p) ⇒ ⊥
-    proof
-        assume ¬ (p ∨ ¬ p)
-            assume p
-                p ∨ ¬ p
-                ⊥
-            thus p ⇒ ⊥
-            ¬ p
+    assume ¬ (p ∨ ¬ p)
+        assume p
             p ∨ ¬ p
             ⊥
-        thus ¬ (p ∨ ¬ p) ⇒ ⊥
-    qed
-    ¬ ¬ (p ∨ ¬ p)
+        ¬ p
+        p ∨ ¬ p
+        ⊥
     p ∨ ¬ p
 qed
 
@@ -25,18 +19,13 @@ qed
 var q          ; declare it to be a variable
 show q ∨ ¬q  "excluded-middle"
 proof
-    show ¬ (q ∨ ¬ q) ⇒ ⊥
-    proof
-        assume ¬ (q ∨ ¬ q)
-            assume q
-                q ∨ ¬ q
-                ⊥
-            thus q ⇒ ⊥
-            ¬ q
+    assume ¬ (q ∨ ¬ q)
+        assume q
             q ∨ ¬ q
             ⊥
-        thus ¬ (q ∨ ¬ q) ⇒ ⊥
-    qed
+        ¬ q
+        q ∨ ¬ q
+        ⊥
     ¬ ¬ (q ∨ ¬ q)
     q ∨ ¬ q
 qed
@@ -44,18 +33,13 @@ qed
 ; variant 3: prove for a boolean variable
 show %p ∨ ¬%p  "excluded-middle"
 proof
-    show ¬ (%p ∨ ¬ %p) ⇒ ⊥
-    proof
-        assume ¬ (%p ∨ ¬ %p)
-            assume %p
-                %p ∨ ¬ %p
-                ⊥
-            thus %p ⇒ ⊥
-            ¬ %p
+    assume ¬ (%p ∨ ¬ %p)
+        assume %p
             %p ∨ ¬ %p
             ⊥
-        thus ¬ (%p ∨ ¬ %p) ⇒ ⊥
-    qed
+        ¬ %p
+        %p ∨ ¬ %p
+        ⊥
     ¬ ¬ (%p ∨ ¬ %p)
     %p ∨ ¬ %p
 qed

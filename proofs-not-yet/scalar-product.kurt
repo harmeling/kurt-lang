@@ -23,7 +23,5 @@ proof
     <a,a>*<a,a>*<a,a> - 2*<a,b>*<a,b>*<a,a> + <a,b>*<a,b>*<b,b> ≥ 0
     (<a,a>*<b,b> - <a,b>*<a,b>) ≥ 0
     <a,a>*<b,b> ≥ <a,b>*<a,b>
-    thus <a,b>*<a,b> ≤ <a,a>*<b,b>
-    thus <a,b>*<a,b> ≤ <a,a>*<b,b>   ; closes block and removes assumption a≠0
 qed
 ;;; Proof checked.

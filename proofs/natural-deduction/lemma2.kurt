@@ -9,7 +9,5 @@ proof
             %B
             %B ⇒ %C
             %C
-        thus %A ∧ %B ⇒ %C
-    thus (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
 qed
 ;;; Proof checked.

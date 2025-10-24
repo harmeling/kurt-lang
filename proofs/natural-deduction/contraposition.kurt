@@ -11,12 +11,9 @@ proof
             assume A
                 B
                 ¬A ∨ B
-            thus A ⇒ ¬A ∨ B
             assume ¬A
                 ¬A ∨ B
-            thus ¬A ⇒ ¬A ∨ B
             ¬A ∨ B
-        thus (A ⇒ B) ⇒ (¬A ∨ B)
     qed
     show (¬A ∨ B)  ⇒  (A ⇒ B)
     proof
@@ -25,13 +22,9 @@ proof
                 assume ¬A
                     contradiction
                     B
-                thus ¬A ⇒ B
                 assume B
                     B
-                thus B ⇒ B
                 B
-            thus A ⇒ B
-        thus (¬A ∨ B)  ⇒  (A ⇒ B)
     qed
     A ⇒ B  ≡  ¬A ∨ B
 qed

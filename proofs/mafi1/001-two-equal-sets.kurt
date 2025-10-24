@@ -6,7 +6,7 @@ show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
 proof
     show A ∩ (B ∪ C) ⊂ (A ∩ B) ∪ (A ∩ C)
     proof
-        fix x
+        let x
             assume x ∈ A ∩ (B ∪ C)
                 x ∈ A  ∧  x ∈ B ∪ C
                 x ∈ A
@@ -23,7 +23,7 @@ proof
     qed
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     proof
-        fix x
+        let x
             assume x ∈ (A ∩ B) ∪ (A ∩ C)
                 assume x ∈ A ∩ B
                     x ∈ A  ∧  x ∈ B

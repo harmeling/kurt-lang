@@ -9,7 +9,7 @@ import kurt
 class TestNonFlatSymmetricOperators(unittest.TestCase):
     
     def setUp(self):
-        self.kb = kurt.KnowledgeBase()
+        self.kb = kurt.KnowledgeBase(parent=None, mode=('root', []))
         # Define a non-flat symmetric operator
         self.kb.add_infix('~', 15, 15)  # some operator with equal precedence
         self.kb.add_sym('~')            # make it symmetric
@@ -126,7 +126,7 @@ class TestNonFlatSymmetricOperators(unittest.TestCase):
     def test_compare_with_flat_symmetric(self):
         """Compare behavior with flat symmetric operator"""
         # Create a flat symmetric operator for comparison
-        kb_flat = kurt.KnowledgeBase()
+        kb_flat = kurt.KnowledgeBase(parent=None, mode=('root', []))
         kb_flat.add_infix('&', 15, 15)
         kb_flat.add_sym('&')
         kb_flat.add_flat('&')
