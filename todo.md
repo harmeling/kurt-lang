@@ -4,6 +4,9 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO postpone the indent.pops after the checks and parsing
+- TODO verbose mode should give context dependent hints before each prompt, `hint`
+- TODO running `trail` in a file produces `root >; blabla`
 - TODO forall-intro should not create quantifier for boolean variables
 - TODO implement indentation based blocks, checkout continuations and chains, infix and brackets
   - continuations:
@@ -12,7 +15,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
         a    \ ; put explicit continuation symbol
         + c    ; would be nice to have, however, how do you know after the first line something is coming?
 - TODO iterate over the formulas in theory and over all conclusions (RHS of implications) as well
-- TODO rename `fix` to `let`, what about `let x`, shouldn't everything belong to something?
 - TODO make a good verbose mode for teaching/being helpful
 - TODO better inference rules that should make part of `impl_elim` not necessary: when iterating through `all_theory()` also iterate over RHS of implications where the LHS is part of the theory
 - TODO syntactic sugar implement `case` (see `001-two-equal-sets.kurt`)

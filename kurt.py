@@ -207,6 +207,10 @@ class KurtException(Exception):
 format_options: list[Format] = ['sexpr', 'normal']         # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
 keywords: dict[str, str] = {
     'help':        'print this help',
+    'hint':        'print a hint for the next input',
+    'verbose':     'toggle verbose mode, i.e., show extra information',
+    'calc':        'toggle calculation of numerical expressions, e.g., 2 + 2 will become 4',
+    'indent':      'toggle indent mode in the shell, i.e., switch on indentation block structure, e.g., for pasting file content',
     'parse':       'parse a string and print its representation',
     'tokenize':    'tokenize a string and print its tokens',
     'format':      'choose print representation, i.e. one of "sexpr", "normal"',
@@ -537,10 +541,12 @@ class KnowledgeBase:
                                                           #                   and derived formulas)
         self.show:   list[Formula] = []                   # lists of promised formulas to show
 
-        # misc
-        self.format: Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
-        self.verbose: bool  = False if parent is None else parent.verbose             # show extra information or not
-        self.calc: bool = False if parent is None else parent.calc                    # whether to calculate numerical expressions
+        # global options stored in the `root` with their defaults
+        self.format:  Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
+        self.verbose: bool   = False if parent is None else parent.verbose             # show extra information or not
+        self.calc:    bool   = False if parent is None else parent.calc                # whether to calculate numerical expressions
+        self.indent:  bool   = True  if parent is None else parent.indent              # whether to use indent mode (indentation based blocks)
+        self.hint:    bool   = False if parent is None else parent.hint                # whether to show hints for next input
 
     def check_all_shown_proved(self):
         if len(self.show) > 0:                  # any planned formulas inside the current proof?
@@ -568,7 +574,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: cannot merge and pop a level with promised formulas, got {len(self.show)} formulas.')
 
         # merge all attributes except the excluded ones into the parent
-        exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show", "calc"}
+        exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show", "calc", "indent", "hint"}
         exclude |= {"var"}   # variables are local to a file/block
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
@@ -1963,6 +1969,37 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, filename
     kb.theory_append(f)
     return kb, fact
 
+def eval_global_format(keyword: str, args: list[Expr], kb: KnowledgeBase) -> None:
+    if len(args) == 0:
+        log(f'format {kb.format}', '', kb.level)
+    elif len(args) == 1:
+        match args[0]:
+            case [Token(label='SYMBOL', value=option)] if option in format_options:
+                kb.format = option
+                while kb.parent is not None:    # change format globally
+                    kb = kb.parent
+                    kb.format = option
+            case _:
+                raise KurtException(f'ParseError: wrong argument, possible is:\n    format {"\n    format".join(format_options)}')
+    else:
+        raise KurtException(f'ParseError: wrong arguments, possible is:\n    format {" | ".join(format_options)}')
+
+def eval_global_toggle(keyword: str, args: list[Expr], kb: KnowledgeBase) -> None:
+    value: bool = getattr(kb, keyword)   # the current value
+    if len(args) == 0:
+        log(f'{keyword} {"on" if value else "off"}', '', kb.level)
+    elif len(args) == 1:
+        match args[0]:
+            case [Token(label='SYMBOL', value=v)] if v in ['on', 'off']:
+                node: Optional[KnowledgeBase] = kb
+                while node is not None:
+                    setattr(node, keyword, v == 'on')
+                    node = node.parent
+            case _:
+                raise KurtException(f'ParseError: wrong argument, possible is:\n    {keyword} on\n    {keyword} off')
+    else:
+        raise KurtException(f'ParseError: wrong arguments, possible is:\n    {keyword} on\n    {keyword} off')
+
 def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
@@ -1971,6 +2008,14 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
     # GENERAL STUFF
     if keyword == 'help':
         for k in keywords.keys(): print(f'  {k:<12} {keywords[k]}', file=sys.stdout)
+    elif keyword == 'hint':
+        eval_global_toggle(keyword, args, kb)
+    elif keyword == 'verbose':
+        eval_global_toggle(keyword, args, kb)
+    elif keyword == 'indent':
+        eval_global_toggle(keyword, args, kb)
+    elif keyword == 'calc':
+        eval_global_toggle(keyword, args, kb)
     elif keyword == 'load':
         if len(args) == 0:
             print(kb.loaded_files_str().strip(), file=sys.stdout)
@@ -2015,13 +2060,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, label: str, kb: Kn
                 msg += f'{"  ".join([str(t) for t in ts])}'
             print(msg, file=sys.stdout)
     elif keyword == 'format':
-        match args:
-            case []:
-                print(kb.format, file=sys.stdout)
-            case [[Token(label='SYMBOL', value=option)]] if option in format_options:
-                kb.format = option
-            case _:
-                raise KurtException(f'only a single arg out of {format_options} is allowed"')
+        eval_global_format(keyword, args, kb)
     elif keyword == 'level':
         if len(args) > 0:
             raise KurtException(f'ParseError: `{keyword}` does not take any arguments', keyword_token.column)
@@ -3631,15 +3670,32 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
                     else:
                         raise KurtException(f'ParseError: invalid chain of operators `{ops}` at line {line} in {filename}')
 
-    # TODO
-    # put a try-except around the parsing, to handle the continuation lines properly
-
     # the usual parsing (raises exception if `chained=False` but `first_token` is chainable)
     kb_predecessor = kb
     for i in range(dedents):
         assert kb_predecessor.parent is not None, f'BUG: too many dedents at line {line} in {filename}'
         kb_predecessor = kb_predecessor.parent   # go to the predecessor for parsing
     keyword_token, expr_list, label = parse_tokenstream(ts, kb_predecessor)  # runs the parser
+
+    # behavior for `done`, `break`, or `qed` keywords and pure DEDENTs
+    #   `break` closes a single block in any mode, only in the shell, no yielded formula
+    #   `done` closes `assume`, `let` and `pick` blocks, only in the shell, yielding formula
+    #   `qed` closes `proof` block and other blocks along the way, but no `sandbox` blocks with yielding a formula
+    #   DEDENTs in files close any block possibly yielding formulas and finishing proofs
+    #   - dedenting indicates how many levels to close
+    keyword = '' if keyword_token is None else keyword_token.value
+    if keyword in ['done', 'break']:
+        if filename != '<stdin>' or not kb.indent:
+            raise KurtException(f'ParseError: `{keyword}` can only be used in the interactive shell in `indent` mode')
+    if keyword in keywords_closing_blocks:
+        if len(expr_list) > 0:
+            raise KurtException(f'ParseError: `{keyword}` does not take any arguments')
+    if keyword in ['done', 'break'] and dedents > 0:
+        raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
+    if keyword == 'qed' and dedents == 0 and filename != '<stdin>':
+        raise KurtException(f'ParseError: `qed` must be used with dedentation in files at line {line} in {filename}')
+    if keyword == 'done' and kb.mode_str not in ['assume', 'let', 'pick']:
+        raise KurtException(f'EvalError: `done` can only be used to close `assume`, `let`, or `pick` blocks at line {line} in {filename}, current mode is `{kb.mode_str}`')
 
     # chain management continued
     if chained:
@@ -3667,25 +3723,6 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             lhs = None
             ops = []
 
-    # behavior for `done`, `break`, or `qed` keywords and pure DEDENTs
-    #   `break` closes a single block in any mode, only in the shell, no yielded formula
-    #   `done` closes `assume`, `let` and `pick` blocks, only in the shell, yielding formula
-    #   `qed` closes `proof` block and other blocks along the way, but no `sandbox` blocks with yielding a formula
-    #   DEDENTs in files close any block possibly yielding formulas and finishing proofs
-    #   - dedenting indicates how many levels to close
-    keyword = '' if keyword_token is None else keyword_token.value
-    if keyword in ['done', 'break'] and filename != '<stdin>':
-        raise KurtException(f'ParseError: `{keyword}` can only be used in the interactive shell at line {line} in {filename}')
-    if keyword in keywords_closing_blocks:
-        if len(expr_list) > 0:
-            raise KurtException(f'ParseError: `{keyword}` does not take any arguments')
-    if keyword in ['done', 'break'] and dedents > 0:
-        assert False, f'BUG: `{keyword}` cannot create dedentation at line {line} in {filename}'
-    if keyword == 'qed' and dedents == 0 and filename != '<stdin>':
-        raise KurtException(f'ParseError: `qed` must be used with dedentation in files at line {line} in {filename}')
-    if keyword == 'done' and kb.mode_str not in ['assume', 'let', 'pick']:
-        raise KurtException(f'EvalError: `done` can only be used to close `assume`, `let`, or `pick` blocks at line {line} in {filename}, current mode is `{kb.mode_str}`')
-
     # process the block closings
     if keyword == 'break':
         kb = kb.pop_level()             # just pop one level
@@ -3712,19 +3749,20 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             assert kb_check.parent is not None, f'BUG: `qed` closed too many levels'
             kb_check = kb_check.parent   # don't pop yet, just check
             dedents_check -= 1
-        if dedents == 0:
-            dedents = 1   # at least close the proof block
-            lexer_state.indent_stack.pop()  # pop one indentation level
         # now actually pop the levels
         dedents_total = dedents
+        if dedents == 0:
+            dedents = 1                     # at least close the proof block
         while dedents > 0:
             if kb.mode_str == 'proof':
                 kb = eval_qed(kb, filename, line, mainstream)   # qed with a block, yield a formula
             elif kb.mode_str in ['assume', 'let', 'pick']:
-                kb = eval_done(kb, filename, line, mainstream)   # done with a block, yield a formula
+                kb = eval_done(kb, filename, line, mainstream)  # done with a block, yield a formula
             else:
                 assert False, f'BUG: `qed` closed a non-proof/assume/let/pick block'
             dedents -= 1
+        if dedents_total == 0:
+            lexer_state.indent_stack.pop()  # pop one indentation level (we are in the shell)
     else:
         # process the DEDENTs without `done`, `break`, or `qed`
         dedents_total = dedents
@@ -3788,10 +3826,17 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
 ## commandline interface ##
 ###########################
 
-def kurt_prompt(level: int, line: int, continued: bool=False) -> str:
-    p = level*'    '            # current level  (for copy and pasting from the shell)
+def kurt_prompt_indent(level: int, line: int, continued: bool=False) -> str:
+    p: str = ''
+    p += level*'    '            # current level  (for copy and pasting from the shell)
     p += ';'                                   # commenting out (for copy and paste from the shell)
     p += '... ' if continued else f'[{line}] ' # continuation?
+    return p
+
+def kurt_prompt_no_indent(level: int, line: int, continued: bool=False) -> str:
+    p: str = ''
+    p += ';'                                   # commenting out (for copy and paste from the shell)
+    p += '... ' if continued else f'<{line}> ' # continuation?
     return p
 
 def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False) -> KnowledgeBase:
@@ -3807,11 +3852,15 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
             if not is_file:
                 # in the interactive session, indentation doesn't matter, we just prompt according to current level
                 # blocks are close with `done` or `qed` or `break`
-                prompt_text = kurt_prompt(kb.level, line, continued)
+                if kb.indent:
+                    prompt_text = kurt_prompt_indent(kb.level, line, continued)
+                else:
+                    prompt_text = kurt_prompt_no_indent(kb.level, line, continued)
                 new_line = input(prompt_text).rstrip()     # read from stdin
+                if kb.indent:
+                    new_line = new_line.lstrip()               # remove leading spaces for the prompt
+                    new_line = (kb.level * '    ') + new_line  # indent according to current level
                 new_line = replace_latex_syntax(new_line)  # automatic replacements in the shell before running the scanner
-                new_line = new_line.lstrip()               # remove leading spaces for the prompt
-                new_line = (kb.level * '    ') + new_line  # indent according to current level
             else:
                 # here indentation matters, we read exactly what is in the file
                 new_line = input_stream.readline()
