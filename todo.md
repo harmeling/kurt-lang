@@ -4,6 +4,8 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO write the tutorial
+- TODO why (not x in emptyset) not working?
 - TODO postpone the indent.pops after the checks and parsing
 - TODO verbose mode should give context dependent hints before each prompt, `hint`
 - TODO running `trail` in a file produces `root >; blabla`
@@ -17,7 +19,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO iterate over the formulas in theory and over all conclusions (RHS of implications) as well
 - TODO make a good verbose mode for teaching/being helpful
 - TODO better inference rules that should make part of `impl_elim` not necessary: when iterating through `all_theory()` also iterate over RHS of implications where the LHS is part of the theory
-- TODO syntactic sugar implement `case` (see `001-two-equal-sets.kurt`)
 - TODO allow automatic line continuation with `sym a,`, i.e., after comma as well
 - TODO checkout `sub $x $a $A`, i.e., with `$A` instead of `%A`
 - TODO have calc on or off
@@ -41,6 +42,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## TOPICS before releasing 1.0
 
+- TODO do checks for `case` statements
 - TODO don't create all those Tokens on-the-fly, but some like the `not_token` can be created and reused.
 - TODO get rid of labels, just make the first word of the comment after a formula its label, get rid of string data type
 - TODO space binding: for quantifier it should be higher, for limits, sums higher

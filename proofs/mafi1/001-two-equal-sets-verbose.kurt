@@ -1,10 +1,12 @@
 ;;; two-equal sets
 
-load set
+;load set
 
-var A, B, C, M, N
-use M ⊂ N  ⇔  ∀x (x ∈ M ⇒ x ∈ N)    "subset-def"  ; subset
-use M = N  ⇔  M ⊂ N  ∧  N ⊂ M       "eq-def"      ; equality of sets
+var x, A, B, C
+use A ⊂ B  ⇔  ∀x (x ∈ A ⇒ x ∈ B)    "subset-def"       ; what is a subset?
+use A = B  ⇔  A ⊂ B  ∧  B ⊂ A       "eq-def"           ; when are two sets equal?
+use x ∈ A ∩ B  ≡  x ∈ A ∧ x ∈ B     "in-intersection"  ; what is an intersection?
+use x ∈ A ∪ B  ≡  x ∈ A ∨ x ∈ B     "in-union"         ; what is a union?
 
 show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
 proof

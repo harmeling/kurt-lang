@@ -1,7 +1,7 @@
 BASICS
 00-true
-01-implies
-02-and
+01-and
+02-implies
 03-use
 04-const
 05-var

@@ -1,0 +1,48 @@
+;;; two-equal sets
+
+var x, A, B, C
+
+; axioms for set theory
+use A ⊂ B  ⇔  ∀x (x ∈ A ⇒ x ∈ B)    "subset-def"       ; what is a subset?
+use A = B  ⇔  A ⊂ B  ∧  B ⊂ A       "eq-def"           ; when are two sets equal?
+use x ∈ A ∩ B  ≡  x ∈ A ∧ x ∈ B     "in-intersection"  ; what is an intersection?
+use x ∈ A ∪ B  ≡  x ∈ A ∨ x ∈ B     "in-union"         ; what is a union?
+
+; the task
+show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
+proof
+    show A ∩ (B ∪ C) ⊂ (A ∩ B) ∪ (A ∩ C)
+    proof
+        let x ∈ A ∩ (B ∪ C)
+            x ∈ A  ∧  x ∈ B ∪ C
+            x ∈ A
+            x ∈ B ∪ C
+            x ∈ B  ∨  x ∈ C
+            case x ∈ B
+                x ∈ A  ∧  x ∈ B
+                x ∈ A ∩ B
+                x ∈ (A ∩ B) ∪ (A ∩ C)
+            case x ∈ C
+                x ∈ A  ∧  x ∈ C
+                x ∈ A ∩ C
+                x ∈ (A ∩ B) ∪ (A ∩ C)
+            x ∈ (A ∩ B) ∪ (A ∩ C)
+        ∀ (x ∈ A ∩ (B ∪ C))  x ∈ (A ∩ B) ∪ (A ∩ C)
+    qed
+    show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
+    proof
+        let x ∈ (A ∩ B) ∪ (A ∩ C)
+            x ∈ A ∩ B  ∨  x ∈ A ∩ C
+            case x ∈ A ∩ B
+                x ∈ A  ∧  x ∈ B
+                x ∈ A
+                x ∈ B ∪ C
+                x ∈ A ∩ (B ∪ C)
+            case x ∈ A ∩ C
+                x ∈ A  ∧  x ∈ C
+                x ∈ A
+                x ∈ B ∪ C
+                x ∈ A ∩ (B ∪ C)
+    qed
+qed
+;;; Proof checked.
