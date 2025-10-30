@@ -3,4 +3,4 @@ load equality
 
 use x = 0       ; new constants `x` and `0`
 y = 0           ; new constant `y`, but `y=0` should be wrong!
-;;; ProofError: can not derive expression
+;;; ProofError: can not derive `y = 0`

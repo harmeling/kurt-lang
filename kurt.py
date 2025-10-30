@@ -209,7 +209,6 @@ keywords: dict[str, str] = {
     'help':        'print this help',
     'hint':        'print a hint for the next input',
     'verbose':     'toggle verbose mode, i.e., show extra information',
-    'calc':        'toggle calculation of numerical expressions, e.g., 2 + 2 will become 4',
     'indent':      'toggle indent mode in the shell, i.e., switch on indentation block structure, e.g., for pasting file content',
     'parse':       'parse a string and print its representation',
     'tokenize':    'tokenize a string and print its tokens',
@@ -230,6 +229,7 @@ keywords: dict[str, str] = {
     'flat':        'declare infix operator to be flat',
     'sym':         'declare infix operator to be symmetric',
     'bool':        'declare symbols to have output type boolean',
+    'calc':        'declare symbols to trigger calculations if applied to numbers',
     'chain':       'declare a chain of symbols, for automatic transitivity',
     'var':         'declare symbols as variable',
     'const':       'declare symbols as fresh constants, i.e., they have not been used or declared before',
@@ -510,6 +510,15 @@ class State:
             case _:
                 return False
 
+def is_numeric(e: Expr) -> bool:
+    match e:
+        case Token(label='INT', value=_):
+            return True
+        case Token(label='FLOAT', value=_):
+            return True
+        case _:
+            return False
+
 # hierarchical knowledge base
 # the level is increased inside blocks and files
 # dropping a level drops also all local definitions
@@ -562,7 +571,7 @@ class KnowledgeBase:
         # global options stored in the `root` with their defaults
         self.format:  Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
         self.verbose: bool   = False if parent is None else parent.verbose             # show extra information or not
-        self.calc:    bool   = False if parent is None else parent.calc                # whether to calculate numerical expressions
+        self.calc:    bool   = False if parent is None else parent.calc                # whether to perform calculations inside expressions
         self.indent:  bool   = True  if parent is None else parent.indent              # whether to use indent mode (indentation based blocks)
         self.hint:    bool   = False if parent is None else parent.hint                # whether to show hints for next input
 
@@ -572,6 +581,72 @@ class KnowledgeBase:
             for f in self.show:
                 s += f'    {f.formula_str(self):<{comment_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
             raise KurtException(f'{s}\n\nEvalError: not all promised formulas were proven.')
+
+    def calculate(self, e: Expr) -> Expr:
+        """If e is a calculation expression, perform the calculation and return the simplified expression."""
+        if isinstance(e, Token):
+            return e
+        assert isinstance(e, list) and len(e) > 0, f'BUG: unexpected expression `{e}`'
+        # call recursively on all sub-expressions first
+        e = [self.calculate(sub_e) for sub_e in e]
+        # do the calculation
+        match e:
+            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) >= 1 and op in ['+', '*']:
+                remaining_args = []
+                s = None
+                for arg in args:
+                    if is_numeric(arg):
+                        assert isinstance(arg, Token) and (arg.label == 'INT' or arg.label == 'FLOAT') and isinstance(arg.value, (int, float))
+                        if op == '+':
+                            s = arg.value if s is None else s + arg.value
+                        else:  # op == '*'
+                            s = arg.value if s is None else s * arg.value
+                    else:
+                        remaining_args.append(arg)
+                # prepare the result
+                if s is None:
+                    return e   # no numeric argument found, return original expression
+                if isinstance(s, int):
+                    s_label = 'INT'
+                elif isinstance(s, float):
+                    s_label = 'FLOAT'
+                else:
+                    assert False, f'BUG: unexpected numeric type {type(s)}'
+                s_token = Token(label=s_label, value=s)
+                if len(remaining_args) == 0:
+                    return s_token
+                elif (s == 0  or  s == 0.0):
+                    if len(remaining_args) == 1:
+                        return remaining_args[0]
+                    else:
+                        return [Token(label='SYMBOL', value=op), *remaining_args]
+                else:
+                    return [Token(label='SYMBOL', value=op), s_token, *remaining_args]
+            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) == 1 and op in ['-']:
+                if is_numeric(args[0]):
+                    arg0 = args[0]
+                    assert isinstance(arg0, Token) and (arg0.label == 'INT' or arg0.label == 'FLOAT') and isinstance(arg0.value, (int, float))
+                    s = -arg0.value
+                    return Token(label=arg0.label, value=s)
+                else:
+                    return e
+            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) == 2 and op in ['-', '/', '^']:
+                if is_numeric(args[0]) and is_numeric(args[1]):
+                    arg0 = args[0]
+                    arg1 = args[1]
+                    assert isinstance(arg0, Token) and (arg0.label == 'INT' or arg0.label == 'FLOAT') and isinstance(arg0.value, (int, float))
+                    assert isinstance(arg1, Token) and (arg1.label == 'INT' or arg1.label == 'FLOAT') and isinstance(arg1.value, (int, float))
+                    if op == '-':
+                        s = arg0.value - arg1.value
+                    elif op == '/':
+                        s = arg0.value / arg1.value
+                    elif op == '^':
+                        s = arg0.value ** arg1.value
+                    return Token(label=arg1.label if arg1.label == arg0.label else 'FLOAT', value=s)
+                else:
+                    return e
+            case _:
+                return e
 
     def push_level(self, mode_str: str, mode_expr_list: list[Expr]) -> KnowledgeBase:
         return KnowledgeBase(parent=self, mode=(mode_str, mode_expr_list))
@@ -633,7 +708,7 @@ class KnowledgeBase:
         s = ''
         if self.parent is not None:
             s += self.parent.loaded_files_str() + '\n'
-        s += '\n'.join([f'{lib:<{comment_indent}}; level {self.level}' for lib in self.libs]) if len(self.libs) > 0 else '; no files loaded'
+        s += '\n'.join([f'load {lib:<{comment_indent}}; level {self.level}' for lib in self.libs]) if len(self.libs) > 0 else '; no files loaded'
         return s
 
     def _entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
@@ -1695,12 +1770,14 @@ def check_expr_label(expr: Expr, kb) -> tuple[Expr, str]:            # check [ex
     return tail, label
 
 def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
-    expr = flatten_op(SPACE_SYMBOL, expr, kb)               # flatten all space operators
+    expr = flatten_op(SPACE_SYMBOL, expr, kb)           # flatten all space operators
     expr = process_arity(expr, kb)                      # turns space operators into function calls according to arities
-    expr = remove_round_brackets(expr, kb)                  # remove round brackets for grouping
+    expr = remove_round_brackets(expr, kb)              # remove round brackets for grouping
     expr, label = check_expr_label(expr, kb)       # check and split `expr` and `label`
     expr = flatten_all(expr, kb)                        # flatten `flat` operators
     expr = symmetrize_all(expr, kb)                     # symmetrize `sym` operators
+    if kb.calc:
+        expr = kb.calculate(expr)                       # do calculations if possible
     return expr, label
 
 def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optional[Token], list[Expr], str]:
@@ -2113,7 +2190,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
     elif keyword == 'trail':
         if len(args) > 0:
             raise KurtException(f'ParseError: `{keyword}` does not take any arguments', keyword_token.column)
-        msg = f'{kb.mode_str}'
+        msg = f'; {kb.mode_str}'
         kb_parent = kb.parent
         while kb_parent is not None:
             msg = f'{kb_parent.mode_str} > ' + msg

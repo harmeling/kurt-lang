@@ -13,4 +13,4 @@ bool p, q
 use q
 q ∨ p
 p ∨ q
-;;; ProofError: can not derive expression
+;;; ProofError: can not derive `q ∨ p`
