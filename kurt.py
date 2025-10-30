@@ -3777,6 +3777,8 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         if leading_spaces != lexer_state.indent_stack[-1]:
             raise KurtException(f'ParseError: new indentation at line {line} in {filename} does not match any previous block.')
 
+    assert leading_spaces == lexer_state.indent_stack[-1], 'BUG: indentation level does not match the stack top after processing.'
+
     # chain management before parsing
     chained = False
     first_token: Optional[Token] = ts.peek # do we have a chainable operator at the start?
