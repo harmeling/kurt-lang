@@ -4,6 +4,10 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO assume assume qed (in the shell) is wrong
+- TODO proofs/mafi1/nicer bugs
+- TODO invert-quantor,  in particular exists-elim (don't put a new quantifier)
+
 - TODO write the tutorial
 - TODO why (not x in emptyset) not working?
 - TODO postpone the indent.pops after the checks and parsing

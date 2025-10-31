@@ -1,0 +1,34 @@
+Hier ist ein Beispielbeweis:
+
+    ; example: proof by contradiction
+    load propositional
+
+Als erstes haben wir ein paar Axiome:
+
+    ; axioms
+    use p ⇒ q
+    use ¬q
+
+Jetzt wollen wir ¬p beweisen. Wir nehmen an, dass p wahr ist, und zeigen, dass dies zu einem Widerspruch führt:
+
+    ; what to show
+    show ¬p
+    proof
+
+Wir nehmen an, dass p wahr ist:
+
+        assume p
+
+Dann können wir q folgern, da wir p ⇒ q als Axiom haben:
+
+            q
+
+Und damit haben wir einen Widerspruch, da wir ¬q als Axiom haben:
+
+            ⊥
+
+Das war alles!
+
+    qed
+    ;;; Proof checked.
+

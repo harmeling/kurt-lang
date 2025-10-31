@@ -11,6 +11,5 @@ proof
     assume p
         q
         ⊥
-        trail
 qed
 ;;; Proof checked.

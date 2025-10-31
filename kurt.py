@@ -1948,8 +1948,9 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             # exists-elim
             assert len(kb.mode_args) > 0, f'BUG: mode_args for "pick" must have length > 0, got `{kb.mode_args}`'
             expr = last_expr
-            for condition in reversed(kb.mode_args):
-                expr = [Token('SYMBOL', EXISTS_SYMBOL), condition, expr]
+            # check that `expr` does not contain any constants from the current level
+            if contains(expr, kb.const, kb):
+                raise KurtException(f'ProofError: the line (its conclusion) of the `pick` block may not contain constant symbols from the current level, got `{expr_str(expr, kb)}`')
             reason = f'by "exists-elim"'
         case 'proof':
             raise KurtException(f'ProofError: a `proof` block must be closed with `qed`')
