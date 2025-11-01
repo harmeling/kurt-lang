@@ -4,9 +4,15 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO solve the `assume-not.kurt` puzzle, check with trigger_sub,
+  - problem is: once we have `sub %A %a %A`, we did already replace the "A", so we cannot match it again
+  - so just trigger it once we replace `A`
+- TODO calculation should only happen for comparison, i.e., for simplified expressions
+- TODO allow `done` to finish a proof without qed, `done` finishes one block, `qed` finishes all blocks until the proof block
+- TODO why is everything indented when running in the shell?
+- TODO create nice looking latex document from the proof, move all `print('foobar', file=sys.stdout)` to a function that can be redefined to write to latex, maybe pass `mainstream` flag down, also replace the comments sign from `;` to `%` in latex
 - TODO assume assume qed (in the shell) is wrong
 - TODO proofs/mafi1/nicer bugs
-- TODO invert-quantor,  in particular exists-elim (don't put a new quantifier)
 
 - TODO write the tutorial
 - TODO why (not x in emptyset) not working?

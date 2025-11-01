@@ -12,11 +12,16 @@ bool     ⊂ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
 brackets [ ]             ; squared brackets
+infix    → 30 30         ; for mappings
+infix    : 20 20         ; for mappings
 
 ; we assume that all objects are sets
 
 ; axioms for {, |, }
 use $a ∈ { $z | sub $x $z %F }  ≡  sub $x $a %F
+
+; axioms for mappings
+; two mappings are equal if they give the same output for all inputs
 
 ; axioms for =, ∅, ∩, ∪, Pow
 use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)      "extensionality" ; two sets are equal iff they have the same elements

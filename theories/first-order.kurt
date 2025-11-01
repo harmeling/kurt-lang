@@ -9,12 +9,21 @@ bool   forall 0 2     ; position 1 is a variable or a boolean expression (with a
 bool   exists 0 2     ; position 1 is a variable or a boolean expression (with a variable)
 alias  ∃ exists
 alias  ∀ forall
+; arity  existsunique 2 ; existential quantification with uniqueness
+; bool   existsunique 0 2 ; position 1 is a variable or a boolean expression (with a variable)
+; alias  ∃! existsunique
 
 ;; inference rules
 ;use %A                                  implies  forall $x %A      "forall-intro"
 use forall $x %A                        implies  sub $x $a %A      "forall-elim"
 use sub $x $a %A                        implies  exists $x %A      "exists-intro"
 ;use (exists $x %B) and (%B implies %A)  implies  %A                "exists-elim"
+
+; ;; existsunique
+; use %A and (forall $x (%A implies (forall $y (%A implies ($x = $y)))))  implies  existsunique $x %A  "existsunique-intro"
+; use existsunique $x %A  implies  exists $x %A  "existsunique-elim-1"
+; use existsunique $x %A  implies  forall $x (%A implies (forall $y (%A implies ($x = $y))))  "existsunique-elim-2"
+
 
 ;; better looking
 ; use %A                     ⇒  ∀ $x %A       "forall-intro"
