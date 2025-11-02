@@ -9,4 +9,4 @@ use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
 
 assume not a
     a
-;;; Should be wrong!
+;;; ProofError: can not derive `a`

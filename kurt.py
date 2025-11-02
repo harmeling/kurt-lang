@@ -491,6 +491,7 @@ class State:
     # updates (return new States)
     def bind(self, v: str, e: Expr) -> State:
         new_subst = dict(self.subst)   # shallow copy
+        assert not self.occurs(v, e), f'occurs check failed: cannot bind {v} to {e}'
         new_subst[v] = deepcopy_expr(e)
         return State(new_subst, self.blocked_as_domain, self.blocked_as_range)
 
@@ -1972,7 +1973,7 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             assumption = kb.mode_args[0]
             match last_expr:
                 case Token(label='SYMBOL', value=v) if v == FALSE_SYMBOL:
-                    # not-intro
+                    # not-intro, some extra formula!
                     expr: Expr = [Token('SYMBOL', NOT_SYMBOL), assumption]
                     reason = f'by "not-intro"'
                 case _:
@@ -2012,9 +2013,7 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
 
     # add a the new formula to the theory
     reason = decorate_reason(mainstream, reason, filename, str(line))
-    label = ''
-    input_line = ''       # new formula yielded by the close block
-    f = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='')
+    f = Formula(kb, expr, '', str(line), filename, '', reason, keyword='')
     kb = kb.pop_level()                    # drop current level and perform some checks
     kb.theory_append(f)                    # add a copy to the theory
     if mainstream:
@@ -3203,7 +3202,7 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
         if bool_expr(expr_A, kb):
             s_local = s     # keeps `s` available in the next iteration
             # we don't have to match `expr` against `expr_A` since `all_combinations` and also `one_combinations` ensure that they match
-            if var_A is not None and s.lookup(var_A) is None:
+            if var_A is not None and s.lookup(var_A) is None and not s.occurs(var_A, expr_A):
                 s_local = s_local.bind(var_A, expr_A)   # extend the state with the new binding for `%A`
             if var_a is not None and expr_a is not None:
                 s_local = s_local.bind(var_a, expr_a)   # extend the state with the new binding for `$a`
@@ -3548,7 +3547,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                 A_s, s_local = trigger_sub_core(A, s_local.block_always(x))
 
                 # only fire when the schema is concrete (no %A style bool vars)
-                if not is_bool_var_token(A_s, kb):
+                if not is_bool_var_token(A_s, kb) or (isinstance(A_s, Token) and x == A_s.value):
                     # we're done with the binder x; unblock it BEFORE returning
                     s_after = s_local.unblock(x)
                     # perform capture-avoiding A[x:=t]
@@ -3612,7 +3611,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                         tail_local.append(e_local)
                     success, found_formulas, s_final = match_all_theory(tail_local, s_local, kb)
                     if success:
-                        debug(f'match_all_theory: `{expr_str(expr, kb)}` against `{expr_str(candidate.simplified_expr, kb)} with substitution {s_final}`')
+                        debug(f'`{expr_str(expr, kb)}` against `{expr_str(candidate.simplified_expr, kb)}` with substitution {s_final}`')
                         return True, [candidate, *found_formulas], s_final   # match was found!  BINGO!
             # no match so far, however, possibly `expr` is a conjunction that we can split into pieces
             match expr:
