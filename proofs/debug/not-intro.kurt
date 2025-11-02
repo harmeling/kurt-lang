@@ -1,0 +1,12 @@
+; not-intro.kurt
+load propositional
+use A implies B
+show not B implies not A
+proof
+    assume not B
+        assume A
+            B
+            ⊥
+        not A
+qed
+;;; Proof checked.

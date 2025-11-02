@@ -125,7 +125,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 179:
+        if debug_counter == 114:
             pass
         debug_counter += 1
 
@@ -1967,19 +1967,14 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
     if len(kb.theory) == 0:
         raise KurtException(f'ProofError: no formula has been proven, `done` can only be used after a successful proof step')
     last_expr = kb.theory[-1].expr
-    match kb.mode_str:
+    mode_str = kb.mode_str
+    match mode_str:
         case 'assume' | 'case':
             assert len(kb.mode_args) == 1, f'BUG: mode_args for "assume" must have length one, got `{kb.mode_args}`'
             assumption = kb.mode_args[0]
-            match last_expr:
-                case Token(label='SYMBOL', value=v) if v == FALSE_SYMBOL:
-                    # not-intro, some extra formula!
-                    expr: Expr = [Token('SYMBOL', NOT_SYMBOL), assumption]
-                    reason = f'by "not-intro"'
-                case _:
-                    # impl-intro
-                    expr = [Token('SYMBOL', IMPL_SYMBOL), assumption, last_expr]
-                    reason = f'by "impl-intro"'
+            # impl-intro
+            expr = [Token('SYMBOL', IMPL_SYMBOL), assumption, last_expr]
+            reason = f'by "impl-intro"'
         case 'let':
             # forall-intro
             assert len(kb.mode_args) > 0, f'BUG: mode_args for "fix" must have length > 0, got `{kb.mode_args}`'
@@ -2018,6 +2013,21 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
     kb.theory_append(f)                    # add a copy to the theory
     if mainstream:
         log(f.formula_str(kb), reason, kb.level)
+    debug('hi')
+
+    # can we infer further with "not-intro"?
+    if mode_str == 'assume':
+            match last_expr:
+                case Token(label='SYMBOL', value=v) if v == FALSE_SYMBOL:
+                    # not-intro, some extra formula!
+                    expr: Expr = [Token('SYMBOL', NOT_SYMBOL), assumption]
+                    reason = f'by "not-intro"'
+                    reason = decorate_reason(mainstream, reason, filename, str(line))
+                    f = Formula(kb, expr, '', str(line), filename, '', reason, keyword='')
+                    kb.theory_append(f)                    # add a copy to the theory
+                    if mainstream:
+                        log(f.formula_str(kb), reason, kb.level)
+
     return kb
 
 def _first_or_none(xs: Iterator[State]) -> Optional[State]:
@@ -2700,6 +2710,11 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
         for expr in expr_list:
             if not bool_expr(expr, kb, strict=False):   # not strict, since we are possibly adding new symbols
                 raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
+            if len(kb.theory) > 0:
+                last_formula = kb.theory[-1]
+                if equal_expr(last_formula.expr, expr):
+                    # short-cut to avoid duplicates
+                    return kb   # do not add duplicates
             reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
             if len(reasons) == 1:
                 reason = decorate_reason(mainstream, reasons[0], filename, str(line))
