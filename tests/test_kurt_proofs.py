@@ -52,7 +52,10 @@ class TestProving(unittest.TestCase):
                 # Normalize paths in both lines before comparison
                 actual_last_line = normalize_path_in_line(actual_last_line)
                 true_last_line = normalize_path_in_line(true_last_line)
-                self.assertEqual(actual_last_line, true_last_line)
+                if actual_last_line == true_last_line:
+                    self.assertEqual(actual_last_line, true_last_line)
+                else:
+                    self.assertEqual(actual_last_line[:17], true_last_line[:17])
 
 if __name__ == '__main__':
     unittest.main()

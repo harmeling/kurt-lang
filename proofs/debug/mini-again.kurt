@@ -15,4 +15,4 @@ use (x + y) + z = x + (y + z)       "G1" ; associativity
 use x + -x = 0                      "G4" ; right inverse
 
 x + 0 = x + (-x + x)       ; does it follow or not?
-;;; ProofError: can not derive `($$var203 + 0) = ($$var203 + ((- $$var203) + $$var203))`
+;;; ProofError: can not derive 

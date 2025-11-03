@@ -51,7 +51,6 @@ version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
 
 # config: the indentation for the different blocks
-md_indent      =  7       # for markdown files ignore all lines not starting with `md_indent` many spaces
 proof_indent   =  4       # how much to indent for a `proof` block
 comment_indent = 42       # how much the reason is indented
 tab_indent     =  4       # tabs get converted to four spaces
@@ -282,6 +281,7 @@ keywords: dict[str, str] = {
     'var':         'declare symbols as variable',
     'const':       'declare symbols as fresh constants, i.e., they have not been used or declared before',
     'alias':       'add some aliases for a symbol',
+    'latex':       'add some latex command for a symbol',
 
     'theory':      'print all formulas, or print formulas that have a certain top level symbol',
 
@@ -593,6 +593,7 @@ class KnowledgeBase:
         self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
         self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
         self.used:     set[str]                  = set()  # set of all symbols that are used in formulas (i.e., not only declared)
+        self.latex:    dict[str, str]            = {}     # dict from symbols to latex strings
 
         # parsing related
         self.lbp:      dict[str, int]            = {}     # left binding power
@@ -781,6 +782,7 @@ class KnowledgeBase:
             else:
                 return f'const {key}'
         elif keyword == 'alias':    return f'alias {key} {value}'
+        elif keyword == 'latex':    return f'latex {key} {value}'
         else: 
             assert False, f'BUG: unknown keyword, got {keyword}'
 
@@ -986,6 +988,14 @@ class KnowledgeBase:
         else:
             return None
 
+    def get_latex(self, s: str) -> Optional[str]:
+        if s in self.latex:
+            return self.latex[s]
+        elif self.parent is not None:
+            return self.parent.get_latex(s)
+        else:
+            return None
+
     def get_load_level(self, fname: str) -> Optional[int]:
         if fname in self.libs:
             return self.level
@@ -1147,6 +1157,11 @@ class KnowledgeBase:
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol `{s}` is already a constant')
         self.alias[s] = t         # add a key `s` with value `t`
+
+    def add_latex(self, s: str, t: str) -> None:
+        # e.g.: 
+        # self.latex['implies'] = '\Rightarrow'
+        self.latex[s] = t         # add a key `s` with value `t`
 
     def add_bool(self, s: str, v: list[int]) -> None:
         if self.is_used(s):
@@ -1425,6 +1440,8 @@ def expr_str(expr: Expr, kb: KnowledgeBase) -> str:
         if len(s) > 0  and  s[0] == '(' and s[-1] == ')':
             s = s[1:-1]         # the brackets are useful during construction, but on the top level we have to omit them
         return s
+    elif kb.format == 'latex':
+        return expr_latex(expr, kb)
     else:
         assert False, f'BUG: unknown expression format, got {kb.format}'
 
@@ -1442,6 +1459,34 @@ def expr_sexpr(expr: Expr, kb: KnowledgeBase) -> str:                      # cre
     assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
 
 def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression
+    match expr:
+        case Token():
+            return expr_sexpr(expr, kb)            # reuse implementation from expr_sexpr
+        case [e0]:
+            return expr_normal(e0, kb)
+        case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_prefix(a):
+            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)})'
+        case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_postfix(a):
+            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)})'
+        case [Token(label='SYMBOL', value=a), e1, e2] if isinstance(a, str) and kb.is_infix(a):
+            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)} {expr_normal(e2, kb)})'
+        case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_bracket_placeholder(a):
+            # split `a` into `left` + `$$$` + `right`
+            parts = a.split('$$$')
+            assert len(parts) == 2, f'BUG: bracket placeholder must contain `$$$`'
+            left, right = parts
+            return f'{left} {" ".join([expr_normal(e, kb) for e in tail])} {right}'
+        case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_flat(a):
+            return f'({f" {expr_normal(expr[0], kb)} ".join([expr_normal(e, kb) for e in tail])})'
+        case [e0, e1]:
+            return f'{expr_normal(e0, kb)} {expr_normal(e1, kb)}'
+        case [Token(label='SYMBOL', value=a), e1, e2]:
+            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
+        case [*tail]:
+            return f'({" ".join([expr_normal(e, kb) for e in tail])})'
+    assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
+
+def expr_latex(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression
     match expr:
         case Token():
             return expr_sexpr(expr, kb)            # reuse implementation from expr_sexpr
@@ -1822,7 +1867,7 @@ def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
     expr = flatten_all(expr, kb)                        # flatten `flat` operators
     expr = symmetrize_all(expr, kb)                     # symmetrize `sym` operators
     if kb.calc:
-        expr = kb.calculate(expr)                       # do calculations if possible
+        expr = kb.calculate(expr)
     return expr, label
 
 def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optional[Token], list[Expr], str]:
@@ -1993,7 +2038,7 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
                 raise KurtException(f'ProofError: the line (its conclusion) of the `pick` block may not contain constant symbols from the current level, got `{expr_str(expr, kb)}`')
             reason = f'by "exists-elim"'
         case 'proof':
-            raise KurtException(f'ProofError: a `proof` block must be closed with `qed`')
+            return eval_qed(kb, filename, line, mainstream)
         case 'root':
             raise KurtException(f'ProofError: no block to close, already at the top level')
         case 'sandbox':
@@ -2504,6 +2549,22 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
         for (s, t) in new_stuff:
             kb.add_alias(s, t)
+    elif keyword == 'latex':
+        if len(args) == 0:
+            log(kb.dict_or_set_str_all_levels(keyword))
+        new_stuff = []
+        for args_i in args:
+            match args_i:
+                case []:
+                    assert False, f'BUG: empty args in `latex` should have been caught earlier'
+                case [Token(label='STRING'|'SYMBOL', value=s), Token(label='STRING'|'SYMBOL', value=t)]:
+                    assert isinstance(s, str) and isinstance(t, str)
+                    new_stuff.append((s, t))    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING', 'STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for (s, t) in new_stuff:
+            kb.add_latex(s, t)
 
     # THEORY AND PROOF RELATED
     elif keyword == 'theory':
@@ -3898,8 +3959,9 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
     if keyword == 'qed' and dedents == 0 and filename != '<stdin>':
         raise KurtException(f'ParseError: `qed` must be used with dedentation in files at line {line} in {filename}')
-    if keyword == 'done' and kb.mode_str not in ['assume', 'let', 'pick']:
-        raise KurtException(f'EvalError: `done` can only be used to close `assume`, `let`, or `pick` blocks at line {line} in {filename}, current mode is `{kb.mode_str}`')
+    if keyword == 'done' and kb.mode_str == 'root':
+        assert kb.level == 0, f'BUG: `root` mode must be level 0'
+        raise KurtException(f'EvalError: no open block')
 
     # chain management continued
     if chained:
@@ -3939,13 +4001,15 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         if mainstream and kb.mode_str == 'sandbox':
             log('done', f'{line} forgot the last block', kb.level)
     elif keyword == 'qed':
+        if dedents == 0:
+            dedents = 1                     # at least close the proof block
         # dry run to check the block modes and that we are not closing too many levels
         dedents_check = dedents
         kb_check: KnowledgeBase = kb
         while dedents_check > 0:   # the last one is checked after the loop
             mode_str = kb_check.mode_str
             if mode_str == 'sandbox':
-                raise KurtException(f'EvalError: `qed` never closes `sandbox`es')
+                raise KurtException(f'EvalError: `qed` never closes a `sandbox`')
             elif mode_str == 'root':
                 assert False, f'BUG: `qed` closed too many levels at line {line} in {filename}'
             elif dedents_check == 1 and mode_str != 'proof':
@@ -3955,8 +4019,6 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             dedents_check -= 1
         # now actually pop the levels
         dedents_total = dedents
-        if dedents == 0:
-            dedents = 1                     # at least close the proof block
         while dedents > 0:
             if kb.mode_str == 'proof':
                 kb = eval_qed(kb, filename, line, mainstream)   # qed with a block, yield a formula
@@ -3989,7 +4051,7 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
 
     return kb, lexer_state
 
-def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:
+def load_file(filename: str, kb: KnowledgeBase, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
     if not filename.endswith('.kurt'):
         filename += '.kurt'
@@ -4005,7 +4067,7 @@ def load_file(filename: str, kb: KnowledgeBase, markdown: bool=False, path: list
         with open(fname, encoding='utf-8') as f:
             kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
             level = kb.level      # save current level, this one we want to reach after loading
-            kb = read_eval_loop(f, kb, markdown, mainstream=mainstream)
+            kb = read_eval_loop(f, kb, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open `{filename}` searching at {path}') from None
@@ -4040,7 +4102,7 @@ def kurt_prompt_no_indent(level: int, line: int, continued: bool=False) -> str:
     p += '... ' if continued else f'<{line}> ' # continuation?
     return p
 
-def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False, mainstream: bool=False) -> KnowledgeBase:
+def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=False) -> KnowledgeBase:
     is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
     line       = 1
     continued  = False
@@ -4069,11 +4131,6 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, markdown: bool=False
                     break
                 new_line = new_line.rstrip()
             new_line = new_line.expandtabs(tab_indent)     # tabs are ok, but are converted
-            if markdown:
-                if new_line.startswith(' ' * md_indent):
-                    new_line = new_line[md_indent:]  # ignore the first `md_indent` spaces
-                else:
-                    continue                              # ignore the line
             input_line += new_line
             try:
                 kb, lexer_state = scan_parse_check_eval(input_line, lexer_state, kb, line, input_stream.name, mainstream)
@@ -4118,7 +4175,6 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=f'a simple proof assistant ({made_by})')
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
     parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading `filename`')
-    parser.add_argument('-m', '--markdown',     action='store_true', help=f'run on `.md` files instead of `.kurt`, will ignore everything that is not indented by {md_indent} spaces')
     parser.add_argument('-r', '--comment-indent', type=int, default=comment_indent, help=f'specify the indentation for comments (default: {comment_indent})')
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
@@ -4146,8 +4202,6 @@ def run_tests() -> None:
     print('Status:   ' + ('passed' if result.wasSuccessful() else 'failed'))
 
 def main() -> None:
-    log(f'This is Kurt, v{version} ({made_by})')
-    args = parse_args()
 
     # run tests?
     if args.test:
@@ -4166,6 +4220,10 @@ def main() -> None:
     # LaTeX output?
     global latex_flag
     latex_flag = args.latex
+
+    # say hello
+    log(f'This is Kurt, v{version} ({made_by})')
+    args = parse_args()
 
     # readline history
     if readline:

@@ -4,32 +4,19 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
-- TODO solve the `assume-not.kurt` puzzle, check with trigger_sub,
-  - problem is: once we have `sub %A %a %A`, we did already replace the "A", so we cannot match it again
-  - so just trigger it once we replace `A`
-- TODO calculation should only happen for comparison, i.e., for simplified expressions
-- TODO allow `done` to finish a proof without qed, `done` finishes one block, `qed` finishes all blocks until the proof block
-- TODO why is everything indented when running in the shell?
+- TODO why (not x in emptyset) not working?
 - TODO create nice looking latex document from the proof, move all `print('foobar', file=sys.stdout)` to a function that can be redefined to write to latex, maybe pass `mainstream` flag down, also replace the comments sign from `;` to `%` in latex
-- TODO assume assume qed (in the shell) is wrong
 - TODO proofs/mafi1/nicer bugs
 
 - TODO write the tutorial
-- TODO why (not x in emptyset) not working?
-- TODO postpone the indent.pops after the checks and parsing
 - TODO verbose mode should give context dependent hints before each prompt, `hint`
 - TODO iterate over the formulas in theory and over all conclusions (RHS of implications) as well
 - TODO make a good verbose mode for teaching/being helpful
 - TODO better inference rules that should make part of `impl_elim` not necessary: when iterating through `all_theory()` also iterate over RHS of implications where the LHS is part of the theory
-- TODO checkout `sub $x $a $A`, i.e., with `$A` instead of `%A`
-- TODO have calc on or off
 - TODO `chain`s are always transitive
 - TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`, if it is transitive also more
 - TODO dependencies: who loads what?  a theory should load all necessary stuff, let theories load their own dependencies
-- TODO allow single-line chains of equations
 - TODO next implement adding numbers
-- TODO do the `arith.kurt`, do `set.kurt`
-- TODO automatically fix the free variables of a formula once a proof started
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
 - TODO repairs messages for 'pick', 'fix', 'assume'
 - TODO check  if lbp > rbp then left-assoc else right-assoc
@@ -38,11 +25,10 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
 - TODO check conditions in `first-order.kurt`
-- TODO make the Expr objects also frozen, create also some class for it
-- TODO some tokens (e.g. SPACE) have no column number
 
 ## TOPICS before releasing 1.0
 
+- TODO make the Expr objects also frozen, create also some class for it
 - TODO do checks for `case` statements
 - TODO don't create all those Tokens on-the-fly, but some like the `not_token` can be created and reused.
 - TODO get rid of labels, just make the first word of the comment after a formula its label, get rid of string data type
@@ -65,6 +51,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO write documentation/tutorial for the language
 - TODO refactoring: work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around
 - TODO search all TODO in the code and check whether they are still relevant
+- TODO when should the calculation happen?  only for simplified expressions?  have a flag?
 
 ## TOPICS before releasing 2.0
 
