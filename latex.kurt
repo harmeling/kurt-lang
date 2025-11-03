@@ -1,0 +1,29 @@
+; latex.kurt
+; mappings to latex
+
+; keywords
+latex "assume" "\text{Assume that }"
+latex "case"   "\text{Case }"
+latex "let"    "\text{Let }"
+latex "pick"   "\text{Pick }"
+latex "show"   "\text{To show: }"
+latex "proof"  "\textbf{proof}"
+latex "qed"    "\textbf{qed}"
+latex "with"   "\text{ with }"
+latex "use"    "\text{use }"
+
+; symbols
+latex implies "\Rightarrow"
+latex "⇒"       "\Rightarrow"
+latex "∧"       "\land"
+latex "∨"       "\lor"
+latex "not"     "\lnot"
+latex "¬"       "\lnot"
+latex "∀"       "\forall"
+latex "∃"       "\exists"
+latex "true"    "\text{true}"
+latex "⊤"       "\top"
+latex "false"   "\text{false}"
+latex "⊥"       "\bot"
+latex "equiv"   "\Leftrightarrow"
+latex "≡"       "\equiv"

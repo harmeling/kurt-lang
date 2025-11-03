@@ -14,15 +14,15 @@
 \begin{tabular}{L{0.45\linewidth} L{0.45\linewidth}}
 \text{To show: } $(\exists x\, (\neg P x)) \Rightarrow (\neg (\forall x\, P x))$ & ; 6 claim \\
 \textbf{proof} & \\
-\quad \text{Assume that} $\exists x\, (\neg P x)$ & ; 8 open block with assumption \\
-\quad\quad \text{Pick} $a$ \text{with} $\neg P a$ & ; 9 open local scope with new constant "a" \\
-\quad\quad\quad \text{Assume that} $\forall x\, P x$ & ; 10 open block with assumption \\
-\quad\quad\quad\quad $\Rightarrow P a$ & ; 11 by 10 \\
-\quad\quad\quad\quad \text{contradiction } $(\lightning)$ & ; 12 by (11, 9), "bottom-intro" \\
-\quad\quad\quad $\Rightarrow$\text{ not} $(\forall x\, P x)$ & ; 13 by "not-intro" \\
-\quad\quad $\Rightarrow$\text{ not} $(\forall x\, P x)$ & ; 13 by "exists-elim" \\
-\quad $(\exists x\, (\neg P x)) \ \textbf{implies}\ (\textbf{not}\ (\forall x\, P x))$ & ; 13 by "impl-intro" \\
-\textbf{qed} & \\
+\quad $\text{Assume that } \exists x\, (\neg P x)$                          & ; 8 open block with assumption \\
+\quad\quad $\text{Pick } a \text{ with } \neg P a$                          & ; 9 open local scope with new constant "a" \\
+\quad\quad\quad $\text{Assume that } \forall x\, P x$                       & ; 10 open block with assumption \\
+\quad\quad\quad\quad $\Rightarrow P a$                                      & ; 11 by 10 \\
+\quad\quad\quad\quad $\Rightarrow \text{contradiction } (\lightning)$       & ; 12 by (11, 9), "bottom-intro" \\
+\quad\quad\quad $\Rightarrow \text{ not } (\forall x\, P x)$                & ; 13 by "not-intro" \\
+\quad\quad $\Rightarrow \text{ not } (\forall x\, P x)$                     & ; 13 by "exists-elim" \\
+\quad $\Rightarrow(\exists x\, (\neg P x)) \ \textbf{implies}\ (\textbf{not}\ (\forall x\, P x))$ & ; 13 by "impl-intro" \\
+\textbf{qed}
 \end{tabular}
 \end{flushleft}
 

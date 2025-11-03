@@ -1,10 +1,11 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.4.23)  31 OCT 2025 17:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.4.23)  3 NOV 2025 09:48
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**\documentclass{article}
-
-*\usepackage[T1]{fontenc}
+**test.tex
+(./test.tex
+LaTeX2e <2024-11-01> patch level 2
+L3 programming layer <2025-01-18>
 (/usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls
 Document Class: article 2024/06/29 v1.4n Standard LaTeX document class
 (/usr/local/texlive/2025/texmf-dist/tex/latex/base/size10.clo
@@ -22,17 +23,14 @@ File: size10.clo 2024/06/29 v1.4n Standard LaTeX file (size option)
 \belowcaptionskip=\skip50
 \bibindent=\dimen141
 )
-*\usepackage[utf8]{inputenc}
 (/usr/local/texlive/2025/texmf-dist/tex/latex/base/fontenc.sty
 Package: fontenc 2021/04/29 v2.0v Standard LaTeX package
 )
-*\usepackage{amsmath,amssymb}
 (/usr/local/texlive/2025/texmf-dist/tex/latex/base/inputenc.sty
 Package: inputenc 2024/02/08 v1.3d Input encoding file
 \inpenc@prehook=\toks17
 \inpenc@posthook=\toks18
 )
-*\usepackage{array}
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsmath/amsmath.sty
 Package: amsmath 2024/11/05 v2.17t AMS math features
 \@mathmargin=\skip51
@@ -112,7 +110,6 @@ LaTeX Font Info:    Redeclaring math symbol \hbar on input line 98.
 LaTeX Font Info:    Overwriting math alphabet `\mathfrak' in version `bold'
 (Font)                  U/euf/m/n --> U/euf/b/n on input line 106.
 ))
-*\usepackage[a4paper, hmargin={3.5cm,3cm}, vmargin={2cm,2cm}]{geometry}
 (/usr/local/texlive/2025/texmf-dist/tex/latex/tools/array.sty
 Package: array 2024/10/17 v2.6g Tabular extension package (FMi)
 \col@sep=\dimen151
@@ -123,7 +120,6 @@ Package: array 2024/10/17 v2.6g Tabular extension package (FMi)
 \backup@length=\skip55
 \ar@cellbox=\box55
 )
-*\usepackage{stmaryrd}
 (/usr/local/texlive/2025/texmf-dist/tex/latex/geometry/geometry.sty
 Package: geometry 2020/01/02 v5.9 Page Geometry
 
@@ -150,41 +146,34 @@ Package: iftex 2024/12/12 v1.0g TeX engine tests
 \Gm@layoutvoffset=\dimen160
 \Gm@dimlist=\toks26
 )
-*
 (/usr/local/texlive/2025/texmf-dist/tex/latex/stmaryrd/stmaryrd.sty
 Package: stmaryrd 1994/03/03 St Mary's Road symbol package
 \symstmry=\mathgroup6
 LaTeX Font Info:    Overwriting symbol font `stmry' in version `bold'
 (Font)                  U/stmry/m/n --> U/stmry/b/n on input line 89.
 )
-(Please type a command or say `\end')
-*\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
-
-*
-(Please type a command or say `\end')
-*\begin{document}
 (/usr/local/texlive/2025/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count285
 \l__pdf_internal_box=\box56
 )
-(./texput.aux)
-\openout1 = `texput.aux'.
+(./test.aux)
+\openout1 = `test.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 0.
-LaTeX Font Info:    ... okay on input line 0.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 0.
-LaTeX Font Info:    ... okay on input line 0.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 0.
-LaTeX Font Info:    ... okay on input line 0.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 0.
-LaTeX Font Info:    ... okay on input line 0.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 0.
-LaTeX Font Info:    ... okay on input line 0.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 0.
-LaTeX Font Info:    ... okay on input line 0.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 0.
-LaTeX Font Info:    ... okay on input line 0.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 13.
+LaTeX Font Info:    ... okay on input line 13.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 13.
+LaTeX Font Info:    ... okay on input line 13.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 13.
+LaTeX Font Info:    ... okay on input line 13.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 13.
+LaTeX Font Info:    ... okay on input line 13.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 13.
+LaTeX Font Info:    ... okay on input line 13.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 13.
+LaTeX Font Info:    ... okay on input line 13.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 13.
+LaTeX Font Info:    ... okay on input line 13.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -220,97 +209,49 @@ LaTeX Font Info:    ... okay on input line 0.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
+LaTeX Font Info:    Trying to load font information for U+msa on input line 16.
 
-*
-(Please type a command or say `\end')
-*\begin{flushleft}
-
-*\begin{tabular}{L{0.49\linewidth} L{0.51\linewidth}}
-LaTeX Font Info:    Trying to load font information for U+msa on input line 0.
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 0.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 16.
+
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-LaTeX Font Info:    Trying to load font information for U+stmry on input line 0
-.
+LaTeX Font Info:    Trying to load font information for U+stmry on input line 1
+6.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/stmaryrd/Ustmry.fd)
-*\text{To show: } $(\exists x\, (\neg P x)) \Rightarrow (\neg (\forall x\, P x)
-)$ & ; 6 claim \\
-
-*\textbf{proof} & \\
-
-*\quad \text{Assume that} $\exists x\, (\neg P x)$ & ; 8 open block with assump
-tion \\
-
-*\quad\quad \text{Pick} $a$ \text{with} $\neg P a$ & ; 9 open local scope with 
-new constant "a" \\
-
-*\quad\quad\quad \text{Assume that} $\forall x\, P x$ & ; 10 open block with as
-sumption \\
-
-*\quad\quad\quad\quad $\Rightarrow P a$ & ; 11 by 10 \\
-
-*\quad\quad\quad\quad \text{contradiction } $(\lightning)$ & ; 12 by (11, 9), "
-bottom-intro" \\
-
-*\quad\quad\quad $\Rightarrow$\text{ not} $(\forall x\, P x)$ & ; 13 by "not-in
-tro" \\
-
-*\quad\quad $\Rightarrow$\text{ not} $(\forall x\, P x)$ & ; 13 by "exists-elim
-" \\
-
-*\quad $(\exists x\, (\neg P x)) \ \textbf{implies}\ (\textbf{not}\ (\forall x\
-, P x))$ & ; 13 by "impl-intro" \\
-
-*\textbf{qed} & \\
-
-*\end{tabular}
-
-*\end{flushleft}
-
-Overfull \hbox (23.99998pt too wide) detected at line 0
-[]  
- []
-
-
-*
-(Please type a command or say `\end')
-*\end{document}
-
 
 [1
 
 {/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/loc
 al/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}]
-(./texput.aux)
+(./test.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
- 
+ ) 
 Here is how much of TeX's memory you used:
- 2869 strings out of 473190
- 39735 string characters out of 5715800
- 431497 words of memory out of 5000000
+ 2872 strings out of 473190
+ 39739 string characters out of 5715800
+ 447491 words of memory out of 5000000
  26129 multiletter control sequences out of 15000+600000
  565781 words of font info for 53 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 56i,12n,65p,209b,258s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><
-/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></u
-sr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></us
-r/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1000.pfb></usr/
-local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb></usr/lo
-cal/texlive/2025/texmf-dist/fonts/type1/public/stmaryrd/stmary10.pfb>
-Output written on texput.pdf (1 page, 62734 bytes).
+ 57i,12n,65p,218b,257s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb
+></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><
+/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></
+usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1000.pfb></us
+r/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb>
+Output written on test.pdf (1 page, 61535 bytes).
 PDF statistics:
- 39 PDF objects out of 1000 (max. 8388607)
- 23 compressed objects within 1 object stream
+ 34 PDF objects out of 1000 (max. 8388607)
+ 20 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 
