@@ -1,40 +1,42 @@
 ;;; two-equal sets
 load set
-var A, B, C, M, N
-
+const A, B, C
 show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
 proof
+    ; for set equality we show "⊂" and "⊃"
     show A ∩ (B ∪ C) ⊂ (A ∩ B) ∪ (A ∩ C)
     proof
-        let x
-            assume x ∈ A ∩ (B ∪ C)
-                x ∈ A  ∧  x ∈ B ∪ C
-                x ∈ A
-                x ∈ B ∪ C
-                case x ∈ B
-                    x ∈ A  ∧  x ∈ B
-                    x ∈ A ∩ B
-                    x ∈ (A ∩ B) ∪ (A ∩ C)
-                case x ∈ C
-                    x ∈ A  ∧  x ∈ C
-                    x ∈ A ∩ C
-                    x ∈ (A ∩ B) ∪ (A ∩ C)
+        let x ∈ A ∩ (B ∪ C)
+            x ∈ A  ∧  x ∈ B ∪ C
+            x ∈ A
+            x ∈ B ∪ C
+            case x ∈ B
+                x ∈ A  ∧  x ∈ B
+                x ∈ A ∩ B
                 x ∈ (A ∩ B) ∪ (A ∩ C)
+                ;done
+            case x ∈ C
+                x ∈ A  ∧  x ∈ C
+                x ∈ A ∩ C
+                x ∈ (A ∩ B) ∪ (A ∩ C)
+                ;done
+            x ∈ (A ∩ B) ∪ (A ∩ C)
+        A ∩ (B ∪ C)  ⊂  (A ∩ B) ∪ (A ∩ C)
     qed
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     proof
-        let x
-            assume x ∈ (A ∩ B) ∪ (A ∩ C)
-                assume x ∈ A ∩ B
-                    x ∈ A  ∧  x ∈ B
-                    x ∈ A
-                    x ∈ B ∪ C
-                    x ∈ A ∩ (B ∪ C)
-                assume x ∈ A ∩ C
-                    x ∈ A  ∧  x ∈ C
-                    x ∈ A
-                    x ∈ B ∪ C
-                    x ∈ A ∩ (B ∪ C)
+        let x ∈ (A ∩ B) ∪ (A ∩ C)
+            case x ∈ A ∩ B
+                x ∈ A  ∧  x ∈ B
+                x ∈ A
+                x ∈ B ∪ C
+                x ∈ A ∩ (B ∪ C)
+            case x ∈ A ∩ C
+                x ∈ A  ∧  x ∈ C
+                x ∈ A
+                x ∈ B ∪ C
+                x ∈ A ∩ (B ∪ C)
+            x ∈ A ∩ (B ∪ C)
     qed
 qed
 ;;; Proof checked.

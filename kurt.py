@@ -130,7 +130,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 114:
+        if debug_counter == 3567:
             pass
         debug_counter += 1
 
@@ -1996,10 +1996,11 @@ def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
             assert isinstance(s, str)
             return s in symbols
         # binding operator
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
-            assert isinstance(bound_v, str)
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            bound_v, condition = unpack_condition(cond, kb)
             symbols_wo_bound_v = symbols - {bound_v}  # set difference creating a new set
-            return contains(tail, symbols_wo_bound_v, kb)
+            cond_check = True if condition is None else contains(condition, symbols_wo_bound_v, kb)
+            return cond_check or contains(tail, symbols_wo_bound_v, kb)
         # other list
         case [*children]:
             return any(contains(c, symbols, kb) for c in children)
@@ -2055,7 +2056,7 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
     kb_parent = kb.parent
     not_allowed = set(filter(lambda s: not kb_parent.is_var(s), kb.const))
     if contains(expr, not_allowed, kb):
-        raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of `thus`, got `{expr_str(expr, kb)}`')
+        raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of the previous one, got `{expr_str(expr, kb)}`, not allowed are {not_allowed}')
 
     # add a the new formula to the theory
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -2132,19 +2133,30 @@ def extract_by_condition(e: Expr, c: Callable[[str], bool]) -> list[str]:
             return found
     return []
 
-# what is allowed for `fix`?
-#     fix x      ; x must be new constant or existing variable
-#     fix x>0    ; x must be new constant or existing variable
+# what is allowed for `let`?
+#     let x      ; x must be new constant or existing variable
+#     let x>0    ; x must be new constant or existing variable
+def unpack_condition(expr: Expr, kb: KnowledgeBase) -> tuple[str, Optional[Expr]]:
+    if isinstance(expr, Token):
+        if expr.label != 'SYMBOL':
+            raise KurtException(f'EvalError: expected a symbol, got `{expr_str(expr, kb)}`', expr.column)
+        assert isinstance(expr.value, str)
+        new_const = expr.value
+        condition = None
+    else:
+        new_consts = extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb))
+        if len(new_consts) != 1:
+            raise KurtException(f'EvalError: expected exactly one new symbol or existing, got {new_consts} in `{expr_str(expr, kb)}`')
+        new_const = new_consts[0]
+        condition = expr
+    return new_const, condition
+
 # in the block that is opened, `x` will be constant
 # `x` can not be an existing constant
-def eval_fix(kb: KnowledgeBase, expr: Expr, input_line: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    with_condition = isinstance(expr, list) and bool_expr(expr, kb)
-    new_consts = extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb))
-    if len(new_consts) != 1:
-        raise KurtException(f'EvalError: expected exactly one new symbol or existing, got {new_consts} in `{expr_str(expr, kb)}`')
-    new_const = new_consts[0]
+def eval_let(kb: KnowledgeBase, expr: Expr, input_line: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
+    new_const, condition = unpack_condition(expr, kb)
     kb.add_const(new_const)          # add the new constant to the knowledgebase
-    if with_condition:
+    if condition is not None:
         f = eval_use(kb, expr, input_line, 'let', filename, line, keyword='use', mainstream=False)  # use the expression as an assumption
         kb.theory_append(f)
     return kb
@@ -2703,7 +2715,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         kb = kb.push_level('let', args)  # open a new block
         for expr in args:  # args is a list of expressions
             try:
-                kb = eval_fix(kb, expr, input_line, filename, line, mainstream)
+                kb = eval_let(kb, expr, input_line, filename, line, mainstream)
             except KurtException:
                 kb = kb.pop_level()  # close the block on error
                 raise      # the same exception again

@@ -4,8 +4,10 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO allow `let x with F(x)`, or `let F(x)`, or `let x>0`, merge `pick` and `let` to use `unpack_condition`
+- TODO why not `f()` ???  what is it?  it should be parsed `(f)` instead of just `f`
+- TODO automatically iterate over all implications, in particular convert `≡` into two implications
 - TODO why (not x in emptyset) not working?
-- TODO create nice looking latex document from the proof, move all `print('foobar', file=sys.stdout)` to a function that can be redefined to write to latex, maybe pass `mainstream` flag down, also replace the comments sign from `;` to `%` in latex
 - TODO proofs/mafi1/nicer bugs
 
 - TODO write the tutorial
