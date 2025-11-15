@@ -21,6 +21,7 @@ proof
                 x ∈ (A ∩ B) ∪ (A ∩ C)
                 ;done
             x ∈ (A ∩ B) ∪ (A ∩ C)
+        ∀x ( x ∈ A ∩ (B ∪ C) ⇒ x ∈ (A ∩ B) ∪ (A ∩ C))
         A ∩ (B ∪ C)  ⊂  (A ∩ B) ∪ (A ∩ C)
     qed
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)

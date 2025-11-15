@@ -130,7 +130,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 3567:
+        if debug_counter == 113:
             pass
         debug_counter += 1
 
@@ -1999,7 +1999,7 @@ def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
         case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
             bound_v, condition = unpack_condition(cond, kb)
             symbols_wo_bound_v = symbols - {bound_v}  # set difference creating a new set
-            cond_check = True if condition is None else contains(condition, symbols_wo_bound_v, kb)
+            cond_check = False if condition is None else contains(condition, symbols_wo_bound_v, kb)
             return cond_check or contains(tail, symbols_wo_bound_v, kb)
         # other list
         case [*children]:
@@ -4284,7 +4284,15 @@ def main() -> None:
     if readline:
         readline_history_file = os.path.expanduser('~/.kurt_history')         # should work on all platforms
         if os.path.exists(readline_history_file):
-            readline.read_history_file(readline_history_file)                 # restore history
+            try:
+                readline.read_history_file(readline_history_file)                 # restore history
+            except PermissionError:
+                # the file exists but is not readable if it consists only of the header
+                # this case happens with the following lines in the shell:
+                #     rm ~/.kurt_history
+                #     kurt       # quit it immediately with Ctrl-D
+                #     kurt       # start it again, now the file exists but is not readable
+                pass
         atexit.register(readline.write_history_file, readline_history_file)   # register for automatic saving
 
     # verbosity?
