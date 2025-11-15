@@ -9,6 +9,12 @@ foo.md
 test.py
 # touch
 
+# Python virtualenvs
+.venv/
+venv/
+env/
+.env/
+
 # latex stuff
 *.aux
 *.log
