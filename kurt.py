@@ -130,7 +130,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 113:
+        if debug_counter == 3604:
             pass
         debug_counter += 1
 
@@ -578,7 +578,7 @@ Led: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Expr, Token], Exp
 Mode: TypeAlias = tuple[str, list[Expr]]  # where the str is one of ['root', 'proof', 'assume', 'case', 'let', 'pick']
 
 class KnowledgeBase:
-    def __init__(self, parent:Optional[KnowledgeBase], mode: Mode) -> None:
+    def __init__(self, parent:Optional[KnowledgeBase], mode: Mode, tmp: bool = False) -> None:
         # general
         self.parent: Optional[KnowledgeBase] = parent
         self._todos: list[str]      = []         # list of todos (only relevant on level 0, all todos are collected there)
@@ -586,7 +586,7 @@ class KnowledgeBase:
         self.mode_str: str          = mode[0]    # one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick']
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
         self.libs: list[str]        = []         # the filenames of loaded libraries
-        self.tmp: bool              = False      # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
+        self.tmp: bool              = tmp        # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
 
         # syntax
         self.infix:    dict[str, tuple[int,int]] = {}     # left and right binding powers of infix operators
@@ -702,7 +702,7 @@ class KnowledgeBase:
                 return e
 
     def push_level(self, mode_str: str, mode_expr_list: list[Expr]) -> KnowledgeBase:
-        return KnowledgeBase(parent=self, mode=(mode_str, mode_expr_list))
+        return KnowledgeBase(parent=self, mode=(mode_str, mode_expr_list), tmp=self.tmp)
 
     def pop_level(self) -> KnowledgeBase:
         if self.level == 0:
@@ -1992,6 +1992,7 @@ def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
 def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
     # check whether the `expr` contains certain `symbols`
     # note that bound variables are ignored
+    debug(f'contains: checking {expr_str(expr, kb)} for symbols {symbols}')
     match expr:
         # symbols
         case Token(label='SYMBOL', value=s):
@@ -2067,7 +2068,6 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
     kb.theory_append(f)                    # add a copy to the theory
     if mainstream:
         log(kb, f.formula_str(kb), reason, kb.level)
-    debug('hi')
 
     # can we infer further with "not-intro"?
     if mode_str == 'assume':
