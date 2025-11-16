@@ -586,6 +586,7 @@ class KnowledgeBase:
         self.mode_str: str          = mode[0]    # one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick']
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
         self.libs: list[str]        = []         # the filenames of loaded libraries
+        self.tmp: bool              = False      # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
 
         # syntax
         self.infix:    dict[str, tuple[int,int]] = {}     # left and right binding powers of infix operators
@@ -721,6 +722,7 @@ class KnowledgeBase:
         # merge all attributes except the excluded ones into the parent
         exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show", "calc", "indent", "hint"}
         exclude |= {"var"}   # variables are local to a file/block
+        exclude |= {"tmp"}   # temporary flags are local to a file
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
             if attr in exclude:
@@ -2952,6 +2954,8 @@ def starts_with_keyword(s: str) -> bool:
     return False
 
 def log(kb: KnowledgeBase, s: str, reason: str='', level: Optional[int]=None) -> None:
+        if level is not None and level > 0 and kb.tmp:
+            level = level - 1
         if latex_flag:
             indent: str = '% ' if level is None else '\\quad' * level + ' '
             if indent.startswith('% '):
@@ -4117,6 +4121,7 @@ def load_file(filename: str, kb: KnowledgeBase, path: list[str]=theory_path, mai
         with open(fname, encoding='utf-8') as f:
             kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
             level = kb.level      # save current level, this one we want to reach after loading
+            kb.tmp = True              # mark as temporary knowledge base during loading
             kb = read_eval_loop(f, kb, mainstream=mainstream)
     except OSError as e:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
