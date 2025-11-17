@@ -130,7 +130,7 @@ def debug(*s) -> None:
         global debug_counter
         caller = inspect.stack()[1].function
         print(f'{debug_counter:03} DEBUG[{caller}]:', ' '.join(map(str, s)), file=sys.stdout)
-        if debug_counter == 3604:
+        if debug_counter == 3630:
             pass
         debug_counter += 1
 
@@ -1147,6 +1147,8 @@ class KnowledgeBase:
         self.var.add(s)
 
     def add_const(self, s: str) -> None:
+        if s == 'x':
+            debug(f'adding `x` to level {self.level}')
         # a constant is automatically declared if a new symbol is used or when it is explicitly declared
         # declaring is only allowed, if it doesn't yet exist as a variable or constant
         if self.is_used(s):
@@ -1277,10 +1279,9 @@ class KnowledgeBase:
                         self.used.add(s)      # 2. add it to the used symbols
             case [*children]:
                 match children:
-                    case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=v), *tail]:
-                        if isinstance(op, str) and self.is_bindop(op):
-                            assert isinstance(v, str), f'BUG: symbol must be string'
-                            bound_vars = bound_vars | {v}   # add v to a copy of `bound_vars`
+                    case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and self.is_bindop(op):
+                        bound_v, _ = unpack_condition(cond, self)
+                        bound_vars = bound_vars | {bound_v}   # add v to a copy of `bound_vars`
                 for child in children:
                     self._add_new_symbols(child, bound_vars)
             case _:
@@ -2055,11 +2056,11 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             raise KurtException(f'ProofError: a `sandbox` block must be closed with `break`')
 
     # the constants on the current level are not allowed, however, the variables of the previous level are allowed (see `de-morgan.kurt`)
-    assert kb.parent is not None
+    assert kb.parent is not None, f'BUG: we should be one-level up in `eval_done`'
     kb_parent = kb.parent
     not_allowed = set(filter(lambda s: not kb_parent.is_var(s), kb.const))
-    if contains(expr, not_allowed, kb):
-        raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of the previous one, got `{expr_str(expr, kb)}`, not allowed are {not_allowed}')
+    if contains(expr, not_allowed, kb_parent):
+        raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of the previous one, got `{expr_str(expr, kb_parent)}`, not allowed are {not_allowed}')
 
     # add a the new formula to the theory
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -3094,18 +3095,25 @@ def new_bool_var_name() -> str:
     return f'%%{new_bool_var_name.counter:02d}'   # the `%%` ensures that it is not a kurt variable that the user can define
 
 def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> Expr:
+    # this function must remove all outer universal quantifiers
+    # if there is a condition, it turns it into an implication
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
 
-    # chop off all outer universal quantifiers and rename their bound vars
+    # chop off all outer universal quantifiers that have **no condition** and rename their bound vars
     while is_forall(expr):          
         assert isinstance(expr, list) and len(expr) == 3
-        assert isinstance(expr[1], Token) and isinstance(expr[1].value, str)
-        bound_var = expr[1].value
+        if isinstance(expr[1], Token):
+            assert isinstance(expr[1].value, str)
+            bound_var = expr[1].value
+            expr = expr[2]
+        else:
+            bound_var, condition = unpack_condition(expr[1], kb)
+            assert condition is not None, f'BUG: expected a condition'
+            expr = [Token(label='SYMBOL', value='implies'), condition, expr[2]]
         free_var = new_var_name()
         s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
-        expr = apply_subst(expr[2], s, kb)
+        expr = apply_subst(expr, s, kb)
     return expr
-
 # ALL variables are renamed on the formula level
 # * rename free vars in `expr` with generated names to avoid clashes with other expressions
 #   this is necessary, because free variables are implicitly universally bound per formula,

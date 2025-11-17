@@ -4,6 +4,9 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO check forall quantifier simplification with condition
+- TODO rename to `prop.kurt`, `logic.kurt`, `set.kurt`
+- TODO add `(%A iff top) implies A` to `propositional.kurt` and check some mafi1 example
 - TODO allow `let x with F(x)`, or `let F(x)`, or `let x>0`, merge `pick` and `let` to use `unpack_condition`
 - TODO why not `f()` ???  what is it?  it should be parsed `(f)` instead of just `f`
 - TODO automatically iterate over all implications, in particular convert `≡` into two implications
