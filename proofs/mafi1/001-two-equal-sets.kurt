@@ -21,8 +21,6 @@ proof
                 x ∈ (A ∩ B) ∪ (A ∩ C)
                 ;done
             x ∈ (A ∩ B) ∪ (A ∩ C)
-        ∀x ( x ∈ A ∩ (B ∪ C) ⇒ x ∈ (A ∩ B) ∪ (A ∩ C))
-        A ∩ (B ∪ C)  ⊂  (A ∩ B) ∪ (A ∩ C)
     qed
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     proof
@@ -38,9 +36,6 @@ proof
                 x ∈ B ∪ C
                 x ∈ A ∩ (B ∪ C)
             x ∈ A ∩ (B ∪ C)
-        ∀x ( (x ∈ (A ∩ B) ∪ (A ∩ C)) ⇒ (x ∈ A ∩ (B ∪ C)))
-        (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     qed
-    A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)
 qed
 ;;; Proof checked.

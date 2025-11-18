@@ -4,7 +4,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
-- TODO improve the 001-proof, can we omit more lines?
 - TODO check `bindop`, there are several implementation problem still to repair!
 - TODO add `(%A iff top) implies A` to `prop.kurt` and check some mafi1 example
 - TODO allow `let x with F(x)`, or `let F(x)`, or `let x>0`, merge `pick` and `let` to use `unpack_condition`

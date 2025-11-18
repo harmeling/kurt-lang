@@ -24,6 +24,7 @@ from __future__ import annotations
 
 
 ## all external libraries (let's keep the dependencies minimal)
+from ast import expr
 import sys
 if sys.version_info < (3, 10):
     print("Python 3.10 or newer is required, since we are using Python's `match`!  Sorry about that!", file=sys.stderr)
@@ -2109,9 +2110,13 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         # block all free variables of the planned expression, since they are universally quantified
         blocked_as_domain = frozenset(free_vars_only(planned_expr, kb))
         s = State({}, blocked_as_domain, frozenset())
-        optional_s = _first_or_none(unify_exprs_with_patterns([(planned_expr, proven_expr)], s, kb))
-        if optional_s is None:
-            raise KurtException(f'ProofError: planned formula `{expr_str(planned_expr, kb)}` does not match the last formula in the theory `{expr_str(proven_expr, kb)}`')
+        # next either `derive_expr` or `unify_exprs_with_patterns` (for unify we have to state the `planned_expr` again as `proven_expr`)
+        # option 1:
+        _, _ = derive_expr(planned_expr, filename, mainstream, s, kb)  # this might raise ProofError exceptions
+        # option 2:
+        #optional_s = _first_or_none(unify_exprs_with_patterns([(planned_expr, proven_expr)], s, kb))
+        #if optional_s is None:
+        #    raise KurtException(f'ProofError: planned formula `{expr_str(planned_expr, kb)}` does not match the last formula in the theory `{expr_str(proven_expr, kb)}`')
         reason = decorate_reason(mainstream, reason, filename, str(line))
         label = ''
     f = Formula(kb, planned_f.expr, planned_f.input_line, str(planned_f.line), filename, label, reason, keyword='')

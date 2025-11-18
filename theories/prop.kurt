@@ -1,4 +1,4 @@
-; prop logic
+; propositional logic
 
 ;; builtin syntax
 ; infix  implies 13 12  ; logical implies, right associative (since 13>12)
