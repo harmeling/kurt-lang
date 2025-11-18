@@ -4,9 +4,9 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
-- TODO check forall quantifier simplification with condition
-- TODO rename to `prop.kurt`, `logic.kurt`, `set.kurt`
-- TODO add `(%A iff top) implies A` to `propositional.kurt` and check some mafi1 example
+- TODO improve the 001-proof, can we omit more lines?
+- TODO check `bindop`, there are several implementation problem still to repair!
+- TODO add `(%A iff top) implies A` to `prop.kurt` and check some mafi1 example
 - TODO allow `let x with F(x)`, or `let F(x)`, or `let x>0`, merge `pick` and `let` to use `unpack_condition`
 - TODO why not `f()` ???  what is it?  it should be parsed `(f)` instead of just `f`
 - TODO automatically iterate over all implications, in particular convert `≡` into two implications
@@ -21,7 +21,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO `chain`s are always transitive
 - TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`, if it is transitive also more
 - TODO dependencies: who loads what?  a theory should load all necessary stuff, let theories load their own dependencies
-- TODO next implement adding numbers
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
 - TODO repairs messages for 'pick', 'fix', 'assume'
 - TODO check  if lbp > rbp then left-assoc else right-assoc
@@ -29,7 +28,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO allow multiple replacement in one step (is that possible?)
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
-- TODO check conditions in `first-order.kurt`
+- TODO check conditions in `logic.kurt`
 
 ## TOPICS before releasing 1.0
 
@@ -43,7 +42,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO have a `sandbox` block, where we first try and try, and then store it to the theory
 - TODO get group.kurt working with constants and with `var x, y, z`
 - TODO do calculations with integers and reals
-- TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `first-order.kurt`?
+- TODO what should go into `minimal.kurt`?  what into `propositional.kurt` and `logic.kurt`?
 - TODO define what get's exported when loading a file, make variables declarations local?
 - TODO get coverage of 100% in the unit tests
 - TODO test the conditions for forall and exist rules

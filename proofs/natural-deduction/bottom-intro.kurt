@@ -1,5 +1,5 @@
 ; bottom-intro.kurt
-; minimal setup from propositional.kurt
+; minimal setup from prop.kurt
 prefix not        18  ; logical not
 bool   not     0 1    ; `not` and its inputs have type bool
 bool   false          ; false has type bool

@@ -1,5 +1,5 @@
 ; set theory
-load equality, first-order
+load equality, logic
 
 ; syntax
 infix    in 25 25        ; element

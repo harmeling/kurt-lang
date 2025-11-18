@@ -1,4 +1,4 @@
 ; theory
-load first-order
+load logic
 theory
 ;;; Proof checked.

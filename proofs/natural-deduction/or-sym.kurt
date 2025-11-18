@@ -1,4 +1,4 @@
-load propositional
+load prop
 
 ; this version should be usable when loaded as an extension in another file, since we do not declare anything local here
 ; the key is that there are no quantifier for bool vars, but

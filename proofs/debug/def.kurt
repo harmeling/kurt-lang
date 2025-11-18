@@ -1,5 +1,5 @@
 ; def test
-load propositional
+load prop
 load equality
 
 def q iff true

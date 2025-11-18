@@ -1,5 +1,5 @@
 ; modal logic
-load propositional
+load prop
 prefix b 20, d 20          ; box and diamond
 bool b, d, A, B, p, q
 alias □ b

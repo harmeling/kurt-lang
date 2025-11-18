@@ -1,5 +1,5 @@
 ; iff test
-load propositional
+load prop
 
 use p iff q
 p implies q

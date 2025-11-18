@@ -1,5 +1,5 @@
 ; example: exists-intro
-load first-order
+load logic
 load equality
 
 bool  prime

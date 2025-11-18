@@ -1,5 +1,5 @@
 ; todo.kurt
-load first-order, equality
+load logic, equality
 
 show p
 proof

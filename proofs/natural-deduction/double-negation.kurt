@@ -1,4 +1,4 @@
-load propositional
+load prop
 
 ; variant 1
 bool p

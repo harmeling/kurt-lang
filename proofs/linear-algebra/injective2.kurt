@@ -1,5 +1,5 @@
 ; injective2.kurt
-load first-order
+load logic
 load equality
 
 ; 1.  f is injective, use def

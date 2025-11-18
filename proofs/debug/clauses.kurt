@@ -1,6 +1,6 @@
 ; clauses
 ; example where the conclusion is a conjunction and proven in one step
-load propositional
+load prop
 use A
 use B
 use A and B implies C

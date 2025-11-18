@@ -1,5 +1,5 @@
 ; lemma.kurt
-load propositional
+load prop
 var A, B, C
 show (A ⇒ (B ⇒ C))  ⇒  (A ∧ B ⇒ C)
 proof

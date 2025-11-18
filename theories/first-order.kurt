@@ -1,7 +1,7 @@
 ; first order logic
 
 ;; syntax
-load propositional  ; syntax and rules for propositional logic
+load prop  ; syntax and rules for prop logic
 arity  forall 2       ; universal quantification
 arity  exists 2       ; existential quantification
 bindop forall, exists

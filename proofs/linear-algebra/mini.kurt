@@ -1,6 +1,6 @@
 ; mini.kurt
 ; simple proofs from group theory
-load first-order, equality
+load logic, equality
 
 ; define function symbols for infix and prefix notations
 infix  +  60 60           ; binary plus

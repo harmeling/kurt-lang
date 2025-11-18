@@ -1,5 +1,5 @@
 ; example: proof by contradiction
-load propositional
+load prop
 
 ; axioms
 use p ⇒ q

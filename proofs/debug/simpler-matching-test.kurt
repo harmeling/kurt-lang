@@ -1,4 +1,4 @@
-load propositional
+load prop
 
 ; simpler matching test
 use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"

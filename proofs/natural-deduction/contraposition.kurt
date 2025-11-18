@@ -1,5 +1,5 @@
 ; contraposition.kurt
-load propositional
+load prop
 var A, B
 
 ; lemma

@@ -1,7 +1,7 @@
 ; sym.kurt
 ; simple test of the sym tactic
 ; written by Jan Robine (2025-05-08)
-load propositional
+load prop
 assume p ∨ q
     q ∨ p
 p ∨ q ⇒ q ∨ p

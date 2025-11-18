@@ -1,5 +1,5 @@
 ; de Morgan's law
-load propositional
+load prop
 var p, q       ; free variables
 
 ; axioms

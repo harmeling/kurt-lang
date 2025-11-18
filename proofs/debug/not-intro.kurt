@@ -1,5 +1,5 @@
 ; not-intro.kurt
-load propositional
+load prop
 use A implies B
 show not B implies not A
 proof

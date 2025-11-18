@@ -1,6 +1,6 @@
 ; neg forall is equivalent to exists neg
 ; author: Jan Robine
-load first-order
+load logic
 arity P 1
 
 show ∃ x ¬P(x)  ⇒  ¬(∀ x P(x))

@@ -1,5 +1,5 @@
 ; injective.kurt
-load first-order
+load logic
 load equality
 
 ; task: prove that the composition of two injective functions is injective
