@@ -31,6 +31,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## TOPICS before releasing 1.0
 
+- TODO binding of SPACE for `sum` vs `forall`.  can we have different values?
 - TODO make the Expr objects also frozen, create also some class for it
 - TODO do checks for `case` statements
 - TODO don't create all those Tokens on-the-fly, but some like the `not_token` can be created and reused.

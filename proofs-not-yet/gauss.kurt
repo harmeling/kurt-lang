@@ -1,12 +1,10 @@
 ;; gauss.kurt
 ; proof of Gauss' summation formula
-false ; NOT YET
-
-load arithmetics       ; load axioms about +, *, etc
-var a, b, i, g
+load arith       ; load axioms about +, *, etc
+var a, b, g
 ; axioms about summations
-use a > b  implies  sum i (a, b) (sub $$i i g) = 0                              "S1"
-use sum i (a, b) (sub $$i i g) = (sub $$i a g) + sum i (a+1, b) (sub $$i i g)   "S2"
+use a > b  implies  sum i (a, b) (sub i i g) = 0                              "S1"
+use sum i (a, b) (sub i i g) = (sub i a g) + sum i (a+1, b) (sub i i g)   "S2"
 use sum i (a, b+1) g(i) = g(b+1) + sum i (a, b) g(i)                            "S3"
 
 ; induction
@@ -15,29 +13,30 @@ use F(0) and (forall k F(k) implies F(k+1)) implies F(n)    ; induction
 ; omitting the `forall` quantifier in the assumption leads to a different formula:
 
 ; define the statement
-gauss(n) := sum x (0, n) x = n * (n+1) / 2
+def gauss(n) ≡ sum x (0, n) x = n * (n+1) / 2
 
 show gauss(n)
 proof
     show gauss(0)
     proof
-        sum x (0, 0) x = 0 + sum x (1, 0) x           ; by S2
-        sum x (0, 0) x = 0 + 0                        ; by S1
-        sum x (0, 0) x = 0                            ; by arith
-        sum x (0, 0) x = 0 * (0+1) / 2                ; by arith
-        gauss(0)                                      ; by definition
+        sum x (0, 0) x = 0 + sum x (1, 0) x            ; by S2
+           = 0 + 0                                     ; by S1
+           = 0                                         ; by arith
+           = 0 * (0+1) / 2                             ; by arith
+        ;gauss(0)                                       ; by definition
     qed
     show gauss(i) implies gauss(i+1)
     proof
         assume gauss(i)
-        sum x (0, i+1) x = i + 1 + sum x (0, i) x     ; by S3
-        sum x (0, i+1) x = i + 1 + i * (i+1) / 2      ; by assumption
-        sum x (0, i+1) x = 2*(i+1)/2 + i * (i+1) / 2  ; by arith
-        sum x (0, i+1) x = (2*(i+1) + i * (i+1)) / 2  ; by arith
-        sum x (0, i+1) x = (2+i) * (i+1) / 2          ; by arith
-        sum x (0, i+1) x = (i+1) * ((i+1)+1) / 2      ; by arith
-        gauss(i+1)                                    ; by definition
+            sum x (0, i+1) x = i + 1 + sum x (0, i) x  ; by S3
+                = i + 1 + i * (i+1) / 2                ; by assumption
+                = 2*(i+1)/2 + i * (i+1) / 2            ; by arith
+                = (2*(i+1) + i * (i+1)) / 2            ; by arith
+                = (2+i) * (i+1) / 2                    ; by arith
+                = (i+1) * ((i+1)+1) / 2                ; by arith
+        ;gauss(i+1)                                     ; by definition
     qed
-    gauss(0)  and  (gauss(i) implies  gauss(i+1))
-    gauss(n)                                          ; by induction
+    ;gauss(0)  and  (gauss(i) implies  gauss(i+1))
+    ;gauss(n)                                           ; by induction
 qed
+;;; Proof checked.

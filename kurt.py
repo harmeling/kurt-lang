@@ -3013,11 +3013,13 @@ def apply_subst(expr: Expr, s: State, kb: KnowledgeBase) -> Expr:
             return expr
 
         # binding operator: recurse into body with extended blocked
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
-            assert isinstance(bound_v, str)
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            bound_v, _ = unpack_condition(cond, kb)
             body = expr[2:]
-            new_body = [apply_subst(c, s.block_always(bound_v), kb) for c in body]
-            return [expr[0], expr[1], *new_body]
+            new_s = s.block_always(bound_v)
+            new_cond = apply_subst(cond, new_s, kb)
+            new_body = [apply_subst(c, new_s, kb) for c in body]
+            return [expr[0], new_cond, *new_body]
         
         # general case: recurse into all children
         case [*exprs]:
@@ -3063,9 +3065,14 @@ def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
             return set(), set()
         
         # binding operators "bind" free variables
-        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bound_v), *tail] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            bound_v, opt_condition = unpack_condition(cond, kb)
             fv, bv = free_bound_vars(tail, kb)
-            if bound_v in fv:           # `bound_v` appears freely in `tail`
+            if opt_condition is not None:
+                fv_cond, bv_cond = free_bound_vars(opt_condition, kb)
+                fv.update(fv_cond)
+                bv.update(bv_cond)
+            if bound_v in fv:           # `bound_v` appears freely in `tail` or `opt_condition`
                 fv.remove(bound_v)      # remove from the free vars, since in `expr` it is bound
             assert isinstance(bound_v, str)
             bv.add(bound_v)             # add to the bound vars (also if it wasn't a free variable, i.e., didn't appear in `tail`)
