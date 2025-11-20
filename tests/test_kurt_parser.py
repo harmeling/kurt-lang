@@ -1,7 +1,7 @@
 import unittest
 import copy
 import kurt
-from examples import examples
+from .examples import examples
 
 class Test_Parsing(unittest.TestCase):
     def test_parsing(self):

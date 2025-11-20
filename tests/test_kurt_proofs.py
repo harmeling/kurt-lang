@@ -6,10 +6,27 @@ import unittest
 import kurt
 import pathlib
 import contextlib
+import importlib.resources as res
+
+from tests.utils import PROJECT_ROOT
+proofs_root = PROJECT_ROOT / "proofs"
+theories_root = res.files("kurt.theories")
+
+print("PROJECT_ROOT =", PROJECT_ROOT)
+print("proofs_root =", proofs_root)
+print("theories_root =", theories_root)
+
+def traversable_rglob(root, pattern=".kurt"):
+    """Recursively yield all files ending with pattern from a Traversable root."""
+    for item in root.iterdir():
+        if item.is_file() and str(item).endswith(pattern):
+            yield item
+        elif item.is_dir():
+            yield from traversable_rglob(item, pattern)
 
 def file_last_line(fname):
     # the last line in the file starts with `;;; ` and contains the expected last line of the output
-    with open(fname, "r") as f:
+    with fname.open("r") as f:
         return f.readlines()[-1].strip()[4:]
 
 def str_last_line(s):
@@ -29,15 +46,15 @@ def normalize_path_in_line(line: str) -> str:
 
 class TestProving(unittest.TestCase):
     def test_proving(self):
-        example_paths = sorted(pathlib.Path("proofs").rglob("*.kurt"))
-        example_paths += sorted(pathlib.Path("theories").rglob("*.kurt"))
+        example_paths = sorted(proofs_root.rglob("*.kurt"))
+        example_paths += list(traversable_rglob(theories_root, "*.kurt"))
         # Optional: make sure we actually found something to test
-        self.assertTrue(example_paths, "No .kurt files found under proofs/")
+        self.assertTrue(example_paths, "No `.kurt` files found under proofs/")
 
         for i, path in enumerate(example_paths):
             with self.subTest(i=i, msg=path):
                 kb = copy.deepcopy(kurt.initial_kb)
-                true_last_line = file_last_line(str(path))
+                true_last_line = file_last_line(path)
                 out_buf, err_buf = io.StringIO(), io.StringIO()
                 try:
                     with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):

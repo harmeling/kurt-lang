@@ -126,7 +126,8 @@ IFF_SYMBOL    = 'iff'        # equivalence
 
 # default theory and theory path
 default_theory = 'theory.kurt'             # default theory
-theory_path = []                # path for theories, set in `main()`
+theory_path = [Path.cwd(),                             # current working directory
+                          resources.files("kurt.theories")]       # path of packaged theories
 
 # debugging
 debug_flag = False
@@ -2265,8 +2266,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 match arg[0]:
                     case Token(label='STRING', value=fname):
                         assert isinstance(fname, str)
+                        s_paths = [Path(filename).parent.resolve()] + theory_path
                         try:
-                            kb = load_file(fname, kb, mainstream=False)
+                            kb = load_file(fname, kb, search_paths=s_paths, mainstream=False)
                         except KurtException as e:
                             if e.column is None:
                                 e.column = arg[0].column
@@ -4124,12 +4126,12 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
 
     return kb, lexer_state
 
-def load_file(filename: str, kb: KnowledgeBase, mainstream:bool=False, silent:bool=False) -> KnowledgeBase:
+def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, mainstream:bool=False, silent:bool=False) -> KnowledgeBase:
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
     if not filename.endswith('.kurt'):
         filename += '.kurt'
     # iterate over all theory paths
-    for path in theory_path:
+    for path in search_paths:
         candidate = path / filename
         fname = str(candidate)
         # check if the file was loaded already
@@ -4164,7 +4166,7 @@ def load_file(filename: str, kb: KnowledgeBase, mainstream:bool=False, silent:bo
     # we couldn't open the file anywhere
     if not silent:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
-        raise KurtException(f'EvalError: unable to open `{filename}` searching at {theory_path}') from None
+        raise KurtException(f'EvalError: unable to open `{filename}` searching at {[str(p) for p in search_paths]}') from None
     return kb
 
 ###########################
@@ -4255,26 +4257,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
     parser.add_argument('-l', '--latex',        action='store_true', help=f'create LaTeX proof document')
-    parser.add_argument('-t', '--test',         action='store_true', help=f'run unit tests and exit')
     return parser.parse_args()
-
-def run_tests() -> None:
-    import os
-    import unittest
-
-    # Ensure we are running discovery in the right directory
-    test_dir = os.path.join(os.path.dirname(__file__), 'tests')
-    loader = unittest.TestLoader()
-    suite = loader.discover(start_dir=test_dir, pattern='test_*.py')
-
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-
-    print(f'\nSUMMARY')
-    print(f'Ran {result.testsRun} tests')
-    print(f'Failures: {len(result.failures)}')
-    print(f'Errors:   {len(result.errors)}')
-    print('Status:   ' + ('passed' if result.wasSuccessful() else 'failed'))
 
 def main() -> None:
 
@@ -4283,12 +4266,6 @@ def main() -> None:
 
     # the knowledge base we start with on level 0
     kb = initial_kb
-
-    # run tests?
-    if args.test:
-        log(kb, 'Running tests...')
-        run_tests()
-        exit(0)
 
     # debug flag?
     global debug_flag
@@ -4325,10 +4302,8 @@ def main() -> None:
 
     # theory path
     global theory_path
-    theory_path.append(Path.cwd())                             # current working directory
     if args.path is not None:
-        theory_path.append(Path(args.path))                    # user specified path
-    theory_path.append(resources.files("kurt.theories"))       # path of packaged theories
+        theory_path.insert(1, Path(args.path))                    # user specified path
 
     if kb.verbose:
         log(kb, f'Using theory path: {theory_path}')

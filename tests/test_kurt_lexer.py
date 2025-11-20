@@ -1,6 +1,6 @@
 import unittest
 import kurt
-from examples import examples
+from .examples import examples
 
 class Test_Lexing(unittest.TestCase):
     def test_lexing(self):

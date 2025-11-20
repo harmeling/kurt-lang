@@ -70,6 +70,7 @@
         "ponens",
         "pycache",
         "Pyodide",
+        "pytest",
         "PYTHONPATH",
         "raggedright",
         "Rightarrow",
@@ -115,13 +116,7 @@
         "titleBar.inactiveForeground": "#15202b99"
     },
     "peacock.color": "#97f187",
-    "python.testing.unittestArgs": [
-        "-v",
-        "-s",
-        "./tests",
-        "-p",
-        "test_*.py"
-    ],
     "python.testing.pytestEnabled": false,
-    "python.testing.unittestEnabled": true
+    "python.testing.unittestEnabled": true,
+    "python.analysis.extraPaths": ["src"],
 }
