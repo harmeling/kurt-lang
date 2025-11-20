@@ -42,6 +42,7 @@ import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional, get_args
 from pathlib import Path
+from importlib import resources
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -123,13 +124,11 @@ EXISTS_SYMBOL = 'exists'     # existential quantification
 EQUAL_SYMBOL  = '='          # equality
 IFF_SYMBOL    = 'iff'        # equivalence
 
-# config: the default theory and default path
-PACKAGE_ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = PACKAGE_ROOT.parent.parent
-default_theory: str    = 'theory.kurt'                                                   # default theory
-this_file_path: str    = os.path.dirname(os.path.abspath(__file__))                      # path of THIS file
-theory_path: list[str] = ['.', 'theories', os.path.join(this_file_path, 'theories')]     # default path for theories
+# default theory and theory path
+default_theory = 'theory.kurt'             # default theory
+theory_path = []                # path for theories, set in `main()`
 
+# debugging
 debug_flag = False
 debug_counter = 0
 def debug(*s) -> None:
@@ -2261,19 +2260,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if len(args) == 0:
             log(kb, kb.loaded_files_str().strip())
         else:
-            current_path: str = os.path.split(filename)[0]    # search first at the current path
-            local_path = theory_path
-            if len(current_path) > 0:
-                local_path = [current_path] + local_path
-            if len(args) == 0:
-                raise KurtException(f'ParseError: `{keyword}` takes at least one filename or several comma-separated', keyword_token.column)
             for arg in args:
                 assert isinstance(arg, list) and len(arg) == 1, f'BUG: `load` expects [[fname1], [fname2]]'
                 match arg[0]:
                     case Token(label='STRING', value=fname):
                         assert isinstance(fname, str)
                         try:
-                            kb = load_file(fname, kb, path=local_path, mainstream=False)
+                            kb = load_file(fname, kb, mainstream=False)
                         except KurtException as e:
                             if e.column is None:
                                 e.column = arg[0].column
@@ -4131,40 +4124,47 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
 
     return kb, lexer_state
 
-def load_file(filename: str, kb: KnowledgeBase, path: list[str]=theory_path, mainstream:bool=False) -> KnowledgeBase:
+def load_file(filename: str, kb: KnowledgeBase, mainstream:bool=False, silent:bool=False) -> KnowledgeBase:
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
     if not filename.endswith('.kurt'):
         filename += '.kurt'
-    try:    # just for handling OS errors
-        fname = find_file(filename, path)    # search along the path
-        if len(fname) == 0:
-            raise OSError
+    # iterate over all theory paths
+    for path in theory_path:
+        candidate = path / filename
+        fname = str(candidate)
+        # check if the file was loaded already
         load_level = kb.get_load_level(fname)
         if load_level is not None:
             if kb.verbose:
                 log(kb, f'; file `{fname}` has already been loaded, skipping.')
             return kb
-        with open(fname, encoding='utf-8') as f:
-            kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
-            level = kb.level      # save current level, this one we want to reach after loading
-            kb.tmp = True              # mark as temporary knowledge base during loading
-            kb = read_eval_loop(f, kb, mainstream=mainstream)
-    except OSError as e:
-        # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
-        raise KurtException(f'EvalError: unable to open `{filename}` searching at {path}') from None
-    
-    # checks after closing the file
-    if kb.level > level:
-        # drop all opened levels and raise exception
-        while kb.level > level:
-            kb = kb.pop_level()
-        raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed.')
-    elif kb.level < level:
-        assert False, f'BUG: `load_file` decreased the level from {level} to {kb.level}'
-    kb = kb.merge_and_pop()  # merge 'sandbox' level if everything was ok
 
-    kb.libs.append(fname)
-    return kb
+        # try to open and load the file and evaluate its contents
+        try:
+            with candidate.open(encoding='utf-8') as f:
+                kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
+                level = kb.level      # save current level, this one we want to reach after loading
+                kb.tmp = True              # mark as temporary knowledge base during loading
+                kb = read_eval_loop(f, kb, mainstream=mainstream)
+            # checks after closing the file
+            if kb.level > level:
+                # drop all opened levels and raise exception
+                while kb.level > level:
+                    kb = kb.pop_level()
+                raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed.')
+            elif kb.level < level:
+                assert False, f'BUG: `load_file` decreased the level from {level} to {kb.level}'
+            kb = kb.merge_and_pop()  # merge 'sandbox' level if everything was ok
+            kb.libs.append(fname)
+            return kb
+
+        except (FileNotFoundError, NotADirectoryError, AttributeError):
+            continue    # try next path
+
+    # we couldn't open the file anywhere
+    if not silent:
+        # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
+        raise KurtException(f'EvalError: unable to open `{filename}` searching at {theory_path}') from None
 
 ###########################
 ## commandline interface ##
@@ -4245,13 +4245,6 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
             break
     return kb
 
-def find_file(fname: str, path: list[str]) -> str:
-    for p in path:
-        cand = os.path.join(p, fname)
-        if os.path.isfile(cand):
-            return cand
-    return ''   # empty string
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=f'a simple proof assistant ({made_by})')
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
@@ -4330,8 +4323,11 @@ def main() -> None:
     kb.verbose = args.verbose
 
     # theory path
+    global theory_path
+    theory_path.append(Path.cwd())                             # current working directory
     if args.path is not None:
-        theory_path[1] = args.path   # overwrite the default 'theory'
+        theory_path.append(Path(args.path))                    # user specified path
+    theory_path.append(resources.files("kurt.theories"))       # path of packaged theories
 
     if kb.verbose:
         log(kb, f'Using theory path: {theory_path}')
@@ -4341,10 +4337,8 @@ def main() -> None:
         kb: KnowledgeBase = load_file("latex.kurt", kb, mainstream=False)
 
     try:
-        # by default load `default_theory` or nothing
-        theory_filename = find_file(default_theory, theory_path)
-        if len(theory_filename) > 0:
-            kb: KnowledgeBase = load_file(theory_filename, kb, mainstream=False)
+        # try to load a default theory, if the file does not exist, we just go on silently
+        kb: KnowledgeBase = load_file(default_theory, kb, mainstream=False, silent=True)
 
         # if there is a filename run the file
         if args.filename is not None:
