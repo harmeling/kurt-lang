@@ -3644,30 +3644,28 @@ def capture_avoiding_replace(A: Expr, x: str, t: Expr, s: State, kb: KnowledgeBa
             case Token():
                 return e
 
-            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *body] if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+                bv, opt_condition = unpack_condition(cond, kb)
+
                 # if this binder binds x, x is not free below thus no substitution under it,
                 # but we still recurse structurally to catch nested binders that might need α-renaming
                 if bv == x:
                     new_body = [go(c, blk | {bv}) for c in body]
-                    return [Token(label='SYMBOL', value=op),
-                            Token(label='SYMBOL', value=bv), *new_body]
+                    return [Token(label='SYMBOL', value=op), cond, *new_body]
 
                 # if bv occurs free in t, α-rename this binder locally
                 if bv in FVt:
                     # Build an avoid set to keep name fresh w.r.t. t and current e
-                    avoid = FVt | free_vars_only([Token(label='SYMBOL', value=op),
-                                                  Token(label='SYMBOL', value=bv), *body], kb) \
-                            | {x} | set(blk)
+                    avoid = FVt | free_vars_only([Token(label='SYMBOL', value=op), cond, *body], kb) | {x} | set(blk)
                     bv2 = fresh_like(bv, avoid, kb)
+                    cond_ren = alpha_rename_binder_body([cond], bv, bv2, kb)[0]
                     body_ren = alpha_rename_binder_body(body, bv, bv2, kb)
                     new_body = [go(c, blk | {bv2}) for c in body_ren]
-                    return [Token(label='SYMBOL', value=op),
-                            Token(label='SYMBOL', value=bv2), *new_body]
-
+                    return [Token(label='SYMBOL', value=op), cond_ren, *new_body]
                 # Normal descent: no α-renaming needed
+                new_cond = go(cond, blk | {bv})
                 new_body = [go(c, blk | {bv}) for c in body]
-                return [Token(label='SYMBOL', value=op),
-                        Token(label='SYMBOL', value=bv), *new_body]
+                return [Token(label='SYMBOL', value=op), new_cond, *new_body]
 
             case [*children]:
                 return [go(c, blk) for c in children]
@@ -3713,16 +3711,19 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                     return [e[0], e[1], t_s, A_s], s_after
 
             # binding operator: [op, bv, *body]
-            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *body] if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+                bv, opt_condition = unpack_condition(cond, kb)
+
                 # enter binder scope
                 s_scope = s.block_always(bv)
+                new_cond, s_scope = trigger_sub_core(cond, s_scope)
                 new_body = []
                 for c in body:
                     c_local, s_scope = trigger_sub_core(c, s_scope)
                     new_body.append(c_local)
                 # leave binder scope (pop the block)
                 s_after = s_scope.unblock(bv)
-                return [e[0], e[1], *new_body], s_after
+                return [e[0], new_cond, *new_body], s_after
 
             # any other list
             case [*children] if len(children) > 0:
