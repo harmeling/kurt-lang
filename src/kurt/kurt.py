@@ -41,6 +41,7 @@ import inspect      # inspect.stack
 import itertools    # itertools.[product, count, chain, permutations]
 from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional, get_args
+from pathlib import Path
 
 try:
     # should work under Linux and MacOS, but not under Windows
@@ -123,6 +124,8 @@ EQUAL_SYMBOL  = '='          # equality
 IFF_SYMBOL    = 'iff'        # equivalence
 
 # config: the default theory and default path
+PACKAGE_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = PACKAGE_ROOT.parent.parent
 default_theory: str    = 'theory.kurt'                                                   # default theory
 this_file_path: str    = os.path.dirname(os.path.abspath(__file__))                      # path of THIS file
 theory_path: list[str] = ['.', 'theories', os.path.join(this_file_path, 'theories')]     # default path for theories

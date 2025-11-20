@@ -1,4 +1,7 @@
+# backups
 *~
+
+# byte code
 *.pyc
 __pycache__
 .DS_Store
@@ -8,12 +11,6 @@ tmp.txt
 foo.md
 test.py
 # touch
-
-# Python virtualenvs
-.venv/
-venv/
-env/
-.env/
 
 # latex stuff
 *.aux
@@ -29,3 +26,16 @@ env/
 *.snm
 *.vrb
 *.lof
+
+# virtual environments
+.venv/
+venv/
+
+# bytecode
+__pycache__/
+*.pyc
+
+# build outputs
+build/
+dist/
+*.egg-info/

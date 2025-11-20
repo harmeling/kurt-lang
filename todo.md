@@ -4,6 +4,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO solve the path puzzle, also check `load ../foo.kurt` whether it works
 - TODO add `(%A iff top) implies A` to `prop.kurt` and check some mafi1 example
 - TODO allow `let x with F(x)`, or `let F(x)`, or `let x>0`, merge `pick` and `let` to use `unpack_condition`
 - TODO why not `f()` ???  what is it?  it should be parsed `(f)` instead of just `f`
