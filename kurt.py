@@ -8,7 +8,10 @@ from __future__ import annotations
 
 ## for profiling run:
 # python -m cProfile -o kurt.prof kurt.py
+# then analyze with:
+# snakeviz kurt.prof
 # python -m cProfile -s time kurt.py proofs/linear-algebra/group.kurt
+
 
 ## merge the dev into main branch:
 # git checkout main && git pull && git merge dev && git push
@@ -1148,8 +1151,6 @@ class KnowledgeBase:
         self.var.add(s)
 
     def add_const(self, s: str) -> None:
-        if s == 'x':
-            debug(f'adding `x` to level {self.level}')
         # a constant is automatically declared if a new symbol is used or when it is explicitly declared
         # declaring is only allowed, if it doesn't yet exist as a variable or constant
         if self.is_used(s):
@@ -1994,7 +1995,6 @@ def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
 def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
     # check whether the `expr` contains certain `symbols`
     # note that bound variables are ignored
-    debug(f'contains: checking {expr_str(expr, kb)} for symbols {symbols}')
     match expr:
         # symbols
         case Token(label='SYMBOL', value=s):
@@ -3717,12 +3717,10 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                 # enter binder scope
                 s_scope = s.block_always(bv)
                 new_cond, s_scope = trigger_sub_core(cond, s_scope)
-                new_body = []
-                for c in body:
-                    c_local, s_scope = trigger_sub_core(c, s_scope)
-                    new_body.append(c_local)
+                new_body, s_scope = trigger_sub_core(body, s_scope)
                 # leave binder scope (pop the block)
                 s_after = s_scope.unblock(bv)
+                assert isinstance(new_body, list)
                 return [e[0], new_cond, *new_body], s_after
 
             # any other list
@@ -3756,7 +3754,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                 # iterate over all possible substitutions that unify
                 # basically, this is two-sided matching, aka unification
 
-                debug(f'trying to match `{expr_str(expr, kb)}` against candidate `{expr_str(candidate.simplified_expr, kb)}`')
+                #debug(f'trying to match `{expr_str(expr, kb)}` against candidate `{expr_str(candidate.simplified_expr, kb)}`')
                 for s_cand in unify_exprs_with_patterns([(candidate.simplified_expr, expr)], s, kb):
                     # try to unify the rest of the expressions (the `tail`)
                     s_local = s_cand
@@ -3766,7 +3764,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                         tail_local.append(e_local)
                     success, found_formulas, s_final = match_all_theory(tail_local, s_local, kb)
                     if success:
-                        debug(f'`{expr_str(expr, kb)}` against `{expr_str(candidate.simplified_expr, kb)}` with substitution {s_final}`')
+                        #debug(f'`{expr_str(expr, kb)}` against `{expr_str(candidate.simplified_expr, kb)}` with substitution {s_final}`')
                         return True, [candidate, *found_formulas], s_final   # match was found!  BINGO!
             # no match so far, however, possibly `expr` is a conjunction that we can split into pieces
             match expr:
@@ -3792,7 +3790,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
 #    free vars in `premises` 
 def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[str, State]:
 
-    debug(f'impl_elim: trying to prove `{expr_str(expr, kb)}` using `{expr_str(proven_formula.expr, kb)}`')
+    #debug(f'impl_elim: trying to prove `{expr_str(expr, kb)}` using `{expr_str(proven_formula.expr, kb)}`')
 
     # continue with the renamed and simplified variant of `proven_formula` that is generated during the construction of it
     formula_expr: Expr = proven_formula.simplified_expr
@@ -3834,7 +3832,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
     s = State(s.subst, blocked_as_domain, s.blocked_as_range)
     s_final: Optional[State] = State.empty()
     for s_matched in unify_exprs_with_patterns([(expr, conclusion)], s, kb):
-        debug(f'impl_elim: matched `{expr}` with conclusion `{expr_str(conclusion, kb)}` with substitution {s_matched}')
+        #f'impl_elim: matched `{expr}` with conclusion `{expr_str(conclusion, kb)}` with substitution {s_matched}')
         if premise is None:
             s_final = s_matched
             break           # bingo!  we found one
