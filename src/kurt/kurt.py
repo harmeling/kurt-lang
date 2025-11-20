@@ -4165,6 +4165,7 @@ def load_file(filename: str, kb: KnowledgeBase, mainstream:bool=False, silent:bo
     if not silent:
         # we have to add `from None` to avoid exception chaining, since we only want to see the KurtException
         raise KurtException(f'EvalError: unable to open `{filename}` searching at {theory_path}') from None
+    return kb
 
 ###########################
 ## commandline interface ##
