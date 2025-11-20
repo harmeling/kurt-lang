@@ -3177,16 +3177,17 @@ def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: Optional[State] = None
             return expr, s
 
         # binding operator expression
-        case [Token(label='SYMBOL', value=bind_op),
-              Token(label='SYMBOL', value=bind_var), *body] \
-              if isinstance(bind_op, str) and kb.is_bindop(bind_op) and isinstance(bind_var, str):
+        case [Token(label='SYMBOL', value=bind_op), cond, *body] if isinstance(bind_op, str) and kb.is_bindop(bind_op):
+            bind_var, opt_condition = unpack_condition(cond, kb)
 
             # operator gets processed with current scope (actually nothing to do)
             head1, s = rename_all_vars_rec(expr[0], kb, s, bound_vars)
 
-            # `bind_var` and `body` are processed in the context, that `bind_var in bound_vars` hold
+            # extend the scope with the new bound variable
             new_bound_vars = bound_vars | {bind_var}
-            head2, s = rename_all_vars_rec(expr[1], kb, s, new_bound_vars)
+
+            # `cond` and `body` are processed in the context, that `bind_var in bound_vars` hold
+            head2, s = rename_all_vars_rec(cond, kb, s, new_bound_vars)
 
             # `body` gets new scope including the bound variable
             new_body = []
@@ -3492,15 +3493,21 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
             match pattern:
 
                 # binding operator matching (rename bound variable before!)
-                case [Token(label='SYMBOL', value=op_p), Token(label='SYMBOL', value=v_p), *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
+                case [Token(label='SYMBOL', value=op_p), cond_p, *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
+                    v_p, opt_condition_p = unpack_condition(cond_p, kb)
                     if op_p == SUB_SYMBOL and not is_sub(expr):   
                             # asymmetric:  don't match a `sub` expr to a `sub` pattern (an infinite loop!)
                             yield from match_against_sub(expr, pattern, tail, s, kb)
                     # in any case: additionally binding ops match against their matching binding ops
                     match expr:
-                        case [Token(label='SYMBOL', value=op_e), Token(label='SYMBOL', value=v_e), *args_e]:
-                            if op_p==op_e and len(args_p)==len(args_e):
+                        case [Token(label='SYMBOL', value=op_e), cond_e, *args_e] if isinstance(op_e, str) and kb.is_bindop(op_e):
+                            v_e, opt_condition_e = unpack_condition(cond_e, kb)
+                            if op_p==op_e and len(args_p)==len(args_e) and ((opt_condition_p is None) == (opt_condition_e is None)):
                                 assert isinstance(v_p, str) and isinstance(v_e, str)
+                                if opt_condition_e is not None:
+                                    assert isinstance(cond_e, list) and isinstance(cond_p, list)
+                                    args_e = args_e + cond_e
+                                    args_p = args_p + cond_p
                                 # Rename the expr-side binder body from v_e to v_p (alpha-eq) before unifying.
                                 args_e = [deepcopy_expr(args_e_i) for args_e_i in args_e]
                                 args_e = alpha_rename_binder_body(args_e, v_e, v_p, kb)
@@ -3599,16 +3606,13 @@ def alpha_rename_binder_body(body: list[Expr], old: str, new: str, kb: Knowledge
             case Token(label='SYMBOL', value=s) if isinstance(s, str) and s == old:
                 # This occurrence is bound by the current binder thus rename
                 return Token(label='SYMBOL', value=new)
-            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), *tail] \
-                 if isinstance(op, str) and kb.is_bindop(op) and isinstance(bv, str):
+            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+                bv, opt_condition = unpack_condition(cond, kb)
                 if bv == old:
                     # A new binder that *rebinds* `old` thus do not rename under it
-                    return [Token(label='SYMBOL', value=op),
-                            Token(label='SYMBOL', value=bv), *tail]
+                    return [Token(label='SYMBOL', value=op), cond, *tail]
                 # Otherwise, keep renaming under this binder
-                return [Token(label='SYMBOL', value=op),
-                        Token(label='SYMBOL', value=bv),
-                        *[ren(c) for c in tail]]
+                return [Token(label='SYMBOL', value=op), ren(cond), ren(tail)]
             case [*children]:
                 return [ren(c) for c in children]
             case _:

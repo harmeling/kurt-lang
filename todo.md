@@ -4,13 +4,13 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## NEXT
 
+- TODO run profiler
 - TODO check `bindop`, there are several implementation problem still to repair!
 - TODO add `(%A iff top) implies A` to `prop.kurt` and check some mafi1 example
 - TODO allow `let x with F(x)`, or `let F(x)`, or `let x>0`, merge `pick` and `let` to use `unpack_condition`
 - TODO why not `f()` ???  what is it?  it should be parsed `(f)` instead of just `f`
 - TODO automatically iterate over all implications, in particular convert `≡` into two implications
 - TODO why (not x in emptyset) not working?
-- TODO proofs/mafi1/nicer bugs
 
 - TODO write the tutorial
 - TODO verbose mode should give context dependent hints before each prompt, `hint`
