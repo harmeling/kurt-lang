@@ -1,6 +1,6 @@
 # kurt-lang
 
-The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `kurt.py` contains the whole implementation.  You can either call `./kurt.py` or `./kurt`.  For now, just clone the repository and start proving:
+The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `kurt.py` contains the whole implementation.  You can either call `./kurt.py` or `kurt` (after installation via `pip`).  Let's start proving:
 
     ~/git/kurt-lang (main ✗) kurt
     This is Kurt, Version 0.1 (made by Stefan Harmeling, 2025)
@@ -32,6 +32,31 @@ Then just check it in the commandline:
     Proof checked.
 
 Happy proving!
+
+## Installing Kurt (for users)
+
+A simple way to use Kurt is to just copy `src/kurt/kurt.py` where ever you want and run it with Python 3.10 or higher:
+
+    python3 kurt.py
+    ./kurt.py          # if you make it executable with `chmod +x kurt.py`
+
+This is useful if you would like to provide the code along an exercises in a lecture or tutorial.  However, you have to make sure that the `theories` are available as well.
+
+Alternatively, Kurt is installable directly with pip from the GitHub repository (no cloning required)
+
+Install the latest version:
+
+    pip install git+https://github.com/harmeling/kurt-lang.git
+
+Install a specific tag or branch:
+
+    pip install git+https://github.com/harmeling/kurt-lang.git@v0.1.0
+
+Or, install from a local clone:
+
+    git clone https://github.com/harmeling/kurt-lang.git
+    cd kurt-lang
+    pip install .
 
 ## Installing Kurt Tools
 
@@ -79,6 +104,26 @@ The [Kurt language syntax repo](https://github.com/harmeling/kurt-syntax) includ
 
 That's it!
 
+## Developer Setup
+
+To work on Kurt locally, create a virtual environment and install the package in editable mode with development tools:
+
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -e .[dev]
+
+This installs Kurt in editable mode, meaning changes to the source code take effect immediately without reinstalling.
+The [dev] extra installs optional development dependencies such as coverage.
+
+Run the test suite:
+
+    python -m unittest
+
+Run test with coverage:
+
+    coverage run -m unittest
+    coverage report
+
 ## License
 
 [MIT](./LICENSE) © 2025 Stefan Harmeling
@@ -88,5 +133,3 @@ That's it!
 This project is licensed under the [MIT License](LICENSE).  
 When using or referencing it, please include a link back to this repository.  
 A star on GitHub is also greatly appreciated!
-# CI test 2025-10-03T10:47:02+02:00
-# CI test 2025-10-03T10:47:47+02:00
