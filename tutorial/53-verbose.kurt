@@ -1,0 +1,15 @@
+; 53-verbose.kurt
+
+; `verbose` is a toggle (`verbose on` / `verbose off`) that makes Kurt print
+; extra detail about *why* a match succeeded while it searches the theory:
+; the expression it is trying to prove, and the formula it matched against.
+
+bool A, B
+use A implies B
+use A
+
+verbose on
+B                    ; now prints the matching details as extra log lines
+verbose off
+
+B                    ; back to the terse "by ..." log line

@@ -1,0 +1,17 @@
+; 05-const.kurt
+
+; Every symbol is either a *constant* -- a fixed, specific object -- or a
+; *variable* -- a stand-in for arbitrary objects (see 06-var.kurt).  `const`
+; declares a symbol as a constant explicitly:
+
+const zero
+const one, two          ; comma-separated, just like `bool`
+
+; Once a symbol's role is fixed on a level, it stays fixed: you cannot turn a
+; constant into a variable afterwards.
+;
+;     var zero          ; would fail: `zero` is already used as a constant
+
+; You rarely need `const` directly at the top level -- most of the time a
+; constant gets introduced implicitly, e.g. by `def` (lesson 11) or `let`
+; (lesson 21), simply by naming one particular object.

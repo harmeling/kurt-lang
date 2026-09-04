@@ -1,0 +1,20 @@
+; 10-load.kurt
+
+; Kurt's connectives beyond `implies`/`and` -- `or`, `not`, `iff`, and their
+; inference rules -- are not hard-coded in Python.  They live in ordinary
+; `.kurt` files under `src/kurt/theories/`, and `load` pulls one in.
+
+load prop             ; propositional logic: or, not, iff, and-elim, ...
+
+bool A, B
+use A and B
+A                      ; "and-elim" is now available, unlike in 04-and.kurt
+B
+
+; `load` looks in the current directory first, then in Kurt's own packaged
+; theories -- so `load "my-theory.kurt"` also works for files you write
+; yourself.  A file is only ever loaded once, even if several files (or the
+; same file, twice) ask for it.
+
+; `load` with no arguments lists every file loaded so far:
+load

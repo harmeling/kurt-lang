@@ -1,0 +1,14 @@
+; 54-indent.kurt
+
+; `indent` is a toggle (`indent on` / `indent off`) that switches on
+; indentation-based block structure in the *interactive shell* -- letting
+; you paste multi-line, indented file content straight into the prompt, and
+; enabling `done`/`break` (lessons 24-25) to close blocks explicitly.  A
+; `.kurt` *file* always uses real indentation regardless of this setting, so
+; toggling it here has no visible effect -- this lesson exists mainly so the
+; keyword isn't a mystery when you meet it in the shell.
+
+indent               ; reports the current setting
+indent on
+indent
+indent off

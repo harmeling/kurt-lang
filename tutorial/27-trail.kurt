@@ -1,0 +1,19 @@
+; 27-trail.kurt
+
+; `trail` prints the chain of open blocks' modes as one compact line, from
+; the outermost down to the current one -- handy as a quick "where am I?"
+; when blocks are nested several levels deep.  Compare with `mode`
+; (26-mode.kurt), which only prints the current, innermost mode.
+
+bool A, B
+use A implies B
+
+trail                    ; e.g. "; sandbox" -- just the implicit outer level
+
+show A implies B "demo"
+proof
+    trail                ; e.g. "; sandbox > proof"
+    assume A
+        trail            ; e.g. "; sandbox > proof > assume"
+        use B
+qed

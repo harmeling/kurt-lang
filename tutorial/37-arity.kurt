@@ -1,0 +1,16 @@
+; 37-arity.kurt
+
+; `arity SYMBOL N` declares that `SYMBOL` always takes exactly `N`
+; arguments, written by juxtaposition (space, `minimal.kurt`'s built-in
+; infix operator) -- this is how ordinary function/predicate symbols like
+; `f x y` are declared, as opposed to infix/prefix/postfix operators.
+
+arity f 2
+
+var a, b
+parse f a b              ; (f a b)
+
+; Compare this with `doc/kurt-doc.md`'s note on `arity` vs `prefix`: `arity`
+; fixes both how many arguments a symbol takes *and* the binding power used
+; to grab them (space's), while `prefix` lets you pick a custom binding
+; power for a single argument instead.

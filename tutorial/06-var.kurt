@@ -1,0 +1,19 @@
+; 06-var.kurt
+
+; `var` explicitly declares a symbol as a variable: something that may stand
+; for arbitrary objects, as opposed to one fixed constant (05-const.kurt).
+
+var x, y
+
+; Just like `const`, once a role is fixed on a level it cannot be changed
+; afterwards, in either direction:
+;
+;     const x           ; would fail: `x` is already a variable
+
+; Symbols starting with a dollar sign, e.g. `$A` or `$x`, are *always*
+; variables, no matter what -- they mark the parts of a `use` axiom that may
+; be matched against anything.  Every theory file is full of them, e.g.
+; `minimal.kurt` contains `use $A implies $A "restatement"`.  Symbols
+; starting with `%`, e.g. `%A`, are the same idea specialised to whole
+; boolean formulas rather than plain terms -- you'll see plenty of those once
+; we `load prop` in lesson 10.

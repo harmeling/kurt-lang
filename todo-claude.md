@@ -1,0 +1,350 @@
+# todo-claude.md
+
+A pass over `todo.md` plus a read-through of `src/kurt/kurt.py`, sorted by
+what's actually actionable. For each item I checked the current behaviour
+(usually by running a small `.kurt` snippet through the interpreter) rather
+than just trusting the one-line description in `todo.md`. Items are grouped
+by how ready-to-pick-up they are, not by which section of `todo.md` they came
+from. The original `todo.md` wording is quoted or paraphrased; my notes
+follow.
+
+No code was changed while producing this file.
+
+## Already done / stale (recommend deleting from `todo.md`)
+
+- **"get group.kurt working with constants and with `var x, y, z`"** —
+  `proofs/linear-algebra/group.kurt` already declares `var x, y, z` and is
+  part of the auto-discovered test suite; it passes today (`python3 -m
+  unittest` — 49/49). Nothing to do.
+- **"allow boolean expressions for the bound variable for some binding
+  operators"** — already implemented: `type_check_expression`'s `bindop`
+  case (around line 2900) and `unpack_condition` (line 2150) both handle
+  `forall x>0 F(x)`-style conditions. Confirmed working (`tutorial/21-let.kurt`
+  relies on the simple form; the doc's own example `forall x>0 F(x)` also
+  parses).
+- **"what is the difference between `arity f 1` and `prefix f 1`?"** —
+  answered already, in `doc/kurt-doc.md`'s 2025-04-17 section
+  ("difference between prefix and function"). Just needs the todo removed.
+- **"add syntactic sugar for case distinctions"** — `case` already exists as
+  a full keyword (identical to `assume`, feeding "or-elim"); see
+  `tutorial/23-case.kurt`. Todo is stale.
+- **"write the tutorial" / "write documentation/tutorial for the language"**
+  — done in `tutorial/*.kurt` (45 lesson files) + `tutorial/plan.md`. Worth a
+  follow-up: `doc/kurt-tutorial.md` still says "Not yet!" — point it at
+  `tutorial/` instead of leaving a dead stub.
+- **"add column information for the exceptions, use `expr_column`"** —
+  `expr_column()` (line 2861) already exists and is already used at most
+  `raise KurtException(..., column=...)` call sites I checked
+  (`type_check_expression`, `eval_use`, etc). What's left is an audit for the
+  remaining call sites that pass no `column`/pass `None` — a grep-and-fix
+  pass, not new infrastructure. Low effort.
+- **"use the `Token.column` information"** — same as above, largely already
+  wired up; remaining work is the same audit.
+
+## Quick, low-risk fixes (do these first)
+
+- **Exit code is always 0.** Not in `todo.md`, but directly relevant to
+  "check all KurtExceptions..." below and to Kurt's stated purpose
+  (automatic feedback like a test runner). `main()` (line 4262) always ends
+  with `exit(0)`, even when a `KurtException` was caught and printed to
+  stderr for a non-interactive file check:
+  ```
+  bool A
+  A
+  ```
+  run as `kurt broken.kurt` prints `ProofError: can not derive \`A\`` to
+  stderr and still exits 0. Anyone scripting Kurt (CI, an autograder) cannot
+  currently detect a failed proof from the exit code alone. Fix is a
+  one-line `sys.exit(1)` in the `except KurtException` branch (and possibly
+  a nonzero exit for "almost checked" files with leftover `todo`s, which is
+  a judgment call).
+- **"repair messages for 'pick', 'fix', 'assume'"** — confirmed: `eval_let`
+  (line ~2717) still raises `EvalError: \`fix\` takes new constants...` even
+  though the keyword has been renamed to `let` everywhere else. Trivial
+  string fix, one call site.
+- **`format latex` is unreachable from a `.kurt` file** — this is exactly
+  todo.md's "format 'latex', also allow custom latex formats", now with a
+  root cause: `latex` is itself a reserved keyword (`keywords` dict, line
+  268), so the scanner refuses it as a plain argument token
+  (`SyntaxError: keywords not allowed inside expressions`), and passing it
+  as a quoted string (`format "latex"`) fails too because `eval_global_format`
+  only accepts a bare `SYMBOL` matching `format_options`. You can only ever
+  reach `latex` formatting via `kurt -l`. Fix: let `eval_global_format`
+  also accept a `STRING` token, or special-case `format` to not treat its
+  own argument position as keyword-sensitive.
+- **`brackets` leaks its internal sentinel into user-facing output.** Also
+  not in `todo.md`, found while writing `tutorial/36-brackets.kurt`.
+  `add_brackets`'s `nud` (line 1137) always wraps a *custom* bracket pair in
+  an operator token named `f'{lbracket}$$${rbracket}'`. For the built-in
+  `(` `)` there's a special-case unwrap (line 1826, `case
+  [Token(label='SYMBOL', value='($$$)'), sub_expr]`), but it only matches
+  literally `"($$$)"` — any other bracket pair a user declares (`brackets
+  "[" "]"`, `brackets "{" "}"`, ...) stays wrapped forever and shows up
+  verbatim as `[$$$]` in `parse`/`sexpr` output. Either generalize the
+  unwrap to any bracket pair that's meant to be transparent, or (more
+  honestly, since custom brackets are *supposed* to carry meaning, see
+  `suggestions-claude.md`) document that only `(` `)` is transparent and give
+  the synthetic operator a less leaky display name than `$$$`.
+- **Run a profiler once** ("TODO run profiling") — trivial to just do
+  (`python -m cProfile -m kurt.kurt some-proof.kurt`, or profile the test
+  suite), and its output would directly inform the several perf todos below
+  instead of guessing.
+- **"search all TODO in the code and check whether they are still
+  relevant"** — there is exactly **one** inline `# TODO` comment left in
+  `kurt.py` (in `rename_all_vars`: "some are renamed again, this can be
+  improved later"). This task is basically already done; the one remaining
+  comment is low priority (a correctness-preserving redundancy, not a bug).
+
+## Testing-infrastructure issue worth fixing before adding more tests
+
+- **`tests/test_kurt_proofs.py` silently truncates failed-proof comparisons
+  to 17 characters.** Found while checking todo.md's "put lots of negative
+  proof examples into tests/proofs" and "test the conditions for forall and
+  exist rules". The harness (line 72-75) does:
+  ```python
+  if actual_last_line == true_last_line:
+      self.assertEqual(actual_last_line, true_last_line)
+  else:
+      self.assertEqual(actual_last_line[:17], true_last_line[:17])
+  ```
+  So for a proof file whose expected marker is an error message (e.g.
+  `proofs/natural-deduction/forall-elim-fail.kurt`, whose marker is `;;;
+  ProofError: can not derive \`A $$var552\``), the test only actually checks
+  that the first 17 characters (`ProofError: can n`) match — the rest of the
+  message, including the exact auto-generated variable name, can drift
+  silently forever without the test ever failing or being noticed. This
+  means negative/error-marker tests are much weaker than they look. Worth
+  fixing (require exact match, or make the 17-char fallback an explicit,
+  documented convention for tests that only care about the error *kind*)
+  before todo.md's "put lots of negative proof examples in tests/proofs" is
+  acted on, otherwise the new tests inherit the same weakness.
+
+## Concrete, medium-effort feature/robustness work
+
+- **"solve the path puzzle, also check `load ../foo.kurt`"** — `load_file`
+  (line 4129) resolves relative to `theory_path` (cwd, then packaged
+  theories) plus, for a `load` *inside* a file, the loading file's own
+  directory (`Path(filename).parent.resolve()`, see the `load` keyword
+  handler, line 2260). Worth a concrete pass: add test cases for `load
+  ../foo.kurt` and `load subdir/foo.kurt` from both the CLI and from inside
+  a loaded file, and confirm double-loading (`A` loads `B` loads `A`) is
+  actually cycle-safe (the `get_load_level` cache should already prevent
+  infinite recursion, but I did not test a real cycle).
+- **Merge `pick`'s parsing into `unpack_condition`** ("allow `let x with
+  F(x)`, ... merge `pick` and `let` to use `unpack_condition`") — `let`
+  already uses `unpack_condition` and supports `let x>0`-style conditions
+  (line 2167). `pick`, by contrast, has its own hand-rolled match on
+  `[SYMBOL, SYMBOL('with'), *fact_expr]` (line 2740) and does not go through
+  `unpack_condition` at all. Unifying them so `let x with F(x)` and `pick
+  x>0` both work symmetrically is a well-scoped, localized change (touches
+  `eval_let`, `eval_pick`, and the `let`/`pick` branches in
+  `eval_keyword_expression`).
+- **`f()` (zero-argument call) doesn't parse** ("why not `f()`???") —
+  confirmed: `arity f 1` (or any arity/bracket combo) followed by `f()`
+  raises `SyntaxError: token \`)\` cannot start an expression`, because
+  brackets' `nud` (line 1137) unconditionally tries to `parse_expression`
+  before expecting the closing bracket — there's no path for "immediately
+  see the closing bracket". Fixing this means special-casing an empty
+  bracket body in `add_brackets`'s `nud`, and deciding what `f()` should
+  even parse *to* (a 0-arg application node, distinct from bare `f`).
+  Self-contained but touches core parsing; worth a design decision first
+  (see `suggestions-claude.md`).
+- **"do checks for `case` statements"** — confirmed: `case` is handled
+  completely identically to `assume` everywhere (`eval_keyword_expression`'s
+  combined `assume`/`case` branch, line 2700, and `eval_done`'s combined
+  `'assume' | 'case'` branch, line 2032) — there is no case-specific
+  validation (e.g. that the cases are exhaustive, or that the case
+  expressions are mutually related to a disjunction already in scope before
+  `or-elim` fires at the end). Small, localized addition once it's decided
+  what "check" should mean.
+- **Quantifier variable-kind check** ("check that in forall_intro the
+  quantification either applies to boolean or non-boolean vars, but not
+  both") — localized to the `'let'` branch of `eval_done` (line 2038-2046),
+  which loops over `kb.mode_args` and wraps in `forall` one condition at a
+  time; adding a check that mixed boolean/non-boolean `let`-lists are
+  rejected (or handled consistently) is a small, self-contained addition
+  right there.
+- **`def`'s LHS-appears-once check likely has gaps** — not explicitly a
+  todo item, but adjacent to "type checking for `sub $x $a $A` with free and
+  bound variable check": `eval_def` (line 1974) checks the LHS/RHS via
+  `extract_by_condition`, which does not know about bound variables at all
+  (it just walks the tree). E.g. it's worth checking whether `def` correctly
+  rejects a definition whose "new constant" only appears inside a quantifier
+  scope. I did not find a concrete failing case, but also did not find a
+  test that rules one out — a good candidate for the "test the conditions"
+  family of todos.
+- **`save` command** ("have a `save` command that stores the current theory
+  and state") — feasible with existing machinery: `KnowledgeBase` already
+  has `theory_str()`, `syntax_str_all_levels()`, etc. for printing
+  everything back out; a `save "file.kurt"` keyword could just redirect
+  those same printers to a file, in a form that re-parses via `load`. The
+  open design question is exactly what "state" means (just the theory? also
+  syntax declarations made ad hoc in the session? the level stack, which
+  can't sensibly round-trip through a flat file?).
+- **`sandbox` currently can only discard, never commit** ("have a `sandbox`
+  block, where we first try and try, and then store it to the theory") —
+  confirmed: `sandbox` blocks can only be closed with `break` (`eval_done`'s
+  `'sandbox'` case, line 2059, unconditionally raises), and `break` always
+  discards (`keyword == 'break'` branch in `scan_parse_check_eval`, ~line
+  4068, just pops the level with no formula added). Adding a way to commit a
+  sandbox's contents (e.g. let `qed`/`done` merge it back in, or a distinct
+  keyword) is a bounded, well-scoped feature.
+- **Chains don't generate real transitivity** ("`chain`s are always
+  transitive"; "for `a=b≠c=d`... if it is transitive also more") —
+  confirmed by reading `get_chain_op`/`check_with_other_chains` (line
+  910-953): `chain` only affects *parsing* — it decides which operator a
+  continuation line desugars to (picking the "strongest" operator seen so
+  far in one written chain). It does not add any general transitivity
+  *inference* rule usable outside of one hand-written chained proof step.
+  Making declared chains genuinely transitive (so `derive_expr` could
+  combine `a R b` and `b R c` into `a R c` for any declared chain `R`,
+  the way `impl_elim` already combines separately-proven facts) is real,
+  scoped work inside `derive_expr`, though it interacts with the perf
+  concerns below (more candidate matches to try per step).
+- **Extend `calc` beyond `+`/`*` on ints** ("do calculations with integers
+  and reals") — `KnowledgeBase.calculate()` (line 645) only handles `+` and
+  `*` on Python `int`/`float` tokens today (confirmed by reading it and by
+  `tutorial/55-calc.kurt`'s test). Adding `-`, `/`, and being explicit about
+  float precision/equality is a contained extension of one method.
+- **`$$`-prefixed internal names could collide with user variables** — not
+  in `todo.md`, adjacent to "check number of possible variable names, use
+  letters to be safe". `new_var_name()`/`new_bool_var_name()` (line
+  3092-3105) generate fresh internal variables named `$$01`, `%%01`, etc.,
+  reasoning that "the `$$` ensures that it is not a kurt variable that the
+  user can define" — but a user *can* type a variable named literally
+  `$$foo`, since any symbol starting with `$` is automatically a variable
+  regardless of what follows. I did not construct an actual failing proof
+  (the collision requires the user's chosen name to coincide with the
+  counter's current value, which is unlikely but not impossible especially
+  in a long REPL session), but the invariant the comment relies on is not
+  actually enforced anywhere. A `bind_op`/`add_var` check (or documentation)
+  that rejects/warns on user symbols starting with `$$`/`%%` would close the
+  gap cheaply.
+- **Audit `minimal.kurt` against its hard-coded Python counterpart**
+  ("check that `minimal.kurt` is really hard-coded here") — `minimal.kurt`
+  says at the top "never load this theory, ... already hard-coded in
+  `kurt.py`". I compared its five axioms against `derive_expr`/`impl_elim`:
+  `top-intro` and `impl-elim` are clearly hard-coded (`derive_expr`, lines
+  3891-3900); `and-intro` is hard-coded (`eval_expression`, line 2820,
+  and the conjunction-splitting case in `derive_expr`, line 3904); but I
+  could not find `"restatement"` ($A implies $A) or `"impl-intro"`
+  ($A implies $B) implies ($A implies $B)) actually firing as bare
+  standalone facts outside of `impl_elim`'s general search — my own testing
+  (`A implies A` fails to derive from nothing) suggests the `minimal.kurt`
+  file may currently be a slightly aspirational/stale description of what's
+  hard-coded rather than an exact one. Worth a careful line-by-line
+  reconciliation.
+
+## Larger, well-defined refactors (bigger, but not vague)
+
+- **Turn `KurtException`'s string-prefix "types" into real types** ("check
+  all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError")
+  — confirmed: `KurtException` (line 254) is a single class; "ProofError:",
+  "ParseError:", "SyntaxError:", "EvalError:", "TypeError:" are just
+  conventional string prefixes baked into `msg` at each call site, with no
+  structured way to distinguish them programmatically (not even an enum
+  field). This matters for tooling (an editor integration, or a script that
+  wants to react differently to a syntax error vs a failed proof step) and
+  for consistency (nothing stops a typo like `ProofErorr:`). Mechanical but
+  wide-reaching refactor: introduce subclasses (or a `kind: Literal[...]`
+  field) and update every `raise KurtException(f'XError: ...')` call site
+  (several dozen, but a straightforward grep-and-replace with careful
+  review).
+- **Data structure for the theory, indexed by conclusion** ("organize the
+  implications as a dictionary of lists with the top-level operator of RHS
+  as the key"; "instead of brute-force matching, use more clever matching,
+  e.g. search for the sub terms, or have a dictionary of all subterms";
+  "runtime: `derive_expr` is O(n^k)...") — these three todo items are the
+  same underlying performance problem from different angles. Confirmed:
+  `derive_expr` (line 3879) and `match_all_theory` iterate `kb.all_theory()`
+  linearly, and `generate_all_combinations`/`all_single_hole_decompositions`
+  (line 3222-3251) try *every node* of an expression as a candidate
+  substitution site. For small proof files (everything in `proofs/` today)
+  this is fine; it would degrade badly on a large theory. A concrete,
+  incremental first step: index `kb.theory` by the top-level operator of
+  each formula's conclusion (RHS of an implication, or the formula itself)
+  so `derive_expr` only scans plausible candidates. This is the kind of
+  change that needs before/after benchmarks (see "run profiling" above) to
+  justify, since it adds real complexity to `KnowledgeBase`.
+- **`nonassoc` operators** ("implement 'nonassoc', this could then be
+  checked in 'post_process'") — `add_infix` currently always resolves
+  associativity from `lbp`/`rbp` (confirmed via `parse_expression` and the
+  binding-power comparisons); there's no way to declare e.g. `<` as
+  non-associative so that `a < b < c` is a syntax error rather than silently
+  parsing one way or another. Well-scoped: a new `infix ... nonassoc` form
+  (or a separate `nonassoc` keyword as titled) plus a check in
+  `post_process` (line 1876) or the parser itself.
+- **`'thus'` keyword** ("'thus' with one step shorter, for `qed` we use
+  match, for `thus` we use equal") — not implemented at all today (no
+  `'thus'` anywhere in `eval_keyword_expression`'s dispatch). The todo's own
+  description is a usable spec: unlike `qed`, which re-derives the planned
+  goal via full `derive_expr` search, `thus` would close a block (or end an
+  equational step) by checking the last formula is *literally equal* (via
+  `equal_expr`, already used elsewhere for exactly this kind of check) to
+  the target, which is cheaper and more predictable for long equational
+  chains (see `group.kurt`'s style of proof). Well-specified, self-contained
+  new keyword.
+- **`Formula.origin`** ("have `origin` (see class Token) also on the
+  Formula level") — `Token` (line 331) already carries an `origin` field;
+  `Formula` (line 369) does not. Small, mechanical addition, useful for
+  provenance/debugging (e.g. "which `load`ed file did this axiom really
+  come from" beyond just `filename`/`line`).
+- **File-local variables / explicit theory export** ("variables and syntax
+  should be file only... problem: how to show formulas that are imported";
+  "define what gets exported when loading a file, make variable
+  declarations local"; "local and export features, files should open a new
+  level, but can export statements as axioms to the level above them") —
+  these three are the same design gap, repeated across the "before 1.0" and
+  "before 2.0" sections. Confirmed real: `is_var`/`is_const` (line 888/903)
+  walk the *entire* parent chain with no notion of "this variable belongs to
+  a different file's level and shouldn't leak". `load_file` already wraps
+  each load in its own `sandbox` level and `merge_and_pop`s the *theory*
+  back in (line 4129-4161) — the mechanism for a file-local scope already
+  exists structurally, it's just that `var`/syntax declarations aren't
+  currently treated differently from proven formulas when merging. This is
+  a real design decision (what exactly should leak from a loaded file)
+  before it's an implementation task, but the scaffolding (levels, merge)
+  is already there to build on.
+
+## Needs investigation before it's clear what "feasible" even means
+
+- **"why (not x in emptyset) not working?"** — I reproduced the ingredients
+  (`set.kurt`'s `def ∅ = { $a | false }`) but did not reproduce a concrete
+  failing proof from the one-line description alone; needs the maintainer's
+  original failing snippet to make progress.
+- **"automatically iterate over all implications, in particular convert `≡`
+  into two implications"; "iterate over the formulas in theory and over all
+  conclusions (RHS of implications) as well"; "better inference rules...
+  when iterating through `all_theory()` also iterate over RHS of
+  implications where the LHS is part of the theory"** — these three
+  describe the same real limitation (confirmed: `derive_expr` does one hop
+  of `impl_elim` per call, so a two-step chain like `A`, `A implies B`, `B
+  implies C` needs `B` to be derived as its own explicit line before `C`
+  can follow — see `tutorial/03-implies.kurt`'s comment about this). Turning
+  this into automatic multi-hop search is a real feature, but it directly
+  trades off against the performance concerns above (more search per
+  formula) and against how errors are reported (today's `by 3, 2` reasons
+  are one hop; multi-hop search needs a real proof-search trace, not just a
+  reason string). Worth a design spike before implementation.
+- **"allow multiple replacement in one step (is that possible?)"** — the
+  maintainer's own phrasing suggests this is genuinely open; `
+  generate_all_combinations`'s comment explicitly says "allow only one
+  subterm to be replaced, much more efficient" as a deliberate simplification.
+  Needs a concrete motivating example (a proof that actually needs
+  multi-site substitution in one step) before it's clear whether it's
+  worth the complexity.
+- **"check whether we need a version of `equal_expr` that allows bounded
+  renaming"** — genuinely uncertain without a concrete counterexample where
+  current `equal_expr` (which does exact structural equality after the
+  existing alpha-renaming passes) gives the wrong answer.
+
+## Deliberately left out (too broad / not really a `kurt.py` task)
+
+Vague/philosophical items ("check theories", "make a good verbose mode for
+teaching"), pure research directions ("two algorithms: constraint-based vs
+substitution-based (W)"), external/infra projects (running under Pyodide,
+VS Code / LSP integration — both plausible but each a separate project, not
+a `kurt.py` change), and inspirational links (the Terry Tao Lean posts, the
+Haskell indentation wiki page) are intentionally not listed above as
+"feasible tasks" — see `suggestions-claude.md` for the ones worth carrying
+forward as longer-term ideas.

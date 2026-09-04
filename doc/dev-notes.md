@@ -1,11 +1,20 @@
-# The Kurt Programming Language Notes
+# Kurt Development Notes
 
 **Author:** Stefan Harmeling
 **Date:** 2025-02-25 (created)
 
 ---
 
-This document collects notes while inventing the language.  There are many more older notes in the previous git repo.
+This is a running, chronological diary of design decisions, dead ends, and
+open questions while inventing and implementing Kurt -- not user-facing
+documentation. For the current language reference, see `kurt-doc.md`; for
+learning Kurt, see `tutorial/`. There are many more older notes in the
+previous git repo.
+
+Formerly `kurt-notes.md`; the dated design-decision section that used to
+live at the bottom of `kurt-doc.md` was folded in here on 2026-09-04 (see
+the "2025-04-17" entry below) so that `kurt-doc.md` could be a clean,
+current-behaviour reference instead of a mix of reference and diary.
 
 ## Alternatives using Higher-Order Type Theory
 
@@ -909,6 +918,123 @@ How should we match `f $x` against `sub $x $a $A`:
     use (exists $$x $B) and ($B implies %A)  implies  %A                "exists-elim"
 
 - e.g. renaming `$x` in "exists-intro" only in the LHS makes the whole formula wrong, since `$x` might appear in `%A` which appears also on the RHS.
+
+## 2025-04-17 (moved here from `kurt-doc.md` on 2026-09-04)
+
+### difference between prefix and function
+
+    !!![2] prefix f 17
+    !!![3] arity g 1
+    !!![4] parse g 1 8
+    g 1 8
+    !!![5] format sexpr
+    !!![6] parse g 1 8
+    ((g 1) 8)
+    !!![7] parse f 1 8
+    (f (1 8))
+    !!![8] prefix h 25
+    !!![9] parse h 1 8
+    ((h 1) 8)
+
+- so `arity` defines a function with a fixed lbp and rbp, while `prefix` allows us to choose the `rbp`.
+
+- use `prefix` if you want stronger or weaker rbp than space
+
+### definitions via 'def' (how are they different from `use` and `alias`?
+
+- `alias` is replaced in the scanner, i.e., they do not require an inference step
+- `def` is replaced in the parser, i.e., they require an inference step
+- definitions are equalities or equivalences (which is equality on bool)
+- how can we have definitions without equalities? no!
+- 'def' are very much 'use'
+
+### indentation
+
+- an equation chain like
+
+    x = 17
+      = 42
+      = 13
+
+- desugars to
+
+    x = 17
+    x = 42
+    x = 13
+
+- for a chain we have an order of operations
+
+    chain =, <=, <
+    chain =, >=, >
+    chain iff, if
+    chain iff, implies
+
+- so, e.g.
+
+    x < y
+      = z
+
+  desugars to
+
+    x < y
+    x < z
+
+- so if there is at least `<` in the chain we get `<` for the remaining ones.
+
+### line continuation (2025-04-18)
+
+- an unfinished line can be automatically continued in the next line
+
+### chains
+
+- chains do require indentation!  You can not do this:
+
+    x = 18
+    = 20       ; that's wrong!
+    = 30
+
+- but they can have:
+
+    x = 18
+      = 20
+      = 30
+
+- so if we have a line starting with an infix operator it creates a chain with the previous
+
+- when a chain starts we have to check whether the infix operator is compatible with the other operators of the chain
+
+- chains must start with an indent token
+
+### impl-elim
+
+- The RHS of an implication can be an conjunction
+
+- i.e.
+
+    A and B  implies  C and D
+
+  will automatically split `C` and `D` into `C` and `D`
+
+- this is useful stuff like
+
+    a = b = c
+
+  which gets parsed as
+
+    a = b and b = c
+
+- we can then also:
+
+    a = b
+      = c
+
+### variables and constants
+
+in a file, variables are only for the files, while constants persist also when loaded
+
+### blocks: 'fix' for forall-intro
+
+(note left dangling in the original `kurt-doc.md` -- never expanded on)
 
 ## 2025-04-23 blocks
 

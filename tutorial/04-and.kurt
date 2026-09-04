@@ -1,0 +1,23 @@
+; 04-and.kurt
+
+; `and` is Kurt's other built-in connective (also declared in `minimal.kurt`).
+; Two already-proven facts can always be combined into a conjunction -- the
+; rule is called "and-intro", and it is hard-coded, no `load` required:
+
+bool A, B
+
+use A
+use B
+A and B                 ; "and-intro"
+
+; Splitting a conjunction back into its parts ("and-elim") is *not* built in
+; the same automatic way -- you have to state the particular instance you
+; need as an axiom yourself:
+
+bool C
+use A and B implies C
+C
+
+; Lesson 10 ("load") shows how to pull in the ready-made `prop` theory, which
+; gives you a general `and-elim` (and `or`, `not`, `iff`, ...) once and for
+; all, so you no longer have to spell out instances like the one above.

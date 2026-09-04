@@ -1,0 +1,25 @@
+; 07-show.kurt
+
+; Every claim so far (`A`, `B`, `A and B`, ...) was checked immediately
+; against the current theory.  `show` instead states a *goal* explicitly; you
+; then justify it step by step inside a `proof` block (08-proof.kurt) that
+; must end with `qed` (09-qed.kurt).  The three keywords always appear
+; together, in that order.
+
+bool A, B
+
+use A implies B
+use A
+
+show B
+proof
+    B
+qed
+
+; `show` also accepts a label, just like `use`:
+bool C
+use B implies C
+show C  "chained-modus-ponens"
+proof
+    C
+qed

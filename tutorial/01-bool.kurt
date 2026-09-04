@@ -1,0 +1,23 @@
+; 01-bool.kurt
+
+; So far the only formula we could write was `true`.  To make claims about
+; anything else, Kurt first needs to know which symbols stand for
+; propositions, i.e. things that can be true or false.  That's what `bool`
+; declares:
+
+bool A
+bool B, C     ; a comma-separated list declares several symbols at once
+
+; Declaring a symbol boolean does not make it true, or tell Kurt anything
+; about when it holds -- it only says "this is the kind of thing that can be
+; proved", so that later formulas built from it, e.g. `A implies B`, make
+; sense to the type checker.
+
+; `true` still holds, of course:
+true
+
+; Try uncommenting the next line: Kurt will complain that it cannot derive
+; `A`, because we declared A a boolean symbol but never said anything else
+; about it.  Lesson 02 ("use") shows how to fix that.
+;
+;     A

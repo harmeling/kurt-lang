@@ -1,0 +1,23 @@
+; 21-let.kurt
+
+; `let` introduces one or more fresh, completely arbitrary constants.
+; Closing the block (here: by dedenting) triggers "forall-intro": whatever
+; you proved about the fresh constant, inside the block, now holds for *all*
+; objects, via a `forall`.  Quantifiers come from `logic.kurt`:
+
+load logic
+bool A
+const A
+arity A 1
+
+use ∀ $x A $x        ; "for every x, A holds of x"
+
+show ∀ x A x
+proof
+    let x            ; `x` is a brand-new constant, could be anything
+        A x           ; "forall-elim" instantiates the axiom above at `x`
+qed                    ; since `x` was arbitrary, this generalises back to `∀ x A x`
+
+; `let` can also attach a constraint to the new constant, e.g. `let x > 0`,
+; which behaves like `let x` followed by `assume x > 0` in one step -- once
+; you have a theory (like `arith.kurt`) with `>` in it.

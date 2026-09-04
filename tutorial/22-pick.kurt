@@ -1,0 +1,22 @@
+; 22-pick.kurt
+
+; `pick` extracts a witness out of an existential.  `pick a with P(a)` opens a
+; block with a fresh constant `a`, together with the fact `P(a)`, given that
+; `exists x P(x)` is already known.  Closing the block (here: by dedenting)
+; triggers "exists-elim": as long as the goal doesn't mention `a`, it also
+; holds without ever knowing the witness by name.
+
+load logic
+bool P, B
+const P, B
+arity P 1
+
+use ∀ a (P a implies B)
+use ∃ x P x
+
+show B
+proof
+    pick a with P a
+        P a implies B
+        B
+qed

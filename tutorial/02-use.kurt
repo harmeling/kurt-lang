@@ -1,0 +1,22 @@
+; 02-use.kurt
+
+; To reason about anything beyond `true` we need axioms: formulas we simply
+; declare to hold, without proof.  The keyword `use` adds such a formula to
+; the theory.
+
+bool A
+
+use A                  ; from now on `A` is an axiom
+A                       ; ...and so it can be checked
+
+; `use` accepts an optional label describing where the axiom comes from; it
+; shows up in the log instead of the generic "without proof":
+
+bool B
+use B  "our-second-axiom"
+B
+
+; `use` with no argument lists every axiom used so far, level by level -- try
+; it:
+
+use

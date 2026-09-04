@@ -1,0 +1,34 @@
+; 24-done.kurt
+
+; In a *file*, `assume`/`let`/`pick` blocks close automatically the moment
+; the indentation dedents (that's what every earlier lesson relies on).  In
+; the interactive shell there is no indentation to dedent from -- every line
+; is typed at whatever level you're currently on -- so the shell instead has
+; an explicit keyword, `done`, that closes the current block right away,
+; triggering exactly the same rule (impl-intro / forall-intro / exists-elim)
+; a dedent would have triggered in a file.  A transcript:
+;
+;     !!![1] bool A, B
+;     !!![2] use A implies B
+;     !!![3] show B
+;     show B                                     ; 3 claim
+;     !!![4] proof
+;     proof
+;     !!!    [5]     use A
+;         use A                                   ; 5 without proof
+;     !!!    [6]     B
+;         B                                       ; 6 by 5, 2
+;     !!!    [7]     done
+;     qed                                          ; 7
+;
+; `done` requires `indent` mode (lesson 54) to be switched on -- that's what
+; makes the shell track levels/indentation at all -- and, like `break`
+; (25-break.kurt), it only works interactively: using it inside a `.kurt`
+; file raises a `ParseError`.
+;
+; This file has no runnable `done` for that reason; the fact below just keeps
+; it checkable on its own.
+
+bool A
+use A
+A

@@ -1,0 +1,26 @@
+; 25-break.kurt
+
+; `break` abandons the current block outright, without trying to prove
+; anything -- no impl-intro, no forall-intro, nothing is added to the theory.
+; It is the only way to close a `sandbox` block (14-sandbox.kurt), but it
+; also works on any other open block, in the shell:
+;
+;     !!![1] bool A
+;     !!![2] show A implies A
+;     show A implies A                           ; 2 claim
+;     !!![3] proof
+;     proof
+;     !!!    [4]     break
+;     break                                       ; 4 forgot the last block
+;     !!![5] A implies A
+;     !!!!!! ProofError: can not derive `A implies A`
+;
+; Like `done` (24-done.kurt), `break` needs `indent` mode (lesson 54) and
+; only works in the interactive shell -- a `.kurt` file cannot use it at all.
+;
+; This file has no runnable `break` for that reason; the fact below just
+; keeps it checkable on its own.
+
+bool A
+use A
+A

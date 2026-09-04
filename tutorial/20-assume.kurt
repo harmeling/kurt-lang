@@ -1,0 +1,30 @@
+; 20-assume.kurt
+
+; `assume` opens a block that hypothesizes a formula, to be discharged again
+; once the block closes.  Closing it (here: by dedenting) triggers
+; "impl-intro": if you can derive `Q` after assuming `P`, you get
+; `P implies Q` back, outside the block.
+
+bool A, B
+
+show A implies B
+proof
+    assume A
+        use B
+qed
+
+; The same mechanism gives "not-intro": assume `P`, derive `false`, and you
+; get `not P`.  `not` and `false`'s proof rules live in `prop.kurt`
+; (lesson 10):
+load prop
+
+bool p, q
+use p implies q
+use not q
+
+show not p
+proof
+    assume p
+        q
+        false
+qed

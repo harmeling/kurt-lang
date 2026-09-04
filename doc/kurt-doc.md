@@ -1,226 +1,635 @@
-# The Kurt Programming Language Documentation
+# The Kurt Programming Language Reference
 
-**Author:** Stefan Harmeling
-**Date:** 2025-02-25 (created)
+**Author:** Stefan Harmeling (implementation); this reference rewritten 2026-09-04 to match the current behaviour of `src/kurt/kurt.py`.
 
 ---
 
-The Kurt programming language is a made to write down and automatically check simple (and not so simple) mathematical proofs.  The motivation is to have a language that students can use while learning mathematics.  Similarly to automatic testing while learning programming, students can write down their proofs in Kurt and test them automatically to get immediate feedback.
-
-## Symbols and terms and the grammar
-
-- The alphabet contains letters, digits and special symbols.
-
-- The atoms of Kurt are *symbols*, which are strings of the alphabet.
-
-- Space is never part of a symbol.  Instead it can be used for function application.
-
-- Comments follow after a semicolon `;`.  However, comments are stored with each formula, since they can help to refer to formulas.
-
-- The grammar can be specified using the following keywords:
-
-      infix    ; to declare infix symbols
-      postfix  ; to declare postfix symbols
-      prefix   ; to declare prefix symbols
-      brackets ; to declare bracket symbols
-      arity    ; to declare the arity of a symbol
-      flat     ; to declare an infix operator to be flat
-      sym      ; to declare an infix operator to be symmetric
-
-- Examples:
-
-      infix "+" 20 20
-      a + b           ; (+ a b)
-      postfix "!" 100
-      a!              ; (! a)
-      prefix "-" 100
-      -a              ; (- a)
-      brackets "(" ")" 100
-      (a)             ; (a)
-      arity f 2
-      f 17 42         ; (f 17 42)
-      flat "+"
-      a + b + c       ; (+ a b c)
-      sym "+"
-      a + b           ; terms will be sorted
-
-- Sequences of symbols form tree-structured *terms*.  The tree structure is determined syntactically by the binding power, fixity and arity of each symbol.  We do not distinguish terms from expressions.
-
-## Constants and variables
-
-- New symbols are by default *variables*.  That includes operators such as "+" after declaring them as infix.
-
-- Q: Is the default a good idea?  Possibly we should enforce the user to declare a symbol as a variable or constant.
-
-- If we assign a value to a new symbol, it will be a *constant*.
-
-- Constants can be declared by the keyword `const`.
-
-      const x   ; to declare constant symbols
-
-- Variables can be declared by the keyword `var`.
-
-      var x     ; to declare variable symbols
-
-- Once a symbol is declared as constant, it can not be declared variable anymore.  A symbol that is constant inside a block, can be become variable again outside the block.
-
-- If a symbol is not declare variable or constant than its first usage determines its role:
-
-     x + y = 0      ; x and y are variables
-     forall x F(x)  ; x is a variable
-     let a = 17     ; a is a constant
-
-- Symbols starting with a dollar sign `$` are always variables.
-
-- Symbols starting with a at sign `%` are always boolean variables, that could contain whole formulas.a
-
-## Variable binding operators
-
-- The symbols `forall` and `exists` are examples of *variable binding operators*.
-
-      forall x F
-      exists x F
-
-- The first input to a variable binding operator must be a variable that appears must appear free in F.  Some simple type checking has to ensure that!
-
-- Variable binding operators must be declared to ensure that the first arg is checked to be a non-bound variable.
-
-      bindop forall
-      bindop exists
-
-- Before declaring a symbol to be `bindop` it must have an arity.
-
-- Syntactic sugar:  the variable can also be a boolean expression where the first part is the variable.
-
-      forall x>0 F(x)   ; forall x (x > 0 implies F(x))
-
-- More examples
-
-      arity "lim" 3, "sum" 4, "prod" 4, "integral" 4
-      bindop "lim"  ; limit, e.g., lim x 0 F(x)
-      bindop "sum"  ; sum, e.g., sum x 0 1 F(x)
-      bindop "prod" ; product, e.g., prod x 0 1 F(x)
-      bindop "int"  ; integration, e.g., int x 0 1 F(x)
-
-## Free and bound variables
-
-- A variable is *free* in a term if it is not bound by a variable binding operator.
-
-To be continued!
-
-## 2025-04-17
-
-### difference between prefix and function
-
-    !!![2] prefix f 17
-    !!![3] arity g 1
-    !!![4] parse g 1 8
-    g 1 8
-    !!![5] format sexpr
-    !!![6] parse g 1 8
-    ((g 1) 8)
-    !!![7] parse f 1 8
-    (f (1 8))
-    !!![8] prefix h 25
-    !!![9] parse h 1 8
-    ((h 1) 8)
-
-- so `arity` defines a function with a fixed lbp and rbp, while `prefix` allows us to choose the `rbp`.
-
-- use `prefix` if you want stronger or weaker rbp than space
-
-### definitions via 'def' (how are they different from `use` and `alias`?
-
-- `alias` is replaced in the scanner, i.e., they do not require an inference step
-- `def` is replaced in the parser, i.e., they require an inference step
-- definitions are equalities or equivalences (which is equality on bool)
-- how can we have definitions without equalities? no!
-- 'def' are very much 'use'
-
-### indentation
-
-- an equation chain like
-
-    x = 17
-      = 42
-      = 13
-
-- desugars to
-
-    x = 17
-    x = 42
-    x = 13
-
-- for a chain we have an order of operations
-
-    chain =, <=, <
-    chain =, >=, >
-    chain iff, if
-    chain iff, implies
-
-- so, e.g.
-
-    x < y
-      = z
-
-  desugars to
-
-    x < y
-    x < z
-
-- so if there is at least `<` in the chain we get `<` for the remaining ones.
-
-### line continuation (2025-04-18)
-
-- an unfinished line can be automatically continued in the next line
-
-### chains
-
-- chains do require indentation!  You can not do this:
-
-    x = 18
-    = 20       ; that's wrong!
-    = 30
-
-- but they can have:
-
-    x = 18
-      = 20
-      = 30
-
-- so if we have a line starting with an infix operator it creates a chain with the previous
-
-- when a chain starts we have to check whether the infix operator is compatible with the other operators of the chain
-
-- chains must start with an indent token
-
-### impl-elim
-
-- The RHS of an implication can be an conjunction
-
-- i.e.
-
-    A and B  implies  C and D
-
-  will automatically split `C` and `D` into `C` and `D`
-
-- this is useful stuff like
-
-    a = b = c
-
-  which gets parsed as
-
-    a = b and b = c
-
-- we can then also:
-
-    a = b
-      = c
-
-## variables and constants
-
-in a file, variables are only for the files, while constants persist also when loaded
-
-## blocks
-
-### 'fix' for forall-intro
+This is a reference for the current behaviour of Kurt: what each keyword
+does, what the grammar allows, and what is and isn't checked. It describes
+things as they are, not as they're planned to become — see `todo.md` and
+`todo-claude.md` for planned work, and `dev-notes.md` for the history of
+*why* things ended up this way. To actually learn Kurt hands-on, start with
+`tutorial/00-true.kurt` and work through the numbered lessons instead; this
+document is for looking things up once you already know roughly what you're
+looking for.
+
+Every claim below was checked against the interpreter while writing this
+document (`kurt <file>.kurt`, or `kurt` interactively), not just read out of
+the source.
+
+## 1. Running Kurt
+
+    kurt                        # start the interactive shell (a REPL)
+    kurt path/to/proof.kurt     # check a proof file, then exit
+    kurt -i path/to/proof.kurt  # check the file, then drop into the shell
+    kurt -d path/to/proof.kurt  # also print debug information
+    kurt -v path/to/proof.kurt  # also print verbose matching information
+    kurt -l path/to/proof.kurt  # emit a LaTeX proof document instead
+    kurt -p DIR path/to/proof.kurt   # also search DIR for `load`ed theories
+    kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
+
+If no filename is given, Kurt starts the shell directly. If a filename is
+given without `-i`, Kurt checks the whole file, prints `Proof checked` (or,
+if any `todo`s are left, `Proof almost checked: N todos.` plus a list of
+where they are) and exits.
+
+**Caveat:** as of this writing, `kurt`'s exit code is always `0`, even if
+checking the file raised an error and printed it to stderr. Don't rely on
+the exit code to detect a failed proof from a script yet (see
+`todo-claude.md`).
+
+**Undocumented-until-now autoload:** before checking the requested file,
+`kurt` silently tries to `load` a file literally named `theory.kurt` from
+the current directory (or anywhere else on the theory search path, see
+§8.2) if one exists, ignoring it quietly if it doesn't. This means a stray
+`theory.kurt` sitting in the directory you run `kurt` from becomes part of
+*every* proof you check there, without any `load` line asking for it. If
+you don't intend this, don't have a file by that name lying around.
+
+## 2. Lexical structure
+
+Kurt reads a proof one *statement* at a time; a statement occupies one or
+more physical lines (see §2.1 on indentation/continuation).
+
+- **Comments** start with `;` and run to the end of the line. A comment is
+  attached to whatever formula precedes it and can later be shown again
+  (e.g. as its label, or via `theory`).
+- **Symbols** (identifiers) are `[A-Za-z][A-Za-z0-9]*`, optionally preceded
+  by a single `$`, `%`, or `@`. `$` and `%` are meaningful (see §3.2); `@`
+  is accepted by the lexer but nothing currently treats it specially.
+- **Numbers** are `INT` (`[0-9]+`) or `FLOAT` (`[0-9]+\.[0-9]+`) literals.
+- **Strings** are `"..."` (no escaping of embedded quotes); used for labels
+  (`use ... "my-label"`) and for some keyword arguments that take an
+  operator symbol as text (`infix "+" 20 20`).
+- **Operator characters.** Besides letters/digits, `(` and `)` and `,` are
+  always their own single-character symbols. A run of characters from
+  `.:=+-*/#&^'∈!<>{}[]|_` glues together into *one* symbol (so declaring
+  `!=` gives you a single two-character operator, but writing `!!` without
+  spaces is one symbol `!!`, not two `!` tokens). A fixed set of additional
+  Unicode symbols is recognised one character at a time — exactly the
+  symbols that appear as *values* in Kurt's LaTeX-input table (§2.2): the
+  common logic/set-theory symbols (`∀ ∃ ∧ ∨ ⇒ ⇔ ¬ ⊤ ⊥ ∈ ∉ ⊂ ⊆ ⊃ ⊇ ∩ ∪ ∅ ≡
+  ∘ ↦ → ∞ ≤ ≥ ≠`), modal-logic symbols (`□ ◇`), and the Greek alphabet.
+  **Any other non-ASCII character is a lexing error** — you cannot declare
+  an operator using an arbitrary Unicode symbol that isn't already on this
+  list.
+- **`load` is special in the lexer.** A line starting with `load` (case
+  insensitive) is scanned specially: everything after it up to a `;` or end
+  of line is taken as a comma-separated list of filenames (quoted or bare),
+  not parsed as an expression. This is why `load prop, equality` and `load
+  "my-theory.kurt"` both work, without `prop`/`equality`/`"my-theory.kurt"`
+  needing to be otherwise-valid symbols.
+
+### 2.1 Statements, indentation, and line continuation
+
+A statement can span more than one physical line: if a line ends
+mid-expression, Kurt automatically treats the next line as its
+continuation — no explicit continuation marker is needed.
+
+In a *file*, indentation is significant. Opening a block (`proof`,
+`assume`, `case`, `let`, `pick`, `sandbox`, see §9) requires the next line
+to be indented relative to it; dedenting afterwards closes as many nested
+blocks as the drop in indentation implies. **A line's indentation is
+measured from its very first character, including comment-only lines** — a
+comment line indented further than the current block is a `ParseError`
+("unexpected increased indentation"), even though it contains no code. In
+practice this means: don't visually align a wrapped comment's continuation
+under an earlier inline comment by indenting it — keep continuation
+comment lines at column 0 (or at the current block's own indentation).
+
+### 2.2 LaTeX-style input shortcuts (interactive shell only)
+
+Typing Unicode symbols is inconvenient on most keyboards, so **in the
+interactive shell**, before a line is scanned, Kurt rewrites LaTeX-style
+commands to their Unicode equivalent: `\forall` → `∀`, `\exists` → `∃`,
+`\implies` → `⇒`, `\and`/`\or`/`\not`/`\iff`/`\equiv`/`\top`/`\bottom` →
+`∧`/`∨`/`¬`/`⇔`/`≡`/`⊤`/`⊥`, `\in`/`\notin`/`\subset`/`\subseteq`/
+`\cup`/`\cap`/`\emptyset`/`\to`/`\mapsto`/`\circ`, `\leq`/`\geq`/`\neq`,
+`\box`/`\b`/`\diamond`/`\d` (modal logic), and the full Greek alphabet
+(`\alpha`, `\Gamma`, ...). **This replacement only happens for lines typed
+at the interactive prompt — it is not applied when reading a `.kurt` file.**
+A saved proof file must already contain the real Unicode characters (or use
+`alias` to define an ASCII name for them, see §4.7).
+
+## 3. Terms, symbols, and their roles
+
+Every parsed term (`Expr` internally) is either a single symbol/number/
+string (a leaf) or an operator applied to one or more sub-terms. There is no
+separate "statement" syntax — a term *is* a formula once it's been checked
+to be boolean (§5).
+
+### 3.1 Function application is just an infix operator
+
+Space is a built-in infix operator (declared in the hard-coded
+`minimal.kurt`, see §8.1), so `f x` means "`f` applied to `x`", and `f x y`
+means `f` applied to `x` and then to `y` (i.e. curried, unless `f` has a
+declared `arity`, see §4.3, in which case `f x y` is one call with two
+arguments). This is also why you can write `not A` even though `not` is
+declared as a `prefix` operator elsewhere — a bare `symbol symbol`
+juxtaposition is space-application regardless.
+
+### 3.2 Constants vs. variables
+
+Every symbol is exactly one of:
+
+- a **constant** — one fixed, specific object, declared with `const x`, or
+  implicitly whenever it's introduced by `let`/`pick`/`def`/`brackets`, or
+- a **variable** — may stand for arbitrary objects, declared with `var x`,
+  or implicitly the first time an otherwise-undeclared symbol is used in a
+  formula (see `bool A, B` in the tutorials: `A`/`B` become variables the
+  moment they're first written in an expression, not when `bool` declares
+  them — `bool` only records that they're boolean, see §5).
+
+Once a symbol's role is fixed *on a given level* (see §7 on blocks/levels),
+it cannot be changed in either direction on that level: declaring `const x`
+then `var x` fails, and so does the reverse. A symbol that is a constant
+inside a block can still be an ordinary (as-yet-undecided) symbol outside
+it, once the block closes and its constants go out of scope.
+
+Symbols starting with `$` or `%` are **always** variables, regardless of
+any `const`/`var` declaration — they exist specifically to write *axiom
+schemas* in `use` lines (e.g. `use $A implies $A`), where `$x` stands for
+an arbitrary non-boolean term and `%A` stands for an arbitrary boolean
+formula. You'll see `$`-variables and `%`-variables throughout every
+`.kurt` theory file under `src/kurt/theories/`.
+
+### 3.3 What "new" means
+
+Because there's no separate declaration step for most symbols, `const`/
+`var`/`bool` mostly exist to be explicit, to catch typos (redeclaring the
+same symbol raises an error), and to control what "new" means for keywords
+that require a genuinely fresh symbol (`def`, `let`, `pick`, `brackets`).
+
+## 4. Building the grammar
+
+Kurt's grammar is not fixed — the fixity, precedence, and arity of every
+operator (including `implies`/`and`/space itself) is declared from Kurt
+source, using a small set of keywords, and looked up dynamically by the
+parser (a Pratt/TDOP parser). This is what "extensible from Kurt source"
+means throughout `CLAUDE.md`.
+
+### 4.1 `infix`, `prefix`, `postfix`
+
+    infix OP lbp rbp     ; e.g. infix "+" 20 20
+    prefix OP rbp        ; e.g. prefix "-" 100
+    postfix OP lbp       ; e.g. postfix "!" 100
+
+Each accepts a comma-separated list to declare several operators in one
+line (e.g. `infix "+" 20 20, "-" 20 20`). Binding powers control precedence
+and associativity: for `infix`, `lbp < rbp` makes the operator *right*-
+associative (as `implies` is: `infix implies 13 12` — note `13 > 12`, i.e.
+*left*-binding-power greater, giving right-associativity: `A implies B
+implies C` parses as `A implies (B implies C)`); `lbp == rbp` (as with `+`
+above) makes repeated uses ambiguous unless the operator is also declared
+`flat` (§4.5). Declaring the same symbol both `infix` and `prefix` is
+allowed (useful for something like unary/binary `-`); declaring it as more
+than one of `infix`/`prefix`/`postfix`/a bracket otherwise is an error.
+
+Called with no arguments (`infix`, `prefix`, `postfix`), each prints every
+currently-declared operator of that kind, across all open levels.
+
+### 4.2 `brackets`
+
+    brackets LEFT RIGHT     ; e.g. brackets "[" "]"
+
+Declares a new matching pair of bracket symbols. **Only Kurt's own `(` `)`
+pair (declared exactly this way in `minimal.kurt`) is treated as pure,
+disappearing grouping** — `(A)` really is just `A`. Any *other* bracket
+pair you declare yourself stays around as a genuine operator: `[A]` parses
+to a real term whose operator is an internal name combining `[` and `]`
+(currently rendered as `[$$$]` if you `parse`/`format sexpr` it — a leaky
+implementation detail, see `todo-claude.md`), not to `A`. Custom brackets
+are meant to carry their own meaning (e.g. `|x|` for absolute value, `⟨a,
+b⟩` for pairing) via `arity`/`bool`/`use` axioms about the resulting
+operator, not as alternative parentheses. `brackets` takes exactly the two
+symbols — there is no separate binding-power argument.
+
+### 4.3 `arity`
+
+    arity SYMBOL N     ; e.g. arity f 2
+
+Declares that `SYMBOL` is a plain (non-infix/prefix/postfix) function or
+predicate symbol taking exactly `N` arguments by space-application: `f a b`
+parses as one call `(f a b)`, not curried. A symbol with no declared arity
+defaults to arity 0 and behaves as ordinary curried space-application. You
+cannot set an `arity` on a symbol that's already `infix`/`prefix`/`postfix`
+or a bracket (their arities — 2, 1, 1 — are implicit and fixed), and you
+cannot re-set an arity once declared. There is currently no way to write a
+literal zero-argument call `f()` — an arity-1 (or more) symbol followed by
+empty brackets is a syntax error (`SyntaxError: token ')' cannot start an
+expression`), see `todo-claude.md`.
+
+### 4.4 `bindop`
+
+    bindop SYMBOL     ; e.g. bindop forall
+
+Declares `SYMBOL` a *variable-binding operator*: its first argument is
+treated as a bound variable (or, with the sugar below, a boolean condition
+whose free variable is the one being bound) for the rest of the
+expression. `forall`/`exists` (from `logic.kurt`) are declared exactly this
+way. Requirements, both enforced: the symbol must already have an `arity`
+of at least 2 (the bound variable plus at least one more argument), and it
+must not already be declared as any kind of operator or already used in a
+formula.
+
+Sugar: the "bound variable" position may instead be a boolean expression
+whose leftmost part is the actual variable, e.g. `forall x>0 F(x)` desugars
+to `forall x (x > 0 implies F(x))`; the type checker requires that
+expression to actually contain a free variable to bind.
+
+### 4.5 `flat` and `sym`
+
+    flat OP     ; e.g. flat "+"
+    sym OP      ; e.g. sym "+"
+
+Both require `OP` to already be `infix`. `flat OP` means a run of `OP`
+doesn't nest two arguments at a time in the parsed term — `a + b + c`
+parses to a single `(+ a b c)` rather than `(+ (+ a b) c)` (compare `parse
+a + b + c` before and after declaring `flat`). `sym OP` means `OP`'s
+arguments may be reordered when Kurt searches the theory for a match — an
+axiom about `a + b` also matches a goal written as `b + a`. An operator
+that is *both* `flat` and `sym` (like `and`/`or`) gets its arguments
+canonically sorted before matching, which means Kurt effectively does
+*multiset* matching on it: `A and B and C` matches a stored `C and A and B`
+directly, not just pairwise swaps. Each of `flat`/`sym` can only be
+declared once per operator (redeclaring raises an error), and if the
+operator already has a partial `bool` signature (§5), that signature must
+be consistent with binary use (both argument positions boolean, or
+neither; no signature information beyond position 2).
+
+### 4.6 `chain`
+
+    chain OP1 OP2 ...     ; e.g. chain = <=  or  chain iff implies
+
+Declares that the listed infix operators may be written one after another
+across indented continuation lines, mimicking how mathematicians chain
+(in)equalities: after a chain is declared, writing
+
+    x = y
+      < z
+
+is sugar for two separate checked lines, `x = y` and `x < z` (the second
+line's left-hand side is filled in from the previous line's right-hand
+side, and the operator used is the *strongest* one seen so far in the
+chain, by index in the declared list — this is why `chain = <` lets `= ,
+<`-chains resolve to `<` once a `<` has appeared). **A chain only affects
+*parsing*/desugaring — it does not add any general transitivity inference
+rule.** Getting from `x = y` and `y < z` to `x < z` in the example above
+still requires a real proof step (an axiom or rule that, given both facts,
+actually derives the combined one) to exist in the theory; `chain` just
+lets you *write* the combined claim conveniently and have it checked as two
+separate goals. See `todo-claude.md` for the gap between "chains parse
+transitively" and "chains prove transitively".
+
+Continuation lines must be indented relative to the line that starts the
+chain; writing the continuation at the same indentation is a `ParseError`,
+not a chain. All declared chains together must form a DAG (no operator
+ordering may create a cycle across different `chain` declarations) — this
+is checked when the chain is declared.
+
+### 4.7 `alias` and `latex`
+
+    alias NEW OLD     ; e.g. alias "⇒" implies
+    latex SYM REPL     ; e.g. latex "xor" "\oplus"
+
+`alias` gives an existing symbol an additional name, resolved *in the
+scanner* (i.e. before parsing, with no inference step) — `implies` and `⇒`
+are completely interchangeable everywhere, including inside axioms already
+stored in the theory. This is different from `def` (§6.2), which
+introduces a genuinely new constant that needs an inference step
+(`equal-elim`/`iff-elim`) to unfold.
+
+`latex` records how a symbol should render in a generated LaTeX proof
+document (`kurt -l`); it has no effect on parsing or proving, and — because
+`latex` is itself a reserved keyword — there is currently no way to select
+LaTeX rendering *from inside* a `.kurt` file via `format latex` (only via
+the `-l` command-line flag); see `todo-claude.md`.
+
+### 4.8 Inspecting the grammar
+
+`syntax` (with no argument) prints every declared piece of syntax at every
+open level; `syntax SYMBOL` prints just what's known about one symbol.
+`parse EXPR` parses `EXPR` without checking it and prints both its
+s-expression form and the same per-symbol syntax info as `syntax`.
+`tokenize EXPR` shows the raw token stream before parsing. Each of
+`infix`/`prefix`/`postfix`/`brackets`/`arity`/`bindop`/`flat`/`sym`/
+`chain`/`bool`/`var`/`const`/`alias`/`latex`, called with no arguments,
+also prints its own currently-declared table.
+
+## 5. Boolean typing
+
+    bool SYMBOL              ; SYMBOL's own value is boolean
+    bool SYMBOL POS...       ; also: argument(s) at these 1-based POSitions must be boolean
+
+Kurt does a light, non-recursive-by-default type check: `bool_expr` asks
+"is this one term boolean at the top?", and `type_check_expression` walks
+down recursively, checking each operator's declared *bool signature* — a
+list of integers where `0` means "this symbol's own result is boolean" and
+`1`, `2`, `3`, ... mean "argument N must itself be boolean". So `bool
+implies 0 1 2` (from `minimal.kurt`) says: `implies` produces a boolean,
+*and* both of its arguments must themselves be boolean formulas — which is
+why `A implies B` type-checks only once `A` and `B` are themselves boolean
+(directly, or transitively). A symbol with no declared `bool` signature at
+all is *not* required to be boolean anywhere, and an as-yet-undeclared,
+never-used symbol is optimistically treated as "probably about to be used
+as boolean" the first time it's mentioned in a position that needs one
+(e.g. plain `bool A, B` followed by using `A`/`B` in a formula).
+
+A boolean *variable* (as opposed to a boolean-valued *operator*) is written
+with a leading `%` inside a `use` schema (`%A`, `%B`, ...) — see §3.2.
+
+Only `use`/`show`/bare top-level claims are required to be boolean overall
+(the exact error is "must evaluate to boolean"); nested sub-terms are
+boolean only where the enclosing operator's signature says they must be.
+
+## 6. The theory: making and using claims
+
+The **theory** is the accumulated list of `Formula`s (axioms, definitions,
+and proven facts) currently in scope. Kurt is a single-pass checker: each
+top-level statement is scanned, parsed, type-checked, and evaluated in
+order, and generally either succeeds (and is appended to the theory) or
+raises an exception (and, in a file, stops checking).
+
+### 6.1 Bare claims
+
+A line that's just an expression (no leading keyword) is a **claim**: Kurt
+tries to derive it from the current theory and, if it succeeds, adds it
+(re-labelled with the rule that proved it) to the theory. If it's a
+conjunction, each conjunct may be derived separately and then combined via
+"and-intro" (this, and "impl-elim"/modus-ponens against every formula
+currently in scope, and "top-intro" for the literal symbol `true`, are the
+only rules hard-coded directly in Python — see §8.1). Derivation is a
+*single* hop: given `A`, `A implies B`, and `B implies C` all separately in
+the theory, deriving `C` in one step is *not* automatic — you must first
+derive `B` as its own line. See `todo-claude.md` for the design questions
+around making this multi-hop.
+
+A claim that's structurally identical to the last thing already in the
+theory is silently treated as a no-op restatement rather than logged again.
+
+### 6.2 `use` and `def`
+
+    use EXPR              ; use EXPR "label"
+    def SYMBOL = EXPR
+    def SYMBOL iff EXPR
+
+`use` adds `EXPR` to the theory as an **axiom** — accepted without proof.
+An optional trailing string labels it (shown in later log lines and error
+messages instead of a bare line number).
+
+`def` is `use` specialised to introducing exactly one **brand-new**
+constant via an equation (`=`) or equivalence (`iff`) — the only two
+top-level operators `def` accepts. Exactly one new symbol must appear on
+the **left-hand side** (e.g. `def x = 18`, or `def Pow($a) = { $b | $b ⊂
+$a }` — the new symbol doesn't have to be the very first token, just
+somewhere on the left); the right-hand side must contain no new symbols at
+all (only already-declared constants/variables, or `$`/`%` schema
+variables). `def` needs `=`/`iff` to already
+exist as operators, which means (unlike `use`) it can't be demonstrated
+against the bare `minimal.kurt` theory — you need `load equality` (for
+`=`) or `load prop` (for `iff`) first. Both `use` and `def`, called with no
+arguments, print everything `use`d/`def`ined so far.
+
+### 6.3 `todo`
+
+    todo          ; admit whatever the current goal is
+    todo EXPR      ; admit EXPR specifically, and add it to the theory
+
+A joker: lets a proof continue (and the file still finish, with `Proof
+almost checked: N todos.` instead of `Proof checked`, listing every
+`todo`'s file and line) even though a step hasn't actually been justified.
+Meant for iteratively developing a proof, or handing out a skeleton with
+gaps left as exercises.
+
+### 6.4 `theory`
+
+    theory              ; print every formula, at every open level
+    theory OP            ; print only formulas whose top-level operator is OP
+
+Read-only introspection; changes nothing.
+
+## 7. Goal-directed proof: `show` / `proof` / `qed`
+
+    show EXPR              ; show EXPR "label"
+    proof
+        ...
+    qed
+
+`show` states a goal without proving it yet; it must always be followed
+(immediately, or after other statements) by a matching `proof`/`qed` pair —
+`proof` refuses to open if there's no pending `show` on the current level.
+Inside `proof`, you may write any number of intermediate steps, checked
+exactly like top-level statements. `qed` closes the block and **re-derives
+the shown goal from scratch**, using everything true at that point (not by
+comparing to the block's literal last line) — so a block whose last
+explicit line looks unrelated to the goal can still close successfully, as
+long as the goal happens to already be derivable by then. If the goal
+can't be (re-)derived, `qed` raises a `ProofError` and the block does not
+close.
+
+In a *file*, `qed` must line up with the indentation of the `proof`/`show`
+it's closing — dedenting is how Kurt knows how many nested blocks to close
+at once. In the interactive shell there's no indentation to go by, so a
+single `qed` can close several nested blocks in a row (see §9 on the
+difference between file and shell block-closing).
+
+## 8. Building the theory: hard-coded core vs. loaded theories
+
+### 8.1 What's hard-coded (needs no `load`)
+
+A pristine session starts with `minimal.kurt`'s worth of syntax (space,
+comma, `(` `)`, `implies`, `and`, the constant `true`, the substitution
+operator `sub`) already declared, plus these rules implemented directly in
+Python (not as `use` axioms you could remove):
+
+- **"top-intro"** — the bare symbol `true` is always provable.
+- **"impl-elim"** (modus ponens) — given `A` and `A implies B` anywhere in
+  the theory, `B` is derivable.
+- **"and-intro"** — given `A` and `B` separately provable, `A and B` is
+  derivable (and, symmetrically, a claimed conjunction is split into its
+  conjuncts and each is derived separately).
+- **"not-intro"**, automatically, as a side effect of closing an `assume`
+  block (see §9.1) whose last derived line is literally `false` — this one
+  isn't reachable as a standalone rule outside of that block-closing
+  moment.
+
+Notably, **"and-elim"** (splitting a proven `A and B` back into `A`) is
+*not* hard-coded — you either state the specific instance yourself as a
+`use` axiom, or `load prop` for a general one. `minimal.kurt`'s own
+comments describe a couple of additional axioms ("restatement": `$A
+implies $A`; a general "impl-intro": `($A implies $B) implies ($A implies
+$B)`) as also being hard-coded equivalents of the file — in practice, a
+bare `A implies A` with nothing else known does **not** currently derive,
+so treat `minimal.kurt`'s text as a rough description of the built-ins
+rather than an exact one (see `todo-claude.md`).
+
+`minimal.kurt` itself is never meant to be `load`ed (its first line is
+`false`, so loading it always fails) — it exists purely as a
+human-readable description of the pristine starting point.
+
+### 8.2 `load` and the theory library
+
+    load NAME               ; load "path/to/name.kurt"
+    load NAME1, NAME2, ...
+
+`load` searches, in order: the loading file's own directory (or the
+current directory, from the CLI/shell), then any `-p`/`--path` directory
+given on the command line, then Kurt's own packaged theories
+(`src/kurt/theories/`). The `.kurt` extension is added automatically if
+missing. A file that has *already finished* loading is not loaded again
+(tracked via `get_load_level`, per level, inherited from parent levels) —
+so `load prop` twice in a row, or from two different files that both
+depend on it, is a harmless no-op rather than a duplicate-axiom error.
+**This only catches files that are already fully loaded, not ones still in
+the middle of loading** — an actual cycle (`a.kurt` has `load "b.kurt"`,
+and `b.kurt` has `load "a.kurt"`) is not detected and crashes with an
+uncaught Python `RecursionError`, not a clean Kurt error. Don't create
+`load` cycles. Loading happens inside its own temporary
+level, so a file that leaves a block unexpectedly open (an unmatched
+`assume`/`let`/`pick`/`proof`/`sandbox`) fails the whole `load` rather than
+silently leaking a half-open block into your file.
+
+The packaged theories (`src/kurt/theories/`), and roughly what each adds,
+declaring their own prerequisites via their own `load` lines:
+
+| theory | adds | depends on |
+|---|---|---|
+| `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
+| `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
+| `logic.kurt` | `forall`/`∀`, `exists`/`∃`; forall-elim, exists-intro | `prop` |
+| `set.kurt` | `in`/`∈`, `⊂`, `∪`, `∩`, set-builder `{ ... \| ... }`, `∅`, `Pow` | `equality`, `logic` |
+| `arith.kurt` | arithmetic | `equality` |
+| `natural.kurt` | natural numbers | `equality` |
+| `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
+| `induction.kurt`, `lambda-calculus.kurt`, `latex.kurt` | (see file) | none declared |
+
+`load` with no arguments lists every file loaded so far, level by level.
+
+## 9. Blocks and natural deduction
+
+Every open `proof`/`assume`/`case`/`let`/`pick`/`sandbox` pushes a new
+**level** onto the knowledge base (`level` prints how deep you are; `mode`
+prints the current level's kind — `root`/`proof`/`assume`/`let`/`pick`/
+`sandbox`; `trail` prints the whole chain of modes on one line; `context`
+prints the same thing with more detail per level). A block's own `const`/
+`var` declarations and any axioms `use`d inside it disappear again once the
+block closes; only the formula the block's closing produces survives, on
+the *parent* level.
+
+**Running a file itself already starts one level deep, inside an implicit
+`sandbox`** (the same mechanism `load` uses, see §8.2) — so `mode`/`level`
+at the very top of a file report `sandbox`/`1`, not `root`/`0`.
+
+### 9.1 `assume` and `case`
+
+    assume EXPR
+        ...
+    (closes by dedenting, or `qed`/`done`)
+
+Opens a block that adds `EXPR` as a local axiom. Closing it derives
+"impl-intro": whatever you proved last inside the block becomes `EXPR
+implies <that>`, on the parent level. If the last thing derived inside the
+block was literally `false`, closing *additionally* derives `not EXPR` via
+"not-intro" (both formulas are added). `case` is handled identically to
+`assume` (there is currently no extra checking specific to `case`, see
+`todo-claude.md`) — it's meant to be used as a sequence of `case`s covering
+a disjunction, each producing its own `EXPR implies <goal>`; actually
+concluding the goal from all the cases (or-elim) then needs the `or`
+theory's `or-elim` axiom (from `load prop`) and one more explicit claim
+combining them (Kurt does not automatically finish an or-elim the moment
+the last `case` closes).
+
+### 9.2 `let`
+
+    let SYMBOL             ; or a comma-separated list: let x, y, z
+    let SYMBOL CONDITION    ; e.g. let x>0
+        ...
+
+Introduces one or more brand-new constants (each must not already be a
+declared constant). A condition (`let x>0`) also `use`s the condition as a
+local axiom, in one step. Closing the block derives "forall-intro": the
+last thing proven inside becomes universally quantified over each new
+constant, in reverse declaration order, skipping any that turn out to be
+boolean variables. (`let`'s error messages, as of this writing, still say
+"`fix`" — an old name for this keyword — see `todo-claude.md`.)
+
+### 9.3 `pick`
+
+    pick SYMBOL with FACT
+        ...
+
+Requires some already-known formula `exists $x P` in the theory such that
+substituting the new `SYMBOL` for `$x` in `P` gives exactly `FACT`; if
+found, opens a block with `SYMBOL` as a new constant and `FACT` as a local
+axiom. Closing the block derives "exists-elim": the last formula proven
+inside must not mention `SYMBOL` (checked, and also not mention any other
+constant introduced on the block's own level) — with that check passed, it
+becomes the block's result on the parent level, without any reference to
+the witness.
+
+### 9.4 `sandbox`
+
+    sandbox
+        ...
+    break        ; the only way to close it — and only in the interactive shell
+
+A scratch block: everything inside is discarded, never merged into the
+surrounding theory. Unlike every other block, `sandbox` **cannot be closed
+by dedenting** — only by `break` — and `break` itself only works in the
+interactive shell (see §9.5). This means a `.kurt` **file** can open a
+`sandbox` but has no way to close it again; a file with an unclosed
+`sandbox` at end-of-file fails with `EvalError: ... not all blocks closed`.
+`sandbox` is therefore, in practice, a shell-only feature today.
+
+### 9.5 `done` and `break` (interactive shell only)
+
+    done      ; close the current assume/let/pick block, or run qed on a proof block
+    break     ; close (discard) any single open block, without proving anything
+
+In a *file*, plain dedentation is how every block above closes. In the
+*interactive shell*, there's no indentation to dedent from (every line is
+typed at whatever level you're on), so `done` and `break` exist to close a
+block explicitly. Both require `indent on` (see §10) and only work when
+reading from the interactive shell — using either in a `.kurt` file is a
+`ParseError`. `done` triggers the same rule dedenting would (impl-intro /
+forall-intro / exists-elim / qed, depending on the block's mode); `break`
+discards the block with no result at all (the only way to close a
+`sandbox`, §9.4, but usable on any block).
+
+## 10. Session toggles and output
+
+    format sexpr | normal        ; how formulas are printed: (and A B), or A and B
+    verbose on | off              ; print extra detail about *why* a match succeeded
+    hint on | off                  ; reserved for future use — currently a no-op
+    indent on | off                ; enables `done`/`break` and pasted-file indentation in the shell
+    calc on | off                   ; auto-simplify `+`/`*` on int/float literals before checking
+
+Each, called with no argument, reports its current setting instead of
+changing it. `calc on` only knows `+` and `*` on numeric literals today
+(e.g. `1 + 1 = 2` becomes `2 = 2` before checking, once `load equality` and
+`infix "+" ...` make `+`/`=` available at all) — no `-`, `/`, or symbolic
+simplification. `hint` exists and can be toggled but, as of this writing,
+nothing reads its value yet.
+
+`help` prints Kurt's own one-line description of every keyword.
+
+## 11. Known gaps (so you don't mistake them for bugs in your proof)
+
+- Derivation is single-hop (§6.1) — chain several `A implies B` facts
+  manually, one derived line at a time.
+- `chain` (§4.6) is parsing sugar only, not automatic transitivity.
+- `and-elim` needs `load prop` (or a manual axiom instance) — it is not
+  hard-coded the way `and-intro` is (§8.1).
+- `sandbox` (§9.4) cannot be closed inside a `.kurt` file at all.
+- `f()` — a zero-argument call — does not parse (§4.3).
+- `format latex` cannot be reached from inside a `.kurt` file (§4.7); use
+  `kurt -l` instead.
+- A custom `brackets` pair does not disappear the way `(` `)` does — it
+  stays a real (currently rather ugly-printing) operator (§4.2).
+- A genuine `load` cycle between two files crashes with an uncaught Python
+  `RecursionError` and a full Python traceback instead of a clean Kurt
+  error (§8.2) — this is one of the few ways checking a file *does* exit
+  nonzero (unlike an ordinary failed proof, see §1).
+
+See `todo-claude.md` for a fuller, implementation-referenced list of
+what's missing and what's feasible to add.

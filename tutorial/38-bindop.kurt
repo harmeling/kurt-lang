@@ -1,0 +1,28 @@
+; 38-bindop.kurt
+
+; `bindop` marks a symbol as a *variable-binding operator*: its first
+; argument must be a variable (or a boolean expression whose first part is a
+; variable, e.g. `forall x>0 F(x)`) that is then considered bound inside the
+; rest of the expression.  `forall` and `exists` (used already in lessons
+; 21-let.kurt and 22-pick.kurt) are declared exactly this way, in
+; `logic.kurt`:
+;
+;     arity  forall 2
+;     bindop forall
+;
+; A symbol needs an `arity` (37-arity.kurt) before it can be declared a
+; `bindop`.  Here is a minimal binder of our own:
+
+arity myforall 2
+bindop myforall
+
+bool P
+const P
+arity P 1
+
+parse myforall x (P x)   ; (myforall x (P x)) -- `x` is bound in `(P x)`
+
+; As with the other syntax keywords, `bindop` only sets up grammar (and the
+; check that the first argument really is an unbound variable) -- the actual
+; reasoning rules ("forall-elim" etc.) are ordinary `use` axioms, exactly
+; like the ones in `logic.kurt`.

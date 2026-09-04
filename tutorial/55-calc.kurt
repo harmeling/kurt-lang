@@ -1,0 +1,16 @@
+; 55-calc.kurt
+
+; `calc` is a toggle (`calc on` / `calc off`) that switches on automatic
+; arithmetic simplification of `+` and `*` inside expressions, before they
+; are checked -- so `1 + 1` is simplified to `2` before Kurt even looks for a
+; proof.
+
+load equality
+infix "+" 30 30
+
+calc on
+1 + 1 = 2             ; simplified to `2 = 2`, then "equal-intro"
+
+; With `calc off` (the default), the same line would fail instead: nothing
+; simplifies `1 + 1` anymore, and no axiom relates it to `2`.
+calc off

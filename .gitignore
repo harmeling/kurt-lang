@@ -39,3 +39,6 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# personal Claude Code overrides
+.claude/settings.local.json
