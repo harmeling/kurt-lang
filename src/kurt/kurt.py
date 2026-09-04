@@ -4126,6 +4126,14 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
 
     return kb, lexer_state
 
+# recursion guard for `load`: absolute paths of files whose `load_file` call is currently
+# in progress (i.e. somewhere further down the current call stack), so that a genuine cycle
+# (`a.kurt` loads `b.kurt` loads `a.kurt`) raises a clean `KurtException` instead of recursing
+# until Python's stack blows up with an uncaught `RecursionError`. A file is only added once
+# we're about to actually read it, and always removed again in a `finally`, whether loading it
+# succeeded, failed to parse/check, or wasn't found at this particular search path.
+_loading_in_progress: set[str] = set()
+
 def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, mainstream:bool=False, silent:bool=False) -> KnowledgeBase:
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
     if not filename.endswith('.kurt'):
@@ -4141,8 +4149,13 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
                 log(kb, f'; file `{fname}` has already been loaded, skipping.')
             return kb
 
+        # is this exact file already being loaded further down the call stack? that's a cycle
+        if fname in _loading_in_progress:
+            raise KurtException(f'EvalError: circular `load`: `{fname}` is already being loaded (load cycle)') from None
+
         # try to open and load the file and evaluate its contents
         try:
+            _loading_in_progress.add(fname)
             with candidate.open(encoding='utf-8') as f:
                 kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
                 level = kb.level      # save current level, this one we want to reach after loading
@@ -4162,6 +4175,9 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
 
         except (FileNotFoundError, NotADirectoryError, AttributeError):
             continue    # try next path
+
+        finally:
+            _loading_in_progress.discard(fname)
 
     # we couldn't open the file anywhere
     if not silent:

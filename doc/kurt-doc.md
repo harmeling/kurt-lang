@@ -479,12 +479,11 @@ given on the command line, then Kurt's own packaged theories
 missing. A file that has *already finished* loading is not loaded again
 (tracked via `get_load_level`, per level, inherited from parent levels) —
 so `load prop` twice in a row, or from two different files that both
-depend on it, is a harmless no-op rather than a duplicate-axiom error.
-**This only catches files that are already fully loaded, not ones still in
-the middle of loading** — an actual cycle (`a.kurt` has `load "b.kurt"`,
-and `b.kurt` has `load "a.kurt"`) is not detected and crashes with an
-uncaught Python `RecursionError`, not a clean Kurt error. Don't create
-`load` cycles. Loading happens inside its own temporary
+depend on it, is a harmless no-op rather than a duplicate-axiom error. A
+file that is still *in the middle* of loading (a genuine cycle: `a.kurt`
+has `load "b.kurt"`, and `b.kurt` has `load "a.kurt"`) is tracked
+separately and raises a clean `EvalError: circular \`load\`: ...` instead
+of recursing forever. Loading happens inside its own temporary
 level, so a file that leaves a block unexpectedly open (an unmatched
 `assume`/`let`/`pick`/`proof`/`sandbox`) fails the whole `load` rather than
 silently leaking a half-open block into your file.
@@ -626,10 +625,6 @@ nothing reads its value yet.
   `kurt -l` instead.
 - A custom `brackets` pair does not disappear the way `(` `)` does — it
   stays a real (currently rather ugly-printing) operator (§4.2).
-- A genuine `load` cycle between two files crashes with an uncaught Python
-  `RecursionError` and a full Python traceback instead of a clean Kurt
-  error (§8.2) — this is one of the few ways checking a file *does* exit
-  nonzero (unlike an ordinary failed proof, see §1).
 
 See `todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.
