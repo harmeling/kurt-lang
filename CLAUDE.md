@@ -47,7 +47,7 @@ Run the interpreter directly:
 - The expected output is embedded as the **last line of the `.kurt` file itself**, prefixed with `;;; ` (see `tests/how-to-write-test-proofs.md`), e.g. `;;; Proof checked.`
 - `proofs/` = proofs that must currently pass (part of the test suite). `proofs/debug/` holds small regression cases for specific bugs/features.
 - `proofs-not-yet/` = proofs that are known not to work yet; they are **not** scanned by the test discovery and exist as a to-do backlog for language features.
-- `tutorial/*.kurt` are the numbered tutorial lesson files (see `tutorial/plan.md`) and are not part of the auto-discovered test set.
+- `tutorial/*.kurt` are the numbered tutorial lesson files (see `tutorial/plan.md`) and are not part of the `proofs/`-style auto-discovered test set — they carry no `;;; ` marker. `tests/test_kurt_tutorial.py` covers them separately: it only asserts that each lesson still `load_file`s without raising a `KurtException`, i.e. that it hasn't bit-rotted as the language changes, not that its output matches anything specific.
 
 ## Architecture
 
