@@ -12,12 +12,26 @@ bool  true                                   ; true has type bool
 infix implies 13 12                          ; logical implies, right associative (since 13>12)
 infix and     16 16                          ; and operator
 
-;; inference rules
-use $A implies $A                                 "restatement" ; see `impl_elim` in `kurt.py`, look for "restating"
-use ($A implies $B)   implies   ($A implies $B)   "impl-intro"  ; see `impl_intro` in `kurt.py`
-use ($A implies $B) and $A    implies    $B       "impl-elim"   ; see `impl_elim` in `kurt.py`
-use true                                          "top-intro"   ; see `derive_expr` in `kurt.py`, look for "top-intro"
-use (%A implies false) implies not %A             "not-intro"   ; see `not_intro` in `kurt.py`, but also in `prop.kurt`
+;; inference rules genuinely hard-coded in `kurt.py` (not `use` axioms you could remove)
+;
+; - "top-intro": `true` is always derivable -- see `derive_expr`
+; - "impl-elim" (modus ponens): given `$A` and `$A implies $B` in the theory, `$B` is
+;   derivable -- see `impl_elim`; this also covers plain "restating" an already-proven
+;   fact, via `impl_elim`'s premise-less-implication case (case 2 there)
+; - "and-intro": given `$A` and `$B` separately provable, `$A and $B` is derivable, and
+;   a claimed conjunction is split into its conjuncts, each derived separately -- see
+;   `eval_expression` and the conjunction-splitting case in `derive_expr`
+; - "impl-intro" / "not-intro": *not* standalone axioms here -- they are the effect of
+;   closing an `assume` block (see `eval_done`'s 'assume' case): assuming `$A` and
+;   deriving `$B` gives `$A implies $B`; additionally deriving `false` gives `not $A`
+;
+; NOT hard-coded, despite once being drafted here: a general "restatement" schema
+; (`$A implies $A`) and a general "impl-intro" schema
+; (`($A implies $B) implies ($A implies $B)`) as bare axioms -- neither is reachable as
+; a standalone fact (e.g. a bare `A implies A` does not derive from nothing). Prove a
+; specific instance instead, with `show`/`proof`/`assume`/`qed` (see `tutorial/`,
+; lessons 08-proof and 20-assume). `not`/`false` themselves also aren't declared here at
+; all -- see `prop.kurt` for those, and for a general, always-available "not-intro".
 
 ;; substitution operator
 arity  sub 3                                 ; operator for substitutions

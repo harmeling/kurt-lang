@@ -233,20 +233,18 @@ No code was changed while producing this file.
   actually enforced anywhere. A `bind_op`/`add_var` check (or documentation)
   that rejects/warns on user symbols starting with `$$`/`%%` would close the
   gap cheaply.
-- **Audit `minimal.kurt` against its hard-coded Python counterpart**
-  ("check that `minimal.kurt` is really hard-coded here") — `minimal.kurt`
-  says at the top "never load this theory, ... already hard-coded in
-  `kurt.py`". I compared its five axioms against `derive_expr`/`impl_elim`:
-  `top-intro` and `impl-elim` are clearly hard-coded (`derive_expr`, lines
-  3891-3900); `and-intro` is hard-coded (`eval_expression`, line 2820,
-  and the conjunction-splitting case in `derive_expr`, line 3904); but I
-  could not find `"restatement"` ($A implies $A) or `"impl-intro"`
-  ($A implies $B) implies ($A implies $B)) actually firing as bare
-  standalone facts outside of `impl_elim`'s general search — my own testing
-  (`A implies A` fails to derive from nothing) suggests the `minimal.kurt`
-  file may currently be a slightly aspirational/stale description of what's
-  hard-coded rather than an exact one. Worth a careful line-by-line
-  reconciliation.
+- **~~Audit `minimal.kurt` against its hard-coded Python counterpart~~ —
+  done.** Confirmed the mismatch: `"restatement"` (`$A implies $A`) and a
+  general `"impl-intro"` schema were drafted as if hard-coded but aren't
+  reachable as standalone facts (`A implies A` doesn't derive from
+  nothing). Rewrote `minimal.kurt`'s inference-rules section to describe
+  only what's actually hard-coded (`top-intro`, `impl-elim`, `and-intro`,
+  and `impl-intro`/`not-intro` as the *effect* of closing an `assume`
+  block, not standalone axioms), with an explicit note on what was removed
+  and why, and pointers to how to get the same result the real way
+  (`show`/`proof`/`assume`/`qed`, or `load prop` for a general
+  `not-intro`). Also fixed: the old `not-intro` line referenced `not` and
+  `false`, neither of which `minimal.kurt` itself ever declares.
 
 ## Larger, well-defined refactors (bigger, but not vague)
 

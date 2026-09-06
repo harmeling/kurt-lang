@@ -631,12 +631,17 @@ expected way, rather than relying on a comment nobody re-checks, or on a
 separate test harness matching exact (and therefore fragile — see
 `todo-claude.md`) error text.
 
-**Current limitation:** the block inside `expect` must not itself open
-another block (`show`/`proof`/`assume`/`case`/`let`/`pick`/`sandbox`,
-nested `expect`). If it does and the failure happens inside that nested
-block, `expect` does not see it — the file just fails normally, as if
-`expect` had not been used. `expect` only checks for an error raised
-*directly* inside it, at the same level.
+**Current limitation:** `expect` can only observe a failure raised by an
+*ordinary statement* directly inside its own body — never a failure that
+happens while *closing* a block (its own body's nested block, or even the
+preceding sibling block that this `expect` line's own dedent happens to
+close). In both cases, at the moment the exception is caught, the current
+mode is that other block's own mode (`proof`, `let`, `pick`, ...), not
+`expect` — so `expect`'s check in `read_eval_loop` never sees it, and the
+file just fails normally, as if `expect` had not been used. Concretely,
+this rules out using `expect` to test that closing a `let`/`pick`/`proof`
+block is correctly rejected (see `doc/kurt-soundness.md` §2 for exactly
+this case) — those still need the older `;;; ` marker convention.
 
 ## 10. Session toggles and output
 

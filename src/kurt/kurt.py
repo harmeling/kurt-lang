@@ -1001,6 +1001,17 @@ class KnowledgeBase:
     def is_operator(self, s: str) -> bool:
         return self.is_prefix(s) or self.is_infix(s) or self.is_postfix(s) or self.is_bracket(s)
 
+    def is_vocabulary_symbol(self, s: str) -> bool:
+        # true for a symbol that names something globally meaningful (a function, a
+        # predicate, an operator, or a boolean proposition) rather than a fresh
+        # individual object -- used by `assume`/`let`/`pick`'s "did a fresh constant
+        # from this block escape into the conclusion?" check (see `eval_done` in
+        # `eval_done`/`eval_pick`) to tell apart, e.g., a predicate symbol `P` that
+        # happens to be *first used* inside the block (fine, it's not scoped to it)
+        # from a genuinely fresh individual like a `let`/`pick`/`const`-introduced
+        # constant (not fine, it must not survive past the block it came from)
+        return self.get_arity(s) > 0 or self.is_operator(s) or self.is_bindop(s) or self.is_bool(s)
+
     def get_arity(self, fun: str) -> int:
         if fun in self.arity:
             return self.arity[fun]
@@ -2063,8 +2074,11 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             # exists-elim
             assert len(kb.mode_args) > 0, f'BUG: mode_args for "pick" must have length > 0, got `{kb.mode_args}`'
             expr = last_expr
-            # check that `expr` does not contain any constants from the current level
-            if contains(expr, kb.const, kb):
+            # check that `expr` does not contain any *individual* constants from the current
+            # level (the witness itself, or any bystander `const` declared alongside it) --
+            # vocabulary symbols first used here are fine, see `is_vocabulary_symbol`
+            pick_not_allowed = set(filter(lambda s: not kb.is_vocabulary_symbol(s), kb.const))
+            if contains(expr, pick_not_allowed, kb):
                 raise KurtException(f'ProofError: the line (its conclusion) of the `pick` block may not contain constant symbols from the current level, got `{expr_str(expr, kb)}`')
             reason = f'by "exists-elim"'
         case 'proof':
@@ -2085,10 +2099,20 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             # mistaken by `read_eval_loop` for the very error it says didn't happen
             raise KurtException(f'ExpectationError: this `expect "{expected_kind}"` block finished without raising a `{expected_kind}`')
 
-    # the constants on the current level are not allowed, however, the variables of the previous level are allowed (see `de-morgan.kurt`)
+    # the constants on the current level are not allowed, however, the variables of the previous
+    # level are allowed (see `de-morgan.kurt`), and neither are vocabulary symbols that were only
+    # registered as "const" here because this happened to be where they were *first used* (see
+    # `is_vocabulary_symbol`) -- those don't go out of scope in any meaningful sense: nothing
+    # about them depends on this block's fresh constants, and their own syntax declarations
+    # (`arity`, `infix`, ...) are discarded when this level is popped regardless (`pop_level`
+    # does not merge symbol tables the way `merge_and_pop` does for a `load`), so there is
+    # nothing left to leak except the plain symbol name inside the one formula this block is
+    # already handing up on purpose. Excluding them fixes false rejections like `bool P; arity P
+    # 1; let x / use P x / P x` -- `P` used for the first time inside the block used to be
+    # wrongly treated as if it were as scoped as a `let`/`pick`/`const`-introduced individual.
     assert kb.parent is not None, f'BUG: we should be one-level up in `eval_done`'
     kb_parent = kb.parent
-    not_allowed = set(filter(lambda s: not kb_parent.is_var(s), kb.const))
+    not_allowed = set(filter(lambda s: not kb_parent.is_var(s) and not kb.is_vocabulary_symbol(s), kb.const))
     if contains(expr, not_allowed, kb_parent):
         raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of the previous one, got `{expr_str(expr, kb_parent)}`, not allowed are {not_allowed}')
 
@@ -4311,6 +4335,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main() -> None:
+
+    # a lot of the internal soundness checking in this file (occurs-checks, bound-variable
+    # safety, block-closing invariants, ...) is written as plain Python `assert`s rather than
+    # `raise KurtException`, since they are meant to be "can't happen" invariants rather than
+    # user-facing errors. `python -O`/`-OO` strip all `assert` statements at compile time,
+    # which would silently disable those checks -- refuse to run rather than risk accepting
+    # an unsound proof that a debug build would have caught.
+    if not __debug__:
+        print('KurtException: refusing to run under `python -O`/`-OO` -- this would silently '
+              'disable internal soundness checks written as `assert`, see `main()` in kurt.py',
+              file=sys.stderr)
+        sys.exit(1)
 
     # get the commandline args
     args = parse_args()

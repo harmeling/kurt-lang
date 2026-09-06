@@ -1,0 +1,20 @@
+; adversarial test: exists-elim (`pick`) must reject a conclusion that mentions a
+; fresh constant introduced *inside* the block that isn't the witness itself -- `helper`
+; here is a bystander declared inside `pick`'s block; letting it leak into the
+; conclusion would mean the "proof" secretly depends on a name that stops existing the
+; moment the block closes. See doc/kurt-soundness.md, and
+; forall-intro-rejects-leaked-constant.kurt for the `let` counterpart.
+;
+; note: like that file, this can't use `expect` -- the failure happens while *closing*
+; the `pick` block, while the mode is still `pick`, not `expect`.
+load logic
+bool Q, P
+arity Q 1
+arity P 1
+use exists x Q x
+pick y with Q y
+    const helper
+    use P helper
+    P helper
+true
+;;; ProofError: the line (its conclusion) of the `pick` block may not contain constant symbols
