@@ -379,6 +379,17 @@ theory is silently treated as a no-op restatement rather than logged again.
 An optional trailing string labels it (shown in later log lines and error
 messages instead of a bare line number).
 
+Since a bare `%`/`$` schema variable in a `use`/`def` axiom means "for any
+value of this symbol", it's easy to accidentally write an axiom that's far
+stronger than intended — e.g. `use %A` literally asserts "every proposition
+is true", and `use %A implies P` (with `%A` not reappearing anywhere in `P`)
+makes `P` derivable completely unconditionally, since `%A` freely unifies
+with anything. Kurt prints a `Warning:` to stderr (not an error — such an
+axiom is occasionally written on purpose) when a `use`/`def` matches one of
+these obvious shapes; see `doc/kurt-soundness.md` §6 for the full
+explanation and its limits (it only catches a few syntactic patterns, not
+every equivalent phrasing).
+
 `def` is `use` specialised to introducing exactly one **brand-new**
 constant via an equation (`=`) or equivalence (`iff`) — the only two
 top-level operators `def` accepts. Exactly one new symbol must appear on

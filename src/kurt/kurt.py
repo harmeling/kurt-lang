@@ -1996,9 +1996,49 @@ def decorate_reason(mainstream: bool, reason: str, filename: str, line_str: str)
     else:
         return f'{os.path.basename(filename)}:{line_str} {reason}'
 
+def bare_bool_schema_axiom_warning(expr: Expr, kb: KnowledgeBase) -> Optional[str]:
+    # heuristic warning (not a soundness check, see doc/kurt-soundness.md #6): a `%`/`$`
+    # schema variable in a `use`/`def` axiom means "for any value of this symbol", so a bare
+    # `use %A`, or `use %A implies X` (or `def d iff %A`) where `%A` doesn't reappear on the
+    # other side, quietly asserts "every proposition is true" -- since `%A` freely unifies
+    # with anything (including `true`), the axiom then makes its conclusion (or, for the
+    # bare case, any proposition at all) derivable completely unconditionally. Only catches
+    # these few obvious syntactic shapes (after peeling any outer `forall`s, which don't
+    # change the effect, see doc/kurt-soundness.md #2.2) -- there's no attempt to catch
+    # every equivalent phrasing, since a complete detector would need to decide whether an
+    # arbitrary formula is a tautology, not just pattern-match. Never rejects: such an axiom
+    # is occasionally written on purpose (much like `use false` is allowed outright).
+    while isinstance(expr, list) and len(expr) == 3 and isinstance(expr[0], Token) and expr[0].value == FORALL_SYMBOL:
+        expr = expr[2]      # a leading `forall` (over anything) doesn't change this check
+
+    def bare_bool_var(e: Expr) -> Optional[str]:
+        if isinstance(e, Token) and e.label == 'SYMBOL' and isinstance(e.value, str) and kb.is_var(e.value) and kb.is_bool(e.value):
+            return e.value
+        return None
+
+    var = bare_bool_var(expr)
+    if var is not None:
+        return f'Warning: `{expr_str(expr, kb)}` asserts every proposition is true (a `%`/`$` schema variable in `use` means "for any value"), making anything derivable unconditionally -- see doc/kurt-soundness.md #6'
+
+    if isinstance(expr, list) and len(expr) == 3 and isinstance(expr[0], Token) and isinstance(expr[0].value, str):
+        op, lhs, rhs = expr[0].value, expr[1], expr[2]
+        if op == IMPL_SYMBOL:
+            var = bare_bool_var(lhs)
+            if var is not None and not contains(rhs, {var}, kb):
+                return f'Warning: `{expr_str(expr, kb)}` is derivable unconditionally -- `{var}` freely unifies with anything and does not reappear in the conclusion -- see doc/kurt-soundness.md #6'
+        elif op in (EQUAL_SYMBOL, IFF_SYMBOL):
+            for side, other in ((lhs, rhs), (rhs, lhs)):
+                var = bare_bool_var(side)
+                if var is not None and not contains(other, {var}, kb):
+                    return f'Warning: `{expr_str(expr, kb)}` makes `{expr_str(other, kb)}` exactly as unconstrained as `{var}`, so it becomes trivially provable -- see doc/kurt-soundness.md #6'
+    return None
+
 def eval_use(kb: KnowledgeBase, expr: Expr, input_line: str,label: str, filename: str, line: int, mainstream: bool, keyword: str) -> Formula:
     if not bool_expr(expr, kb, strict=False):    # not strict, since we are possibly adding new symbols
         raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
+    warning = bare_bool_schema_axiom_warning(expr, kb)
+    if warning is not None:
+        print(decorate_reason(mainstream, warning, filename, str(line)), file=sys.stderr)
     reason = 'without proof'
     if len(label) > 0:
         reason += f' "{label}"'

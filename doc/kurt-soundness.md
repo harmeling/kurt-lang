@@ -316,13 +316,26 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   exploit is incidental, not causal. See §2.2 above for a real, unrelated
   bug this investigation *did* turn up (an explicitly `forall`-quantified
   boolean variable losing its boolean classification when stored) — now
-  fixed. What remains open is a **design/documentation question**, not a
-  code bug: should Kurt warn a theory author who writes a `use` axiom that's
-  just a bare (or nearly bare) `%`/`$`-prefixed variable, since it's easy to
-  write one by accident without realizing how strong a claim it makes? No
-  code change made here — filed as an idea in `suggestions-claude.md`
-  instead, since "protect authors from writing self-evidently false axioms"
-  is a language-design tradeoff, not a soundness fix.
+  fixed. What remained was a **design/documentation question**, not a
+  soundness bug: should Kurt warn a theory author who writes a `use`/`def`
+  axiom that's just a bare (or nearly bare) `%`/`$`-prefixed variable, since
+  it's easy to write one by accident without realizing how strong a claim it
+  makes? Resolved as a **warning, not an error** — `bare_bool_schema_axiom_warning`
+  (called from `eval_use`, so it covers `def` too, since `eval_def` delegates
+  to it) prints a `Warning:` to stderr for the obvious shapes: a bare `use
+  %A`; `use %A implies X` (or `def d iff %A`) where the bare variable doesn't
+  reappear on the other side. It deliberately does not reject — an axiom
+  shaped like this is occasionally written on purpose (much like `use false`
+  is allowed outright) — and it deliberately only pattern-matches these
+  specific shapes rather than trying to decide in general whether an
+  arbitrary formula is a tautology (undecidable/intractable for arbitrary
+  user-declared connectives). Confirmed against all of `prop.kurt`/`logic.kurt`'s
+  real axioms that none of them false-positive (e.g. `%A implies %A or %B`
+  "or-intro" doesn't warn, since `%A` reappears in the conclusion — the
+  premise still has to be matched against something you actually derived,
+  unlike the trap shapes above). See `tests/test_bare_bool_schema_warning.py`
+  for the unit-level cases and `doc/kurt-doc.md` §6.2 for the user-facing
+  description.
 - **`case` exhaustiveness** — nothing checks that a sequence of `case`
   blocks actually covers a real disjunction before the implicit `or-elim`
   step; a missing case just means the final combining claim fails to
