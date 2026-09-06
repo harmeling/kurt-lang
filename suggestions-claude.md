@@ -128,6 +128,17 @@ confused student *that* they're wrong but not *why*, or what's close.
   re-explains a specific proven formula — which axiom/rule fired, what
   substitution was used — would be useful standalone (revisiting an old
   proof) and as the foundation for any future visual proof-tree tool.
+- **A user-extensible `avoid PATTERN, ...` keyword, to add more warning
+  shapes beyond the hardcoded ones in `bare_bool_schema_axiom_warning`.**
+  Discussed and not pursued — the actual danger condition ("does this schema
+  variable fail to reappear elsewhere in the formula") is a
+  negative-occurrence check, not an ordinary structural pattern match; even
+  wildcard notation (`avoid %A iff _, _ iff %A`) doesn't sidestep this
+  unless `_` specifically means "anything not containing the other named
+  variable", which is the same primitive wearing different syntax. Would
+  need a genuine new Kurt-level primitive (exposing something like the
+  internal `contains`/`State.occurs` helpers), not a small extension of the
+  existing pattern-matcher. Full writeup in `doc/kurt-soundness.md` §6.
 - **Generalize `chain` beyond parsing sugar into real transitive reasoning**
   (elaborated with more implementation detail in `todo-claude.md`) — I'm
   repeating it here because it's the single feature gap most likely to

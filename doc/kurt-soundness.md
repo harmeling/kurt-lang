@@ -336,6 +336,41 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   unlike the trap shapes above). See `tests/test_bare_bool_schema_warning.py`
   for the unit-level cases and `doc/kurt-doc.md` §6.2 for the user-facing
   description.
+
+  **Caveat: `iff`/`=` are recognized by literal symbol name, not by
+  semantics.** `bare_bool_schema_axiom_warning` checks `op == IMPL_SYMBOL`/
+  `op in (EQUAL_SYMBOL, IFF_SYMBOL)` — plain Python string comparison against
+  the hardcoded names `'implies'`/`'='`/`'iff'`. This is not new: `eval_def`'s
+  own dispatch (§3.1) already recognizes `def`'s `=`/`iff` the same
+  name-based way, and `iff` itself is not hardcoded at all — it's declared
+  via `infix iff ...` in `prop.kurt`, like any user symbol. So if a theory
+  ever repurposed the *name* `iff` for an operator unrelated to logical
+  equivalence, this warning would still fire (or stay silent) based on that
+  name match alone. Not a soundness problem — the warning never blocks
+  anything, so the worst case is a spurious or missing hint — but worth
+  knowing if a warning ever looks wrong: check what `iff` actually means in
+  that theory first.
+
+  **Considered and rejected for now: a user-extensible `avoid PATTERN, ...`
+  keyword**, so a theory author could register additional warning shapes
+  instead of only the ones hardcoded above. The blocker isn't syntax, it's
+  semantics: the actual danger condition — "does this schema variable fail
+  to reappear elsewhere in the formula" — is a negative-occurrence check,
+  not an ordinary structural pattern match. A naive `avoid %A implies %B`
+  declaration matched via Kurt's existing unification would also flag
+  legitimate axioms like `%A implies %A or %B` ("or-intro"), since plain
+  pattern-matching can't express "as long as %A doesn't occur here". Even a
+  wildcard-based notation (`avoid %A iff _, _ iff %A`, with `_` meaning "any
+  expression") doesn't sidestep this: for it to be correct, `_` would have to
+  mean "any expression *not containing* the other named variable in this
+  pattern" rather than the ordinary Prolog-style "matches literally
+  anything" — which is exactly the same negative-occurrence primitive again,
+  just spelled with underscore syntax. Building this properly would mean
+  exposing something like `contains`/`State.occurs` (currently internal
+  Python helpers, §2 and §3) as a genuine Kurt-level primitive with new
+  matcher semantics, not reusing the existing pattern-matcher as-is — a
+  real, if self-contained, language feature, not a quick extension of the
+  current warning. Filed as an idea, not implemented.
 - **`case` exhaustiveness** — nothing checks that a sequence of `case`
   blocks actually covers a real disjunction before the implicit `or-elim`
   step; a missing case just means the final combining claim fails to
