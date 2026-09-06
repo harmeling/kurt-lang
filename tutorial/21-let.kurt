@@ -3,7 +3,10 @@
 ; `let` introduces one or more fresh, completely arbitrary constants.
 ; Closing the block (here: by dedenting) triggers "forall-intro": whatever
 ; you proved about the fresh constant, inside the block, now holds for *all*
-; objects, via a `forall`.  Quantifiers come from `logic.kurt`:
+; objects, via a `forall`.  `forall`/`exists`'s own grammar (that they're
+; binders at all) is built in, so `let` works even without loading
+; anything -- but actually *using* the axiom that instantiates a forall
+; back down to a specific case ("forall-elim") still needs `logic.kurt`:
 
 load logic
 bool A

@@ -4,8 +4,9 @@
 ; argument must be a variable (or a boolean expression whose first part is a
 ; variable, e.g. `forall x>0 F(x)`) that is then considered bound inside the
 ; rest of the expression.  `forall` and `exists` (used already in lessons
-; 21-let.kurt and 22-pick.kurt) are declared exactly this way, in
-; `logic.kurt`:
+; 21-let.kurt and 22-pick.kurt) are declared exactly this way -- as of this
+; writing, directly as part of Kurt's hard-coded core, not by `logic.kurt`
+; (only their axioms, "forall-elim" etc., still come from there):
 ;
 ;     arity  forall 2
 ;     bindop forall

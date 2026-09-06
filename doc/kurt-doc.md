@@ -522,7 +522,7 @@ declaring their own prerequisites via their own `load` lines:
 |---|---|---|
 | `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
 | `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
-| `logic.kurt` | `forall`/`∀`, `exists`/`∃`; forall-elim, exists-intro | `prop` |
+| `logic.kurt` | forall-elim, exists-intro (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
 | `set.kurt` | `in`/`∈`, `⊂`, `∪`, `∩`, set-builder `{ ... \| ... }`, `∅`, `Pow` | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers | `equality` |
