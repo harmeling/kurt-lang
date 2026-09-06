@@ -1,0 +1,17 @@
+; regression test: `forall` must be usable -- and, in particular, must not crash --
+; without ever `load`ing any theory. Before `forall`/`exists`'s syntax (arity, bindop,
+; bool signature) was hard-coded into `initial_kb` (see doc/kurt-soundness.md §1 and
+; the "Update, since fixed" note in what used to be §2's "related wrinkle"), the bare
+; word `forall` parsed as an ordinary, flatly space-applied symbol with the wrong shape,
+; and the very first formula that mentioned it crashed with an uncaught
+; `AssertionError` in `remove_outer_forall_quantifiers` -- reachable with nothing more
+; than the `use` line below, no `let`, no `load logic` involved at all.
+;
+; as a bonus, this also demonstrates that forall-elim already happens "for free": no
+; explicit rule is needed to get from `forall x A x` to a specific instance `A a`.
+bool A
+arity A 1
+const a
+use forall x A x
+A a
+;;; Proof checked.

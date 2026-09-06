@@ -37,5 +37,17 @@ infix and     16 16                          ; and operator
 arity  sub 3                                 ; operator for substitutions
 bindop sub                                   ; first arg must be a variable that is bound
 
+;; forall/exists syntax (their axioms -- forall-elim, exists-intro -- still live in
+;; logic.kurt, and still need `load logic`; only the *syntax* is hard-coded, so that the
+;; two lines below aren't the only thing standing between "forall" meaning something and
+;; it crashing the theory-storage machinery the moment anyone uses the word -- see
+;; `theory_append`/`remove_outer_forall_quantifiers` in `kurt.py`)
+arity  forall 2, exists 2
+bindop forall, exists
+bool   forall 0 2, exists 0 2                ; position 2 (the body) must be boolean
+const  forall, exists
+alias  ∀ forall
+alias  ∃ exists
+
 ; for automatic testing we add the following line (in this case we should fail, because of `false`):
 ;;; ProofError: can not derive `false`

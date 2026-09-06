@@ -226,10 +226,12 @@ expression`), see `todo-claude.md`.
 Declares `SYMBOL` a *variable-binding operator*: its first argument is
 treated as a bound variable (or, with the sugar below, a boolean condition
 whose free variable is the one being bound) for the rest of the
-expression. `forall`/`exists` (from `logic.kurt`) are declared exactly this
-way. Requirements, both enforced: the symbol must already have an `arity`
-of at least 2 (the bound variable plus at least one more argument), and it
-must not already be declared as any kind of operator or already used in a
+expression. `forall`/`exists` are declared exactly this way — as of this
+writing, directly in the hard-coded core (§8.1), not in `logic.kurt`; only
+their *axioms* (`forall-elim`, `exists-intro`) still need `load logic`.
+Requirements, both enforced: the symbol must already have an `arity` of at
+least 2 (the bound variable plus at least one more argument), and it must
+not already be declared as any kind of operator or already used in a
 formula.
 
 Sugar: the "bound variable" position may instead be a boolean expression
@@ -442,8 +444,9 @@ interactive shell — see §9's introduction.
 
 A pristine session starts with `minimal.kurt`'s worth of syntax (space,
 comma, `(` `)`, `implies`, `and`, the constant `true`, the substitution
-operator `sub`) already declared, plus these rules implemented directly in
-Python (not as `use` axioms you could remove):
+operator `sub`, and — see below — `forall`/`exists`) already declared,
+plus these rules implemented directly in Python (not as `use` axioms you
+could remove):
 
 - **"top-intro"** — the bare symbol `true` is always provable.
 - **"impl-elim"** (modus ponens) — given `A` and `A implies B` anywhere in
@@ -455,6 +458,27 @@ Python (not as `use` axioms you could remove):
   block (see §9.1) whose last derived line is literally `false` — this one
   isn't reachable as a standalone rule outside of that block-closing
   moment.
+- **forall-elim, effectively for free** — every formula ever added to the
+  theory has any *outer* `forall` automatically stripped and its bound
+  variable replaced by a fresh, freely-unifiable internal variable (as if
+  it had been written as a `$`-schema to begin with) — so `use forall x A
+  x` already lets `A a` derive for a specific `a`, with no `load logic` and
+  no explicit `forall-elim` step needed. `logic.kurt`'s `forall-elim` axiom
+  still exists for the same reason a hard-coded rule sometimes also has a
+  `use` equivalent lying around: explicit intermediate steps, and cases
+  this automatic stripping doesn't reach (a `forall` that isn't the
+  outermost operator of a stored formula).
+
+`forall`/`exists`'s *syntax* specifically (their `arity`/`bindop`/`bool`
+declarations and `∀`/`∃` aliases — not their axioms, which are still only
+available via `load logic`) is hard-coded for a reason beyond consistency
+with `and`/`implies`: the forall-elim behavior just described, and the
+theory-search machinery behind it, are *unconditional* — they run on every
+formula regardless of whether any theory has declared `forall` a `bindop`.
+Before this was hard-coded, using the bare word `forall` for anything, with
+no `load logic`, crashed outright the first time that machinery saw it
+(the auto-stripping code assumed the shape only a real `bindop` parse
+produces) rather than just failing to do anything useful.
 
 Notably, **"and-elim"** (splitting a proven `A and B` back into `A`) is
 *not* hard-coded — you either state the specific instance yourself as a

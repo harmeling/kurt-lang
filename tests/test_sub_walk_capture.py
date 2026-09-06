@@ -34,10 +34,8 @@ def is_var_tok(tok: Token, kb) -> bool:
 class TestWalk(unittest.TestCase):
     def setUp(self):
         self.kb = copy.deepcopy(initial_kb)
-        self.kb.add_arity('forall', 2)
-        self.kb.add_arity('exists', 2)
-        self.kb.add_bindop('forall')
-        self.kb.add_bindop('exists')
+        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
+        # no need to redeclare them here
 
     def test_walk_chain_deref(self):
         # σ = { $x -> $y, $y -> 1 }
@@ -71,10 +69,8 @@ class TestWalk(unittest.TestCase):
 class TestTriggerSub(unittest.TestCase):
     def setUp(self):
         self.kb = copy.deepcopy(initial_kb)
-        self.kb.add_arity('forall', 2)
-        self.kb.add_arity('exists', 2)
-        self.kb.add_bindop('forall')
-        self.kb.add_bindop('exists')
+        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
+        # no need to redeclare them here
 
     def test_simple_substitution(self):
         # (sub $x $b ($x = 0))  ==>  ($b = 0)
@@ -118,10 +114,8 @@ class TestTriggerSub(unittest.TestCase):
 class TestCaptureAvoidingReplace(unittest.TestCase):
     def setUp(self):
         self.kb = copy.deepcopy(initial_kb)
-        self.kb.add_arity('forall', 2)
-        self.kb.add_arity('exists', 2)
-        self.kb.add_bindop('forall')
-        self.kb.add_bindop('exists')
+        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
+        # no need to redeclare them here
 
     def _decompose_forall(self, e):
         """Utility: ensure e is [forall, bv, body] and return (bv_token, body_expr)."""

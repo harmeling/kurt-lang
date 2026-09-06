@@ -1269,7 +1269,10 @@ class KnowledgeBase:
             yield f
             # can we chop of universal quantifier?
             while is_forall(f.simplified_expr):
-                assert isinstance(f.simplified_expr, list) and len(f.simplified_expr) == 3
+                # see the identical check in `remove_outer_forall_quantifiers` for why this
+                # can't just be an `assert`: `is_forall` only checks the head symbol
+                if not (isinstance(f.simplified_expr, list) and len(f.simplified_expr) == 3):
+                    raise KurtException(f'EvalError: `forall` is not declared as a proper binding operator, got `{expr_str(f.simplified_expr, self)}`')
                 yield f.clone(f.simplified_expr[2], self)
         if self.parent is not None:
             yield from self.parent.all_theory()
@@ -1462,6 +1465,34 @@ initial_kb.used.add(SUB_SYMBOL)                            # sub can be boolean 
 initial_kb.add_alias('⊤', TRUE_SYMBOL)                     # alias for true
 initial_kb.add_alias('⇒', IMPL_SYMBOL)                     # alias for implies
 initial_kb.add_alias('∧', AND_SYMBOL)                      # alias for implies
+
+# `forall`/`exists`' *syntax* (not their axioms -- those stay in `logic.kurt`, exactly like
+# `and`-elim stays in `prop.kurt` while `and`'s syntax and `and-intro` are hardcoded above)
+# is hardcoded here too, and not just for consistency: `theory_append`/`show_append` (every
+# formula ever stored) and `all_theory()` (every derivation search) already unconditionally
+# special-case any expression headed by the literal symbol `forall`, via
+# `remove_outer_forall_quantifiers` -- regardless of whether any theory has declared it a
+# `bindop`. Leaving `forall` undeclared didn't just make `let`'s forall-intro confusing if you
+# forgot `load logic`; it meant using the bare word `forall` for *anything* (it parsed as an
+# ordinary, flatly space-applied symbol) crashed the very first `theory_append` that saw it,
+# since that code assumes the 3-element shape only a real `bindop` parse produces. Declaring it
+# here for real removes that landmine outright, rather than merely detecting it more gracefully.
+initial_kb.add_arity (FORALL_SYMBOL, 2)                    # forall takes a bound var + a body
+initial_kb.add_arity (EXISTS_SYMBOL, 2)                    # exists takes a bound var + a body
+initial_kb.add_bindop(FORALL_SYMBOL)                       # forall is a binding operator
+initial_kb.add_bindop(EXISTS_SYMBOL)                       # exists is a binding operator
+initial_kb.add_bool  (FORALL_SYMBOL, [0, 2])               # forall is bool, its body must be bool
+initial_kb.add_bool  (EXISTS_SYMBOL, [0, 2])               # exists is bool, its body must be bool
+initial_kb.add_const (FORALL_SYMBOL)                       # forall is const (like true/implies/and above --
+initial_kb.add_const (EXISTS_SYMBOL)                       # exists is const  not `.used`-only like `sub`: a
+                                                            # `def`'s RHS scan (`extract_by_condition`, no
+                                                            # bindop-awareness) or any other "is this symbol
+                                                            # already classified" check must recognize forall/
+                                                            # exists as already-settled vocabulary; `sub` gets
+                                                            # away without this only because it's essentially
+                                                            # never written out literally in ordinary formulas
+initial_kb.add_alias('∀', FORALL_SYMBOL)                   # alias for forall
+initial_kb.add_alias('∃', EXISTS_SYMBOL)                   # alias for exists
 
 ################
 ## kurt lexer ##
@@ -3169,8 +3200,14 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> Expr:
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
 
     # chop off all outer universal quantifiers that have **no condition** and rename their bound vars
-    while is_forall(expr):          
-        assert isinstance(expr, list) and len(expr) == 3
+    while is_forall(expr):
+        # `is_forall` only checks the head symbol, not that it's really a bindop-shaped
+        # `[forall, bound-var, body]` triple -- if `forall` isn't declared a `bindop` at all
+        # (should not happen since it's hardcoded in `initial_kb`, but this runs on every
+        # stored formula, so fail cleanly rather than crash if that invariant is ever broken)
+        # it can parse as a plain, flatly space-applied symbol instead, with a different shape.
+        if not (isinstance(expr, list) and len(expr) == 3):
+            raise KurtException(f'EvalError: `forall` is not declared as a proper binding operator, got `{expr_str(expr, kb)}`')
         if isinstance(expr[1], Token):
             assert isinstance(expr[1].value, str)
             bound_var = expr[1].value

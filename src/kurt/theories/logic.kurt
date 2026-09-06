@@ -2,13 +2,10 @@
 
 ;; syntax
 load prop  ; syntax and rules for prop logic
-arity  forall 2       ; universal quantification
-arity  exists 2       ; existential quantification
-bindop forall, exists
-bool   forall 0 2     ; position 1 is a variable or a boolean expression (with a variable)
-bool   exists 0 2     ; position 1 is a variable or a boolean expression (with a variable)
-alias  ∃ exists
-alias  ∀ forall
+; `forall`/`exists`'s syntax (arity, bindop, bool signature, ∀/∃ aliases) is hardcoded
+; directly in `initial_kb` now, not declared here -- see the comment next to it in
+; `kurt.py`, right after `initial_kb.add_arity(SUB_SYMBOL, 3)`. Only their axioms
+; (forall-elim, exists-intro) are theory-level, below.
 ; arity  existsunique 2 ; existential quantification with uniqueness
 ; bool   existsunique 0 2 ; position 1 is a variable or a boolean expression (with a variable)
 ; alias  ∃! existsunique

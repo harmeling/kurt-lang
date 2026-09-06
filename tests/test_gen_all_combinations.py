@@ -55,11 +55,11 @@ examples = [
       '($x, [h, $%1])']],
 
     # more examples where we check that $a does not contain freely any bound variables of $A
-    # forall $z f $z
+    # forall $z f $z -- `forall` is declared a bindop in `initial_kb` itself now (it used not
+    # to be, in a bare `initial_kb`), so this exercises the real bound-variable-aware behavior;
+    # see the second `forall` example below for the same input with more commentary
     [[Token(label='SYMBOL', value='forall'), Token(label='SYMBOL', value='$z'), [Token(label='SYMBOL', value='f'), Token(label='SYMBOL', value='$z')]],
      ['($z, [forall, $%1, [f, $z]])',
-      '($z, [forall, $z, [f, $%1]])',
-      '([f, $z], [forall, $z, $%1])',
       '([forall, $z, [f, $z]], $%1)',
       '(f, [forall, $z, [$%1, $z]])',
       '(forall, [$%1, $z, [f, $z]])']]
@@ -127,16 +127,6 @@ old_examples = [
       '(h, [$%1, $x])',
       '($x, [h, $%1])',
       '(None, [h, $x])']],
-
-    # more examples where we check that $a does not contain freely any bound variables of $A
-    # forall $z f $z
-    [[Token(label='SYMBOL', value='forall'), Token(label='SYMBOL', value='$z'), [Token(label='SYMBOL', value='f'), Token(label='SYMBOL', value='$z')]],
-     ['(None, [forall, $z, [f, $z]])',
-      '(forall, [$%1, $z, [f, $z]])',
-      '($z, [forall, $%1, [f, $%1]])',
-      #'([f, $z], [forall, $z, $%1])',    # not possible, (same reason)
-      '(f, [forall, $z, [$%1, $z]])',
-      '([forall, $z, [f, $z]], $%1)',]]
 
      ]
 

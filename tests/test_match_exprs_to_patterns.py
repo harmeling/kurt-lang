@@ -38,14 +38,10 @@ class TestMatchExprsToPatterns(unittest.TestCase):
     def setUp(self):
         # fresh KB each test; add minimal binders used below
         self.kb = copy.deepcopy(initial_kb)
-        # Make sure these are recognized as binding operators/with arity 2 (if your KB needs it)
+        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
+        # no need to redeclare them here
         if hasattr(self.kb, "add_arity"):
-            self.kb.add_arity("forall", 2)
-            self.kb.add_arity("exists", 2)
             self.kb.add_arity("P", 1)
-        if hasattr(self.kb, "add_bindop"):
-            self.kb.add_bindop("forall")
-            self.kb.add_bindop("exists")
         # `=` just used as a plain 2-ary function symbol in these tests
         if hasattr(self.kb, "add_arity"):
             self.kb.add_arity("=", 2)
@@ -165,8 +161,6 @@ class TestMatchExprsToPatterns(unittest.TestCase):
 
     def test_exists_intro_matching_allows_blocked_in_schema(self):
         kb = copy.deepcopy(initial_kb)
-        kb.add_arity('exists', 2)
-        kb.add_bindop('exists')
         kb.add_arity('prime', 1)
         kb.add_bool('prime', [0])
 

@@ -132,16 +132,48 @@ did not find a way to turn that into an accepted false proof; see
 `exists-elim-vocabulary-not-scoped.kurt` for the confirming regression
 tests (these must now *pass*, unlike the two leak tests above).
 
-**A related, unaffected wrinkle:** `let`'s forall-wrapping always uses the
-literal symbol `forall`, regardless of whether the current theory has
-declared `forall` a `bindop` (e.g. via `load logic`). If it hasn't, the
-generated term isn't recognized as a real binder anywhere downstream
-(`contains`, matching, ...), and the *same* leak-check ends up rejecting
-even a correct `let x` block with a confusing message, since `x` no longer
-reads as bound. This is a footgun, not a soundness gap (the safe direction
-— reject — is what happens), so it's noted here rather than fixed: using
-`let` for genuine forall-intro requires `load logic` (or an equivalent
-`bindop forall` declaration) first, same as it always has.
+**Update, since fixed: `forall`/`exists` are now hard-coded syntax, not just
+`logic.kurt` declarations.** The wrinkle above used to read "`let`'s
+forall-wrapping always uses the literal symbol `forall`, regardless of
+whether the current theory has declared it a `bindop`" — which turned out
+to be much worse than a footgun once actually tested. `theory_append`/
+`show_append` (every formula ever stored) and `all_theory()` (every
+derivation search) already unconditionally special-case any expression
+headed by the literal symbol `forall`, via `remove_outer_forall_quantifiers`
+— completely independent of `let`, and independent of whether `forall` is
+declared a `bindop` anywhere. Without that declaration, the bare word
+`forall` still parses (as an ordinary, flatly space-applied symbol) but
+produces the wrong shape, and the very first formula mentioning it crashed
+with a raw, uncaught `AssertionError` — reachable with nothing more than
+`use forall x A x` and no `load logic`, no `let` involved at all.
+
+**Fixed two ways:** (1) `forall`/`exists`'s syntax (arity, `bindop`, bool
+signature, `∀`/`∃` aliases) is now declared directly in `initial_kb`
+(`kurt.py`) and documented in `minimal.kurt`, exactly like `and`/`implies`'s
+syntax already was — removed from `logic.kurt`, which now only supplies
+their *axioms* (`forall-elim`, `exists-intro`). This means `let`/`use
+forall ...`/etc. all work correctly with no `load` at all now — and, as a
+side effect, forall-elim already happens "for free" via the always-on
+auto-stripping (§1), without needing `logic.kurt`'s axiom. (2) Independent
+of that, `remove_outer_forall_quantifiers` and `all_theory()`'s analogous
+check no longer `assert` the expected shape — they raise a clean
+`KurtException` if it's ever wrong, as defense in depth in case this
+invariant is broken some other way in the future.
+
+This surfaced one more thing worth recording: `sub` (the other hard-coded
+`bindop`) is deliberately *not* registered `const` — only added to
+`.used` directly, so it's classified without being either `const` or `var`.
+Copying that exact pattern for `forall`/`exists` at first (add to `.used`
+without `const`) suppressed `_add_new_symbols`'s normal "first use of an
+unclassified symbol becomes `const`" fallback, which is what used to
+silently classify `forall` as `const` the moment `logic.kurt`'s own
+`forall-elim` axiom mentioned it. Without that, `extract_by_condition` (used
+by `def`'s left/right-hand-side scan, which has no bound-variable
+awareness at all) started treating the bare word `forall` as an
+unclassified "new symbol", breaking any `def ... iff ∀$x (...)` proof —
+e.g. `proofs/linear-algebra/injective2.kurt`. Fixed by registering
+`forall`/`exists` as `const` explicitly instead, matching `true`/`implies`/
+`and`'s pattern rather than `sub`'s.
 
 ## 3. Capture-avoiding substitution
 
