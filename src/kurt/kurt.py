@@ -2030,11 +2030,11 @@ def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
 def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filename: str, line: int, mainstream: bool) -> tuple[Formula, str]:
     match expr:
         case [Token(label='SYMBOL', value=s), LHS, RHS] if isinstance(s, str) and (s== EQUAL_SYMBOL or s==IFF_SYMBOL):
-            lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s))
+            lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s), kb)
             if len(lhs_candidates) != 1:
                 raise KurtException(f'EvalError: `def` requires exactly one new constant on the left-hand side, got `{lhs_candidates}` in `{expr_str(expr, kb)}`')
             lhs_const = lhs_candidates[0]
-            rhs_candidates = extract_by_condition(RHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s))
+            rhs_candidates = extract_by_condition(RHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s), kb)
             if len(rhs_candidates) != 0:
                 raise KurtException(f'EvalError: `def` does not allow new symbols on the right-hand side, got `{rhs_candidates}` in `{expr_str(expr, kb)}`')
         case _:
@@ -2214,14 +2214,25 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
     return kb.is_var(s) or not kb.is_const(s)
 
-def extract_by_condition(e: Expr, c: Callable[[str], bool]) -> list[str]:
+def extract_by_condition(e: Expr, c: Callable[[str], bool], kb: KnowledgeBase, bound_vars: frozenset[str] = frozenset()) -> list[str]:
+    # bound-variable-aware: a symbol only bound by an enclosing binder (e.g. the `x` in
+    # `forall x (...)`) is scoped to that binder and must never be reported as a free
+    # "new symbol", regardless of whether it happens to satisfy `c` -- mirrors `contains`'s
+    # own bound-variable exclusion above.
     match e:
-        case Token(label='SYMBOL', value=s) if isinstance(s, str) and c(s):
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and s not in bound_vars and c(s):
             return [s]        # new string fulfilling the condition
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            bound_v, condition = unpack_condition(cond, kb)
+            new_bound_vars = bound_vars | {bound_v}
+            found = [] if condition is None else extract_by_condition(condition, c, kb, new_bound_vars)
+            for child in tail:
+                found += extract_by_condition(child, c, kb, new_bound_vars)
+            return found
         case [*children]:
             found = []
             for child in children:
-                found += extract_by_condition(child, c)
+                found += extract_by_condition(child, c, kb, bound_vars)
             return found
     return []
 
@@ -2236,7 +2247,7 @@ def unpack_condition(expr: Expr, kb: KnowledgeBase) -> tuple[str, Optional[Expr]
         new_const = expr.value
         condition = None
     else:
-        new_consts = extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb))
+        new_consts = extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb), kb)
         if len(new_consts) != 1:
             raise KurtException(f'EvalError: expected exactly one new symbol or existing, got {new_consts} in `{expr_str(expr, kb)}`')
         new_const = new_consts[0]
@@ -3216,7 +3227,7 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> Expr:
             bound_var, condition = unpack_condition(expr[1], kb)
             assert condition is not None, f'BUG: expected a condition'
             expr = [Token(label='SYMBOL', value='implies'), condition, expr[2]]
-        free_var = new_var_name()
+        free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
         s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
         expr = apply_subst(expr, s, kb)
     return expr

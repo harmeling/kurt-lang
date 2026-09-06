@@ -1,0 +1,13 @@
+; adversarial test: the classic capture-avoidance counterexample, exercised through a
+; real end-to-end derivation (not just capture_avoiding_replace as a unit, see
+; doc/kurt-soundness.md #3). From `forall x (exists y (not (x = y)))` -- "for every x,
+; there's some y different from it" -- naively substituting the outer `x` with the
+; *same name* as the inner bound `y` would incorrectly "derive"
+; `exists y (not (y = y))` -- something different from itself, which is never true.
+; This must NOT be derivable. See capture-avoidance-safe-instantiation.kurt for the
+; same premise correctly deriving a *safe* instance.
+load logic
+load equality
+use forall x (exists y (not (x = y)))
+exists y (not (y = y))
+;;; ProofError: can not derive

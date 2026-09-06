@@ -218,3 +218,19 @@ confused student *that* they're wrong but not *why*, or what's close.
   `forall-elim-fail.kurt`'s `$$var552`, see `todo-claude.md`) are
   order-dependent across a whole test run, not just file-local — another
   reason those exact-name-in-error-message tests are fragile.
+- **Warn when a `use` axiom is (or reduces to) a bare `%`/`$`-prefixed
+  variable.** Found while investigating the mixed-boolean-`let` question in
+  `doc/kurt-soundness.md` §6: `use %A` alone makes *every* boolean
+  proposition immediately derivable, and `use %A implies P` makes `P`
+  immediately derivable — both are logically correct consequences of what
+  such an axiom actually asserts ("for any proposition `%A`, `%A` holds" is
+  self-evidently false, and anything follows from a false premise), but
+  it's an easy trap for a theory author to fall into by accident (e.g.
+  meaning `%A` as "some specific, unstated proposition" rather than "every
+  proposition"). A cheap, non-code mitigation is just prominently
+  documenting the danger (done, see `kurt-soundness.md` §6); a further,
+  debatable option would be a `kurt -d`/lint-style warning when a stored
+  axiom's whole top-level claim is a bare schema variable, or is an
+  implication whose premise is one — no code changes made, since this is a
+  language-design tradeoff (should Kurt second-guess an axiom a user
+  explicitly wrote?) rather than a soundness question.

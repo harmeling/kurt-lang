@@ -175,6 +175,32 @@ e.g. `proofs/linear-algebra/injective2.kurt`. Fixed by registering
 `forall`/`exists` as `const` explicitly instead, matching `true`/`implies`/
 `and`'s pattern rather than `sub`'s.
 
+### 2.2 Bug found and fixed: an explicitly-`forall`-quantified boolean variable lost its boolean classification
+
+Found while investigating the "mixed boolean/non-boolean variables in one
+`let`" question below. `remove_outer_forall_quantifiers` strips an outer
+`forall` at storage time and replaces its bound variable with a fresh
+internal name (`new_var_name()`, `$$NN`) — but it did this unconditionally,
+even when the bound variable was a `%`-prefixed *boolean* schema variable,
+which needs a fresh *boolean* name instead (`new_bool_var_name()`, `%%NN`) to
+stay recognized as boolean afterwards. `rename_all_vars_rec`'s own
+bindop-handling branch, a few lines below in the same file, already gets
+this right (`if kb.is_bool(var): new_var = new_bool_var_name() ...`) — the
+two code paths had simply drifted apart.
+
+This is not just a cosmetic mismatch: `impl_elim`'s case for a bare
+boolean-variable premise (matching a *whole* conclusion unconditionally, see
+§6 below) is gated on `is_bool_var_token`, which checks exactly this
+classification. So an axiom written with an explicit `forall %A (...)` — a
+natural, idiomatic way to quantify over a whole proposition — silently
+stopped being usable via that mechanism the moment it was stored, a false
+rejection. Confirmed by direct inspection of the stored `simplified_expr`
+(`forall %A (%A implies P)` stored `%A` as a non-boolean `$$NN` before the
+fix, a boolean `%%NN` after) and by a real derivation that only succeeded
+after the fix: `proofs/soundness/forall-quantified-boolean-var-classification.kurt`.
+Fixed by making `remove_outer_forall_quantifiers` check `kb.is_bool(bound_var)`
+the same way `rename_all_vars_rec` already does.
+
 ## 3. Capture-avoiding substitution
 
 The `sub $x $a %A` operator, and everything built on it (`forall-elim`,
@@ -194,13 +220,56 @@ doesn't rename *unnecessarily* either (which would just be noise, not a
 soundness issue, but worth having pinned down); `test_sub_respects_binder_hygiene`
 and `test_no_sub_below_binder_of_x` round it out.
 
-**Not yet done:** all of the above tests exercise `capture_avoiding_replace`
-directly, as a unit — I did not construct a full end-to-end `.kurt` proof
-attempt that tries to exploit capture through an actual `forall-elim`/
-`equal-elim` derivation and confirm it's still rejected/renamed correctly
-at that level. Given how directly the proof-level code routes through the
-tested primitives, I'd treat this as a good next increment rather than an
-open red flag — see `todo-claude.md`.
+**Now also confirmed end-to-end, not just at the unit level.**
+`proofs/soundness/capture-avoidance-blocks-unsound-instantiation.kurt`
+tries the classic textbook counterexample through a real derivation: from
+`forall x (exists y (not (x = y)))`, naively substituting the outer `x`
+with the *same name* as the inner bound `y` would "derive" `exists y (not
+(y = y))` — something different from itself, never true. Confirmed
+rejected. Its companion, `capture-avoidance-safe-instantiation.kurt`,
+checks the *same* premise still lets a genuinely safe instantiation
+through (substituting `x` with a fresh, unrelated constant) — confirming
+the first file's rejection is really about capture, not some unrelated
+limitation silently blocking that whole shape of derivation.
+
+### 3.1 Bug found and fixed: `def`'s new-symbol scan was blind to bound variables
+
+The `def-with-forall-in-rhs.kurt` note in §2.1 mentioned that `extract_by_condition`
+(used by `def`'s "exactly one new constant on the LHS, zero new symbols on the
+RHS" check) has no bound-variable awareness at all, and only "works" because
+idiomatic Kurt always uses `$`-prefixed variables in bound positions (`$x`,
+`$y`, ...), which are unconditionally classified as variables by prefix alone
+regardless of scope. Investigated properly this time (task from `todo-claude.md`,
+the mirror-image of the already-fixed RHS-forall/exists issue): a plain,
+non-prefixed bound variable is affected on **both** sides, in two different
+directions.
+
+- **RHS false rejection**: `def p iff forall x Q x` (bound `x`, no `$`) was
+  wrongly rejected — `x` was reported as a disallowed "new symbol" on the RHS,
+  even though it's just as validly scoped as `$x` would be. Merely an
+  annoyance (over-restrictive, not unsound) but a real ergonomic gap; fixed.
+- **LHS misdiagnosis** (the more concerning direction, since it's a false
+  *accept*, not a false reject): `def (forall x true) iff true` was silently
+  accepted, with `x` — a bound variable, scoped only to that `forall` — logged
+  as "defining `x`", i.e. `def`'s own validation believed it was introducing a
+  new global constant named `x`. Checked whether this actually leaks anything:
+  it doesn't — `kb.is_const('x')` and `kb.is_var('x')` are both `False`
+  afterwards, because `theory_append`'s real storage pipeline
+  (`remove_outer_forall_quantifiers` + `rename_all_vars`) scopes `x` correctly
+  regardless of what `eval_def`'s separate check believed, and nothing reads
+  `eval_def`'s returned "new constant" name except the log line. So this was a
+  misleading diagnostic, not an exploitable soundness hole — but still worth
+  fixing, since a check whose entire job is "identify the one new symbol"
+  should not be fooled by a symbol that isn't new at all.
+
+Both fixed together by making `extract_by_condition` bound-variable-aware,
+mirroring the existing `contains` helper (§2 above): it now takes `kb` and
+tracks `bound_vars` through any `is_bindop`-headed subexpression, excluding
+them from candidacy exactly like `contains` already excludes them from its
+symbol search. Regression tests:
+`proofs/soundness/def-bound-var-not-new-symbol.kurt` (RHS false-rejection
+fixed) and `proofs/soundness/def-lhs-bound-var-rejected.kurt` (LHS
+misdiagnosis: now correctly rejected instead of silently mislabeled).
 
 ## 4. Const/var exclusivity
 
@@ -226,20 +295,40 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
 
 ## 6. Open questions, not resolved here
 
-- **Mixed boolean/non-boolean variables in one `let` list**
-  (`let x, %A`) — `eval_done`'s forall-wrapping loop skips wrapping for
-  conditions where `is_bool_var_token` is true, treating boolean-schema
-  variables differently from ordinary ones. `todo.md` already flags this
-  ("check that in forall_intro the quantification either applies to
-  boolean or non-boolean vars, but not both") as unverified; I didn't
-  construct a conclusive test either way in this pass.
+- **Mixed boolean/non-boolean variables in one `let` list** (`let x, %A`) —
+  **now investigated and resolved**, though not the way `todo.md`'s framing
+  ("check that the quantification either applies to boolean or non-boolean
+  vars, but not both") expected. `eval_done`'s forall-wrapping loop does skip
+  wrapping conditions where `is_bool_var_token` is true, but this turns out
+  to make **no difference to soundness either way**: a bare, top-level `use
+  %A implies P` (no `let` at all) already lets `P` be derived completely
+  unconditionally, since `%A` freely unifies with anything — even the most
+  extreme case, a bare `use %A` with no implication at all, immediately
+  makes *any* boolean proposition derivable. This is an inherent property of
+  `%`-prefixed schema variables in `use` statements generally (by the same
+  logic that makes `use $A implies $A "restatement"` a valid schema: a
+  `%`/`$`-prefixed symbol in a `use` axiom means "for any value of this
+  symbol", so `use %A` literally asserts "every proposition is true" — a
+  false premise from which anything classically follows). `let`'s specific
+  skip-wrapping behavior for boolean variables was confirmed, by direct
+  comparison, not to add or remove any exploitability beyond what a bare
+  `use %A implies ...` already has on its own — `let %A`'s role in any such
+  exploit is incidental, not causal. See §2.2 above for a real, unrelated
+  bug this investigation *did* turn up (an explicitly `forall`-quantified
+  boolean variable losing its boolean classification when stored) — now
+  fixed. What remains open is a **design/documentation question**, not a
+  code bug: should Kurt warn a theory author who writes a `use` axiom that's
+  just a bare (or nearly bare) `%`/`$`-prefixed variable, since it's easy to
+  write one by accident without realizing how strong a claim it makes? No
+  code change made here — filed as an idea in `suggestions-claude.md`
+  instead, since "protect authors from writing self-evidently false axioms"
+  is a language-design tradeoff, not a soundness fix.
 - **`case` exhaustiveness** — nothing checks that a sequence of `case`
   blocks actually covers a real disjunction before the implicit `or-elim`
   step; a missing case just means the final combining claim fails to
   derive (a completeness gap, not a soundness one, since or-elim itself
   still requires the real `%A or %B` axiom to be in scope) — mentioned for
   completeness, not because it looks dangerous.
-- **A full end-to-end capture-avoidance proof test** (§3).
 
 ## How to extend this
 

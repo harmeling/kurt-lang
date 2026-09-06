@@ -1,0 +1,13 @@
+; companion to def-bound-var-not-new-symbol.kurt: the same bound-variable-awareness fix
+; must not go too far the other way. Before the fix, `extract_by_condition`'s LHS scan
+; (with no bound-variable awareness at all) could mistake a quantifier's own bound
+; variable for "the one new constant being defined" whenever it happened to appear
+; exactly once in the LHS pattern -- e.g. `def (forall x true) iff true` was silently
+; *accepted*, misleadingly logged as "defining `x`" (though `x` never actually became a
+; real constant anywhere -- `theory_append`'s own forall-stripping always scoped it
+; correctly regardless of what this check believed). After the fix, a bound variable is
+; never a candidate at all, so this LHS correctly has *zero* new symbols and is rejected.
+expect "EvalError"
+    def (forall x true) iff true
+true
+;;; Proof checked.

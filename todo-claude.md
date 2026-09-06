@@ -169,22 +169,25 @@ No code was changed while producing this file.
   expressions are mutually related to a disjunction already in scope before
   `or-elim` fires at the end). Small, localized addition once it's decided
   what "check" should mean.
-- **Quantifier variable-kind check** ("check that in forall_intro the
-  quantification either applies to boolean or non-boolean vars, but not
-  both") — localized to the `'let'` branch of `eval_done` (line 2038-2046),
-  which loops over `kb.mode_args` and wraps in `forall` one condition at a
-  time; adding a check that mixed boolean/non-boolean `let`-lists are
-  rejected (or handled consistently) is a small, self-contained addition
-  right there.
-- **`def`'s LHS-appears-once check likely has gaps** — not explicitly a
-  todo item, but adjacent to "type checking for `sub $x $a $A` with free and
-  bound variable check": `eval_def` (line 1974) checks the LHS/RHS via
-  `extract_by_condition`, which does not know about bound variables at all
-  (it just walks the tree). E.g. it's worth checking whether `def` correctly
-  rejects a definition whose "new constant" only appears inside a quantifier
-  scope. I did not find a concrete failing case, but also did not find a
-  test that rules one out — a good candidate for the "test the conditions"
-  family of todos.
+- ~~**Quantifier variable-kind check**~~ — **investigated and resolved, no
+  code change needed.** Confirmed (see `doc/kurt-soundness.md` §6) that
+  `let`'s boolean/non-boolean handling doesn't add or remove any
+  exploitability: a bare `use %A implies P` (no `let` involved at all)
+  already makes `P` unconditionally derivable, and this is an inherent,
+  by-design property of `%`-prefixed schema variables in `use` statements,
+  not a `let`-specific gap. A real, unrelated bug turned up during this
+  investigation instead — see `doc/kurt-soundness.md` §2.2 (now fixed).
+- ~~**`def`'s LHS-appears-once check likely has gaps**~~ — **investigated
+  and fixed.** `extract_by_condition` (used by `def`'s LHS/RHS scan) had no
+  bound-variable awareness, confirmed on both sides: RHS wrongly *rejected*
+  a plain (non-`$`-prefixed) bound variable as a disallowed new symbol, and
+  LHS could wrongly *accept* a def whose "new constant" was actually just a
+  quantifier's own bound variable (harmless in practice — it never actually
+  became a real constant — but a misleading pass). Both fixed by making
+  `extract_by_condition` bound-variable-aware, mirroring `contains`. See
+  `doc/kurt-soundness.md` §3.1 and
+  `proofs/soundness/def-bound-var-not-new-symbol.kurt` /
+  `def-lhs-bound-var-rejected.kurt`.
 - **`save` command** ("have a `save` command that stores the current theory
   and state") — feasible with existing machinery: `KnowledgeBase` already
   has `theory_str()`, `syntax_str_all_levels()`, etc. for printing
