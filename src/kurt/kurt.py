@@ -285,7 +285,6 @@ keywords: dict[str, str] = {
     'help':        'print this help',
     'hint':        'print a hint for the next input',
     'verbose':     'toggle verbose mode, i.e., show extra information',
-    'indent':      'toggle indent mode in the shell, i.e., switch on indentation block structure, e.g., for pasting file content',
     'parse':       'parse a string and print its representation',
     'tokenize':    'tokenize a string and print its tokens',
     'format':      'choose print representation, i.e. one of "sexpr", "normal"',
@@ -320,7 +319,7 @@ keywords: dict[str, str] = {
 
     'show':        'plan to prove a formula',
     'proof':       'start a proof block to prove the last planned formula',
-    'qed':         'end a proof block, to finish the proof of the last planned formula',
+    'qed':         'end a proof block, to finish the proof of the last planned formula (optional -- dedenting alone already does this; `qed` documents it and double-checks you meant to close a `proof`, not some other kind of block)',
 
     'todo':        'without a formula it is a joker for the next one, with a formula it is a joker for that one',
 
@@ -329,12 +328,11 @@ keywords: dict[str, str] = {
     'case':        'open a case analysis block for disjunctions (made for "or-elim"), block must be indented',
     'let':         'fix a new constant, possibly with an assumption (made for "forall-intro"), block must be indented',
     'pick':        'pick a new constant "with" assumption (made for "exists-elim"), block must be indented',
-    'sandbox':     'open a temporary block, useful for trying out things, the block must be indented',
+    'sandbox':     'open a temporary block, useful for trying out things; discarded when closed, whether by dedenting or by `break`',
     'expect':      'open a block whose content must raise the named kind of error (one of ProofError, ParseError, EvalError, SyntaxError, TypeError) to succeed; block must be indented and must not itself open further blocks',
 
-    # closing blocks in the shell (besides `qed`)
-    'done':        'close the current block and trigger "impl-intro", "forall-intro", "exists-elim", "not-intro", is only be required in the shell',
-    'break':       'close the current block without any proof step, useful for sandboxing or closing without a new yielded formula',
+    # closing a block explicitly (besides just dedenting, which works everywhere and is enough on its own)
+    'break':       'discard the current block immediately (no proof step, no dedent needed)',
 
     # inspection for files
     'inspect':     'stop executing a file and start the shell',
@@ -343,7 +341,7 @@ helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
 keywords_with_parsing = ['use', 'show', 'def', 'assume', 'case', 'let', 'todo', 'parse']
 keywords_opening_blocks = ['proof', 'assume', 'case', 'let', 'pick', 'sandbox', 'expect']
-keywords_closing_blocks = ['qed', 'done', 'break']
+keywords_closing_blocks = ['qed', 'break']
 
 @dataclass
 class Token:
@@ -649,7 +647,6 @@ class KnowledgeBase:
         self.format:  Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
         self.verbose: bool   = False if parent is None else parent.verbose             # show extra information or not
         self.calc:    bool   = False if parent is None else parent.calc                # whether to perform calculations inside expressions
-        self.indent:  bool   = True  if parent is None else parent.indent              # whether to use indent mode (indentation based blocks)
         self.hint:    bool   = False if parent is None else parent.hint                # whether to show hints for next input
 
     def check_all_shown_proved(self):
@@ -2033,16 +2030,17 @@ def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
             return False
 
 def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    # DEDENT or `done` or `qed` is closing a block opened by `assume`, `fix` and `pick`
-    # hereby, triggering `not-intro`, `forall-intro`, `impl-intro`, `exists-elim`
+    # a DEDENT (or `qed`) is closing a block opened by `assume`, `let`, `pick`, `proof`,
+    # `sandbox`, or `expect`, hereby triggering `not-intro`, `forall-intro`, `impl-intro`,
+    # `exists-elim`, `qed`'s own check, a silent discard, or an expected-error check
 
     # (1) for `assume` (not-intro and impl-impl) create new constants already on the level below
-    # (2) for `fix` (forall-intro) and `pick` (exists-elim) create new constants on the new level
+    # (2) for `let` (forall-intro) and `pick` (exists-elim) create new constants on the new level
 
     # try to construct `expr` depending on the mode of the current level
     # these calls might generate exceptions
     if len(kb.theory) == 0:
-        raise KurtException(f'ProofError: no formula has been proven, `done` can only be used after a successful proof step')
+        raise KurtException(f'ProofError: no formula has been proven, this block can only be closed after a successful proof step')
     last_expr = kb.theory[-1].expr
     mode_str = kb.mode_str
     match mode_str:
@@ -2074,7 +2072,12 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
         case 'root':
             raise KurtException(f'ProofError: no block to close, already at the top level')
         case 'sandbox':
-            raise KurtException(f'ProofError: a `sandbox` block must be closed with `break`')
+            # nothing to derive -- a `sandbox` is scratch space, dedenting out of it (like `break`
+            # would) just discards everything inside it, no formula is added anywhere
+            kb = kb.pop_level()
+            if mainstream:
+                log(kb, 'sandbox', f'{line} closed, its content is discarded', kb.level)
+            return kb
         case 'expect':
             assert len(kb.mode_args) == 1 and isinstance(kb.mode_args[0], Token)
             expected_kind = kb.mode_args[0].value
@@ -2275,8 +2278,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
     elif keyword == 'hint':
         eval_global_toggle(keyword, args, kb)
     elif keyword == 'verbose':
-        eval_global_toggle(keyword, args, kb)
-    elif keyword == 'indent':
         eval_global_toggle(keyword, args, kb)
     elif keyword == 'calc':
         eval_global_toggle(keyword, args, kb)
@@ -2684,10 +2685,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
 
     elif keyword == 'qed':            # closes the last block (scope) and checks that the last promised formula has been proved
         assert False, '`qed` should have been handled in `scan_parse_check_eval`'
-        pass    # do nothing, it was already handled in `scan_parse_check_eval`
-    
-    elif keyword == 'done':
-        assert False, '`done` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
     elif keyword == 'break':
@@ -4054,26 +4051,22 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         kb_predecessor = kb_predecessor.parent   # go to the predecessor for parsing
     keyword_token, expr_list, label = parse_tokenstream(ts, kb_predecessor)  # runs the parser
 
-    # behavior for `done`, `break`, or `qed` keywords and pure DEDENTs
-    #   `break` closes a single block in any mode, only in the shell, no yielded formula
-    #   `done` closes `assume`, `let` and `pick` blocks, only in the shell, yielding formula
-    #   `qed` closes `proof` block and other blocks along the way, but no `sandbox` blocks with yielding a formula
-    #   DEDENTs in files close any block possibly yielding formulas and finishing proofs
+    # behavior for `break`, `qed`, and pure DEDENTs -- indentation drives block closing
+    # identically whether reading a file or the interactive shell:
+    #   DEDENTs close any block, possibly yielding a formula (or discarding, for `sandbox`)
+    #   `qed` is an optional, explicit way to close a `proof` block -- it still needs a real
+    #     dedent (like any other close) but additionally double-checks you meant a `proof`
+    #   `break` discards the current block immediately, without any dedent -- the only way
+    #     to close a `sandbox` other than dedenting past it
     #   - dedenting indicates how many levels to close
     keyword = '' if keyword_token is None else keyword_token.value
-    if keyword in ['done', 'break']:
-        if filename != '<stdin>' or not kb.indent:
-            raise KurtException(f'ParseError: `{keyword}` can only be used in the interactive shell in `indent` mode')
     if keyword in keywords_closing_blocks:
         if len(expr_list) > 0:
             raise KurtException(f'ParseError: `{keyword}` does not take any arguments')
-    if keyword in ['done', 'break'] and dedents > 0:
+    if keyword == 'break' and dedents > 0:
         raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
-    if keyword == 'qed' and dedents == 0 and filename != '<stdin>':
-        raise KurtException(f'ParseError: `qed` must be used with dedentation in files at line {line} in {filename}')
-    if keyword == 'done' and kb.mode_str == 'root':
-        assert kb.level == 0, f'BUG: `root` mode must be level 0'
-        raise KurtException(f'EvalError: no open block')
+    if keyword == 'qed' and dedents == 0:
+        raise KurtException(f'ParseError: `qed` must be used with dedentation at line {line} in {filename}')
 
     # chain management continued
     if chained:
@@ -4103,18 +4096,17 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
 
     # process the block closings
     if keyword == 'break':
-        kb = kb.pop_level()             # just pop one level
+        was_proof = kb.mode_str == 'proof'
+        kb = kb.pop_level()             # just pop one level, discarding it, no proof step
         lexer_state.indent_stack.pop()  # pop one indentation level
+        if was_proof:
+            # abandon the `show` promise too, not just the `proof` attempt -- otherwise it's
+            # still pending on the parent level and merging/closing that level later fails
+            assert len(kb.show) > 0, f'BUG: breaking a `proof` block with no pending `show` on its parent'
+            kb.show.pop()
         if mainstream:
-            log(kb, 'break', f'{line} forgot the last block', kb.level)
-    elif keyword == 'done':
-        kb = eval_done(kb, filename, line, mainstream)
-        lexer_state.indent_stack.pop()  # pop one indentation level
-        if mainstream and kb.mode_str == 'sandbox':
-            log(kb, 'done', f'{line} forgot the last block', kb.level)
+            log(kb, 'break', f'{line} discarded the last block', kb.level)
     elif keyword == 'qed':
-        if dedents == 0:
-            dedents = 1                     # at least close the proof block
         # dry run to check the block modes and that we are not closing too many levels
         dedents_check = dedents
         kb_check: KnowledgeBase = kb
@@ -4130,7 +4122,6 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             kb_check = kb_check.parent   # don't pop yet, just check
             dedents_check -= 1
         # now actually pop the levels
-        dedents_total = dedents
         while dedents > 0:
             if kb.mode_str == 'proof':
                 kb = eval_qed(kb, filename, line, mainstream)   # qed with a block, yield a formula
@@ -4139,13 +4130,11 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             else:
                 assert False, f'BUG: `qed` closed a non-proof/assume/let/pick block'
             dedents -= 1
-        if dedents_total == 0:
-            lexer_state.indent_stack.pop()  # pop one indentation level (we are in the shell)
     else:
-        # process the DEDENTs without `done`, `break`, or `qed`
-        dedents_total = dedents
+        # process the DEDENTs -- this is how every block ordinarily closes, `proof` included
+        # (`eval_done` itself dispatches to `eval_qed` for a `proof`-mode level)
         while dedents > 0:
-            kb = eval_done(kb, filename, line, mainstream)   # done with a block, yield a formula
+            kb = eval_done(kb, filename, line, mainstream)   # closes one level: yields a formula, or discards (for `sandbox`)
             dedents -= 1
 
         # evaluate the expression
@@ -4226,17 +4215,11 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
 ## commandline interface ##
 ###########################
 
-def kurt_prompt_indent(level: int, line: int, continued: bool=False) -> str:
+def kurt_prompt(level: int, line: int, continued: bool=False) -> str:
     p: str = ''
-    p += level*'    '            # current level  (for copy and pasting from the shell)
-    p += ';'                                   # commenting out (for copy and paste from the shell)
+    p += level*'    '            # current level, just a visual hint -- not injected into what you type
+    p += ';'                                   # commenting out (for copy and paste back into a file)
     p += '... ' if continued else f'[{line}] ' # continuation?
-    return p
-
-def kurt_prompt_no_indent(level: int, line: int, continued: bool=False) -> str:
-    p: str = ''
-    p += ';'                                   # commenting out (for copy and paste from the shell)
-    p += '... ' if continued else f'<{line}> ' # continuation?
     return p
 
 def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=False) -> KnowledgeBase:
@@ -4250,16 +4233,12 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
     while True:
         try:
             if not is_file:
-                # in the interactive session, indentation doesn't matter, we just prompt according to current level
-                # blocks are close with `done` or `qed` or `break`
-                if kb.indent:
-                    prompt_text = kurt_prompt_indent(kb.level, line, continued)
-                else:
-                    prompt_text = kurt_prompt_no_indent(kb.level, line, continued)
-                new_line = input(prompt_text).rstrip()     # read from stdin
-                if kb.indent:
-                    new_line = new_line.lstrip()               # remove leading spaces for the prompt
-                    new_line = (kb.level * '    ') + new_line  # indent according to current level
+                # indentation is significant here exactly like in a file (see `scan_parse_check_eval`):
+                # type or paste real leading spaces yourself to open/continue/close a block by
+                # dedenting, the same way you would in a file. `qed`/`break` remain as explicit,
+                # position-independent ways to close a block without relying on that.
+                prompt_text = kurt_prompt(kb.level, line, continued)
+                new_line = input(prompt_text).rstrip()     # read from stdin, leading spaces preserved
                 new_line = replace_latex_syntax(new_line)  # automatic replacements in the shell before running the scanner
             else:
                 # here indentation matters, we read exactly what is in the file

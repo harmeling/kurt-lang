@@ -193,14 +193,15 @@ No code was changed while producing this file.
   open design question is exactly what "state" means (just the theory? also
   syntax declarations made ad hoc in the session? the level stack, which
   can't sensibly round-trip through a flat file?).
-- **`sandbox` currently can only discard, never commit** ("have a `sandbox`
-  block, where we first try and try, and then store it to the theory") —
-  confirmed: `sandbox` blocks can only be closed with `break` (`eval_done`'s
-  `'sandbox'` case, line 2059, unconditionally raises), and `break` always
-  discards (`keyword == 'break'` branch in `scan_parse_check_eval`, ~line
-  4068, just pops the level with no formula added). Adding a way to commit a
-  sandbox's contents (e.g. let `qed`/`done` merge it back in, or a distinct
-  keyword) is a bounded, well-scoped feature.
+- **`sandbox` can now discard by dedenting too (not just `break`), but still
+  never commits** ("have a `sandbox` block, where we first try and try, and
+  then store it to the theory") — the file/shell unification (see
+  `doc/kurt-doc.md` §9) made `sandbox` close by plain dedent, discarding its
+  contents exactly like `break` does; what's still missing is any way to
+  *keep* what happened inside instead. Adding that (e.g. a distinct closing
+  keyword, or merging on `qed` the way a `proof` does) remains a bounded,
+  well-scoped feature — just no longer blocked on `sandbox` being
+  shell-only, since it isn't anymore.
 - **Chains don't generate real transitivity** ("`chain`s are always
   transitive"; "for `a=b≠c=d`... if it is transitive also more") —
   confirmed by reading `get_chain_op`/`check_with_other_chains` (line

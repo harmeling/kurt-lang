@@ -4,35 +4,20 @@
 ; the block closes, and never becomes part of the surrounding theory.  It's
 ; the place to try out a derivation without committing to it.
 
-; A `sandbox` block can only be closed with `break` (25-break.kurt) -- not by
-; `qed`, and not even by plain dedenting the way `assume`/`let`/`pick`/`proof`
-; blocks are.  `break`, in turn, only works in the interactive shell.  So a
-; `.kurt` *file* can open a `sandbox`, but cannot close it again -- which
-; means this lesson is best read, and tried out live in the shell, rather
-; than run as a file.  A transcript:
-;
-;     !!![1] bool A
-;     !!![2] use A
-;     !!![3] sandbox
-;     sandbox                                    ; 3 open sandbox, close with `break`
-;     !!![4]     use false
-;         use false                              ; 4 without proof
-;     !!![5]     false
-;         false                                  ; 5 without proof
-;     !!![6]     break
-;     break                                       ; 6 forgot the last block
-;     !!![7] A
-;     A                                           ; 7 by 2
-;     !!![8] false
-;     !!!!!! ProofError: can not derive `false`
-;
-; Notice that `false`, freely available inside the sandbox, is gone again
-; the moment `break` throws the block away -- while `A`, a real axiom from
-; outside the sandbox, is still there.
-;
-; This particular file has no runnable `sandbox` block for the reason above;
-; everything below is a normal top-level fact so the file still checks out.
-
 bool A
 use A
-A
+
+sandbox
+    use false        ; ...anything goes in here, even something silly
+    A
+    false
+
+; dedenting out of the sandbox closes it, exactly like closing any other
+; block -- just with nothing derived from it, everything inside is discarded:
+
+A                   ; still fine, `A` was a real axiom, from outside the sandbox
+; false             ; would fail: `false` only ever existed inside the sandbox
+
+; `break` (25-break.kurt) closes a sandbox (or any block) immediately,
+; without needing to write something at a shallower indentation first --
+; handy when you already know you want to abandon it right now.

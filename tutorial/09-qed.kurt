@@ -21,7 +21,17 @@ B              ; `B` is now available outside the block
 ; closing the block -- try commenting out `use A implies B` above and rerun
 ; this file to see it fail.
 
-; In a *file*, `qed` must match the indentation of the `show`/`proof` it
-; closes exactly -- dedenting is how Kurt knows which (and how many nested)
-; blocks to close.  The interactive shell is more forgiving: there, a single
-; `qed` can close several nested blocks at once.
+; `qed` must match the indentation of the `show`/`proof` it closes exactly --
+; dedenting is how Kurt knows which (and how many nested) blocks to close; a
+; single `qed` can close several nested blocks at once this way.
+
+; `qed` is actually optional: dedenting alone already closes a `proof` block
+; the same way, `qed` or not -- it's there to document where a proof ends,
+; and to double-check you're really closing a `proof` and not some other
+; kind of block. So the block above could just as well have been:
+;
+;     show B "no qed needed"
+;     proof
+;         A
+;
+; both forms behave identically; use whichever reads better to you.

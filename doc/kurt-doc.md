@@ -416,22 +416,25 @@ Read-only introspection; changes nothing.
     qed
 
 `show` states a goal without proving it yet; it must always be followed
-(immediately, or after other statements) by a matching `proof`/`qed` pair —
-`proof` refuses to open if there's no pending `show` on the current level.
-Inside `proof`, you may write any number of intermediate steps, checked
-exactly like top-level statements. `qed` closes the block and **re-derives
-the shown goal from scratch**, using everything true at that point (not by
-comparing to the block's literal last line) — so a block whose last
-explicit line looks unrelated to the goal can still close successfully, as
-long as the goal happens to already be derivable by then. If the goal
-can't be (re-)derived, `qed` raises a `ProofError` and the block does not
-close.
+(immediately, or after other statements) by a matching `proof` — `proof`
+refuses to open if there's no pending `show` on the current level. Inside
+`proof`, you may write any number of intermediate steps, checked exactly
+like top-level statements. Closing the block **re-derives the shown goal
+from scratch**, using everything true at that point (not by comparing to
+the block's literal last line) — so a block whose last explicit line looks
+unrelated to the goal can still close successfully, as long as the goal
+happens to already be derivable by then. If the goal can't be (re-)derived,
+the block does not close (a `ProofError`, either from `qed` itself or from
+the dedent that was trying to close it).
 
-In a *file*, `qed` must line up with the indentation of the `proof`/`show`
-it's closing — dedenting is how Kurt knows how many nested blocks to close
-at once. In the interactive shell there's no indentation to go by, so a
-single `qed` can close several nested blocks in a row (see §9 on the
-difference between file and shell block-closing).
+`qed` is optional: dedenting alone already closes a `proof` block the same
+way (§9 covers dedent-based closing in general). Writing `qed` additionally
+checks that you really are closing a `proof` and not some other kind of
+block, and documents where the proof ends; either way, `qed` must line up
+with the indentation of the `proof`/`show` it's closing — dedenting is how
+Kurt knows how many nested blocks to close, and a single `qed` can close
+several at once this way. This is identical in a file and in the
+interactive shell — see §9's introduction.
 
 ## 8. Building the theory: hard-coded core vs. loaded theories
 
@@ -506,14 +509,28 @@ declaring their own prerequisites via their own `load` lines:
 
 ## 9. Blocks and natural deduction
 
-Every open `proof`/`assume`/`case`/`let`/`pick`/`sandbox` pushes a new
-**level** onto the knowledge base (`level` prints how deep you are; `mode`
-prints the current level's kind — `root`/`proof`/`assume`/`let`/`pick`/
-`sandbox`; `trail` prints the whole chain of modes on one line; `context`
-prints the same thing with more detail per level). A block's own `const`/
-`var` declarations and any axioms `use`d inside it disappear again once the
-block closes; only the formula the block's closing produces survives, on
-the *parent* level.
+Every open `proof`/`assume`/`case`/`let`/`pick`/`sandbox`/`expect` pushes a
+new **level** onto the knowledge base (`level` prints how deep you are;
+`mode` prints the current level's kind — `root`/`proof`/`assume`/`let`/
+`pick`/`sandbox`/`expect`; `trail` prints the whole chain of modes on one
+line; `context` prints the same thing with more detail per level). A
+block's own `const`/`var` declarations and any axioms `use`d inside it
+disappear again once the block closes; only the formula the block's
+closing produces survives, on the *parent* level.
+
+**Indentation drives block closing, identically whether you're reading a
+file or typing/pasting into the interactive shell.** Dedenting — writing
+(or, in the shell, typing) a line less indented than the block's content —
+closes as many levels as the drop in indentation implies, applying
+whatever each level's closing rule is (`impl-intro`, `forall-intro`, ...,
+below). There is no separate "shell mode" for this: the interactive shell
+reads real leading whitespace exactly like a file does, so pasting file
+content into `kurt -i` behaves the same as running it as a file. Two
+keywords remain as *optional*, position-independent alternatives to
+dedenting, and work identically in files and the shell: `qed` (§7 — still
+needs a real dedent, but also checks you're closing a `proof`) and `break`
+(§9.5 — needs no dedent at all, and is the only way to close a `sandbox`
+without dedenting past it).
 
 **Running a file itself already starts one level deep, inside an implicit
 `sandbox`** (the same mechanism `load` uses, see §8.2) — so `mode`/`level`
@@ -523,7 +540,7 @@ at the very top of a file report `sandbox`/`1`, not `root`/`0`.
 
     assume EXPR
         ...
-    (closes by dedenting, or `qed`/`done`)
+    (closes by dedenting, or `qed`/`break`)
 
 Opens a block that adds `EXPR` as a local axiom. Closing it derives
 "impl-intro": whatever you proved last inside the block becomes `EXPR
@@ -570,30 +587,25 @@ the witness.
 
     sandbox
         ...
-    break        ; the only way to close it — and only in the interactive shell
+    (closes by dedenting, discarding everything inside — or by `break`, immediately)
 
 A scratch block: everything inside is discarded, never merged into the
-surrounding theory. Unlike every other block, `sandbox` **cannot be closed
-by dedenting** — only by `break` — and `break` itself only works in the
-interactive shell (see §9.5). This means a `.kurt` **file** can open a
-`sandbox` but has no way to close it again; a file with an unclosed
-`sandbox` at end-of-file fails with `EvalError: ... not all blocks closed`.
-`sandbox` is therefore, in practice, a shell-only feature today.
+surrounding theory, whether it closes by dedenting (§9's introduction) or
+by `break` (§9.5) right away. A file with an unclosed `sandbox` at
+end-of-file still fails with `EvalError: ... not all blocks closed`, same
+as any other unclosed block.
 
-### 9.5 `done` and `break` (interactive shell only)
+### 9.5 `break`
 
-    done      ; close the current assume/let/pick block, or run qed on a proof block
-    break     ; close (discard) any single open block, without proving anything
+    break     ; discard the current block immediately, without proving anything
 
-In a *file*, plain dedentation is how every block above closes. In the
-*interactive shell*, there's no indentation to dedent from (every line is
-typed at whatever level you're on), so `done` and `break` exist to close a
-block explicitly. Both require `indent on` (see §10) and only work when
-reading from the interactive shell — using either in a `.kurt` file is a
-`ParseError`. `done` triggers the same rule dedenting would (impl-intro /
-forall-intro / exists-elim / qed, depending on the block's mode); `break`
-discards the block with no result at all (the only way to close a
-`sandbox`, §9.4, but usable on any block).
+Closes the current block right away, discarding it — no `impl-intro`,
+`forall-intro`, etc., nothing is added anywhere — without needing to dedent
+past it first. Works identically in a file or the interactive shell, and on
+any open block; it's the only way to close a `sandbox` other than dedenting
+past it (§9.4). Breaking out of a `proof` also gives up the pending `show`
+it was trying to prove, not just the `proof` block itself, so nothing is
+left dangling on the parent level.
 
 ### 9.6 `expect`
 
@@ -631,7 +643,6 @@ block, `expect` does not see it — the file just fails normally, as if
     format sexpr | normal        ; how formulas are printed: (and A B), or A and B
     verbose on | off              ; print extra detail about *why* a match succeeded
     hint on | off                  ; reserved for future use — currently a no-op
-    indent on | off                ; enables `done`/`break` and pasted-file indentation in the shell
     calc on | off                   ; auto-simplify `+`/`*` on int/float literals before checking
 
 Each, called with no argument, reports its current setting instead of
@@ -650,7 +661,6 @@ nothing reads its value yet.
 - `chain` (§4.6) is parsing sugar only, not automatic transitivity.
 - `and-elim` needs `load prop` (or a manual axiom instance) — it is not
   hard-coded the way `and-intro` is (§8.1).
-- `sandbox` (§9.4) cannot be closed inside a `.kurt` file at all.
 - `f()` — a zero-argument call — does not parse (§4.3).
 - `format latex` cannot be reached from inside a `.kurt` file (§4.7); use
   `kurt -l` instead.

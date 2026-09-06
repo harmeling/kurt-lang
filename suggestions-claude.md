@@ -113,13 +113,14 @@ confused student *that* they're wrong but not *why*, or what's close.
 ## Language features
 
 - **Let `sandbox` optionally "graft" its result, not just discard.**
-  Complements `todo-claude.md`'s note that `sandbox` can currently only be
-  closed by discarding everything (`break`). The natural pairing:
-  `sandbox`/`break` for pure scratch work (today's behaviour, keep it), plus
-  a `qed`/`done`-like "commit" close for the "let me try this derivation and
-  keep it if it works" workflow the todo item describes. This also gives
-  the REPL a much better "try before you commit" loop than opening a whole
-  `show`/`proof` block for something exploratory.
+  Complements `todo-claude.md`'s note that `sandbox` still only ever
+  discards (whether closed by dedenting or by `break`). The natural
+  pairing: keep `sandbox`/dedent/`break` for pure scratch work (today's
+  behaviour), plus a `qed`-like "commit" close for the "let me try this
+  derivation and keep it if it works" workflow the todo item describes.
+  This also gives an editor-driven session a much better "try before you
+  commit" loop than opening a whole `show`/`proof` block for something
+  exploratory.
 - **A `why`/`explain` keyword for the last (or a given) step.** Right now
   `verbose` prints extra detail *while* a match happens; there's no way to
   ask *after the fact* "why did line 7 work?" beyond scrolling back to the
@@ -177,7 +178,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   stack, mode/toggle flags, todos, loaded-files bookkeeping — the class
   spans lines 587-1447, ~860 lines). None of it looks wrong, but a few of
   these are genuinely orthogonal concerns bolted onto one object (e.g. the
-  `format`/`verbose`/`hint`/`indent`/`calc` toggles vs. the actual proof
+  `format`/`verbose`/`hint`/`calc` toggles vs. the actual proof
   state). Splitting "session settings" (toggles, format) out from "proof
   state" (theory, levels) would make it easier to reason about what
   `push_level`/`pop_level`/`merge_and_pop` are actually supposed to copy vs.
@@ -186,7 +187,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   easy to imagine a future toggle being added without noticing it needs the
   same "always read from the root" treatment `format`'s setter gives it
   explicitly (line 2220, the `while kb.parent is not None` loop —
-  `hint`/`verbose`/`indent`/`calc` don't do this, so toggling them inside a
+  `hint`/`verbose`/`calc` don't do this, so toggling them inside a
   nested block vs. at the root may behave inconsistently; worth a
   deliberate check either way, whatever the intended semantics are).
 - **The multiset-style matching for flat+symmetric operators deserves to be

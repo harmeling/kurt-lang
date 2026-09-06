@@ -30,7 +30,7 @@ THEORIES -- building and reusing bodies of knowledge
     11-def       introducing a new constant via its defining equation
     12-theory    inspecting the current theory
     13-todo      admitting a step as an exercise/placeholder
-    14-sandbox   a scratch block that is thrown away (REPL-only to close)
+    14-sandbox   a scratch block that is thrown away when closed
     15-expect    a block that must fail, with a named kind of error
 
 BLOCKS -- natural-deduction-style sub-proofs
@@ -39,8 +39,7 @@ BLOCKS -- natural-deduction-style sub-proofs
     21-let       introducing a fresh, arbitrary constant ("forall-intro")
     22-pick      extracting a witness from an existential ("exists-elim")
     23-case      case distinctions ("or-elim")
-    24-done      closing assume/let/pick blocks (REPL-only)
-    25-break     abandoning a block without proving anything (REPL-only)
+    25-break     abandoning a block immediately, without proving anything
     26-mode      what kind of block are we in right now?
     27-trail     the chain of open blocks, one line
     28-context   the chain of open blocks, in detail
@@ -72,7 +71,6 @@ MISC -- REPL/output behaviour and self-documentation
     51-help      list of all keywords, straight from Kurt itself
     52-hint      toggle: hints for the next input (shell only)
     53-verbose   toggle: show extra detail while matching formulas
-    54-indent    toggle: indentation-based block structure in the shell
     55-calc      toggle: automatic arithmetic simplification (`+`, `*`)
 
 Not covered (deliberately)
@@ -81,12 +79,20 @@ Not covered (deliberately)
     thus         mentioned in `doc/kurt-notes.md`/`todo.md` as a future,
                  not-yet-implemented shortcut for `qed`/equational proofs
     fix          old name for what is now the `let` keyword (see `21-let.kurt`)
+    indent       removed -- the shell's indentation handling used to differ
+                 from a file's (see below); once unified, the toggle (and
+                 `done`) had nothing left to switch
 
-Notes on things that turned out to be REPL-only
---------------------------------------------------
-`done`, `break`, and closing a `sandbox` block all require the interactive
-shell in `indent` mode -- a `.kurt` *file* cannot use them at all (dedenting
-in a file closes `assume`/`let`/`pick`/`proof` blocks automatically, but
-raises a `ParseError`/`EvalError` for `done`, `break`, or an unclosed
-`sandbox`).  Lessons 14, 24 and 25 therefore show an annotated transcript of
-a shell session in comments, rather than runnable block-closing code.
+File and shell are now handled identically
+----------------------------------------------
+Indentation is significant everywhere, in the shell exactly as in a file:
+`assume`/`let`/`pick`/`proof`/`sandbox`/`expect` blocks all close the same
+way, by dedenting -- there is no more `indent` toggle, and no more
+`done` (it existed purely to fake a dedent in the shell; once the shell
+started reading real indentation, it had nothing left to do that dedenting
+didn't already do). `qed` and `break` remain as optional, position-
+independent alternatives to dedenting, and both now work in files too, not
+just the shell: `qed` still needs a real dedent (it just also double-checks
+you're closing a `proof`), while `break` needs none at all -- it discards
+the current block immediately, which is why it's still the one way to close
+a `sandbox` without writing a further, shallower line.
