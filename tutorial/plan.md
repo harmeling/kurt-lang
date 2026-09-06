@@ -31,6 +31,7 @@ THEORIES -- building and reusing bodies of knowledge
     12-theory    inspecting the current theory
     13-todo      admitting a step as an exercise/placeholder
     14-sandbox   a scratch block that is thrown away (REPL-only to close)
+    15-expect    a block that must fail, with a named kind of error
 
 BLOCKS -- natural-deduction-style sub-proofs
 -----------------------------------------------

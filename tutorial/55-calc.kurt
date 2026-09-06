@@ -11,6 +11,8 @@ infix "+" 30 30
 calc on
 1 + 1 = 2             ; simplified to `2 = 2`, then "equal-intro"
 
-; With `calc off` (the default), the same line would fail instead: nothing
-; simplifies `1 + 1` anymore, and no axiom relates it to `2`.
+; With `calc off` (the default), the same claim really does fail: nothing
+; simplifies `1 + 1` anymore, and no axiom relates it to `2` (see 15-expect):
 calc off
+expect "ProofError"
+    1 + 1 = 2

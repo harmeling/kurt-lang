@@ -252,11 +252,27 @@ def replace_latex_syntax(line: str) -> str:
     return COMMAND_RE.sub(command_replacer, line)
 
 class KurtException(Exception):
-    def __init__(self, msg:str, column:Optional[int]=None, line:Optional[int]=None, filename:Optional[str]=None) -> None:
+    # every raise site still just writes its `kind` as a conventional string prefix
+    # inside `msg` (e.g. `f'EvalError: ...'`), rather than passing `kind=` explicitly --
+    # `.kind` is derived from that prefix here, once, so callers get a reliable
+    # attribute to match on (see `expect`) without needing to touch the ~130
+    # existing raise sites or parse `msg` themselves.
+    KNOWN_KINDS = ('ProofError', 'ParseError', 'EvalError', 'SyntaxError', 'TypeError')
+
+    def __init__(self, msg:str, column:Optional[int]=None, line:Optional[int]=None, filename:Optional[str]=None, kind:Optional[str]=None) -> None:
         self.msg:      str           = msg
         self.column:   Optional[int] = column
         self.line:     Optional[int] = line
         self.filename: Optional[str] = filename
+        self.kind:     Optional[str] = kind if kind is not None else self._extract_kind(msg)
+
+    @staticmethod
+    def _extract_kind(msg: str) -> Optional[str]:
+        stripped = msg.lstrip()
+        for k in KurtException.KNOWN_KINDS:
+            if stripped.startswith(k + ':'):
+                return k
+        return None    # message didn't start with (or wasn't prefixed by) a known kind
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END', 'TODO']
@@ -274,7 +290,7 @@ keywords: dict[str, str] = {
     'tokenize':    'tokenize a string and print its tokens',
     'format':      'choose print representation, i.e. one of "sexpr", "normal"',
     'level':       'print current level of the knowledge base',
-    'mode':        'print current mode of the knowledge base, one of `root`, `proof`, `assume`, `fix`, `pick`',
+    'mode':        'print current mode of the knowledge base, one of `root`, `sandbox`, `proof`, `assume`, `case`, `let`, `pick`, `expect`',
     'context':     'print the current context, i.e., all open blocks and their modes',
     'trail':       'print the current context without details in one line',
     'load':        'load file(s), e.g. load standards.kurt or load foo.kurt',
@@ -314,6 +330,7 @@ keywords: dict[str, str] = {
     'let':         'fix a new constant, possibly with an assumption (made for "forall-intro"), block must be indented',
     'pick':        'pick a new constant "with" assumption (made for "exists-elim"), block must be indented',
     'sandbox':     'open a temporary block, useful for trying out things, the block must be indented',
+    'expect':      'open a block whose content must raise the named kind of error (one of ProofError, ParseError, EvalError, SyntaxError, TypeError) to succeed; block must be indented and must not itself open further blocks',
 
     # closing blocks in the shell (besides `qed`)
     'done':        'close the current block and trigger "impl-intro", "forall-intro", "exists-elim", "not-intro", is only be required in the shell',
@@ -325,7 +342,7 @@ keywords: dict[str, str] = {
 helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
 keywords_with_parsing = ['use', 'show', 'def', 'assume', 'case', 'let', 'todo', 'parse']
-keywords_opening_blocks = ['proof', 'assume', 'case', 'let', 'pick', 'sandbox']
+keywords_opening_blocks = ['proof', 'assume', 'case', 'let', 'pick', 'sandbox', 'expect']
 keywords_closing_blocks = ['qed', 'done', 'break']
 
 @dataclass
@@ -582,7 +599,7 @@ def is_numeric(e: Expr) -> bool:
 # dropping a level drops also all local definitions
 Nud: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Token], Expr]
 Led: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Expr, Token], Expr]
-Mode: TypeAlias = tuple[str, list[Expr]]  # where the str is one of ['root', 'proof', 'assume', 'case', 'let', 'pick']
+Mode: TypeAlias = tuple[str, list[Expr]]  # where the str is one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick', 'expect']
 
 class KnowledgeBase:
     def __init__(self, parent:Optional[KnowledgeBase], mode: Mode, tmp: bool = False) -> None:
@@ -590,7 +607,7 @@ class KnowledgeBase:
         self.parent: Optional[KnowledgeBase] = parent
         self._todos: list[str]      = []         # list of todos (only relevant on level 0, all todos are collected there)
         self.level: int             = 0 if parent is None else parent.level + 1
-        self.mode_str: str          = mode[0]    # one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick']
+        self.mode_str: str          = mode[0]    # one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick', 'expect']
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
         self.libs: list[str]        = []         # the filenames of loaded libraries
         self.tmp: bool              = tmp        # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
@@ -2058,6 +2075,12 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             raise KurtException(f'ProofError: no block to close, already at the top level')
         case 'sandbox':
             raise KurtException(f'ProofError: a `sandbox` block must be closed with `break`')
+        case 'expect':
+            assert len(kb.mode_args) == 1 and isinstance(kb.mode_args[0], Token)
+            expected_kind = kb.mode_args[0].value
+            # deliberately not one of `KurtException.KNOWN_KINDS`, so this can never be
+            # mistaken by `read_eval_loop` for the very error it says didn't happen
+            raise KurtException(f'ExpectationError: this `expect "{expected_kind}"` block finished without raising a `{expected_kind}`')
 
     # the constants on the current level are not allowed, however, the variables of the previous level are allowed (see `de-morgan.kurt`)
     assert kb.parent is not None, f'BUG: we should be one-level up in `eval_done`'
@@ -2696,6 +2719,21 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             raise KurtException(f'EvalError: `{keyword}` takes no arguments')
         kb = kb.push_level('sandbox', [])
         log(kb, f'sandbox', f'{line} open sandbox, close with `break`', kb.level-1)  # log the new constant
+
+    elif keyword == 'expect':
+        msg = 'EvalError: `expect` takes exactly one string argument naming the expected error kind, e.g. `expect "ProofError"`'
+        if len(args) != 1:
+            raise KurtException(msg)
+        match args[0]:
+            case [Token(label='STRING', value=expected_kind)] if expected_kind in KurtException.KNOWN_KINDS:
+                assert isinstance(expected_kind, str)
+            case [Token(label='STRING', value=bad_kind)]:
+                raise KurtException(f'EvalError: unknown error kind `{bad_kind}` for `expect`, expected one of {KurtException.KNOWN_KINDS}')
+            case _:
+                raise KurtException(msg)
+        kb = kb.push_level('expect', [Token(label='STRING', value=expected_kind)])
+        if mainstream:
+            log(kb, f'expect "{expected_kind}"', f'{line} open block, expect a `{expected_kind}` inside', kb.level-1)
 
     elif keyword == 'assume'  or  keyword == 'case':
         if len(args) != 1:
@@ -3911,7 +3949,6 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
             return reasons, s
 
     # couldn't derive formula using any of the rules
-    print(get_column(expr))
     raise KurtException(f'ProofError: can not derive `{expr_str(expr, kb)}`', column=get_column(expr))
 
 LHS_value = '$$LHS$$'
@@ -4240,6 +4277,25 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                 line += 1
                 continue
             except KurtException as e:
+                if kb.mode_str == 'expect':
+                    assert len(kb.mode_args) == 1 and isinstance(kb.mode_args[0], Token)
+                    expected_kind = kb.mode_args[0].value
+                    if e.kind == expected_kind:
+                        # confirmed: the block did exactly what it promised -- discard
+                        # everything inside it (like `break` would) and move on, whether
+                        # the error came from the block's own content or (if nothing
+                        # inside raised) from `eval_done`'s "you promised an error and
+                        # didn't deliver" check when the block tried to close normally
+                        kb = kb.pop_level()
+                        lexer_state.indent_stack.pop()
+                        if mainstream:
+                            log(kb, f'expect "{expected_kind}"', f'{line} confirmed', kb.level)
+                        input_line = ''
+                        continued = False
+                        line += 1
+                        continue
+                    else:
+                        e.msg = f'expect "{expected_kind}" expected a `{expected_kind}`, got a different error instead:\n{e.msg}'
                 if e.column is None:
                     e.column = proof_indent * kb.level      # put the marker `^` at the beginning of the expression
                 if e.filename is None:

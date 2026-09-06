@@ -95,7 +95,7 @@ No code was changed while producing this file.
   improved later"). This task is basically already done; the one remaining
   comment is low priority (a correctness-preserving redundancy, not a bug).
 
-## Testing-infrastructure issue worth fixing before adding more tests
+## Testing-infrastructure issue — now has a real fix (`expect`), partially retrofitted
 
 - **`tests/test_kurt_proofs.py` silently truncates failed-proof comparisons
   to 17 characters.** Found while checking todo.md's "put lots of negative
@@ -107,17 +107,29 @@ No code was changed while producing this file.
   else:
       self.assertEqual(actual_last_line[:17], true_last_line[:17])
   ```
-  So for a proof file whose expected marker is an error message (e.g.
-  `proofs/natural-deduction/forall-elim-fail.kurt`, whose marker is `;;;
-  ProofError: can not derive \`A $$var552\``), the test only actually checks
-  that the first 17 characters (`ProofError: can n`) match — the rest of the
-  message, including the exact auto-generated variable name, can drift
-  silently forever without the test ever failing or being noticed. This
-  means negative/error-marker tests are much weaker than they look. Worth
-  fixing (require exact match, or make the 17-char fallback an explicit,
-  documented convention for tests that only care about the error *kind*)
-  before todo.md's "put lots of negative proof examples in tests/proofs" is
-  acted on, otherwise the new tests inherit the same weakness.
+  So for a proof file whose expected marker is an error message, the test
+  only actually checks the first 17 characters — the rest of the message
+  can drift silently forever without the test ever failing or being
+  noticed. **Fixed for the cases that fit it**: a new `expect "KIND"`
+  keyword (`kurt.py`, see `doc/kurt-doc.md` §9.6) lets a `.kurt` file assert
+  *inside itself* that a step raises a given error kind — matching
+  `KurtException.kind`, not comparing message text at all — so the file
+  either fully succeeds (`;;; Proof checked.`, no marker fragility) or
+  fails for real. Retrofitted: `forall-elim-fail.kurt`,
+  `proofs/debug/mini-again.kurt`, `tutorial/55-calc.kurt`, plus a new
+  `tutorial/15-expect.kurt` lesson. **Three files still rely on the 17-char
+  fallback, deliberately**: `proofs/debug/load-cycle-a/b.kurt` need to match
+  the error *kind* across two different files' absolute paths, which
+  `expect` can't do for a cycle that spans files (the cycle gets "caught"
+  one file too early if either side wraps its own `load` in `expect` — a
+  real, checked limitation, not an oversight); and
+  `proofs/debug/test-not-all-blocks-close.kurt` is testing a truncated
+  file with no body to wrap in a block at all. The harness's 17-char
+  fallback itself is unchanged and still needed for exactly those cases —
+  todo.md's "put lots of negative proof examples in tests/proofs" should
+  reach for `expect` first and fall back to the marker convention only when
+  `expect` genuinely doesn't fit (spans files, or tests malformed structure
+  rather than a failing statement).
 
 ## Concrete, medium-effort feature/robustness work
 
@@ -237,19 +249,21 @@ No code was changed while producing this file.
 
 ## Larger, well-defined refactors (bigger, but not vague)
 
-- **Turn `KurtException`'s string-prefix "types" into real types** ("check
-  all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError")
-  — confirmed: `KurtException` (line 254) is a single class; "ProofError:",
-  "ParseError:", "SyntaxError:", "EvalError:", "TypeError:" are just
-  conventional string prefixes baked into `msg` at each call site, with no
-  structured way to distinguish them programmatically (not even an enum
-  field). This matters for tooling (an editor integration, or a script that
-  wants to react differently to a syntax error vs a failed proof step) and
-  for consistency (nothing stops a typo like `ProofErorr:`). Mechanical but
-  wide-reaching refactor: introduce subclasses (or a `kind: Literal[...]`
-  field) and update every `raise KurtException(f'XError: ...')` call site
-  (several dozen, but a straightforward grep-and-replace with careful
-  review).
+- **~~Turn `KurtException`'s string-prefix "types" into real types~~ — done,
+  as a cheap hybrid rather than the full mass-edit.** `KurtException` now
+  has a `.kind` attribute (one of `KurtException.KNOWN_KINDS` =
+  `('ProofError', 'ParseError', 'EvalError', 'SyntaxError', 'TypeError')`,
+  or `None`), auto-derived from the existing string prefix in `msg` at
+  construction time. Deliberately *not* done: rewriting all ~130
+  `raise KurtException(f'XError: ...')` call sites to pass `kind=`
+  explicitly — auto-derivation gives the same reliable `.kind` attribute
+  (now used by `expect`, §9.6 of `kurt-doc.md`) with none of the risk of a
+  130-site mechanical edit for no behavioural gain. A handful of messages
+  don't start with a recognised prefix (e.g. `check_all_shown_proved`'s
+  "Not shown:\n..." message) and get `kind=None` — acceptable, rare, and
+  honestly unclassified rather than silently wrong. Revisit the full
+  subclass/explicit-`kind` version only if `.kind is None` actually starts
+  causing real problems somewhere.
 - **Data structure for the theory, indexed by conclusion** ("organize the
   implications as a dictionary of lists with the top-level operator of RHS
   as the key"; "instead of brute-force matching, use more clever matching,

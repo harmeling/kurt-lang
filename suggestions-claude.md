@@ -52,22 +52,21 @@ confused student *that* they're wrong but not *why*, or what's close.
   n_todos/n_claims`) is a small step from what's already computed, and
   turns every `todo`-riddled skeleton proof into an auto-gradable
   assignment along a spectrum, not just pass/fail.
-- **An in-language "this should fail" construct.** Today the only way to
-  test that a proof *correctly* fails is the Python test harness's `;;; `
-  marker convention (and, per `todo-claude.md`, that convention is weaker
-  than it looks). For teaching, it would be valuable to let a `.kurt` file
-  assert *inside itself* that a step is expected to fail — e.g. a block
-  form like:
-  ```
-  expect-error "ProofError"
-      A and B implies A and C     ; a common mistake: mixing up C for B
-  ```
-  so a lecture file can show a wrong proof attempt, explain why it's wrong,
-  right next to the fix, and have Kurt itself verify that the "wrong"
-  version really does fail (catching drift when the language changes) —
-  without needing the Python-level test infrastructure at all. This also
-  gives `todo.md`'s "put lots of negative proof examples into tests/proofs"
-  a much more robust home than string-matching stderr.
+- **~~An in-language "this should fail" construct~~ — done, as `expect`.**
+  (Named `expect` rather than `expect-error`: Kurt identifiers can't contain
+  a hyphen — `[$%@]?[A-Za-z][A-Za-z0-9]*` — so `expect-error` would have
+  lexed as three separate tokens.) See `doc/kurt-doc.md` §9.6 and
+  `tutorial/15-expect.kurt`. It checks `KurtException.kind`, not message
+  text, so it doesn't share the old marker convention's fragility. One
+  real, documented limitation surfaced during implementation: the block
+  can't itself open a nested block (`show`/`proof`/`assume`/etc.) — the
+  simplest robust version only catches an error raised *directly* inside
+  it, at the same level; a version that also caught errors from a nested
+  sub-block turned out to need either a careful multi-level unwind past
+  `pop_level()`'s own validation (which itself raises on an abandoned,
+  unresolved `show`) or an ancestor-search that risks getting the
+  in-progress lexer indentation bookkeeping out of sync — not worth the
+  risk for what the tutorial/test retrofits actually needed.
 
 ## Small, high-leverage usability fixes
 

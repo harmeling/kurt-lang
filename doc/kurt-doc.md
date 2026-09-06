@@ -595,6 +595,37 @@ forall-intro / exists-elim / qed, depending on the block's mode); `break`
 discards the block with no result at all (the only way to close a
 `sandbox`, §9.4, but usable on any block).
 
+### 9.6 `expect`
+
+    expect "KIND"
+        ...
+
+Opens a block whose content is *expected to raise* an error of the given
+`KIND` — one of `ProofError`, `ParseError`, `EvalError`, `SyntaxError`,
+`TypeError` (every `KurtException` carries a `.kind`, derived from the
+conventional string prefix at the start of its message — see
+`KurtException.KNOWN_KINDS` in `kurt.py`). If something inside the block
+raises exactly that kind, the whole block (including anything it did) is
+discarded and checking simply continues with the next statement, the same
+way `break` discards a `sandbox`. If the block closes normally with nothing
+having raised, *that itself* is now the failure (`ExpectationError: this
+\`expect "KIND"\` block finished without raising a \`KIND\``); if something
+raises but of the *wrong* kind, that's also a failure, reported with both
+kinds shown.
+
+This exists so a proof file (or a lesson, see `tutorial/15-expect.kurt`) can
+demonstrate a mistake and have Kurt itself confirm it still fails the
+expected way, rather than relying on a comment nobody re-checks, or on a
+separate test harness matching exact (and therefore fragile — see
+`todo-claude.md`) error text.
+
+**Current limitation:** the block inside `expect` must not itself open
+another block (`show`/`proof`/`assume`/`case`/`let`/`pick`/`sandbox`,
+nested `expect`). If it does and the failure happens inside that nested
+block, `expect` does not see it — the file just fails normally, as if
+`expect` had not been used. `expect` only checks for an error raised
+*directly* inside it, at the same level.
+
 ## 10. Session toggles and output
 
     format sexpr | normal        ; how formulas are printed: (and A B), or A and B
