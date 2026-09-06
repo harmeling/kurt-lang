@@ -1,0 +1,5 @@
+; standalone helper theory for the `load`-relative-path regression tests
+; (uses-subdir.kurt, sub/uses-parent-dir.kurt). Auto-discovered and run on its own too,
+; so it needs a valid marker just like they do.
+bool Q
+;;; Proof checked.

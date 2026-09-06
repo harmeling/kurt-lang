@@ -4487,6 +4487,7 @@ def main() -> None:
         log(kb, latex_header)
         kb: KnowledgeBase = load_file("latex.kurt", kb, mainstream=False)
 
+    had_error = False
     try:
         # try to load a default theory, if the file does not exist, we just go on silently
         kb: KnowledgeBase = load_file(default_theory, kb, mainstream=False, silent=True)
@@ -4513,6 +4514,7 @@ def main() -> None:
 
     except KurtException as e:
         print(e.msg, file=sys.stderr)
+        had_error = True
 
     # read-eval-print loop with exception handling
     if args.interactive:
@@ -4521,7 +4523,12 @@ def main() -> None:
     # some bye to latex?
     if latex_flag:
         log(kb, latex_footer)
-    exit(0)
+    # a caught KurtException while checking `args.filename` (e.g. a failed proof, a parse
+    # error) must be visible in the exit code -- otherwise a script (CI, an autograder)
+    # cannot tell a failed check from a successful one without scraping stderr text.
+    # Errors during an interactive REPL session don't affect this, same as a Python REPL
+    # exiting 0 regardless of exceptions raised while typing at it.
+    exit(1 if had_error else 0)
 
 if __name__ == '__main__':
     main()

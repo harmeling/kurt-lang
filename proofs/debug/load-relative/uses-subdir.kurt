@@ -1,0 +1,9 @@
+; regression test for `load`'s relative-path resolution (todo-claude.md's "solve the path
+; puzzle, also check `load ../foo.kurt`"): a file can `load` another file in a *subdirectory*
+; of its own directory, not just a sibling file. `load_file` resolves against
+; `Path(filename).parent.resolve()` (the loading file's own directory) before falling back
+; to `theory_path`, so a relative path with subdirectory components should just work.
+load sub/inner.kurt
+use R
+R
+;;; Proof checked.

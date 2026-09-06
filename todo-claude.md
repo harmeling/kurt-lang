@@ -43,21 +43,19 @@ No code was changed while producing this file.
 
 ## Quick, low-risk fixes (do these first)
 
-- **Exit code is always 0.** Not in `todo.md`, but directly relevant to
-  "check all KurtExceptions..." below and to Kurt's stated purpose
-  (automatic feedback like a test runner). `main()` (line 4262) always ends
-  with `exit(0)`, even when a `KurtException` was caught and printed to
-  stderr for a non-interactive file check:
-  ```
-  bool A
-  A
-  ```
-  run as `kurt broken.kurt` prints `ProofError: can not derive \`A\`` to
-  stderr and still exits 0. Anyone scripting Kurt (CI, an autograder) cannot
-  currently detect a failed proof from the exit code alone. Fix is a
-  one-line `sys.exit(1)` in the `except KurtException` branch (and possibly
-  a nonzero exit for "almost checked" files with leftover `todo`s, which is
-  a judgment call).
+- ~~**Exit code is always 0**~~ — **fixed.** `main()` now tracks whether the
+  non-interactive file check raised a `KurtException` (a new `had_error`
+  flag) and exits `1` if so, `0` otherwise — a genuinely failed/crashed
+  check (`ProofError`, `SyntaxError`, ...) is now visible to a script (CI, an
+  autograder) from the exit code alone, not just by scraping stderr text.
+  Deliberately left as a judgment call, unchanged: leftover `todo`s in an
+  "almost checked" file still exit `0`, since a `todo` is a deliberate,
+  self-reported placeholder, not a failure; and errors raised *during* an
+  interactive REPL session don't affect the exit code either, matching how a
+  Python REPL exits `0` regardless of exceptions raised while typing at it.
+  Regression tests in `tests/test_cli_exit_code.py` (subprocess-based, since
+  this is CLI/process behaviour, not something the in-process proof-file
+  harness can observe).
 - **"repair messages for 'pick', 'fix', 'assume'"** — confirmed: `eval_let`
   (line ~2717) still raises `EvalError: \`fix\` takes new constants...` even
   though the keyword has been renamed to `let` everywhere else. Trivial
@@ -133,15 +131,19 @@ No code was changed while producing this file.
 
 ## Concrete, medium-effort feature/robustness work
 
-- **"solve the path puzzle, also check `load ../foo.kurt`"** — `load_file`
-  (line 4129) resolves relative to `theory_path` (cwd, then packaged
-  theories) plus, for a `load` *inside* a file, the loading file's own
-  directory (`Path(filename).parent.resolve()`, see the `load` keyword
-  handler, line 2260). Worth a concrete pass: add test cases for `load
-  ../foo.kurt` and `load subdir/foo.kurt` from both the CLI and from inside
-  a loaded file, and confirm double-loading (`A` loads `B` loads `A`) is
-  actually cycle-safe (the `get_load_level` cache should already prevent
-  infinite recursion, but I did not test a real cycle).
+- ~~**"solve the path puzzle, also check `load ../foo.kurt`"**~~ — **done.**
+  Added concrete regression coverage for everything this todo asked for:
+  `proofs/debug/load-relative/uses-subdir.kurt` (`load sub/inner.kurt`) and
+  `sub/uses-parent-dir.kurt` (`load ../helper.kurt`) confirm relative-path
+  resolution goes both directions from a loaded file's own directory, not
+  just cwd/`theory_path`; `proofs/debug/load-diamond.kurt` confirms a
+  *diamond* dependency (`equality`+`logic` both `load prop`) is genuinely
+  cycle-safe and doesn't double-load (this was already incidentally
+  exercised by `set.kurt`, part of the auto-discovered theories, but wasn't
+  an explicit, direct test before); `proofs/debug/load-cycle3-{a,b,c}.kurt`
+  extends the existing 2-file cycle regression to a 3-file chain, confirming
+  `_loading_in_progress`'s check isn't accidentally hardcoded to exactly one
+  back-and-forth. No code changes needed — all of this already worked.
 - **Merge `pick`'s parsing into `unpack_condition`** ("allow `let x with
   F(x)`, ... merge `pick` and `let` to use `unpack_condition`") — `let`
   already uses `unpack_condition` and supports `let x>0`-style conditions
@@ -222,20 +224,19 @@ No code was changed while producing this file.
   `*` on Python `int`/`float` tokens today (confirmed by reading it and by
   `tutorial/55-calc.kurt`'s test). Adding `-`, `/`, and being explicit about
   float precision/equality is a contained extension of one method.
-- **`$$`-prefixed internal names could collide with user variables** — not
-  in `todo.md`, adjacent to "check number of possible variable names, use
-  letters to be safe". `new_var_name()`/`new_bool_var_name()` (line
-  3092-3105) generate fresh internal variables named `$$01`, `%%01`, etc.,
-  reasoning that "the `$$` ensures that it is not a kurt variable that the
-  user can define" — but a user *can* type a variable named literally
-  `$$foo`, since any symbol starting with `$` is automatically a variable
-  regardless of what follows. I did not construct an actual failing proof
-  (the collision requires the user's chosen name to coincide with the
-  counter's current value, which is unlikely but not impossible especially
-  in a long REPL session), but the invariant the comment relies on is not
-  actually enforced anywhere. A `bind_op`/`add_var` check (or documentation)
-  that rejects/warns on user symbols starting with `$$`/`%%` would close the
-  gap cheaply.
+- ~~**`$$`-prefixed internal names could collide with user variables**~~ —
+  **checked, turns out to be a non-issue.** My earlier claim here was wrong:
+  I said "a user *can* type a variable named literally `$$foo`" without
+  actually trying it. The lexer's `SYMBOL` pattern (`scanner`, kurt.py) is
+  `[$%@]?[A-Za-z][A-Za-z0-9]*` — at most *one* leading `$`/`%`/`@`,
+  immediately followed by a letter. `$$foo`/`%%foo` fail to match that (or
+  any other branch) and hit the lexer's catch-all `ERROR` group instead,
+  raising a `SyntaxError` before parsing even starts — confirmed directly
+  (`var $$foo` → `SyntaxError: scanning error while scanning \`$\``). So
+  `new_var_name()`/`new_bool_var_name()`'s doubled-prefix scheme is safe by
+  *construction* (no source text can ever lex into such a token), not merely
+  by convention as the old comment implied. No code change needed; locked in
+  by `proofs/soundness/dollar-dollar-prefix-unparseable.kurt`.
 - **~~Audit `minimal.kurt` against its hard-coded Python counterpart~~ —
   done.** Confirmed the mismatch: `"restatement"` (`$A implies $A`) and a
   general `"impl-intro"` schema were drafted as if hard-coded but aren't
