@@ -19,7 +19,7 @@ infix    : 20 20         ; for mappings
 ; we assume that all objects are sets
 
 ; axioms for {, |, }
-use $a ∈ { $z | sub $x $z %F }  ≡  sub $x $a %F
+use $a ∈ { $z | sub $x $z %F }  ≡  sub $x $a %F   "set-comprehension"
 
 ; axioms for mappings
 ; two mappings are equal if they give the same output for all inputs

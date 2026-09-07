@@ -1,0 +1,8 @@
+; companion to load-export-labeled-fact-survives.kurt: an unlabelled fact (`R`, no string at
+; all) or a `local`-labelled one (`Q`) must NOT be exported. Confirmed the opposite way: since
+; neither symbol was ever seen by this file, re-declaring `bool` for both succeeds cleanly.
+load load-export-helper
+bool Q
+bool R
+true
+;;; Proof checked.

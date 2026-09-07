@@ -12,7 +12,7 @@ class Test_Parsing(unittest.TestCase):
             (input_line, _, true_output) = examples[i]               # pick input, parsed
             try:
                 ts = kurt.PeekableGenerator(kurt.scan_string(input_line, kurt.initial_kb))           # peekable token stream
-                _, pt, _ = kurt.parse_tokenstream(ts, kb)            # parse tree
+                _, pt, _, _ = kurt.parse_tokenstream(ts, kb)         # parse tree
                 output = kurt.expr_str(pt[0], kb)
             except Exception as e:
                 output = (str(e).split('\n'))[-1]                    # this could be the desired result

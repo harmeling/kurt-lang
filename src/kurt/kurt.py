@@ -117,6 +117,7 @@ TRUE_SYMBOL  = 'true'        # true
 FALSE_SYMBOL = 'false'       # false
 COMMA_SYMBOL = ','           # listing stuff
 SPACE_SYMBOL = ' '           # function application
+LOCAL_SYMBOL = 'local'       # marks a label (and its formula/def) as not exported by `load`
 
 # not basic, but still necessary for our implementation of forall-intro and exists-intro
 FORALL_SYMBOL = 'forall'     # universal quantification
@@ -310,6 +311,7 @@ keywords: dict[str, str] = {
     'const':       'declare symbols as fresh constants, i.e., they have not been used or declared before',
     'alias':       'add some aliases for a symbol',
     'latex':       'add some latex command for a symbol',
+    'local':       'mark a label (on `use`/`show`/`def`) as local: the labelled formula/symbol is not exported when this file is `load`ed elsewhere, e.g. `use %A implies %A local "restatement"`',
 
     'theory':      'print all formulas, or print formulas that have a certain top level symbol',
 
@@ -383,7 +385,7 @@ def clean_up(line: str) -> str:
 
 class Formula:
     next_id: int = 0
-    def __init__(self, kb: KnowledgeBase, expr:Expr, input_line:str, line:str, filename:str, label:str, reason:str, keyword:str):
+    def __init__(self, kb: KnowledgeBase, expr:Expr, input_line:str, line:str, filename:str, label:str, reason:str, keyword:str, local:bool = False):
         self.expr: Expr            = expr               # expression of the formula
         self.simplified_expr       = expr               # will be simplified later when adding to the knowledge base
         self.input_line: str       = clean_up(input_line) # original input line of this formula, before any simplification
@@ -392,6 +394,8 @@ class Formula:
         self.label: str            = label              # basically, a name of the formula, e.g., "impl-intro"
         self.reason: str           = reason             # the reason for this formula, e.g., "axiom", "assumption", "def", "by"
         self.keyword: str          = keyword            # one of `use`, `assume`, `show`, `todo`
+        self.local: bool           = local              # `label local "..."`: not exported when this file is `load`ed elsewhere
+        self.def_symbol: Optional[str] = None           # for `def`-created formulas: the symbol it defines (see `eval_def`)
         self.id: int               = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
 
@@ -399,6 +403,11 @@ class Formula:
         # proven if `self.keyword in ['', 'todo']`
         # not proven is `self.keyword in ['use', 'show']`
         return self.keyword in ['', 'todo']
+
+    def is_exported(self) -> bool:
+        # see doc/kurt-doc.md's `load` section: a labelled, non-`local` fact is exported
+        # when this file is `load`ed elsewhere; an unlabelled or `local`-labelled one isn't
+        return len(self.label) > 0 and not self.local
 
     def clone(self, new_expr: Expr, kb: KnowledgeBase) -> Formula:
         cloned_f = Formula(
@@ -409,9 +418,11 @@ class Formula:
             filename   = self.filename,
             label      = self.label,
             reason     = self.reason,
-            keyword    = self.keyword
+            keyword    = self.keyword,
+            local      = self.local
         )
         cloned_f.id = self.id
+        cloned_f.def_symbol = self.def_symbol
         return cloned_f
 
     def prefix_str(self) -> str:
@@ -739,6 +750,55 @@ class KnowledgeBase:
         # there shouldn't be any promised formulas in self
         if len(self.show) > 0:
             raise KurtException(f'EvalError: cannot merge and pop a level with promised formulas, got {len(self.show)} formulas.')
+
+        # SELECTIVE EXPORT: only labelled, non-`local` facts -- and whatever symbol
+        # declarations they actually need -- travel to the parent (see doc/kurt-doc.md's
+        # `load` section, doc/kurt-soundness.md #7). An unlabelled or `local`-labelled fact
+        # stays entirely inside this file; a symbol only ever mentioned by such facts is
+        # invisible from outside too, with no separate annotation needed.
+        exported = [f for f in self.theory if f.is_exported()]
+        local_def_symbols = {f.def_symbol for f in self.theory if f.def_symbol is not None and not f.is_exported()}
+
+        exported_symbols: set[str] = set()
+        for f in exported:
+            exported_symbols |= free_symbols(f.expr, self)
+
+        # custom brackets are special: what actually shows up in a parsed expression is the
+        # synthetic combined token (`{lbracket}$$${rbracket}`), but the pair's own const/nud/
+        # lbp entries are keyed by the raw bracket characters -- pull those in too once the
+        # pair is confirmed needed
+        for rbracket, lbracket in self.brackets.items():
+            if f'{lbracket}$$${rbracket}' in exported_symbols:
+                exported_symbols |= {lbracket, rbracket}
+
+        # aliases are pure syntax sugar for an existing symbol -- axioms are written with the
+        # canonical name (e.g. `not`), so an alias (`¬`) never itself "occurs" in a formula.
+        # Pull in any alias whose target is already exported; iterate to a fixed point in
+        # case aliases chain.
+        changed = True
+        while changed:
+            changed = False
+            for alias_name, target in self.alias.items():
+                if target in exported_symbols and alias_name not in exported_symbols:
+                    exported_symbols.add(alias_name)
+                    changed = True
+
+        leaked = local_def_symbols & exported_symbols
+        if leaked:
+            raise KurtException(f'EvalError: symbol(s) {sorted(leaked)} are defined `local` but required by an exported fact -- export their `def` too, or keep them out of exported facts')
+
+        self.theory = exported
+        symbol_keyed_attrs = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop',
+                               'flat', 'sym', 'alias', 'used', 'latex', 'lbp', 'rbp', 'nud',
+                               'led', 'const', 'bool')
+        for attr in symbol_keyed_attrs:
+            value = getattr(self, attr)
+            if isinstance(value, dict):
+                setattr(self, attr, {k: v for k, v in value.items() if k in exported_symbols})
+            else:
+                assert isinstance(value, set), f'BUG: unexpected type for {attr}: {type(value)}'
+                setattr(self, attr, {s for s in value if s in exported_symbols})
+        self.chain = [c for c in self.chain if all(op in exported_symbols for op in c)]
 
         # merge all attributes except the excluded ones into the parent
         exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show", "calc", "indent", "hint"}
@@ -1449,6 +1509,18 @@ bracket_rbp:  int = 1                                      # right binding power
 bracket_lbp:  int = 1                                      # left  binding power of right brackets
 initial_kb.add_brackets('(', ')')                          # round brackets for grouping
 string_lbp:   int = 2                                      # left  binding power of strings
+
+def local_led(ts: PeekableGenerator, kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
+    # `local` immediately precedes the label string it modifies, e.g. `%A implies %A local
+    # "restatement"` -- grab that string directly, exactly like `qed`/`with` grab their own
+    # expected next token, rather than recursing through `parse_expression` for it
+    string_token = next(ts)
+    if string_token.label != 'STRING':
+        raise KurtException(f'SyntaxError: `{LOCAL_SYMBOL}` must be immediately followed by a string label', string_token.column)
+    return [op_token, string_token, left]
+
+initial_kb.lbp[LOCAL_SYMBOL] = string_lbp                  # `local` binds as loosely as a label itself
+initial_kb.led[LOCAL_SYMBOL] = local_led
 initial_kb.add_infix (COMMA_SYMBOL, 5, 5)                  # comma   is infix operator
 initial_kb.add_infix (IMPL_SYMBOL, 13, 12)                 # implies is infix operator
 initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and     is infix operator
@@ -1778,6 +1850,8 @@ def is_led_token(token: Token, kb: KnowledgeBase) -> bool:
     if token.label == 'SYMBOL':
         op = token.value
         assert isinstance(op, str)
+        if op == LOCAL_SYMBOL:
+            return True               # `local` immediately before a label, see `local_led`
         return kb.is_infix(op) or kb.is_postfix(op) or kb.is_rbracket(op)
     elif token.label == 'STRING':
         return True                  # this case is for handling the strings that give labels to formulas
@@ -1947,13 +2021,18 @@ def check_no_keyword(expr: Expr, top_level:bool = True) -> None:
         case _:
             pass
 
-def check_expr_label(expr: Expr, kb) -> tuple[Expr, str]:            # check [expr] [label]
+def check_expr_label(expr: Expr, kb) -> tuple[Expr, str, bool]:      # check [expr] [local] [label]
     # cases:
     #   x=9  "eq 1"
+    #   x=9  local "eq 1"       -- see `local_led`: not exported when this file is `load`ed
     #   true
     #   x=9
     label = ''
+    local = False
     match expr:
+        case [Token(label='SYMBOL', value=v), Token(label='STRING', value=label), tail] if v == LOCAL_SYMBOL:
+            assert isinstance(label, str)
+            local = True
         case [Token(label='STRING', value=label), *tail]:  # labels are parsed like very low binding postfix operators
             assert isinstance(label, str)
             if len(tail) == 1:
@@ -1965,33 +2044,34 @@ def check_expr_label(expr: Expr, kb) -> tuple[Expr, str]:            # check [ex
             tail = expr
         case _:
             assert False, f'BUG: list or Token expected, got {expr_str(expr, kb)}'
-    return tail, label
+    return tail, label, local
 
-def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str]:
+def post_process(kb: KnowledgeBase, expr: Expr) -> tuple[Expr, str, bool]:
     expr = flatten_op(SPACE_SYMBOL, expr, kb)           # flatten all space operators
     expr = process_arity(expr, kb)                      # turns space operators into function calls according to arities
     expr = remove_round_brackets(expr, kb)              # remove round brackets for grouping
-    expr, label = check_expr_label(expr, kb)       # check and split `expr` and `label`
+    expr, label, local = check_expr_label(expr, kb)     # check and split `expr`, `label`, and `local`
     expr = flatten_all(expr, kb)                        # flatten `flat` operators
     expr = symmetrize_all(expr, kb)                     # symmetrize `sym` operators
     if kb.calc:
         expr = kb.calculate(expr)
-    return expr, label
+    return expr, label, local
 
-def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optional[Token], list[Expr], str]:
+def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optional[Token], list[Expr], str, bool]:
     assert isinstance(ts.peek, Token)
     keyword_token: Optional[Token] = None
     keyword: str = ''
     label: str = ''
+    local: bool = False
     if ts.peek.label == 'SYMBOL' and ts.peek.value in keywords:
         keyword = ts.peek.value
         keyword_token = next(ts)                              # remove a keyword right away early
-    if ts.peek.label == 'END': 
-        return keyword_token, [], ''                          # empty token stream
+    if ts.peek.label == 'END':
+        return keyword_token, [], '', False                   # empty token stream
     expr_list: list[Expr]
     if keyword_token is None or keyword_token.value in keywords_with_parsing:
         expr: Expr  = parse_expression(ts, kb, begin_rbp)     # parse expression
-        expr, label = post_process(kb, expr)                  # turn spaces into calls, symmetry, flatness
+        expr, label, local = post_process(kb, expr)           # turn spaces into calls, symmetry, flatness
         expr_list = chop_off_comma(expr)
         check_for_helper_keywords(expr_list)    # `with` is only allowed on top level
         check_no_keyword(expr_list)             # keywords are not allowed in expressions
@@ -2006,7 +2086,7 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optiona
     else:
         expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
         check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
-    return keyword_token, expr_list, label
+    return keyword_token, expr_list, label, local
 
 ## kurt eval
 def create_usage(keyword: str, arg_labels: list[list[Label]]) -> str:
@@ -2071,7 +2151,7 @@ def bare_bool_schema_axiom_warning(expr: Expr, kb: KnowledgeBase) -> Optional[st
                     return f'Warning: `{expr_str(expr, kb)}` makes `{expr_str(other, kb)}` exactly as unconstrained as `{var}`, so it becomes trivially provable -- see doc/kurt-soundness.md #6'
     return None
 
-def eval_use(kb: KnowledgeBase, expr: Expr, input_line: str,label: str, filename: str, line: int, mainstream: bool, keyword: str) -> Formula:
+def eval_use(kb: KnowledgeBase, expr: Expr, input_line: str,label: str, filename: str, line: int, mainstream: bool, keyword: str, local: bool = False) -> Formula:
     if not bool_expr(expr, kb, strict=False):    # not strict, since we are possibly adding new symbols
         raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
     warning = bare_bool_schema_axiom_warning(expr, kb)
@@ -2081,15 +2161,15 @@ def eval_use(kb: KnowledgeBase, expr: Expr, input_line: str,label: str, filename
     if len(label) > 0:
         reason += f' "{label}"'
     reason = decorate_reason(mainstream, reason, filename, str(line))
-    return Formula(kb, expr, input_line, str(line), filename, label, reason, keyword)
+    return Formula(kb, expr, input_line, str(line), filename, label, reason, keyword, local=local)
 
-def eval_show(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
+def eval_show(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filename: str, line: int, mainstream: bool, local: bool = False) -> KnowledgeBase:
     if not bool_expr(expr, kb, strict=False):   # not strict, since we are possibly adding new symbols
         raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
     reason = decorate_reason(mainstream, 'claim', filename, str(line))
     if len(label) > 0:
         reason += f' "{label}"'
-    f = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='show')
+    f = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='show', local=local)
     kb.show_append(f)
     if mainstream:
         log(kb, f'show {expr_str(expr, kb)}', reason, kb.level)
@@ -2105,7 +2185,7 @@ def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
 
 # def
 # LHS: exactly one unused symbol that is not a variable or boolean variable
-def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filename: str, line: int, mainstream: bool) -> tuple[Formula, str]:
+def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filename: str, line: int, mainstream: bool, local: bool = False) -> tuple[Formula, str]:
     match expr:
         case [Token(label='SYMBOL', value=s), LHS, RHS] if isinstance(s, str) and (s== EQUAL_SYMBOL or s==IFF_SYMBOL):
             lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s), kb)
@@ -2117,7 +2197,9 @@ def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filenam
                 raise KurtException(f'EvalError: `def` does not allow new symbols on the right-hand side, got `{rhs_candidates}` in `{expr_str(expr, kb)}`')
         case _:
             raise KurtException(f'EvalError: `def` only allowed with `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got `{expr_str(expr, kb)}`')
-    return eval_use(kb, expr, input_line, label, filename, line, keyword='def', mainstream=False), lhs_const
+    f = eval_use(kb, expr, input_line, label, filename, line, keyword='def', mainstream=False, local=local)
+    f.def_symbol = lhs_const
+    return f, lhs_const
 
 def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
     # check whether the expression contains any boolean variables
@@ -2148,6 +2230,33 @@ def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
             return any(contains(c, symbols, kb) for c in children)
         case _:
             return False
+
+def free_symbols(expr: Expr, kb: KnowledgeBase, bound_vars: frozenset[str] = frozenset()) -> set[str]:
+    # collect every symbol name occurring free (not bound by an enclosing binder) in `expr`
+    # -- used by `merge_and_pop` to compute which symbol declarations an exported fact needs
+    # to travel with it when this file is `load`ed elsewhere (see doc/kurt-doc.md's `load`
+    # section). Bound-variable-aware, mirroring `contains` above.
+    match expr:
+        case Token(label='SYMBOL', value=s) if isinstance(s, str) and s not in bound_vars:
+            return {s}
+        case Token():
+            return set()
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            bound_v, condition = unpack_condition(cond, kb)
+            new_bound_vars = bound_vars | {bound_v}
+            found = set() if op in bound_vars else {op}
+            if condition is not None:
+                found |= free_symbols(condition, kb, new_bound_vars)
+            for child in tail:
+                found |= free_symbols(child, kb, new_bound_vars)
+            return found
+        case [*children]:
+            found: set[str] = set()
+            for child in children:
+                found |= free_symbols(child, kb, bound_vars)
+            return found
+        case _:
+            return set()
 
 def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     # a DEDENT (or `qed`) is closing a block opened by `assume`, `let`, `pick`, `proof`,
@@ -2266,7 +2375,6 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         reason = f'by a miracle'
         if mainstream:
             log(kb, 'todo', reason, kb.level)
-        label = ''
     else:
         reason = ''
         # block all free variables of the planned expression, since they are universally quantified
@@ -2280,8 +2388,10 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         #if optional_s is None:
         #    raise KurtException(f'ProofError: planned formula `{expr_str(planned_expr, kb)}` does not match the last formula in the theory `{expr_str(proven_expr, kb)}`')
         reason = decorate_reason(mainstream, reason, filename, str(line))
-        label = ''
-    f = Formula(kb, planned_f.expr, planned_f.input_line, str(planned_f.line), filename, label, reason, keyword='')
+    # carry the `show`'s own label/local marker forward -- a proved, named theorem must stay
+    # exportable exactly like a labelled `use`/`def` axiom would be (see doc/kurt-doc.md's
+    # `load` section); this used to be silently dropped (`label = ''` unconditionally) here
+    f = Formula(kb, planned_f.expr, planned_f.input_line, str(planned_f.line), filename, planned_f.label, reason, keyword='', local=planned_f.local)
     kb = kb.pop_level()                        # drop current level and perform some checks
     kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
     kb.theory_append(f)                        # add a copy to the current theory
@@ -2353,7 +2463,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, input_li
     tokenlist: Expr = fact_expr + [end_token]                          # add end token for parse_expression
     ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
     fact = parse_expression(ts, kb, begin_rbp)     # parse the tokenlist
-    fact, label = post_process(kb, fact)      # turn spaces into calls, symmetry, flat space operators
+    fact, label, local = post_process(kb, fact)      # turn spaces into calls, symmetry, flat space operators
 
     # (2) check that the `fact` matches some existential statement in the theory so far
     for candidate in kb.all_theory():
@@ -2376,7 +2486,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, input_li
     reason = f'added as a fact for witness `{new_const}`'
     # split the input_line into LHS + 'with' + RHS
     input_line = input_line.split('with')[1].strip() if 'with' in input_line else ''
-    f = Formula(kb, fact, input_line, str(line), filename, label, reason, keyword='')
+    f = Formula(kb, fact, input_line, str(line), filename, label, reason, keyword='', local=local)
     kb.theory_append(f)
     return kb, fact
 
@@ -2411,7 +2521,7 @@ def eval_global_toggle(keyword: str, args: list[Expr], kb: KnowledgeBase) -> Non
     else:
         raise KurtException(f'ParseError: wrong arguments, possible is:\n    {keyword} on\n    {keyword} off')
 
-def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
+def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool, local: bool = False) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
     assert isinstance(args, list)
@@ -2784,7 +2894,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             formulas = []
             for expr in args:
                 try:
-                    formulas.append(eval_use(kb, expr, input_line, label, filename, line, mainstream, keyword))  # use the expression as an assumption
+                    formulas.append(eval_use(kb, expr, input_line, label, filename, line, mainstream, keyword, local))  # use the expression as an assumption
                 except KurtException:
                     # let's forget about the new `formulas` and raise an exception
                     raise
@@ -2801,7 +2911,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             lhs_consts = []
             for expr in args:
                 try:
-                    f, lc = eval_def(kb, expr, input_line, label, filename, line, mainstream)  # use the expression as a definition
+                    f, lc = eval_def(kb, expr, input_line, label, filename, line, mainstream, local)  # use the expression as a definition
                     formulas.append(f)
                     lhs_consts.append(lc)
                 except KurtException:
@@ -2846,7 +2956,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             log(kb, kb.show_str())
         elif len(args) == 1:
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
-            kb = eval_show(kb, expr, input_line, label, filename, line, mainstream)
+            kb = eval_show(kb, expr, input_line, label, filename, line, mainstream, local)
         else:
             raise KurtException(f'ParseError: `show` takes only one formula, no comma-separated list allowed')
 
@@ -2975,7 +3085,7 @@ def split_by_comma(e: Expr) -> list[Expr]:
         args.append(current_arg)
     return args
 
-def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input_line: str, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool) -> KnowledgeBase:
+def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input_line: str, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool, local: bool = False) -> KnowledgeBase:
     if keyword_token is None:
         # expression without keyword: try to derive the formula and add it to the theory
         if len(expr_list) == 0:
@@ -3006,15 +3116,14 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
                     if mainstream:
                         log(kb, sub_f.formula_str(kb), reason, kb.level)
                 reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
-            label = ''
-            f = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='')
+            f = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='', local=local)
             kb.theory_append(f)                         # add it to the knowledge base
             if mainstream:
                 log(kb, f.formula_str(kb), reason, kb.level)
         return kb
     else:
         # expression with a keyword
-        return eval_keyword_expression(keyword_token, expr_list, input_line, label, kb, line, filename, mainstream)
+        return eval_keyword_expression(keyword_token, expr_list, input_line, label, kb, line, filename, mainstream, local)
 
 ########################
 ## kurt type checking ##
@@ -4208,7 +4317,7 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     for i in range(dedents):
         assert kb_predecessor.parent is not None, f'BUG: too many dedents at line {line} in {filename}'
         kb_predecessor = kb_predecessor.parent   # go to the predecessor for parsing
-    keyword_token, expr_list, label = parse_tokenstream(ts, kb_predecessor)  # runs the parser
+    keyword_token, expr_list, label, local = parse_tokenstream(ts, kb_predecessor)  # runs the parser
 
     # behavior for `break`, `qed`, and pure DEDENTs -- indentation drives block closing
     # identically whether reading a file or the interactive shell:
@@ -4297,7 +4406,7 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             dedents -= 1
 
         # evaluate the expression
-        kb = eval_expression(keyword_token, expr_list, input_line, label, kb, line, filename, mainstream) # evaluation
+        kb = eval_expression(keyword_token, expr_list, input_line, label, kb, line, filename, mainstream, local) # evaluation
 
     # update lexer state for indentation handling
     if keyword_token is not None and keyword_token.value in keywords_opening_blocks:

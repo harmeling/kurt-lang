@@ -4,16 +4,16 @@ prefix b 20, d 20          ; box and diamond
 bool b, d, A, B, p, q
 alias □ b
 alias ◇ d
-use ◇A ≡ ¬□¬A
-use □A ≡ ¬◇¬A
-use ◇p ∨ ◇q ≡ ◇(p ∨ q)
-use □p ∧ □q ≡ □(p ∧ q)
+use ◇A ≡ ¬□¬A   "diamond-def"
+use □A ≡ ¬◇¬A   "box-def"
+use ◇p ∨ ◇q ≡ ◇(p ∨ q)   "diamond-distrib-or"
+use □p ∧ □q ≡ □(p ∧ q)   "box-distrib-and"
 
 ; system K
 use □(p ⇒ q) ⇒ (□p ⇒ □q)    "K"
 
 ; system T
-use p ⇒ ◇p
+use p ⇒ ◇p   "T"
 
 ; for automatic testing we add the following line:
 ;;; Proof checked.

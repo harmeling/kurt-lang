@@ -32,6 +32,7 @@ THEORIES -- building and reusing bodies of knowledge
     13-todo      admitting a step as an exercise/placeholder
     14-sandbox   a scratch block that is thrown away when closed
     15-expect    a block that must fail, with a named kind of error
+    16-local     what a loaded file does and doesn't export
 
 BLOCKS -- natural-deduction-style sub-proofs
 -----------------------------------------------

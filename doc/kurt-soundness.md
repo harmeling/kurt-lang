@@ -508,6 +508,91 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   still requires the real `%A or %B` axiom to be in scope) — mentioned for
   completeness, not because it looks dangerous.
 
+## 7. Selective export (`load`'s `local` labels)
+
+Resolves the design question raised alongside "file-local variables /
+explicit theory export" in `todo-claude.md`: what exactly should a `load`ed
+file make visible? Implemented as: a `use`/`def` axiom or a proved
+(`show`/`proof`/`qed`) theorem is exported exactly when it carries a label
+that isn't marked `local` (`EXPR local "label"`, a new low-binding-power
+continuation registered directly on `initial_kb` — see `local_led`); an
+unlabelled fact defaults to *not* exported, same as an explicitly `local`
+one. A symbol has no export marking of its own — it's exported exactly
+when some exported fact's free symbols (`free_symbols`, mirroring
+`contains`'s bound-variable-aware traversal) actually mention it. See
+`doc/kurt-doc.md`'s `load` section for the user-facing description.
+
+**Soundness-relevant guarantee, not just an encapsulation nicety:** a
+`def`'s two halves (the symbol, and the fact defining what it means) can
+never be silently split by export filtering. If a `local`-marked `def`'s
+symbol is still needed by some other, exported fact in the same file,
+`merge_and_pop` raises a clear `EvalError` naming the symbol rather than
+either (a) silently promoting the `local` marking away (which would leak
+something the author explicitly asked to keep private) or (b) silently
+letting the symbol travel with no definition attached (which would leave
+it meaningless — an opaque symbol with a stated arity/type but no axiom
+relating it to anything — downstream, with no warning that anything is
+missing).
+
+**Two bugs found and fixed while implementing this, both about what
+"a fact's free symbols" has to include beyond the obvious:**
+
+1. **Aliases never occur in a formula.** `alias ¬ not` means axioms are
+   written with the canonical name (`not`), so `¬` itself is never a "free
+   symbol" of any fact — the first version of the closure computation
+   missed this, so `¬` silently lost its alias status on export even
+   though `not` (its target) survived. Confirmed by a real failure:
+   `proofs/natural-deduction/neg-forall.kurt` (`load logic` → `prop`,
+   writes `¬P(x)`) misparsed as soon as this closure ran. Fixed by
+   iterating alias membership to a fixed point: any alias whose target is
+   already exported gets pulled in too.
+2. **Custom brackets parse into a synthetic combined token**
+   (`{lbracket}$$${rbracket}`, e.g. `{$$$}`), but the pair's own
+   `const`/`nud`/`lbp` entries are keyed by the *raw* bracket characters —
+   so checking only "does the synthetic name occur in an exported fact"
+   correctly finds that the pair is needed, but doesn't by itself preserve
+   the raw-character-keyed entries that actually make it parse. Fixed by
+   pulling the raw `lbracket`/`rbracket` characters into the exported-symbol
+   set whenever their synthetic combined name is found. Exercised for real
+   by `set.kurt`'s `{ ... | ... }`/`[ ... ]` (loaded by
+   `proofs/mafi1/001-two-equal-sets.kurt`), and directly regression-tested
+   for the alias case in
+   `proofs/soundness/load-export-alias-of-exported-symbol-survives.kurt`.
+
+**Retrofitting note:** every shipped theory needed auditing for this
+change, since an unlabelled `use`/`def` (previously always exported)
+silently stops being exported. `prop.kurt`/`logic.kurt`/`equality.kurt`
+were already fully labelled. `arith.kurt` (previously all ~50 rules
+unlabelled), `set.kurt` (one unlabelled rule), and `modal.kurt` (5 of 6
+unlabelled) were retrofitted with labels. `natural.kurt` turned out to
+have been silently broken independently of this feature — see the next
+paragraph — and was rewritten while fixing it. Confirmed via an explicit
+audit (grep every `use`/`def` across `src/kurt/theories/`, cross-check
+against every `load` site in `proofs/`/`tutorial/`) that no currently
+passing test relied on anything that stopped being exported.
+
+**A genuinely separate, pre-existing bug found along the way, unrelated to
+this feature:** `natural.kurt`'s `def Nat = {0, 1, 2, ...}` never actually
+worked. Three independent problems stacked up: (1) the lexer greedily
+merges adjacent "standard operator" punctuation, so `...}` (no space)
+lexed as one token, `'...}'`, swallowing the closing brace — the resulting
+unclosed bracket left the parser permanently waiting for more input, which
+silently swallowed the *entire rest of the file* with no error at all,
+because `read_eval_loop` just breaks out of its loop on EOF while still
+"waiting for a continuation" (see `doc/kurt-doc.md` §11 for the general
+lexer gap); (2) even with correct tokenization, `,` and `...` aren't
+classified as constants anywhere, so `def`'s right-hand-side check
+(`extract_by_condition`) rejected them as disallowed "new symbols"; (3)
+`natural.kurt` never `load`ed `set.kurt` (needed for `in`/`∈`, which the
+file's own commented-out "alternative" definition already used) and
+declared its own `+` with a binding power (10) weaker than `in`'s (25),
+so `$n+1 in Nat` would have parsed as `$n + (1 in Nat)` even if everything
+else had worked. None of this was ever caught because `natural.kurt` isn't
+`load`ed by anything in `proofs/`/`tutorial/` — nothing ever exercised it.
+Rewritten to declare `Nat` as a plain `const`, `load set`, and use a
+correctly-binding `+`; regression coverage in `proofs/soundness/`
+(`load-export-*.kurt`) and confirmed by direct standalone loading.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

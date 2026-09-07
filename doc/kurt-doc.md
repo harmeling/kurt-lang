@@ -372,12 +372,19 @@ theory is silently treated as a no-op restatement rather than logged again.
 ### 6.2 `use` and `def`
 
     use EXPR              ; use EXPR "label"
+    use EXPR local "label"
     def SYMBOL = EXPR
     def SYMBOL iff EXPR
 
 `use` adds `EXPR` to the theory as an **axiom** — accepted without proof.
 An optional trailing string labels it (shown in later log lines and error
-messages instead of a bare line number).
+messages instead of a bare line number). The label also controls whether
+`EXPR` is *exported* when this file is `load`ed elsewhere — see §8.2 —
+unless it's marked `local`, in which case the label is still used for
+display but the fact stays private to this file. `show`/`proof`/`qed` (§7)
+and `def` follow the exact same rule: `def`'s label controls whether the
+symbol it introduces is (indirectly) exportable, and a proved theorem's
+`show` label carries forward to the final proved formula.
 
 Since a bare `%`/`$` schema variable in a `use`/`def` axiom means "for any
 value of this symbol", it's easy to accidentally write an axiom that's far
@@ -536,11 +543,53 @@ declaring their own prerequisites via their own `load` lines:
 | `logic.kurt` | forall-elim, exists-intro (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
 | `set.kurt` | `in`/`∈`, `⊂`, `∪`, `∩`, set-builder `{ ... \| ... }`, `∅`, `Pow` | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
-| `natural.kurt` | natural numbers | `equality` |
+| `natural.kurt` | natural numbers | `set` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
 | `induction.kurt`, `lambda-calculus.kurt`, `latex.kurt` | (see file) | none declared |
 
 `load` with no arguments lists every file loaded so far, level by level.
+
+#### What gets exported
+
+Not everything a loaded file declares becomes visible to whoever loads it.
+A `use`/`def` axiom or a proved (`show`/`proof`/`qed`) theorem is
+**exported** exactly when it carries a label and that label isn't marked
+`local` (§6.2) — an unlabelled fact, or one labelled `EXPR local "..."`,
+stays entirely inside the file that wrote it. Symbols work the same way,
+but with no separate marking of their own: a symbol is exported exactly
+when some exported fact actually mentions it (its arity, fixity, boolean
+signature, and so on all travel along with it, so the fact can still be
+parsed and type-checked downstream); a symbol that only ever appears in
+local facts is invisible from outside too, freeing up its name for
+something else entirely unrelated in whatever file loads this one. An
+alias (`alias`) travels automatically with whatever symbol it names, since
+an alias never itself appears written out in a formula — axioms are always
+written with the canonical name.
+
+This makes `def`'s two halves — the new symbol, and the fact defining what
+it means — travel together when exported. If a `def` is marked `local` but
+some *other*, exported fact in the same file still needs that symbol, the
+file fails to load with a clear error naming the symbol, rather than
+silently promoting the `local` marking away or silently leaving the symbol
+meaningless downstream.
+
+Variables (`var`, and free variables' scoping generally) are always
+file-local regardless of labelling — this was already true before the
+label/`local` mechanism existed.
+
+Example:
+
+    ; helper.kurt
+    bool P, Q
+    use P            "exported"      ; travels to whoever loads helper.kurt
+    use Q            local "hidden"  ; stays inside helper.kurt
+    def R iff P      "also exported" ; R travels too, since it's labelled
+
+    ; main.kurt
+    load helper
+    P                 ; fine -- P was exported
+    R                 ; fine -- R (and its definition) was exported
+    Q                 ; EvalError -- Q was never exported, unknown symbol
 
 ## 9. Blocks and natural deduction
 
@@ -706,6 +755,12 @@ nothing reads its value yet.
   `kurt -l` instead.
 - A custom `brackets` pair does not disappear the way `(` `)` does — it
   stays a real (currently rather ugly-printing) operator (§4.2).
+- Multi-character "standard operator" punctuation (`.`, `:`, `=`, `+`, `-`,
+  `*`, `/`, `#`, `&`, `^`, `'`, `∈`, `!`, `<`, `>`, `{`, `}`, `[`, `]`, `|`,
+  `_`) is lexed greedily, so writing one immediately next to another with
+  no space merges them into a single, likely nonsensical token — e.g.
+  `{0, 1, 2, ...}` lexes `...}` as one symbol, silently eating the closing
+  brace (write `... }` with a space instead).
 
 See `todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.

@@ -49,6 +49,10 @@ Run the interpreter directly:
 - `proofs-not-yet/` = proofs that are known not to work yet; they are **not** scanned by the test discovery and exist as a to-do backlog for language features.
 - `tutorial/*.kurt` are the numbered tutorial lesson files (see `tutorial/plan.md`) and are not part of the `proofs/`-style auto-discovered test set — they carry no `;;; ` marker. `tests/test_kurt_tutorial.py` covers them separately: it only asserts that each lesson still `load_file`s without raising a `KurtException`, i.e. that it hasn't bit-rotted as the language changes, not that its output matches anything specific.
 
+## Git workflow
+
+After creating a commit, also push it — but only when the current branch is `agent`. On any other branch (`main` in particular), commit as usual but do not push without being explicitly asked.
+
 ## Architecture
 
 `src/kurt/kurt.py` processes a `.kurt` file (or REPL line) in a single pass through four stages, applied incrementally per top-level statement:
@@ -62,13 +66,14 @@ Key data structures:
 
 - `Expr` (`list["Expr"] | Token`) — the universal term representation; a leaf is a `Token`, an internal node is a Python list `[op, arg1, arg2, ...]`.
 - `Token` — carries the symbol's `Value` plus source position (line/column/filename) for error reporting.
-- `Formula` — a proven/assumed statement in the theory: wraps an `Expr` with its label, reason, source line, and keyword.
+- `Formula` — a proven/assumed statement in the theory: wraps an `Expr` with its label, reason, source line, and keyword. `Formula.local`/`is_exported()` control whether `load` exports it elsewhere (see below).
 - `State` — an immutable-style substitution/binding environment used during matching and quantifier handling (`bind`, `walk`, `occurs`, blocked-variable tracking).
 - `KnowledgeBase` (`KnowledgeBase` class, `kb` throughout the code) — the central mutable-ish context: current theory (proven formulas), symbol table (fixity/arity/aliases/bool signatures), and a **level stack**. Proof blocks (`proof`, `assume`, `case`, `let`, `pick`) push/pop levels via `push_level` / `pop_level` / `merge_and_pop`, each level scoping its own local assumptions and constants that get discharged when the block closes (e.g. `assume`/`case` blocks introduce a hypothesis that must be resolved before merging back into the parent level).
 
 Loading and modularity:
 
 - `load_file` resolves `load "foo.kurt"` against `theory_path` (cwd first, then the packaged `kurt.theories` resources) — this is how `.kurt` files pull in reusable theories (see `src/kurt/theories/*.kurt`: `minimal.kurt`, `prop.kurt`, `logic.kurt`, `equality.kurt`, `arith.kurt`, `set.kurt`, `natural.kurt`, `induction.kurt`, `modal.kurt`, `lambda-calculus.kurt`, `latex.kurt`).
+- `merge_and_pop` (called once, at the end of `load_file`) implements *selective export*: only a `use`/`def`/proved-theorem fact carrying a label that isn't marked `local` (`EXPR local "label"`, see `local_led`) is exported to the loading file, along with whatever symbols (`free_symbols`) that fact actually needs — an unlabelled fact, or a symbol only ever used in local facts, stays invisible outside the file that wrote it. See `doc/kurt-doc.md`'s `load` section and `doc/kurt-soundness.md` §7.
 - `initial_kb` (module-level) is the pristine starting `KnowledgeBase`; tests `copy.deepcopy` it per test case to avoid cross-test contamination.
 - `mainstream` (a bool threaded through most eval functions) distinguishes output that should be printed/logged from output produced while silently loading dependencies.
 

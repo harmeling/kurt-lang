@@ -1,4 +1,8 @@
 ; helper theory for arity-redeclaration-across-load-rejected.kurt. Auto-discovered and run
-; on its own too, so it needs a valid marker.
+; on its own too, so it needs a valid marker. The fact must be labelled (exported) so `P`'s
+; arity actually survives the `load` boundary -- otherwise there would be nothing left for
+; arity-conflict-helper-b.kurt's own `arity P 2` to conflict with once loaded afterward.
 arity P 1
+bool P
+use P $x implies P $x  "trivial"
 ;;; Proof checked.

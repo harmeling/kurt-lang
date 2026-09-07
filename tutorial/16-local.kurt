@@ -1,0 +1,33 @@
+; 16-local.kurt
+
+; Not every `use`/`def`/proved theorem in a loaded file becomes available to
+; you. Whether one does depends entirely on its label (10-load.kurt, 02-use.kurt,
+; 11-def.kurt): a labelled fact is *exported*, an unlabelled one -- or one
+; explicitly labelled `local` -- stays inside the file that wrote it.
+
+load 16-local-helper
+
+P                      ; fine -- "exported" was labelled, so it travelled here
+
+; `Q` and `P implies Q` were never exported (one `local`, one unlabelled) --
+; try uncommenting either line below and you'll get an error, since neither
+; symbol nor fact ever arrived here:
+;
+;   Q
+;   use Q
+
+; a symbol itself is exported exactly when some exported fact actually
+; mentions it -- there's no separate "export this symbol" step. `P` came
+; along because the exported fact "exported" mentions it; `Q` didn't, because
+; nothing exported mentions it.
+
+; `local` works the same way for `def` -- a defined symbol and the fact
+; defining it travel together, or stay together:
+load prop
+bool R
+use R
+def S iff R  local "s-hidden"    ; both `S` and its meaning stay right here
+
+; this would fail if you tried it from a *different* file that only
+; `load`s this one -- `S` was never exported, so it wouldn't exist there:
+S iff R

@@ -1,19 +1,16 @@
 ; natural numbers
-load equality
+load set
 
 ;; syntax
-infix + 10 10
-brackets { }
+; `+` must bind tighter than `set.kurt`'s `in`/`∈` (25), otherwise `$n+1 in Nat` parses as
+; `$n + (1 in Nat)` instead of `($n+1) in Nat`
+infix + 60 60
 
 ;; inference rules
-def Nat = {0, 1, 2, ...}
+const Nat
 
-; alternatively
-use 0 in Nat
-use $n in Nat  implies  $n+1 in Nat
-
-; induction
-;use ($A // $x=0) and (forall $n in Nat  (($A // $x=$n) implies ($A // $x=$n+1))) implies forall $n in Nat  (A//$x=$n)  "induction"
+use 0 in Nat  "nat-zero"
+use $n in Nat  implies  $n+1 in Nat  "nat-succ"
 
 ; A(0)  and  forall n (A(n) -> A(n+1))   implies   forall n A(n)
 use ((sub $x 0 %A) ∧ (∀ $n ∈ Nat  (sub $x $n %A  ⇒  sub $x ($n+1) %A)))   ⇒ ∀ $n in Nat  (sub $x $n %A)   "induction"

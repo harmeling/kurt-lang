@@ -23,24 +23,24 @@ alias   ≤ <=
 alias   ≥ >=
 
 ;; rules
-use $a = $b  ⇒  $a + $c = $b + $c
-use $a = $b  ⇒  $a - $c = $b - $c
-use $a = $b  ⇒  $a * $c = $b * $c
-use $a = $b  ⇒  $a / $c = $b / $c
-use ($a + $b) * $c = $a * $c + $b * $c
-use ($a - $b) * $c = $a * $c - $b * $c 
+use $a = $b  ⇒  $a + $c = $b + $c   "add-eq"
+use $a = $b  ⇒  $a - $c = $b - $c   "sub-eq"
+use $a = $b  ⇒  $a * $c = $b * $c   "mul-eq"
+use $a = $b  ⇒  $a / $c = $b / $c   "div-eq"
+use ($a + $b) * $c = $a * $c + $b * $c   "distrib-add"
+use ($a - $b) * $c = $a * $c - $b * $c   "distrib-sub"
 
-use $a + (-$a) = 0       ; inverse element
-use $a - $a = 0          ; inverse element
-use $a * 1 = $a          ; neutral element
-use $a / 1 = $a          ; neutral element
-use $a * (-1) = -$a      ; inverse element
-use -(-$a) = $a          ; double negation
-use $a * 0 = 0           ; absorbing element
-use $a ≠ 0 ⇒ 0 / $a = 0  ; absorbing element
-use $a ≠ 0 ⇒ $a / $a = 1 ; neutral element
-use $a + 0 = $a          ; neutral element
-use $a - 0 = $a          ; neutral element
+use $a + (-$a) = 0       "add-inverse"
+use $a - $a = 0          "sub-inverse"
+use $a * 1 = $a          "mul-identity"
+use $a / 1 = $a          "div-identity"
+use $a * (-1) = -$a      "mul-neg-one"
+use -(-$a) = $a          "double-negation"
+use $a * 0 = 0           "mul-zero"
+use $a ≠ 0 ⇒ 0 / $a = 0  "zero-div"
+use $a ≠ 0 ⇒ $a / $a = 1 "div-self"
+use $a + 0 = $a          "add-identity"
+use $a - 0 = $a          "sub-identity"
 
 ; use $a ^ $b * $a ^ $c = $a ^ ($b + $c)  ; laws of exponents
 ; use ($a ^ $b) ^ $c = $a ^ ($b * $c)     ; laws of exponents
@@ -48,61 +48,64 @@ use $a - 0 = $a          ; neutral element
 ; use $a ^ 1 = $a                         ; laws of exponents
 
 ;; order rules: <
-use $a < $b  ⇒  $a + $c < $b + $c
-use $a < $b  ⇒  $a - $c < $b - $c
-use $c > 0 ∧ $a < $b  ⇒  $a * $c < $b * $c
-use $c > 0 ∧ $a < $b  ⇒  $a / $c < $b / $c
-use $c < 0 ∧ $a < $b  ⇒  $a * $c > $b * $c
-use $c < 0 ∧ $a < $b  ⇒  $a / $c > $b / $c
+use $a < $b  ⇒  $a + $c < $b + $c   "lt-add"
+use $a < $b  ⇒  $a - $c < $b - $c   "lt-sub"
+use $c > 0 ∧ $a < $b  ⇒  $a * $c < $b * $c   "lt-mul-pos"
+use $c > 0 ∧ $a < $b  ⇒  $a / $c < $b / $c   "lt-div-pos"
+use $c < 0 ∧ $a < $b  ⇒  $a * $c > $b * $c   "lt-mul-neg"
+use $c < 0 ∧ $a < $b  ⇒  $a / $c > $b / $c   "lt-div-neg"
 
 ;; order rules: <=
-use $a <= $b  ⇒  $a + $c <= $b + $c
-use $a <= $b  ⇒  $a - $c <= $b - $c
-use $c > 0 ∧ $a <= $b  ⇒  $a * $c <= $b * $c
-use $c > 0 ∧ $a <= $b  ⇒  $a / $c <= $b / $c
-use $c < 0 ∧ $a <= $b  ⇒  $a * $c >= $b * $c
-use $c < 0 ∧ $a <= $b  ⇒  $a / $c >= $b / $c
+use $a <= $b  ⇒  $a + $c <= $b + $c   "le-add"
+use $a <= $b  ⇒  $a - $c <= $b - $c   "le-sub"
+use $c > 0 ∧ $a <= $b  ⇒  $a * $c <= $b * $c   "le-mul-pos"
+use $c > 0 ∧ $a <= $b  ⇒  $a / $c <= $b / $c   "le-div-pos"
+use $c < 0 ∧ $a <= $b  ⇒  $a * $c >= $b * $c   "le-mul-neg"
+use $c < 0 ∧ $a <= $b  ⇒  $a / $c >= $b / $c   "le-div-neg"
 
 ;; order rules: >
-use $a > $b  ⇒  $a + $c > $b + $c
-use $a > $b  ⇒  $a - $c > $b - $c
-use $c > 0 ∧ $a > $b  ⇒  $a * $c > $b * $c
-use $c > 0 ∧ $a > $b  ⇒  $a / $c > $b / $c
-use $c < 0 ∧ $a > $b  ⇒  $a * $c < $b * $c
-use $c < 0 ∧ $a > $b  ⇒  $a / $c < $b / $c
+use $a > $b  ⇒  $a + $c > $b + $c   "gt-add"
+use $a > $b  ⇒  $a - $c > $b - $c   "gt-sub"
+use $c > 0 ∧ $a > $b  ⇒  $a * $c > $b * $c   "gt-mul-pos"
+use $c > 0 ∧ $a > $b  ⇒  $a / $c > $b / $c   "gt-div-pos"
+use $c < 0 ∧ $a > $b  ⇒  $a * $c < $b * $c   "gt-mul-neg"
+use $c < 0 ∧ $a > $b  ⇒  $a / $c < $b / $c   "gt-div-neg"
 
 ;; order rules: >=
-use $a >= $b  ⇒  $a + $c >= $b + $c
-use $a >= $b  ⇒  $a - $c >= $b - $c
-use $c > 0 ∧ $a >= $b  ⇒  $a * $c >= $b * $c
-use $c > 0 ∧ $a >= $b  ⇒  $a / $c >= $b / $c
-use $c < 0 ∧ $a >= $b  ⇒  $a * $c <= $b * $c
-use $c < 0 ∧ $a >= $b  ⇒  $a / $c <= $b / $c
+use $a >= $b  ⇒  $a + $c >= $b + $c   "ge-add"
+use $a >= $b  ⇒  $a - $c >= $b - $c   "ge-sub"
+use $c > 0 ∧ $a >= $b  ⇒  $a * $c >= $b * $c   "ge-mul-pos"
+use $c > 0 ∧ $a >= $b  ⇒  $a / $c >= $b / $c   "ge-div-pos"
+use $c < 0 ∧ $a >= $b  ⇒  $a * $c <= $b * $c   "ge-mul-neg"
+use $c < 0 ∧ $a >= $b  ⇒  $a / $c <= $b / $c   "ge-div-neg"
 
 ;; order rules: mixed
-use $a < $b  ⇒  ¬($a >= $b)
-use $a > $b  ⇒  ¬($a <= $b)
-use $a <= $b  ⇒  ¬($a > $b)
-use $a >= $b  ⇒  ¬($a < $b) 
+use $a < $b  ⇒  ¬($a >= $b)   "lt-not-ge"
+use $a > $b  ⇒  ¬($a <= $b)   "gt-not-le"
+use $a <= $b  ⇒  ¬($a > $b)   "le-not-gt"
+use $a >= $b  ⇒  ¬($a < $b)   "ge-not-lt"
 
 ;; transitivity
-use $a < $b ∧ $b < $c  ⇒  $a < $c
-use $a > $b ∧ $b > $c  ⇒  $a > $c
-use $a <= $b ∧ $b <= $c  ⇒  $a <= $c
-use $a >= $b ∧ $b >= $c  ⇒  $a >= $c
-use $a < $b ∧ $b <= $c  ⇒  $a < $c
-use $a > $b ∧ $b >= $c  ⇒  $a > $c
-use $a <= $b ∧ $b < $c  ⇒  $a < $c
-use $a >= $b ∧ $b > $c  ⇒  $a > $c
+use $a < $b ∧ $b < $c  ⇒  $a < $c   "lt-trans"
+use $a > $b ∧ $b > $c  ⇒  $a > $c   "gt-trans"
+use $a <= $b ∧ $b <= $c  ⇒  $a <= $c   "le-trans"
+use $a >= $b ∧ $b >= $c  ⇒  $a >= $c   "ge-trans"
+use $a < $b ∧ $b <= $c  ⇒  $a < $c   "lt-le-trans"
+use $a > $b ∧ $b >= $c  ⇒  $a > $c   "gt-ge-trans"
+use $a <= $b ∧ $b < $c  ⇒  $a < $c   "le-lt-trans"
+use $a >= $b ∧ $b > $c  ⇒  $a > $c   "ge-gt-trans"
 
 ;; anti-symmetry
-use $a <= $b ∧ $a >= $b  ⇒  $a = $b
-use $a <  $b ∧ $a >  $b  ⇒  false
-use $a <  $b ∧ $a >= $b  ⇒  false
-use $a >  $b ∧ $a <= $b  ⇒  false
+use $a <= $b ∧ $a >= $b  ⇒  $a = $b   "le-ge-antisym"
+use $a <  $b ∧ $a >  $b  ⇒  false   "lt-gt-contra"
+use $a <  $b ∧ $a >= $b  ⇒  false   "lt-ge-contra"
+use $a >  $b ∧ $a <= $b  ⇒  false   "gt-le-contra"
 
 ;; trichotomy
-use $a < $b ∨ $a = $b ∨ $a > $b
+use $a < $b ∨ $a = $b ∨ $a > $b   "trichotomy"
+
+;; factorial
+use 0! = 1   "factorial-base"
 
 ; for automatic testing we add the following line:
 ;;; Proof checked.

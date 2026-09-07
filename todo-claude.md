@@ -92,6 +92,41 @@ No code was changed while producing this file.
   `kurt.py` (in `rename_all_vars`: "some are renamed again, this can be
   improved later"). This task is basically already done; the one remaining
   comment is low priority (a correctness-preserving redundancy, not a bug).
+- **Re-check `tutorial/*.kurt` and `doc/*.md` for staleness, with a fresh
+  reviewer (no memory of this session's changes).** A long run of soundness
+  fixes landed in one sitting (hardcoded `forall`/`exists`, the `expect`
+  keyword, `sandbox`/`break` unification, the bare-`%`-schema-axiom warning,
+  `equal_expr` alpha-equivalence, `add_arity`/`add_bindop` ancestor checks,
+  the exit-code fix, the `local`/selective-export feature, ...) and each was
+  cross-checked against the docs *at the time*, but a session-long thread of
+  small edits is exactly the condition under which something gets missed or
+  a cross-reference quietly goes stale. Worth a dedicated pass by a reviewer
+  starting cold — reading `tutorial/*.kurt` end to end as a learner would
+  (note: there is no tutorial lesson for `local` yet, since it landed after
+  the tutorial was written — that's a real gap, not an oversight to
+  cross-check), and `doc/kurt-doc.md`/`kurt-soundness.md`/`dev-notes.md` for
+  accuracy against current
+  `kurt.py` behavior — rather than someone who already knows what "should"
+  be there.
+- **Lexer greedily merges adjacent "standard operator" punctuation
+  characters, including bracket characters.** Not in `todo.md`, found while
+  retrofitting `natural.kurt` for the `local`/export feature: `{0, 1, 2,
+  ...}` (no space before the closing brace) lexes `...}` as *one* symbol,
+  silently swallowing the closing brace. The immediate, worse-than-a-parse-
+  error consequence: the resulting unclosed bracket leaves the parser
+  permanently "waiting for a continuation" that never arrives, and
+  `read_eval_loop` just breaks out of its loop on EOF while in that state —
+  silently discarding the *entire rest of the file*, no error at all. Root
+  cause is the scanner's "standard operators" regex alternative
+  (`[.:=+\-*/#&^'∈!<>{{}}[\]|_]+`, note it includes `{`/`}`/`[`/`]`
+  alongside ordinary punctuation) matching greedily; worked around in
+  `natural.kurt` by adding a space, but the lexer itself is unfixed. A real
+  fix likely means excluding bracket/brace characters declared via
+  `brackets` from that greedy class, or splitting them into their own
+  single-character-only alternative — needs some care since `{`/`}` are
+  also usable as *ordinary* (non-custom-bracket) punctuation before any
+  `brackets { }` declaration exists. Documented as a known gap in
+  `doc/kurt-doc.md` §11 for now.
 
 ## Testing-infrastructure issue — now has a real fix (`expect`), partially retrofitted
 
@@ -306,32 +341,34 @@ No code was changed while producing this file.
   `Formula` (line 369) does not. Small, mechanical addition, useful for
   provenance/debugging (e.g. "which `load`ed file did this axiom really
   come from" beyond just `filename`/`line`).
-- **File-local variables / explicit theory export** ("variables and syntax
-  should be file only... problem: how to show formulas that are imported";
-  "define what gets exported when loading a file, make variable
-  declarations local"; "local and export features, files should open a new
-  level, but can export statements as axioms to the level above them") —
-  these three are the same design gap, repeated across the "before 1.0" and
-  "before 2.0" sections. Confirmed real: `is_var`/`is_const` (line 888/903)
-  walk the *entire* parent chain with no notion of "this variable belongs to
-  a different file's level and shouldn't leak". `load_file` already wraps
-  each load in its own `sandbox` level and `merge_and_pop`s the *theory*
-  back in (line 4129-4161) — the mechanism for a file-local scope already
-  exists structurally, it's just that `var`/syntax declarations aren't
-  currently treated differently from proven formulas when merging. This is
-  a real design decision (what exactly should leak from a loaded file)
-  before it's an implementation task, but the scaffolding (levels, merge)
-  is already there to build on. **Investigated further, found and fixed a
-  concrete bug along the way** (not the full design question, which is still
-  open): checked whether two theories redeclaring the same symbol name could
+- ~~**File-local variables / explicit theory export**~~ — **implemented.**
+  ("variables and syntax should be file only... problem: how to show
+  formulas that are imported"; "define what gets exported when loading a
+  file, make variable declarations local"; "local and export features,
+  files should open a new level, but can export statements as axioms to
+  the level above them"). Along the way (before the design was settled),
+  investigated whether two theories redeclaring the same symbol name could
   do worse than clash confusingly — couldn't turn it into an accepted false
-  proof, but found `add_arity`/`add_bindop` only checked the *current*
-  level's own dict for "already declared" (unlike every other `add_*`
-  method), so redeclaring a symbol's arity across two separately-`load`ed
-  files silently overwrote it with no error, and `bindop` inside a nested
-  block couldn't see an ancestor level's `arity` at all. Both fixed — see
-  `doc/kurt-soundness.md` §4.1. The bigger "what should leak / explicit
-  export" design question is unchanged by this and still open.
+  proof, but found and fixed a real bug: `add_arity`/`add_bindop` only
+  checked the *current* level's own dict for "already declared" (unlike
+  every other `add_*` method), so redeclaring a symbol's arity across two
+  separately-`load`ed files silently overwrote it with no error. See
+  `doc/kurt-soundness.md` §4.1.
+
+  The design settled on (worked out in conversation, then implemented):
+  a `use`/`def` axiom or proved theorem is exported by `load` exactly when
+  it carries a label that isn't marked `local` (new syntax: `EXPR local
+  "label"`); an unlabelled fact defaults to not-exported. A symbol has no
+  export marking of its own — it's exported exactly when some exported
+  fact's free symbols actually mention it, computed automatically (no need
+  to separately declare "this symbol is local/exported"). A `local`-marked
+  `def` whose symbol is still needed by an exported fact is a load-time
+  error, not a silent promotion or a silently-broken symbol. See
+  `doc/kurt-doc.md`'s `load` section and `doc/kurt-soundness.md` §7 for the
+  full writeup, including two real bugs found while implementing the
+  closure computation (aliases, custom brackets) and a third, unrelated
+  pre-existing bug found and fixed along the way (`natural.kurt` was
+  silently broken, via a lexer token-adjacency issue nobody had ever hit).
 
 ## Needs investigation before it's clear what "feasible" even means
 
