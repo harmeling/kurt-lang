@@ -3100,7 +3100,7 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
                     return kb   # do not add duplicates
             reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
             if len(reasons) == 1:
-                reason = decorate_reason(mainstream, reasons[0], filename, str(line))
+                reason = reasons[0]
             else:
                 assert len(reasons) > 1
                 assert isinstance(expr, list) and len(expr) > 2
@@ -3110,12 +3110,20 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
                     line_str = str(line) + letter
                     line_strs.append(line_str)
                     reason = decorate_reason(mainstream, reason, filename, line_str)
-                    label = ''
-                    sub_f = Formula(kb, clause, input_line, line_str, filename, label, reason, keyword='')
+                    # each conjunct is its own, unlabelled intermediate step -- `label` (the
+                    # claim's own label, if any) belongs on the *combined* formula below, not
+                    # here; a same-named local would clobber the outer `label` this loop runs
+                    # before reaching, silently discarding the combined formula's label
+                    sub_f = Formula(kb, clause, input_line, line_str, filename, '', reason, keyword='')
                     kb.theory_append(sub_f)                         # add sub to the knowledge base
                     if mainstream:
                         log(kb, sub_f.formula_str(kb), reason, kb.level)
-                reason = decorate_reason(mainstream, f'by {", ".join(line_strs)} "and-intro"', filename, str(line))
+                reason = f'by {", ".join(line_strs)} "and-intro"'
+            # a bare claim can be labelled too, exactly like `use`/`show` -- same mechanism,
+            # since every statement (bare or keyworded) shares `check_expr_label`/`post_process`
+            if len(label) > 0:
+                reason += f' "{label}"'
+            reason = decorate_reason(mainstream, reason, filename, str(line))
             f = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='', local=local)
             kb.theory_append(f)                         # add it to the knowledge base
             if mainstream:

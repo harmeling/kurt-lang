@@ -1,0 +1,14 @@
+; regression test for a real bug: a labelled conjunction claim (split into per-conjunct
+; derivation steps, then combined via "and-intro") used to silently lose its label. The
+; per-conjunct loop in `eval_expression` reused the same `label` variable the *combined*
+; formula needed later, resetting it to `''` -- so `P and R "derived-conjunction"` was always
+; stored unlabelled, regardless of what was written. Confirmed via `P` (only ever established
+; through an unlabelled bare `use P`, so it's only exported at all because the labelled
+; conjunction needs it as a free symbol) and `R` (same story) both surviving.
+load load-export-bare-claim-helper
+expect "EvalError"
+    bool P
+expect "EvalError"
+    bool R
+true
+;;; Proof checked.

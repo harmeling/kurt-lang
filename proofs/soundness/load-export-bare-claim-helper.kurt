@@ -1,0 +1,13 @@
+; helper theory for load-export-bare-claim-label-survives.kurt and
+; load-export-conjunction-label-survives.kurt. Auto-discovered and run on its own too, so it
+; needs a valid marker. A bare (unkeyworded) claim shares the exact same label/local parsing
+; (`check_expr_label`/`post_process`) as `use`/`show`/`def` -- labelling one works the same
+; way, including for a conjunction split via "and-intro".
+bool P, Q, R
+use P implies Q
+use P
+Q  "derived-q"
+
+use R
+P and R  "derived-conjunction"
+;;; Proof checked.

@@ -593,6 +593,29 @@ Rewritten to declare `Nat` as a plain `const`, `load set`, and use a
 correctly-binding `+`; regression coverage in `proofs/soundness/`
 (`load-export-*.kurt`) and confirmed by direct standalone loading.
 
+### 7.1 Bug found and fixed: a labelled bare/conjunction claim silently lost its label
+
+Found while checking whether labelling was really uniform across every
+statement kind, not just `use`/`show`/`def` (it's supposed to be — every
+statement, keyworded or not, shares `check_expr_label`/`post_process`).
+A bare claim (`Q "my-label"`, no `use`/`show`) does correctly carry its
+label into the stored `Formula` — confirmed end-to-end, it exports
+correctly. But a *conjunction* claim (`P and R "my-label"`, split into
+per-conjunct derivation steps and recombined via "and-intro") did not: the
+per-conjunct loop in `eval_expression` reused the same Python variable
+name, `label`, for each intermediate sub-formula, setting it to `''` for
+every conjunct — since this loop runs *before* the combined formula is
+built from that same variable, the combined formula always ended up with
+an empty label, silently discarding whatever the user wrote, regardless of
+whether `local` was involved at all. Fixed by using a separate, clearly
+book-ended empty string for the per-conjunct sub-formulas instead of
+reassigning `label` itself. Also fixed a related but purely cosmetic gap
+found in the same code path: a labelled bare claim's label never showed up
+in the log line the way `use`/`show`'s do (embedded in the `reason`
+string) — now consistent. Regression:
+`proofs/soundness/load-export-bare-claim-label-survives.kurt` and
+`load-export-conjunction-label-survives.kurt`.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

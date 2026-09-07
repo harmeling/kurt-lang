@@ -355,19 +355,31 @@ raises an exception (and, in a file, stops checking).
 ### 6.1 Bare claims
 
 A line that's just an expression (no leading keyword) is a **claim**: Kurt
-tries to derive it from the current theory and, if it succeeds, adds it
-(re-labelled with the rule that proved it) to the theory. If it's a
-conjunction, each conjunct may be derived separately and then combined via
-"and-intro" (this, and "impl-elim"/modus-ponens against every formula
-currently in scope, and "top-intro" for the literal symbol `true`, are the
-only rules hard-coded directly in Python — see §8.1). Derivation is a
-*single* hop: given `A`, `A implies B`, and `B implies C` all separately in
-the theory, deriving `C` in one step is *not* automatic — you must first
-derive `B` as its own line. See `todo-claude.md` for the design questions
-around making this multi-hop.
+tries to derive it from the current theory and, if it succeeds, adds it to
+the theory. If it's a conjunction, each conjunct may be derived separately
+and then combined via "and-intro" (this, and "impl-elim"/modus-ponens
+against every formula currently in scope, and "top-intro" for the literal
+symbol `true`, are the only rules hard-coded directly in Python — see
+§8.1). Derivation is a *single* hop: given `A`, `A implies B`, and `B
+implies C` all separately in the theory, deriving `C` in one step is *not*
+automatic — you must first derive `B` as its own line. See
+`todo-claude.md` for the design questions around making this multi-hop.
 
 A claim that's structurally identical to the last thing already in the
 theory is silently treated as a no-op restatement rather than logged again.
+
+Labelling (§6.2) isn't specific to `use`/`def` — it's the same mechanism
+for *every* statement, keyworded or not, since they're all parsed through
+the same `check_expr_label`. A bare claim can be labelled, and marked
+`local`, exactly like an axiom can:
+
+    use P implies Q
+    use P
+    Q  "derived-q"        ; a label on a bare, derived claim works too
+
+and this is what actually decides whether `Q` is exported when this file
+is `load`ed elsewhere (§8.2) — not whether it came from `use` or was
+derived as a bare claim.
 
 ### 6.2 `use` and `def`
 
