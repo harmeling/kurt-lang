@@ -271,6 +271,32 @@ symbol search. Regression tests:
 fixed) and `proofs/soundness/def-lhs-bound-var-rejected.kurt` (LHS
 misdiagnosis: now correctly rejected instead of silently mislabeled).
 
+### 3.2 Checked: fresh internal names can't collide with a user-typed variable
+
+`new_var_name()`/`new_bool_var_name()` — used by `rename_all_vars_rec` (§2.2,
+§3 above) and `remove_outer_forall_quantifiers` to generate the fresh names
+that back every renamed free/bound variable — hand out names like `$$07`/
+`%%07`, reasoning (per the comment at their definition) that "the `$$`
+ensures that it is not a kurt variable that the user can define". This
+invariant matters: if a user could ever type a variable whose name
+coincided with a live counter value, it would silently alias an internal
+substitution variable, which is exactly the kind of thing capture-avoidance
+(§3) is supposed to prevent.
+
+This was flagged in `todo-claude.md` as *unverified* — and, on first pass,
+wrongly claimed to be a real gap ("a user *can* type a variable named
+literally `$$foo`"). Checked properly this time: the lexer's `SYMBOL`
+pattern (the `scanner` regex in `kurt.py`) is `[$%@]?[A-Za-z][A-Za-z0-9]*` —
+at most **one** leading `$`/`%`/`@`, immediately followed by a letter. A
+doubled prefix like `$$foo`/`%%foo` cannot match that (or any other
+branch); it falls through to the lexer's catch-all `ERROR` group and raises
+a `SyntaxError` before parsing even begins — confirmed directly (`var
+$$foo` → `SyntaxError: scanning error while scanning \`$\``). So no source
+text a user writes can ever lex into a token that collides with a generated
+name: the invariant holds **by construction** (grammar-level), not merely
+by convention as the original comment implied. No code change was needed.
+Locked in by `proofs/soundness/dollar-dollar-prefix-unparseable.kurt`.
+
 ## 4. Const/var exclusivity
 
 Once a symbol is `const` or `var` on a level, it can't become the other —
