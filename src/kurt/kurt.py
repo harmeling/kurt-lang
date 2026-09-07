@@ -1612,14 +1612,46 @@ def is_iff(expr: Expr) -> bool:
 def is_comma_separated_list(expr: Expr) -> bool:
     return is_op_expr(expr, COMMA_SYMBOL)
 
-def equal_expr(t1: Expr, t2: Expr) -> bool:                                     # equality for expressions
+def equal_expr(t1: Expr, t2: Expr, kb: 'KnowledgeBase') -> bool:                # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
-    if isinstance(t1, Token) and isinstance(t2, Token):                         # compare tokens
-        return t1.label==t2.label and t1.value==t2.value
-    elif isinstance(t1, list) and isinstance(t2, list) and len(t1)==len(t2):    # compare lists
-        return all([equal_expr(a, b) for (a,b) in zip(t1, t2)])
-    else:                                                     # token and list are always non-equal
-        return False
+    #
+    # alpha-equivalence-aware: two bound variables in corresponding positions (under a
+    # shared history of matched binders within t1/t2) count as equal even if spelled
+    # differently -- necessary since `rename_all_vars` renames every bound variable to a
+    # fresh internal name independently per stored formula (see doc/kurt-soundness.md
+    # #3.3), so comparing a *stored* formula's bound-variable names against a freshly
+    # user-typed expression's own (different) names must not fail just because of that
+    # unrelated renaming. Only the bound-variable *name* tokens themselves get this
+    # leniency -- constants, schema variables, and operators still have to match
+    # literally, so this can never make two genuinely different formulas compare equal.
+    return equal_expr_alpha(t1, t2, kb, {}, {})
+
+def equal_expr_alpha(t1: Expr, t2: Expr, kb: 'KnowledgeBase', bmap1: dict, bmap2: dict) -> bool:
+    match (t1, t2):
+        case (Token(label=l1, value=v1), Token(label=l2, value=v2)):
+            if l1 != l2:
+                return False
+            if isinstance(v1, str) and isinstance(v2, str) and v1 in bmap1 and v2 in bmap2:
+                return bmap1[v1] == v2 and bmap2[v2] == v1     # consistent bound-var correspondence
+            if v1 in bmap1 or v2 in bmap2:
+                return False    # one side is a bound-variable occurrence, the other isn't
+            return v1 == v2
+        case ([Token(label='SYMBOL', value=op1), cond1, *tail1], [Token(label='SYMBOL', value=op2), cond2, *tail2]) \
+                if isinstance(op1, str) and isinstance(op2, str) and op1 == op2 \
+                and kb.is_bindop(op1) and len(tail1) == len(tail2):
+            bv1, c1 = unpack_condition(cond1, kb)
+            bv2, c2 = unpack_condition(cond2, kb)
+            if (c1 is None) != (c2 is None):
+                return False
+            new_bmap1 = {**bmap1, bv1: bv2}
+            new_bmap2 = {**bmap2, bv2: bv1}
+            if c1 is not None and not equal_expr_alpha(c1, c2, kb, new_bmap1, new_bmap2):
+                return False
+            return all(equal_expr_alpha(a, b, kb, new_bmap1, new_bmap2) for a, b in zip(tail1, tail2))
+        case ([*children1], [*children2]) if len(children1) == len(children2):
+            return all(equal_expr_alpha(a, b, kb, bmap1, bmap2) for a, b in zip(children1, children2))
+        case _:
+            return False
 
 # special tokens that are made for the parser and sometimes artificially generated
 space_token: Token = Token('SYMBOL', SPACE_SYMBOL)  # for expressions like 'f x'
@@ -2327,7 +2359,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, input_li
                     s = State({bound_var: new_const_expr}, frozenset(), frozenset())
                     body = deepcopy_expr(body)
                     body = apply_subst(body, s, kb)
-                    if equal_expr(body, fact):
+                    if equal_expr(body, fact, kb):
                         break  # end the loop without the `else` block
     else:
         raise KurtException(f'ProofError: can not find an existential formula that matches the `pick`')
@@ -2876,6 +2908,14 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if len(args) == 0:
             raise KurtException(msg)
         for expr in args:
+            # unlike `let`/`assume`/`case`, `eval_pick` pushes its own level *internally*,
+            # only after checking that a matching existential exists -- so it can raise
+            # (e.g. "can not find an existential formula that matches the `pick`") before
+            # any level was actually opened. Only pop here if `eval_pick` got that far;
+            # otherwise this would wrongly discard the caller's own already-open level
+            # (found via a crash inside `expect "ProofError" / pick ...`, see
+            # doc/kurt-soundness.md #3.4).
+            level_before = kb.level
             try:
                 match expr:
                     case [Token(label='SYMBOL', value=new_const), Token(label='SYMBOL', value='with'), *fact_expr] if isinstance(new_const, str) and not kb.is_const(new_const):
@@ -2883,7 +2923,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     case _:
                         raise KurtException(msg)
             except KurtException:
-                kb = kb.pop_level()
+                if kb.level > level_before:
+                    kb = kb.pop_level()
                 raise
         if mainstream:
             reason = f'{line} open local scope with new constant `{new_const}`'
@@ -2938,7 +2979,7 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
                 raise KurtException(f'EvalError: must evaluate to boolean, got `{expr_str(expr, kb)}`')
             if len(kb.theory) > 0:
                 last_formula = kb.theory[-1]
-                if equal_expr(last_formula.expr, expr):
+                if equal_expr(last_formula.expr, expr, kb):
                     # short-cut to avoid duplicates
                     return kb   # do not add duplicates
             reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
@@ -3380,7 +3421,7 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr]
 
     ### allow only one subterm to be replaced, much more efficient
     for (cand_expr_a, cand_expr_A) in all_single_hole_decompositions(expr, token_x):
-        if expr_a is None  or  equal_expr(expr_a, cand_expr_a):
+        if expr_a is None  or  equal_expr(expr_a, cand_expr_a, kb):
             if bound_var_safe(expr, token_x, cand_expr_a, cand_expr_A, kb):     # requirement (2)
                 yield (cand_expr_a, cand_expr_A)
 
@@ -3429,7 +3470,7 @@ def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iter
     # no blocked vars, since we are at the top level
     s = State({var_x: expr_a}, frozenset(), frozenset())   # substitute `$x` with `expr_a`
     cand_expr = apply_subst(expr_A, s, kb)
-    if equal_expr(cand_expr, expr):
+    if equal_expr(cand_expr, expr, kb):
         # we have a match, i.e., `expr = sub $x $a $A` where `$a` is `expr_a` and `$A` is `expr_A`
         yield expr_a, expr_A
 
@@ -3602,7 +3643,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
         expr = s.walk(expr)
         pattern = s.walk(pattern)
 
-        if equal_expr(expr, pattern):
+        if equal_expr(expr, pattern, kb):
             # equal, just continue with the `tail`
             yield from unify_exprs_with_patterns(tail, s, kb)
 

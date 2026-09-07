@@ -1,0 +1,18 @@
+; regression test: `pick`/exists-elim used to reject a perfectly valid witness whenever the
+; existential's body contained *another* quantifier nested inside it. Root cause:
+; `rename_all_vars` renames every bound variable (not just the outermost) to a fresh
+; internal name when a formula is stored, so `exists x (forall y (R x y))`'s stored
+; `simplified_expr` becomes `exists $$05 (forall $$06 (R $$05 $$06))`. `eval_pick`
+; substitutes the witness for `$$05` and compares the result against the user's own
+; literally-typed fact via `equal_expr` -- which used to be pure structural (token-by-token)
+; equality, so `forall $$06 (R c $$06)` never matched the user's `forall y (R c y)`: same
+; formula, different (internally generated) name for the nested bound variable. See
+; doc/kurt-soundness.md #3.3.
+load logic
+bool R
+arity R 2
+use exists x (forall y (R x y))
+pick c with forall y (R c y)
+    true
+true
+;;; Proof checked.

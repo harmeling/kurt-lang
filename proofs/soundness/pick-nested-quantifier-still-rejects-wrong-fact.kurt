@@ -1,0 +1,15 @@
+; companion to pick-with-nested-quantifier.kurt: the alpha-equivalence fix to `equal_expr`
+; must not become too permissive. A `pick` fact using a genuinely different predicate must
+; still be rejected -- alpha-renaming leniency only applies to the bound-variable *names*
+; themselves, never to any other symbol. (Not wrapped in `expect`: `pick` is itself a
+; block-opening keyword, and expect's documented limitation -- it can't observe a failure
+; from something that opens a further block of its own -- applies here too.)
+load logic
+bool R, Q
+arity R 2
+arity Q 2
+use exists x (forall y (R x y))
+pick c with forall y (Q c y)
+    true
+true
+;;; ProofError: can not find an existential formula that matches the `pick`

@@ -297,6 +297,64 @@ name: the invariant holds **by construction** (grammar-level), not merely
 by convention as the original comment implied. No code change was needed.
 Locked in by `proofs/soundness/dollar-dollar-prefix-unparseable.kurt`.
 
+### 3.3 Bug found and fixed: `equal_expr` was blind to alpha-equivalence
+
+Resolves `todo.md`'s open question, "check whether we need a version of
+`equal_expr` that allows bounded renaming" — yes, confirmed with a real
+failing proof, not just a theoretical worry.
+
+`equal_expr` (used by `pick`'s existential-match check, the no-op-restatement
+shortcut, the `sub`-decomposition search, and the core unifier's fast-path)
+used to be pure token-by-token structural equality, with no notion of
+alpha-equivalence at all. This broke `pick`/exists-elim outright whenever the
+existential's body contained *another* quantifier: `rename_all_vars` renames
+*every* bound variable (not just the outermost) to a fresh internal name at
+storage time, so `exists x (forall y (R x y))`'s stored `simplified_expr`
+becomes `exists $$05 (forall $$06 (R $$05 $$06))`. `eval_pick` substitutes
+the witness for `$$05` and compares the result against the user's own
+literally-typed fact — `forall $$06 (R c $$06)` was never going to
+structurally match the user's `forall y (R c y))`, even though they're the
+same formula. Confirmed directly: `pick c with forall y (R c y)` (given
+`exists x (forall y (R x y))`) raised `ProofError: can not find an
+existential formula that matches the \`pick\`` before the fix.
+
+Fixed by making `equal_expr` genuinely alpha-equivalence-aware: it now takes
+`kb` and threads a pair of bound-variable correspondence maps through the
+comparison (`equal_expr_alpha`), extending the map whenever both sides are
+headed by the same `is_bindop` symbol. Only bound-variable *name* tokens get
+this leniency — constants, schema variables (`%A`/`$x` used as free
+placeholders, not as a binder's own name), and operators still require exact
+literal identity, so this can never make two genuinely different formulas
+compare equal (verified: different predicates, different quantifier kinds, a
+free variable vs. a same-named bound one, and shadowing all still behave
+correctly — see `tests/test_equal_expr_alpha.py`). All 5 call sites updated
+to pass `kb`. Regression: `proofs/soundness/pick-with-nested-quantifier.kurt`
+(now succeeds) and its companion `pick-nested-quantifier-still-rejects-wrong-fact.kurt`
+(a genuinely wrong fact is still rejected).
+
+### 3.4 Bug found and fixed: `pick` crashed (not just failed) inside `expect`
+
+Found while writing the regression test above — unrelated to the
+`equal_expr` fix itself, but uncovered by it. Wrapping a *failing* `pick` in
+`expect "ProofError"` crashed the whole interpreter with an uncaught
+`AssertionError: BUG: we should be one level up`, instead of `expect`
+either catching it cleanly or failing normally (its documented behavior for
+cases it can't observe, `kurt-doc.md` §9.6).
+
+Root cause: unlike `let`/`assume`/`case`, which push their level in
+`eval_keyword_expression` *before* calling anything that could raise,
+`pick`'s level is pushed *inside* `eval_pick` itself, only after checking a
+matching existential exists — so `eval_pick` can raise (the ordinary "no
+matching existential" `ProofError`) before ever opening a level.
+`eval_keyword_expression`'s `'pick'` branch caught any failure and
+unconditionally called `kb.pop_level()` to clean up — correct if `eval_pick`
+failed *after* opening its level, wrong if it never opened one: that pop
+instead discarded the *caller's* own already-open level (`expect`'s, in this
+case), corrupting the level stack and crashing on the next `pop_level` call.
+Fixed by only popping when `eval_pick` actually pushed a level (comparing
+`kb.level` before/after the call). Regression:
+`proofs/soundness/expect-pick-no-crash.kurt`.
+
 ## 4. Const/var exclusivity
 
 Once a symbol is `const` or `var` on a level, it can't become the other —

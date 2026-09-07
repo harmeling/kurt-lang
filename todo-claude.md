@@ -350,10 +350,18 @@ No code was changed while producing this file.
   Needs a concrete motivating example (a proof that actually needs
   multi-site substitution in one step) before it's clear whether it's
   worth the complexity.
-- **"check whether we need a version of `equal_expr` that allows bounded
-  renaming"** — genuinely uncertain without a concrete counterexample where
-  current `equal_expr` (which does exact structural equality after the
-  existing alpha-renaming passes) gives the wrong answer.
+- ~~**"check whether we need a version of `equal_expr` that allows bounded
+  renaming"**~~ — **yes, and fixed.** Found a real, concrete counterexample:
+  `pick`/exists-elim outright rejected a valid witness whenever the
+  existential's body had a nested quantifier (`exists x (forall y (R x
+  y))`), since `rename_all_vars` renames every bound variable independently
+  at storage time and `equal_expr` was pure structural (non-alpha-aware)
+  comparison. Fixed by making `equal_expr` alpha-equivalence-aware (only
+  bound-variable *names* get leniency; everything else still needs exact
+  literal identity). Also turned up an unrelated crash while writing the
+  regression test: `pick` failing inside `expect` corrupted the level stack
+  (`AssertionError`, not a clean failure) — also fixed. See
+  `doc/kurt-soundness.md` §3.3-3.4.
 
 ## Deliberately left out (too broad / not really a `kurt.py` task)
 

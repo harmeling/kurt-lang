@@ -46,10 +46,10 @@ class TestGenerateAllCombinations(unittest.TestCase):
         found_a = False
         for expr_a, expr_A in combinations:
             if expr_a != None:
-                if kurt.equal_expr(expr_a, self.token_a):
+                if kurt.equal_expr(expr_a, self.token_a, self.kb):
                     found_a = True
                     expected_A: kurt.Expr = [self.token_plus, self.token_x, self.token_b]
-                    self.assertTrue(kurt.equal_expr(expr_A, expected_A))
+                    self.assertTrue(kurt.equal_expr(expr_A, expected_A, self.kb))
                     break
         self.assertTrue(found_a, "Should be able to extract 'a' from 'a + b'")
         
@@ -57,10 +57,10 @@ class TestGenerateAllCombinations(unittest.TestCase):
         found_b = False
         for expr_a, expr_A in combinations:
             if expr_a != None:
-                if kurt.equal_expr(expr_a, self.token_b):
+                if kurt.equal_expr(expr_a, self.token_b, self.kb):
                     found_b = True
                     expected_A: kurt.Expr = [self.token_plus, self.token_a, self.token_x]
-                    self.assertTrue(kurt.equal_expr(expr_A, expected_A))
+                    self.assertTrue(kurt.equal_expr(expr_A, expected_A, self.kb))
                     break
         self.assertTrue(found_b, "Should be able to extract 'b' from 'a + b'")
     
@@ -74,10 +74,10 @@ class TestGenerateAllCombinations(unittest.TestCase):
         found_bc = False
         for expr_a, expr_A in combinations:
             if expr_a != None:
-                if kurt.equal_expr(expr_a, inner_expr):
+                if kurt.equal_expr(expr_a, inner_expr, self.kb):
                     found_bc = True
                     expected_A: kurt.Expr = [self.token_plus, self.token_a, self.token_x]
-                    self.assertTrue(kurt.equal_expr(expr_A, expected_A))
+                    self.assertTrue(kurt.equal_expr(expr_A, expected_A, self.kb))
                     break
         self.assertTrue(found_bc, "Should be able to extract '(b + c)' from 'a + (b + c)'")
         
@@ -85,12 +85,12 @@ class TestGenerateAllCombinations(unittest.TestCase):
         found_c = False
         for expr_a, expr_A in combinations:
             if expr_a != None:
-                if kurt.equal_expr(expr_a, self.token_c):
+                if kurt.equal_expr(expr_a, self.token_c, self.kb):
                     found_c = True
                     # expr_A should be a + (b + $x)
                     expected_inner: kurt.Expr = [self.token_plus, self.token_b, self.token_x]
                     expected_A: kurt.Expr = [self.token_plus, self.token_a, expected_inner]
-                    self.assertTrue(kurt.equal_expr(expr_A, expected_A))
+                    self.assertTrue(kurt.equal_expr(expr_A, expected_A, self.kb))
                     break
         self.assertTrue(found_c, "Should be able to extract 'c' from 'a + (b + c)'")
     
@@ -103,7 +103,7 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Should only return combinations where expr_a equals 'a'
         for expr_a, expr_A in combinations:
             if expr_a is not None:
-                self.assertTrue(kurt.equal_expr(expr_a, self.token_a))
+                self.assertTrue(kurt.equal_expr(expr_a, self.token_a, self.kb))
     
     def test_all_single_hole_decompositions(self):
         """Test the helper function directly"""
@@ -127,7 +127,7 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Should be able to extract 'b' 
         self.assertIn(self.token_b, subterms)
         # Should be able to extract the whole expression
-        self.assertTrue(any(kurt.equal_expr(st, expr) for st in subterms))
+        self.assertTrue(any(kurt.equal_expr(st, expr, self.kb) for st in subterms))
     
     def test_path_functions(self):
         """Test the path manipulation helper functions"""
@@ -143,12 +143,12 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Test replace_at_path
         new_expr = kurt.replace_at_path(expr, [1], self.token_x)
         expected = [self.token_plus, self.token_x, [self.token_plus, self.token_b, self.token_c]]
-        self.assertTrue(kurt.equal_expr(new_expr, expected))
+        self.assertTrue(kurt.equal_expr(new_expr, expected, self.kb))
         
         # Test replace deep inside
         new_expr = kurt.replace_at_path(expr, [2, 2], self.token_x)
         expected = [self.token_plus, self.token_a, [self.token_plus, self.token_b, self.token_x]]
-        self.assertTrue(kurt.equal_expr(new_expr, expected))
+        self.assertTrue(kurt.equal_expr(new_expr, expected, self.kb))
     
     def test_iter_nodes(self):
         """Test the node iteration function"""
