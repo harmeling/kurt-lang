@@ -1,0 +1,18 @@
+; regression test for a real bug found investigating file-local-scoping (todo-claude.md):
+; redeclaring a symbol's `arity` to a *different* value within one file/level correctly
+; raises `EvalError: arity of symbol ... has been already set to ...` -- but `add_arity`'s
+; guard checked `fun in self.arity` directly, which only looks at the *current* level's own
+; dict, not the ancestor chain. `load` opens a fresh child ('sandbox') level per file, whose
+; own `arity` dict starts empty -- so loading two *separate* files that each declare a
+; different arity for the *same* symbol name silently succeeded, with the second file's
+; value silently overwriting the first's the moment its level merged back in (confirmed via
+; `kb.arity` directly: ended up `{'P': 2}`, the `P: 1` from the first file gone without a
+; trace, no error at all). Fixed by giving `add_arity` a proper ancestor-aware `is_arity_set`
+; check, matching how every other `add_*` "already declared" guard (`add_prefix`,
+; `add_const`, `add_bool`, ...) already worked via `is_infix`/`is_const`/`bool_sig`/etc.
+; See doc/kurt-soundness.md #4.1.
+load arity-conflict-helper-a
+expect "EvalError"
+    load arity-conflict-helper-b
+true
+;;; Proof checked.

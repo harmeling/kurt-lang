@@ -1,0 +1,6 @@
+; helper theory for arity-redeclaration-across-load-rejected.kurt. Auto-discovered and run
+; on its own too, so it needs a valid marker. Declares a *different* arity for the same
+; symbol name as arity-conflict-helper-a.kurt -- fine on its own, the point is what happens
+; when both get loaded together.
+arity P 2
+;;; Proof checked.

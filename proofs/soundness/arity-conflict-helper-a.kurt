@@ -1,0 +1,4 @@
+; helper theory for arity-redeclaration-across-load-rejected.kurt. Auto-discovered and run
+; on its own too, so it needs a valid marker.
+arity P 1
+;;; Proof checked.

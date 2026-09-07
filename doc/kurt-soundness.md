@@ -367,6 +367,52 @@ elsewhere. Already covered by existing regression tests
 (`proofs/debug/const-const.kurt`, `const-var.kurt`, `var-const.kurt`,
 `var-level-const.kurt`) — no new tests needed here.
 
+### 4.1 Bug found and fixed: `arity`/`bindop` didn't check the ancestor chain
+
+Found while investigating `todo-claude.md`'s "file-local variables /
+explicit theory export" gap — specifically, checking whether loading two
+unrelated theories that happen to redeclare the same symbol name could
+cause anything worse than an ugly namespace clash. It could: not an
+accepted-false-proof (I didn't find a way to turn this into one — old
+formulas remain self-consistent data regardless of a symbol's arity
+changing later), but a genuine, silent data-loss inconsistency.
+
+Every `add_*` "already declared" guard is supposed to check the *whole*
+ancestor chain, the same way the corresponding `is_infix`/`is_const`/
+`bool_sig`/etc. lookups already do (confirmed by reading all of them:
+`add_prefix`, `add_infix`, `add_postfix`, `add_var`, `add_const`,
+`add_alias`, `add_bool`, `add_flat`, `add_sym`, `add_chain` all correctly go
+through an ancestor-aware helper). `add_arity` and `add_bindop` didn't —
+they checked `fun in self.arity` / `self.arity[fun]` directly, which only
+sees the *current* level's own dict. This bit in exactly the case ancestor
+chains exist for: `load` opens a fresh child ("sandbox") level per file,
+whose own `arity` dict starts empty. Loading two *separate* files that each
+declare a *different* arity for the same symbol name — `arity P 1` in one,
+`arity P 2` in the other — silently succeeded, with the second value
+silently overwriting the first the moment its level merged back in (no
+error at all, confirmed directly: `kb.arity` ended up `{'P': 2}`, with no
+trace `P` was ever `1`). The *same* redeclaration within one file correctly
+raises `EvalError: arity of symbol \`P\` has been already set to 1` — so
+behavior depended entirely on how a theory author happened to split
+declarations across files, an inconsistency in its own right regardless of
+the silent-overwrite risk.
+
+The reverse direction also turned up a genuine false rejection: `add_bindop`
+declaring a symbol as a binding operator *inside a nested block*
+(`sandbox`/`assume`/`let`/...) whose arity was declared on an *ancestor*
+level wrongly raised "before declaring symbol as variable binding, you must
+set its arity", even though the arity genuinely was set — just not in the
+current level's own dict.
+
+Fixed by adding a proper ancestor-aware `is_arity_set` (mirroring
+`is_infix`/`is_const`/etc.) and using it (plus the already-ancestor-aware
+`get_arity`) in both `add_arity` and `add_bindop` instead of raw dict
+access. Regression tests:
+`proofs/soundness/arity-redeclaration-across-load-rejected.kurt` (the
+silent-overwrite direction, now correctly rejected) and
+`bindop-sees-ancestor-arity.kurt` (the false-rejection direction, now
+correctly accepted).
+
 ## 5. Guard against silently losing these checks
 
 Several of the checks above (and plenty of internal invariants elsewhere:

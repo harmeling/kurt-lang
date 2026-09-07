@@ -1020,6 +1020,12 @@ class KnowledgeBase:
         else:
             return 0
 
+    def is_arity_set(self, fun: str) -> bool:
+        # unlike `get_arity(fun) > 0`, this also correctly reports symbols explicitly
+        # declared with arity 0, and is what "already declared" guards must use --
+        # `fun in self.arity` alone only checks the *current* level, not ancestors
+        return fun in self.arity or (self.parent is not None and self.parent.is_arity_set(fun))
+
     def get_alias(self, s: str) -> Optional[str]:
         if s in self.alias:
             return self.alias[s]
@@ -1053,8 +1059,8 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: arity of infix operators is two and can not be set')
         if self.is_bracket(fun):
             raise KurtException(f'EvalError: arity of brackets can not be set')
-        if fun in self.arity:
-            raise KurtException(f'EvalError: arity of symbol `{fun}` has been already set to {self.arity[fun]}')
+        if self.is_arity_set(fun):
+            raise KurtException(f'EvalError: arity of symbol `{fun}` has been already set to {self.get_arity(fun)}')
         self.arity[fun] = a
 
     def _find_symbol(self, op: str) -> str:
@@ -1114,9 +1120,9 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{fun}` has been already used in a formula')
         if self.is_operator(fun):
             raise KurtException(f'EvalError: symbol `{fun}` is already used as prefix, postfix, infix, or bracket')
-        if fun not in self.arity:
+        if not self.is_arity_set(fun):
             raise KurtException(f'EvalError: before declaring symbol `{fun}` as variable binding, you must set its arity')
-        if self.arity[fun] < 2:
+        if self.get_arity(fun) < 2:
             raise KurtException(f'EvalError: arity of binding operators must be at least 2')
         self.bindop.add(fun)
 

@@ -321,7 +321,17 @@ No code was changed while producing this file.
   currently treated differently from proven formulas when merging. This is
   a real design decision (what exactly should leak from a loaded file)
   before it's an implementation task, but the scaffolding (levels, merge)
-  is already there to build on.
+  is already there to build on. **Investigated further, found and fixed a
+  concrete bug along the way** (not the full design question, which is still
+  open): checked whether two theories redeclaring the same symbol name could
+  do worse than clash confusingly — couldn't turn it into an accepted false
+  proof, but found `add_arity`/`add_bindop` only checked the *current*
+  level's own dict for "already declared" (unlike every other `add_*`
+  method), so redeclaring a symbol's arity across two separately-`load`ed
+  files silently overwrote it with no error, and `bindop` inside a nested
+  block couldn't see an ancestor level's `arity` at all. Both fixed — see
+  `doc/kurt-soundness.md` §4.1. The bigger "what should leak / explicit
+  export" design question is unchanged by this and still open.
 
 ## Needs investigation before it's clear what "feasible" even means
 
