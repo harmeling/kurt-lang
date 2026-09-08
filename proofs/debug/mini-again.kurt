@@ -16,4 +16,4 @@ use x + -x = 0                      "G4" ; right inverse
 
 expect "ProofError"
     x + 0 = x + (-x + x)       ; does it follow or not?
-;;; Proof checked.
+

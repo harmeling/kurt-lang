@@ -24,10 +24,36 @@ def traversable_rglob(root, pattern=".kurt"):
         elif item.is_dir():
             yield from traversable_rglob(item, pattern)
 
+def uses_expect(content: str) -> bool:
+    # a real (non-comment) `expect` statement means the file already asserts something
+    # meaningful internally -- `expect` is a reserved keyword, so this can't false-positive on
+    # a user identifier, only on the word appearing inside a `;`-comment, which is excluded
+    for line in content.splitlines():
+        if line.strip().startswith(';'):
+            continue
+        if re.match(r'\s*expect\b', line):
+            return True
+    return False
+
 def file_last_line(fname):
-    # the last line in the file starts with `;;; ` and contains the expected last line of the output
-    with fname.open("r") as f:
-        return f.readlines()[-1].strip()[4:]
+    # the last line in the file starts with `;;; ` and contains the expected last line of the
+    # output -- except a file can skip this marker entirely if it uses `expect` internally to
+    # check the interesting condition itself, in which case the expected outcome is just the
+    # generic "the file completed cleanly" (every `expect`-using file that DID spell out a
+    # marker anyway turned out to say exactly this, verbatim, with zero further information --
+    # see CLAUDE.md/todo-claude.md). A file with neither a marker nor `expect` has no actual
+    # assertion at all and must not silently "pass" -- that's a mistake in the file, not a
+    # legitimate shortcut, so it raises instead of defaulting to anything.
+    content = fname.read_text()
+    lines = content.splitlines()
+    last = lines[-1].strip() if lines else ''
+    if last.startswith(';;; '):
+        return last[4:]
+    if uses_expect(content):
+        return 'Proof checked.'
+    raise AssertionError(
+        f'{fname}: no `;;; ` marker and no `expect` statement found -- '
+        f'add one so this file actually verifies something')
 
 def str_last_line(s):
     return s.strip().split('\n')[-1]

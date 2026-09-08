@@ -10,4 +10,4 @@
 expect "EvalError"
     def (forall x true) iff true
 true
-;;; Proof checked.
+

@@ -6,4 +6,4 @@ load load-export-bare-claim-helper
 expect "EvalError"
     bool Q
 true
-;;; Proof checked.
+

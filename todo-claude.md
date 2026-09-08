@@ -310,6 +310,21 @@ Status as assessed:
   reach for `expect` first and fall back to the marker convention only when
   `expect` genuinely doesn't fit (spans files, or tests malformed structure
   rather than a failing statement).
+- ~~**Every `expect`-using file still had to spell out `;;; Proof checked.`
+  anyway**~~ — **fixed.** All 12 `expect`-using files under `proofs/` (the
+  two under `tutorial/` don't use the marker convention at all, see
+  CLAUDE.md) had this exact, identical, information-free marker line —
+  `expect` already checks the interesting condition internally, so the
+  marker was pure boilerplate in every single case. `file_last_line`
+  (`tests/test_kurt_proofs.py`) now allows omitting the marker specifically
+  when the file contains a real `expect` statement (detected by scanning
+  non-comment lines — `expect` is a reserved keyword, so this can't
+  false-positive on a user identifier), defaulting to `'Proof checked.'` in
+  that case. A file with *neither* a marker *nor* `expect` raises a clear
+  `AssertionError` from the test setup itself (not a silent pass) — the
+  point is removing retyped boilerplate, not weakening "every `.kurt` file
+  under `proofs/` must actually assert something." Stripped the now-dead
+  marker line from all 12 files. See `tests/how-to-write-test-proofs.md`.
 
 ## Concrete, medium-effort feature/robustness work
 

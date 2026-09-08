@@ -8,4 +8,4 @@ load load-export-helper
 expect "EvalError"
     bool U
 true
-;;; Proof checked.
+

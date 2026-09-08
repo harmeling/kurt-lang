@@ -6,4 +6,4 @@ load load-export-helper
 expect "EvalError"
     bool P
 true
-;;; Proof checked.
+

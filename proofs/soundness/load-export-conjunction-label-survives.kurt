@@ -11,4 +11,4 @@ expect "EvalError"
 expect "EvalError"
     bool R
 true
-;;; Proof checked.
+

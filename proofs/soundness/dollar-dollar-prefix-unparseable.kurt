@@ -13,4 +13,4 @@ expect "SyntaxError"
 expect "SyntaxError"
     bool %%foo
 true
-;;; Proof checked.
+

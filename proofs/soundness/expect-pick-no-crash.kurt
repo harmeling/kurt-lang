@@ -15,4 +15,4 @@
 expect "ProofError"
     pick c with true
 true
-;;; Proof checked.
+

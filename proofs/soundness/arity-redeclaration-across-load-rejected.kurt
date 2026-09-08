@@ -15,4 +15,4 @@ load arity-conflict-helper-a
 expect "EvalError"
     load arity-conflict-helper-b
 true
-;;; Proof checked.
+

@@ -17,4 +17,4 @@ arity P 1
 const P, Nat
 expect "ProofError"
     forall $x in Nat  P $x
-;;; Proof checked.
+

@@ -5,4 +5,4 @@ bool A, B
 use forall $x B $x
 expect "ProofError"
     A $x    ; nothing says anything about `A`, only `B` is known to hold everywhere
-;;; Proof checked.
+
