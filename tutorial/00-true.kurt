@@ -15,7 +15,14 @@ true       ; will be always provable.
 true
 true
 
-; When you hit `run` for this file on the Kurt playground (or run this file 
+; Notice these two extra `true` lines don't print anything new -- Kurt silently treats a
+; line that's *exactly* the same claim as the one right before it as a no-op restatement,
+; rather than logging "by top-intro" again for something already established. This comes up
+; a lot later in the tutorial (e.g. checking a fact right after leaving a block it was
+; already proven inside): no new output for a repeated claim is expected, not a sign
+; something went wrong.
+
+; When you hit `run` for this file on the Kurt playground (or run this file
 ; in the commandline with
 ; 
 ;      python kurt.py 00-true.kurt

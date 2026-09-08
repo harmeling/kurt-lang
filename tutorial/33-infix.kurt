@@ -4,8 +4,8 @@
 ; from Kurt source, and the parser (a Pratt/TDOP parser) picks them up right
 ; away.  `infix OP lbp rbp` declares `OP` as an infix operator with a left
 ; and a right binding power, which together decide precedence and
-; associativity (`lbp < rbp` gives right-associativity, as `implies` already
-; does in `minimal.kurt`: `infix implies 13 12`).
+; associativity (`lbp > rbp` gives right-associativity, as `implies` already
+; does in `minimal.kurt`: `infix implies 13 12` -- note `13 > 12`).
 
 infix "+" 20 20        ; left-associative: binding powers are equal
 

@@ -11,5 +11,5 @@ parse -a               ; (- a)
 ; Space (function application, built into `minimal.kurt`) already lets you
 ; write `f a` for "f applied to a" -- `prefix` is for when you want a
 ; *different* binding power than space's, e.g. so that `- a + b` parses as
-; `(- a) + b` rather than `- (a + b)` (see `doc/kurt-doc.md`, "difference
+; `(- a) + b` rather than `- (a + b)` (see `doc/dev-notes.md`, "difference
 ; between prefix and function").

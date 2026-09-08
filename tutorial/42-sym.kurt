@@ -8,9 +8,16 @@
 infix "+" 20 20
 sym "+"
 
+; `b + a` below produces no log line at all -- like an alias (40-alias.kurt), a symmetric
+; operator's argument order is normalised into a canonical form while parsing, so `b + a`
+; ends up the exact same stored formula as `a + b`, and Kurt silently no-ops restating a
+; claim that's already the last thing in the theory. No output here is the confirmation it
+; matched, not a sign nothing happened.
 var a, b
 use a + b
-b + a                 ; matches the axiom above even though the order differs
+b + a                 ; matches the axiom above even though the order differs (see above)
 
-; `=` (11-def.kurt, `equality.kurt`) and `and`/`or` (`prop.kurt`) are all
-; declared `sym` for exactly this reason.
+; `=` (11-def.kurt, declared `sym` in `equality.kurt`) and `or` (declared
+; `sym` in `prop.kurt`) are both declared `sym` for exactly this reason.
+; `and` is *also* symmetric, but -- unlike `or` -- it's declared that way
+; hard-coded directly in `kurt.py`, not in `prop.kurt` (see `minimal.kurt`).

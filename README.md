@@ -3,15 +3,15 @@
 The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `kurt.py` contains the whole implementation.  You can either call `./kurt.py` or `kurt` (after installation via `pip`).  Let's start proving:
 
     ~/git/kurt-lang (main ✗) kurt
-    This is Kurt, Version 0.1 (made by Stefan Harmeling, 2025)
-    !!![1] bool A, B
-    !!![2] use A implies B
-    use A implies B                                             ; 2 axiom
-    !!![3] use A
-    use A                                                       ; 3 axiom
-    !!![4] B
-    B                                                           ; 4 by 3, 2
-    !!![5] ^D
+    This is Kurt, v0.1 (made by Stefan Harmeling, 2025)
+    ;[1] bool A, B
+    ;[2] use A implies B
+    use A implies B                           ; 2 without proof
+    ;[3] use A
+    use A                                     ; 3 without proof
+    ;[4] B
+    B                                         ; 4 by 3, 2
+    ;[5] ^D
     Bye!
 
 Alternatively, create a file `modus-ponens.kurt`:
@@ -25,11 +25,11 @@ Alternatively, create a file `modus-ponens.kurt`:
 Then just check it in the commandline:
 
     ~/git/kurt-lang (main ✗) kurt modus-ponens.kurt 
-    This is Kurt, Version 0.1 (made by Stefan Harmeling, 2025)
-    use A implies B                                             ; 3 axiom
-    use A                                                       ; 4 axiom
-    B                                                           ; 5 by 4, 3
-    Proof checked.
+    This is Kurt, v0.1 (made by Stefan Harmeling, 2025)
+    use A implies B                           ; 3 without proof
+    use A                                     ; 4 without proof
+    B                                         ; 5 by 4, 3
+    Proof checked
 
 Happy proving!
 

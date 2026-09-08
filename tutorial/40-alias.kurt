@@ -10,10 +10,17 @@
 infix "xor" 15 15
 alias "^" xor          ; `^` is now just another name for `xor`
 
+; `A ^ B` below produces *no log line at all* -- and that silence is itself the proof the
+; alias worked: an alias is resolved to its canonical name while scanning, before parsing
+; even starts, so `A ^ B` is literally the exact same formula as `A xor B`, and Kurt
+; silently no-ops restating a claim that's already the last thing in the theory. `parse
+; A ^ B` would still *display* `(^ A B)`, not `(xor A B)` -- display prefers whatever
+; spelling you actually typed -- but only the underlying symbol is what actually gets
+; unified/matched.
 bool A, B
 use A xor B
-A ^ B                  ; same formula, either spelling
+A ^ B                  ; same formula, either spelling -- see above for why this is silent
 
 ; An alias is resolved while scanning, before parsing even starts -- unlike
 ; `def` (11-def.kurt), which introduces a genuinely new constant and needs an
-; inference step to unfold (see `doc/kurt-doc.md`'s 2025-04-17 notes).
+; inference step to unfold (see `doc/dev-notes.md`'s 2025-04-17 notes).

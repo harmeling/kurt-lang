@@ -14,6 +14,7 @@ parse a + b + c            ; (+ (+ a b) c)
 flat "+"
 parse a + b + c            ; (+ a b c)
 
-; `and` (04-and.kurt) is declared flat this same way in `prop.kurt`, which is
-; why `A and B and C` reads naturally as one three-way conjunction rather
-; than a conjunction of a conjunction.
+; `and` (04-and.kurt) is declared flat this same way -- hard-coded directly
+; in `kurt.py`, not `prop.kurt` (`and` itself is hard-coded too, see
+; `minimal.kurt`) -- which is why `A and B and C` reads naturally as one
+; three-way conjunction rather than a conjunction of a conjunction.

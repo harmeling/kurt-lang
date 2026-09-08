@@ -5,15 +5,18 @@
 ; when blocks are nested several levels deep.  Compare with `mode`
 ; (26-mode.kurt), which only prints the current, innermost mode.
 
+; every loaded/checked file is itself wrapped in one "sandbox" level, on top of the
+; always-present "root" -- that's why even the very first `trail` below already shows
+; two levels, not zero.
 bool A, B
 use A implies B
 
-trail                    ; e.g. "; sandbox" -- just the implicit outer level
+trail                    ; e.g. "; root > sandbox" -- just the implicit outer level
 
 show A implies B "demo"
 proof
-    trail                ; e.g. "; sandbox > proof"
+    trail                ; e.g. "; root > sandbox > proof"
     assume A
-        trail            ; e.g. "; sandbox > proof > assume"
+        trail            ; e.g. "; root > sandbox > proof > assume"
         use B
 qed

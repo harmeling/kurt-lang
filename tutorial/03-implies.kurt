@@ -7,9 +7,12 @@
 
 bool A, B
 
+; `B` below is derived automatically via "impl-elim" (modus ponens), logged as e.g.
+; "by 3, 2" -- the two premises' line numbers, not the rule's name (unlike an axiom
+; with its own `use ... "label"`).
 use A implies B
 use A
-B                       ; derived "by ... impl-elim" style step
+B
 
 ; Chains of implications work fine too, one step at a time:
 bool C

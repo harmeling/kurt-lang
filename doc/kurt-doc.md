@@ -31,12 +31,12 @@ the source.
 If no filename is given, Kurt starts the shell directly. If a filename is
 given without `-i`, Kurt checks the whole file, prints `Proof checked` (or,
 if any `todo`s are left, `Proof almost checked: N todos.` plus a list of
-where they are) and exits.
-
-**Caveat:** as of this writing, `kurt`'s exit code is always `0`, even if
-checking the file raised an error and printed it to stderr. Don't rely on
-the exit code to detect a failed proof from a script yet (see
-`todo-claude.md`).
+where they are) and exits with code `1` if checking the file raised an
+error (`0` otherwise) — so a script (CI, an autograder) can tell a failed
+check from a successful one without scraping stderr text. Leftover `todo`s
+still exit `0` (a `todo` is a deliberate, self-reported placeholder, not a
+failure), and errors raised only while typing at an interactive shell
+session don't affect the exit code either.
 
 **Undocumented-until-now autoload:** before checking the requested file,
 `kurt` silently tries to `load` a file literally named `theory.kurt` from
@@ -61,18 +61,22 @@ more physical lines (see §2.1 on indentation/continuation).
 - **Strings** are `"..."` (no escaping of embedded quotes); used for labels
   (`use ... "my-label"`) and for some keyword arguments that take an
   operator symbol as text (`infix "+" 20 20`).
-- **Operator characters.** Besides letters/digits, `(` and `)` and `,` are
-  always their own single-character symbols. A run of characters from
-  `.:=+-*/#&^'∈!<>{}[]|_` glues together into *one* symbol (so declaring
-  `!=` gives you a single two-character operator, but writing `!!` without
-  spaces is one symbol `!!`, not two `!` tokens). A fixed set of additional
-  Unicode symbols is recognised one character at a time — exactly the
-  symbols that appear as *values* in Kurt's LaTeX-input table (§2.2): the
-  common logic/set-theory symbols (`∀ ∃ ∧ ∨ ⇒ ⇔ ¬ ⊤ ⊥ ∈ ∉ ⊂ ⊆ ⊃ ⊇ ∩ ∪ ∅ ≡
-  ∘ ↦ → ∞ ≤ ≥ ≠`), modal-logic symbols (`□ ◇`), and the Greek alphabet.
-  **Any other non-ASCII character is a lexing error** — you cannot declare
-  an operator using an arbitrary Unicode symbol that isn't already on this
-  list.
+- **Operator characters.** Besides letters/digits, `(`, `)`, `{`, `}`, `[`,
+  `]`, and `,` are always their own single-character symbols — they never
+  glue to each other or to anything else, precisely so a custom `brackets`
+  pair keeps working next to unrelated punctuation with no space (e.g. a
+  trailing `...}` is two tokens, `...` then `}`, not one token that
+  swallows the closing brace). A run of characters from `.:=+-*/#&^'∈!<>|_`
+  (note: no brackets in this class) glues together into *one* symbol
+  instead (so declaring `!=` gives you a single two-character operator, but
+  writing `!!` without spaces is one symbol `!!`, not two `!` tokens). A
+  fixed set of additional Unicode symbols is recognised one character at a
+  time — exactly the symbols that appear as *values* in Kurt's LaTeX-input
+  table (§2.2): the common logic/set-theory symbols (`∀ ∃ ∧ ∨ ⇒ ⇐ ⇔ ¬ ⊤ ⊥ ∈
+  ∉ ⊂ ⊆ ⊃ ⊇ ∩ ∪ ∅ ≡ ∘ ↦ → ∞ ≤ ≥ ≠`), modal-logic symbols (`□ ◇`), and the
+  Greek alphabet. **Any other non-ASCII character is a lexing error** — you
+  cannot declare an operator using an arbitrary Unicode symbol that isn't
+  already on this list.
 - **`load` is special in the lexer.** A line starting with `load` (case
   insensitive) is scanned specially: everything after it up to a `;` or end
   of line is taken as a comma-separated list of filenames (quoted or bare),
@@ -140,7 +144,7 @@ Every symbol is exactly one of:
   moment they're first written in an expression, not when `bool` declares
   them — `bool` only records that they're boolean, see §5).
 
-Once a symbol's role is fixed *on a given level* (see §7 on blocks/levels),
+Once a symbol's role is fixed *on a given level* (see §9 on blocks/levels),
 it cannot be changed in either direction on that level: declaring `const x`
 then `var x` fails, and so does the reverse. A symbol that is a constant
 inside a block can still be an ordinary (as-yet-undecided) symbol outside
@@ -512,13 +516,14 @@ produces) rather than just failing to do anything useful.
 
 Notably, **"and-elim"** (splitting a proven `A and B` back into `A`) is
 *not* hard-coded — you either state the specific instance yourself as a
-`use` axiom, or `load prop` for a general one. `minimal.kurt`'s own
-comments describe a couple of additional axioms ("restatement": `$A
-implies $A`; a general "impl-intro": `($A implies $B) implies ($A implies
-$B)`) as also being hard-coded equivalents of the file — in practice, a
-bare `A implies A` with nothing else known does **not** currently derive,
-so treat `minimal.kurt`'s text as a rough description of the built-ins
-rather than an exact one (see `todo-claude.md`).
+`use` axiom, or `load prop` for a general one. A general "restatement"
+schema (`$A implies $A`) and a general "impl-intro" schema (`($A implies
+$B) implies ($A implies $B)`) are *also* not hard-coded, despite once
+being drafted as if they were: a bare `A implies A` with nothing else
+known does not derive from nothing. Prove a specific instance instead
+(`show`/`proof`/`assume`/`qed`), or note that plain "restating" an
+already-proven fact is covered anyway by "impl-elim"'s own premise-less-
+implication case.
 
 `minimal.kurt` itself is never meant to be `load`ed (its first line is
 `false`, so loading it always fails) — it exists purely as a
@@ -557,7 +562,8 @@ declaring their own prerequisites via their own `load` lines:
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers | `set` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
-| `induction.kurt`, `lambda-calculus.kurt`, `latex.kurt` | (see file) | none declared |
+| `latex.kurt` | LaTeX rendering setup for `kurt -l` | none declared |
+| `induction.kurt`, `lambda-calculus.kurt` | *(placeholder stubs — a few comment lines each, no syntax or axioms yet; induction itself lives in `natural.kurt`)* | none declared |
 
 `load` with no arguments lists every file loaded so far, level by level.
 
@@ -592,6 +598,7 @@ label/`local` mechanism existed.
 Example:
 
     ; helper.kurt
+    load prop
     bool P, Q
     use P            "exported"      ; travels to whoever loads helper.kurt
     use Q            local "hidden"  ; stays inside helper.kurt
@@ -601,7 +608,9 @@ Example:
     load helper
     P                 ; fine -- P was exported
     R                 ; fine -- R (and its definition) was exported
-    Q                 ; EvalError -- Q was never exported, unknown symbol
+    Q                 ; ProofError: can not derive `Q` -- never exported, so as far as
+                      ; main.kurt is concerned `Q` is just a fresh symbol with no axiom
+                      ; behind it (§5), not literally an "unknown symbol" error
 
 ## 9. Blocks and natural deduction
 

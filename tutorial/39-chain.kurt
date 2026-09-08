@@ -20,6 +20,6 @@ use y < z
 x = y                   ; the first step, as always
   < z                   ; continuing the chain
 
-; A chain must be indented to continue (see `doc/kurt-notes.md`, "chains");
+; A chain must be indented to continue (see `doc/dev-notes.md`, "chains");
 ; writing the continuation at the same indentation as the first line is a
 ; `ParseError`, not a chain.

@@ -77,7 +77,7 @@ MISC -- REPL/output behaviour and self-documentation
 Not covered (deliberately)
 ---------------------------
     inspect      raises `NotImplementedError` in `kurt.py` -- not usable yet
-    thus         mentioned in `doc/kurt-notes.md`/`todo.md` as a future,
+    thus         mentioned in `doc/dev-notes.md`/`todo.md` as a future,
                  not-yet-implemented shortcut for `qed`/equational proofs
     fix          old name for what is now the `let` keyword (see `21-let.kurt`)
     indent       removed -- the shell's indentation handling used to differ

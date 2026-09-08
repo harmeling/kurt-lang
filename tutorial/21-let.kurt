@@ -8,6 +8,9 @@
 ; anything -- but actually *using* the axiom that instantiates a forall
 ; back down to a specific case ("forall-elim") still needs `logic.kurt`:
 
+; `arity` (below) itself isn't taught until lesson 37 -- used here a little early since a
+; demonstration of `forall`/`let` needs *some* predicate that actually takes an argument
+; (`arity A 1` just means "A takes one").
 load logic
 bool A
 const A

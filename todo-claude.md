@@ -23,8 +23,11 @@ No code was changed while producing this file.
   relies on the simple form; the doc's own example `forall x>0 F(x)` also
   parses).
 - **"what is the difference between `arity f 1` and `prefix f 1`?"** —
-  answered already, in `doc/kurt-doc.md`'s 2025-04-17 section
-  ("difference between prefix and function"). Just needs the todo removed.
+  answered already, in `doc/dev-notes.md`'s 2025-04-17 section
+  ("difference between prefix and function") — not `doc/kurt-doc.md`, which
+  doesn't have this heading (dev-notes.md is the design-decision diary, per
+  CLAUDE.md; this belongs there, not in the reference doc). Just needs the
+  todo removed.
 - **"add syntactic sugar for case distinctions"** — `case` already exists as
   a full keyword (identical to `assume`, feeding "or-elim"); see
   `tutorial/23-case.kurt`. Todo is stale.
@@ -88,10 +91,18 @@ No code was changed while producing this file.
   suite), and its output would directly inform the several perf todos below
   instead of guessing.
 - **"search all TODO in the code and check whether they are still
-  relevant"** — there is exactly **one** inline `# TODO` comment left in
-  `kurt.py` (in `rename_all_vars`: "some are renamed again, this can be
-  improved later"). This task is basically already done; the one remaining
-  comment is low priority (a correctness-preserving redundancy, not a bug).
+  relevant"** — there are exactly **two** inline TODO comments left in
+  `kurt.py` (corrected count — an earlier pass here said one and missed the
+  second): one in `rename_all_vars` ("some are renamed again, this can be
+  improved later", a correctness-preserving redundancy, not a bug), and one
+  in the `sub`-decomposition matching code (`generate_all_combinations`'s
+  caller, "in this case we should do something more sophisticated" —
+  matching against a compound `sub $x $a F %A`-style pattern where `F` is
+  itself an applied function symbol isn't attempted, only the simpler case
+  is). This task is basically already done; both remaining comments are
+  low priority (real gaps in matching completeness, not soundness bugs —
+  a missed match just means a derivation fails, not that a wrong one
+  succeeds), noted here rather than actioned.
 - **Re-check `tutorial/*.kurt` and `doc/*.md` for staleness, with a fresh
   reviewer (no memory of this session's changes).** A long run of soundness
   fixes landed in one sitting (hardcoded `forall`/`exists`, the `expect`
