@@ -1748,9 +1748,12 @@ scanner: re.Pattern = re.compile(fr'''
   (?P<INT>     [0-9]+)                            | # integer literals
   (?P<STRING>  ["][^"]*["])                       | # string literals
   (?P<SYMBOL>  [$%@]?[A-Za-z][A-Za-z0-9]*         | # symbols 1: identifiers with at most one leading '$' or '%' or '@'
-               [()]                               | # symbols 2: round brackets
+               [(){{}}\[\]]                       | # symbols 2: round/curly/square brackets -- always single char, never
+                                                     # merge with each other or with symbols 4 (custom `brackets X Y`
+                                                     # pairs need this: adjacent punctuation like three dots must not
+                                                     # merge into and swallow a following close-bracket character)
                [,]                                | # symbols 3: comma
-               [.:=+\-*/#&^'∈!<>{{}}[\]|_]+       | # symbols 4: standard operators including literal {{ }}
+               [.:=+\-*/#&^'∈!<>|_]+              | # symbols 4: standard operators (greedy multi-char)
                [{re.escape(SPECIAL_SYMBOLS)}])    | # symbols 5: logic, Greek and other math symbols (always single char)
   (?P<NEWLINE> [\n])                              | # newline
   (?P<WHITE>   [^\S\n\r]+)                        | # whitespace (not newline)

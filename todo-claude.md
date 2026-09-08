@@ -108,25 +108,23 @@ No code was changed while producing this file.
   accuracy against current
   `kurt.py` behavior — rather than someone who already knows what "should"
   be there.
-- **Lexer greedily merges adjacent "standard operator" punctuation
-  characters, including bracket characters.** Not in `todo.md`, found while
+- ~~**Lexer greedily merges adjacent "standard operator" punctuation
+  characters, including bracket characters**~~ — **fixed.** Found while
   retrofitting `natural.kurt` for the `local`/export feature: `{0, 1, 2,
-  ...}` (no space before the closing brace) lexes `...}` as *one* symbol,
+  ...}` (no space before the closing brace) lexed `...}` as *one* symbol,
   silently swallowing the closing brace. The immediate, worse-than-a-parse-
-  error consequence: the resulting unclosed bracket leaves the parser
+  error consequence: the resulting unclosed bracket left the parser
   permanently "waiting for a continuation" that never arrives, and
   `read_eval_loop` just breaks out of its loop on EOF while in that state —
-  silently discarding the *entire rest of the file*, no error at all. Root
-  cause is the scanner's "standard operators" regex alternative
-  (`[.:=+\-*/#&^'∈!<>{{}}[\]|_]+`, note it includes `{`/`}`/`[`/`]`
-  alongside ordinary punctuation) matching greedily; worked around in
-  `natural.kurt` by adding a space, but the lexer itself is unfixed. A real
-  fix likely means excluding bracket/brace characters declared via
-  `brackets` from that greedy class, or splitting them into their own
-  single-character-only alternative — needs some care since `{`/`}` are
-  also usable as *ordinary* (non-custom-bracket) punctuation before any
-  `brackets { }` declaration exists. Documented as a known gap in
-  `doc/kurt-doc.md` §11 for now.
+  silently discarding the *entire rest of the file*, no error at all. Fixed
+  by giving bracket characters (`{`/`}`/`[`/`]`) their own always-single-char
+  regex alternative, matching how `(`/`)` were already handled, instead of
+  sharing the greedy multi-character "standard operators" class. Confirmed
+  the fix doesn't affect genuinely multi-char operators (`<=`, `>=`, `!=`,
+  ...), and that `{`/`}`/`[`/`]` still work fine as ordinary punctuation
+  before any `brackets` declaration exists (they're just never eligible to
+  merge with neighbours either way now). See `doc/kurt-soundness.md` §7 and
+  `proofs/soundness/bracket-adjacency-lexes-correctly.kurt`.
 
 ## Testing-infrastructure issue — now has a real fix (`expect`), partially retrofitted
 

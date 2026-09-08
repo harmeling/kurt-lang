@@ -574,17 +574,16 @@ passing test relied on anything that stopped being exported.
 **A genuinely separate, pre-existing bug found along the way, unrelated to
 this feature:** `natural.kurt`'s `def Nat = {0, 1, 2, ...}` never actually
 worked. Three independent problems stacked up: (1) the lexer greedily
-merges adjacent "standard operator" punctuation, so `...}` (no space)
+merged adjacent "standard operator" punctuation, so `...}` (no space)
 lexed as one token, `'...}'`, swallowing the closing brace — the resulting
 unclosed bracket left the parser permanently waiting for more input, which
 silently swallowed the *entire rest of the file* with no error at all,
 because `read_eval_loop` just breaks out of its loop on EOF while still
-"waiting for a continuation" (see `doc/kurt-doc.md` §11 for the general
-lexer gap); (2) even with correct tokenization, `,` and `...` aren't
-classified as constants anywhere, so `def`'s right-hand-side check
-(`extract_by_condition`) rejected them as disallowed "new symbols"; (3)
-`natural.kurt` never `load`ed `set.kurt` (needed for `in`/`∈`, which the
-file's own commented-out "alternative" definition already used) and
+"waiting for a continuation"; (2) even with correct tokenization, `,` and
+`...` aren't classified as constants anywhere, so `def`'s right-hand-side
+check (`extract_by_condition`) rejected them as disallowed "new symbols";
+(3) `natural.kurt` never `load`ed `set.kurt` (needed for `in`/`∈`, which
+the file's own commented-out "alternative" definition already used) and
 declared its own `+` with a binding power (10) weaker than `in`'s (25),
 so `$n+1 in Nat` would have parsed as `$n + (1 in Nat)` even if everything
 else had worked. None of this was ever caught because `natural.kurt` isn't
@@ -592,6 +591,18 @@ else had worked. None of this was ever caught because `natural.kurt` isn't
 Rewritten to declare `Nat` as a plain `const`, `load set`, and use a
 correctly-binding `+`; regression coverage in `proofs/soundness/`
 (`load-export-*.kurt`) and confirmed by direct standalone loading.
+
+**Update: the lexer bug (1) is now fixed at the root, not just documented.**
+Bracket characters (`{`/`}`/`[`/`]`) shared a single greedy multi-character
+regex alternative with all the other "standard operator" punctuation
+(`.`, `:`, `=`, `+`, ...); pulled them out into their own always-single-char
+alternative instead, exactly matching how `(`/`)` were already handled
+(`scanner`'s "symbols 2" vs. "symbols 4" — see the comment there). Confirmed
+`{0, 1, 2, ...}` now lexes correctly with no workaround space, and that
+genuinely multi-char operators untouched by this change (`<=`, `>=`, `!=`,
+...) still merge as before. This closes the "known gap" that used to be in
+`doc/kurt-doc.md` §11 and the matching `todo-claude.md` item. Regression:
+`proofs/soundness/bracket-adjacency-lexes-correctly.kurt`.
 
 ### 7.1 Bug found and fixed: a labelled bare/conjunction claim silently lost its label
 

@@ -767,12 +767,6 @@ nothing reads its value yet.
   `kurt -l` instead.
 - A custom `brackets` pair does not disappear the way `(` `)` does — it
   stays a real (currently rather ugly-printing) operator (§4.2).
-- Multi-character "standard operator" punctuation (`.`, `:`, `=`, `+`, `-`,
-  `*`, `/`, `#`, `&`, `^`, `'`, `∈`, `!`, `<`, `>`, `{`, `}`, `[`, `]`, `|`,
-  `_`) is lexed greedily, so writing one immediately next to another with
-  no space merges them into a single, likely nonsensical token — e.g.
-  `{0, 1, 2, ...}` lexes `...}` as one symbol, silently eating the closing
-  brace (write `... }` with a space instead).
 
 See `todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.
