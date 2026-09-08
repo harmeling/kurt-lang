@@ -60,13 +60,15 @@ Status as assessed:
   `proofs/modal-logic/`, deliberately using `X`/`Y` rather than the file's
   own `p`/`q` example symbols specifically so they'd have caught this bug
   (confirmed: reverting the fix breaks all three).
-- **`natural.kurt`** — thin (`Nat` membership + one induction axiom, no
-  arithmetic on `Nat` at all), zero real proofs anywhere. Stress-testing its
-  induction axiom for the first time (see below) found and fixed a real,
-  general `kurt.py` crash bug, unrelated to induction itself — see
-  `doc/kurt-soundness.md` §7.4. The axiom itself checked out correct once
-  that crash was fixed. Needs: a permanent real induction proof under
-  `proofs/`.
+- ~~**`natural.kurt`**~~ — **done.** Content itself was already correct
+  (confirmed while fixing the crash bug above); what it needed was the
+  permanent real induction proof, now added:
+  `proofs/natural-numbers/induction.kurt` (an uninterpreted predicate `P`,
+  same style as `proofs/natural-deduction/forall-elim.kurt` etc. — there's
+  no richer concrete property of numbers to induct over yet, since `+` has
+  no defining axioms here, see the file's own new header). Also added a
+  proper documentation header to the file itself (see the new "document
+  theories well" item below).
 - **`set.kurt`** — reasonably developed (comprehension, extensionality, ∅,
   ∩, ∪, subset, power-set), one substantial real proof already exercises it
   (`proofs/mafi1/001-two-equal-sets.kurt`). One documented, real gap: `:`/`→`
@@ -99,6 +101,19 @@ Status as assessed:
   that doesn't exist anywhere in kurt's actual grammar. Lower priority than
   the proof theories above since it only affects LaTeX rendering, never
   proving/checking.
+
+**Also added mid-pass**: every shipped theory file used to open with just a
+one-line title comment (`; arithmetic`, `; modal logic`, ...) and nothing
+else — no stated scope, no "what this doesn't cover," no pointer to a real
+example proof. Now being given a proper header (scope, known gaps, pointer
+to a real proof under `proofs/`) as each theory gets touched in this pass:
+done for `natural.kurt`. Still needed: `arith.kurt`, `modal.kurt` (both
+touched this pass but not yet given the same header treatment),
+`prop.kurt`/`logic.kurt`/`equality.kurt` (solid content, never got a real
+header at all), `set.kurt` (already has a good inline comment about the
+`:`/`→` gap, but no top-level scope summary), `latex.kurt`. Leave
+`induction.kurt`/`lambda-calculus.kurt` for whenever their real content
+gets written — no point documenting the scope of a file that's still empty.
 
 ## Already done / stale (recommend deleting from `todo.md`)
 

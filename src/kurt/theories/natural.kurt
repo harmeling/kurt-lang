@@ -1,4 +1,17 @@
 ; natural numbers
+;
+; covers: `Nat` membership (0 is a natural number, and the successor of any natural number is
+; a natural number) and the induction principle (a property true at 0 and preserved by
+; successor is true of every natural number) -- see proofs/natural-numbers/induction.kurt for
+; a worked example, including the "state base case and step as one conjunction" pattern
+; `impl_elim`'s single-hop derivation needs to apply "induction" in one step.
+;
+; known gap: no arithmetic on `Nat` at all -- `+` is declared syntactically below (needed so
+; `nat-succ`/"induction" can even parse `$n+1`) but has no defining axioms relating it to
+; anything else (no `$n+0=$n`, no recursive step). This is a different, unrelated `+` from
+; arith.kurt's: that one computes on literal numbers via `calc`, this one has no semantics of
+; its own yet -- extending it (e.g. `$n + 0 = $n`, `$n + ($m+1) = ($n+$m)+1`) is real,
+; self-contained future work.
 load set
 
 ;; syntax
