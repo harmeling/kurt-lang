@@ -23,6 +23,11 @@ use $a ∈ { $z | sub $x $z %F }  ≡  sub $x $a %F   "set-comprehension"
 
 ; axioms for mappings
 ; two mappings are equal if they give the same output for all inputs
+; -- genuinely not written yet (unlike `^`'s syntax-with-no-axiom gap in arith.kurt, this
+;    isn't a one-line fix: function extensionality needs real thought). Since nothing here
+;    uses `:`/`→` in an exported fact, both are correctly *not* exported by `load set` right
+;    now (see doc/kurt-soundness.md #7 on selective export) -- that's accurate, not a bug:
+;    there's no meaning attached to them yet for anything downstream to rely on.
 
 ; axioms for =, ∅, ∩, ∪, Pow
 use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)      "extensionality" ; two sets are equal iff they have the same elements

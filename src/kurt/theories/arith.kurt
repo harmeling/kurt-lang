@@ -45,7 +45,11 @@ use $a - 0 = $a          "sub-identity"
 ; use $a ^ $b * $a ^ $c = $a ^ ($b + $c)  ; laws of exponents
 ; use ($a ^ $b) ^ $c = $a ^ ($b * $c)     ; laws of exponents
 ; use $a ^ 0 = 1                          ; laws of exponents
-; use $a ^ 1 = $a                         ; laws of exponents
+; `$a ^ 0 = 1` above stays commented out: 0^0 is conventionally left undefined, so it
+; shouldn't be a blanket, unconditional axiom. `$a ^ 1 = $a` has no such edge case, and is
+; also the only reason `^`'s own `infix` syntax survives `load arith` at all (nothing else
+; here uses `^` -- see doc/kurt-soundness.md #7 on selective export).
+use $a ^ 1 = $a          "pow-identity"
 
 ;; order rules: <
 use $a < $b  ⇒  $a + $c < $b + $c   "lt-add"

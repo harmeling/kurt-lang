@@ -127,8 +127,15 @@ IFF_SYMBOL    = 'iff'        # equivalence
 
 # default theory and theory path
 default_theory = 'theory.kurt'             # default theory
+try:
+    _packaged_theories = resources.files("kurt.theories")   # path of packaged theories, when installed
+except ModuleNotFoundError:
+    # `kurt.py` run standalone (`python3 kurt.py`, no install) -- `kurt` isn't an importable
+    # package in that case, so fall back to a `theories/` directory next to this very file,
+    # which is exactly what the README's "copy just kurt.py" classroom workflow expects
+    _packaged_theories = Path(__file__).resolve().parent / "theories"
 theory_path = [Path.cwd(),                             # current working directory
-                          resources.files("kurt.theories")]       # path of packaged theories
+                          _packaged_theories]
 
 # debugging
 debug_flag = False
@@ -297,7 +304,7 @@ keywords: dict[str, str] = {
 
     'syntax':      'print the current syntax',
     'prefix':      'add prefix operator with right binding power',
-    'infix':       'add infix operator with left/right binding powers (lhb, rhb), note: lhb < rhb means right associative',
+    'infix':       'add infix operator with left/right binding powers (lhb, rhb), note: lhb > rhb means right associative',
     'postfix':     'add postfix operator with left binding power',
     'brackets':    'declare brackets',
     'arity':       'set arity of a symbol (default is 0)',

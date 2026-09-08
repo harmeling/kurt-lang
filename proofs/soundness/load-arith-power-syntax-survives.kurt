@@ -1,0 +1,15 @@
+; regression test for a real retrofit gap missed when arith.kurt was first labelled for the
+; `local`/export feature (doc/kurt-soundness.md #7): `^` (power) had `infix ^ 75 75` declared
+; but every axiom that mentioned it was commented out ("laws of exponents", left disabled),
+; so nothing exported ever needed `^` -- meaning `^`'s own syntax silently stopped surviving
+; `load arith`, exactly like `!` (factorial) did before `arith.kurt` got a `0! = 1`-style fix.
+; Confirmed the break directly: `2 ^ 3` parsed as bare space-application (`[2, ^, 3]`, not an
+; infix expression) after `load arith`, so `calc on` never saw an operator to compute.
+; Fixed by adding a genuine, unconditionally-true axiom (`$a ^ 1 = $a`, chosen over
+; `$a ^ 0 = 1` specifically to avoid the 0^0-undefined edge case) that actually mentions `^`,
+; so its syntax is now part of the exported closure -- confirmed here via `calc on` actually
+; computing `2 ^ 3` (impossible if `^` were still parsed as a bare space-applied symbol).
+load arith
+calc on
+2 ^ 3 = 8
+;;; Proof checked.

@@ -604,23 +604,6 @@ genuinely multi-char operators untouched by this change (`<=`, `>=`, `!=`,
 `doc/kurt-doc.md` §11 and the matching `todo-claude.md` item. Regression:
 `proofs/soundness/bracket-adjacency-lexes-correctly.kurt`.
 
-### 7.2 Bug found and fixed: EOF mid-statement silently truncated the file
-
-A much more severe, general version of the bug above, independent of the
-specific lexer cause: `read_eval_loop`'s file-reading branch did `if not
-new_line: break` on EOF, with no check for whether a statement was still
-incomplete (`continued == True` — waiting for more input after a
-`StopIteration`, e.g. from a genuinely unclosed bracket, nothing to do
-with the lexer bug in §7's `...}` case specifically). Hitting EOF in that
-state silently discarded the incomplete statement and returned success —
-`Proof checked`, exit code 0, for a file whose real last statement (and
-anything after the point where it went wrong) was never actually read.
-This is precisely the failure mode the whole soundness audit is about:
-Kurt reporting a proof fine when it wasn't actually all checked. Fixed by
-raising a clear `ParseError` naming the approximate line instead of
-breaking, whenever EOF is hit while still `continued`. Regression:
-`proofs/soundness/eof-mid-statement-rejected.kurt`.
-
 ### 7.1 Bug found and fixed: a labelled bare/conjunction claim silently lost its label
 
 Found while checking whether labelling was really uniform across every
@@ -643,6 +626,67 @@ in the log line the way `use`/`show`'s do (embedded in the `reason`
 string) — now consistent. Regression:
 `proofs/soundness/load-export-bare-claim-label-survives.kurt` and
 `load-export-conjunction-label-survives.kurt`.
+
+### 7.2 Bug found and fixed: EOF mid-statement silently truncated the file
+
+A much more severe, general version of the bracket-lexing bug above,
+independent of the specific lexer cause: `read_eval_loop`'s file-reading
+branch did `if not new_line: break` on EOF, with no check for whether a
+statement was still incomplete (`continued == True` — waiting for more
+input after a `StopIteration`, e.g. from a genuinely unclosed bracket,
+nothing to do with the lexer bug's `...}` case specifically). Hitting EOF
+in that state silently discarded the incomplete statement and returned
+success — `Proof checked`, exit code 0, for a file whose real last
+statement (and anything after the point where it went wrong) was never
+actually read. This is precisely the failure mode the whole soundness
+audit is about: Kurt reporting a proof fine when it wasn't actually all
+checked. Fixed by raising a clear `ParseError` naming the approximate line
+instead of breaking, whenever EOF is hit while still `continued`.
+Regression: `proofs/soundness/eof-mid-statement-rejected.kurt`.
+
+### 7.3 Bug found and fixed: syntax-only symbols silently dropped by the retrofit itself
+
+Found by a fresh-eyes review pass over the docs, spot-checking `calc`'s
+documented operator coverage against reality: `2 ^ 3` (after `load arith`)
+parsed as bare space-application, `[2, ^, 3]`, not an infix expression —
+`^`'s own `infix ^ 75 75` declaration had silently stopped surviving
+`load arith`. Root cause: every axiom in `arith.kurt` that ever mentioned
+`^` ("laws of exponents") was already commented out before selective
+export existed, so once export was implemented, nothing exported ever
+needed `^` — its syntax fell out of the closure entirely. This is exactly
+the same shape of gap `!` (factorial) had, already fixed at the time with
+a `0! = 1`-style axiom — but `^` was missed during that same retrofit
+pass, because "does every *retrofitted* theory still parse the same way"
+was never actually checked file-by-file, only "does the existing test
+suite still pass" (§7's own retrofit note). A second, independent instance
+of the same gap turned up in the same pass: `prop.kurt`'s `invimplies`
+(backwards implication, alias `⇐`) had full syntax (`infix`, `bool`,
+`chain`, `alias`) but — unlike every other operator in that file — no
+defining axiom relating it to `implies` at all; a pre-existing gap that
+simply didn't matter before selective export (everything was
+unconditionally exported regardless of axioms) but became a real,
+observable break once it did.
+
+Fixed both the same way: added a genuine, unconditionally-true axiom that
+actually mentions the symbol (`$a ^ 1 = $a` for `^`, chosen over
+`$a ^ 0 = 1` specifically to dodge the 0^0-undefined edge case; the
+natural `(%A invimplies %B) iff (%B implies %A)` for `invimplies`).
+Regression: `proofs/soundness/load-arith-power-syntax-survives.kurt` and
+`load-prop-invimplies-syntax-and-def-survive.kurt`.
+
+**Also added a general safeguard**, since "check whether every retrofitted
+theory's syntax still works" is exactly the kind of thing that's easy to
+forget to re-check by hand after some future edit:
+`tests/test_theory_syntax_survives_load.py` declares every `infix`/
+`prefix`/`postfix` symbol found in each shipped theory's own source text
+and asserts each one survives that file's own `load` — confirmed this
+would have caught both bugs above (reverting the two fixes reproduces
+both failures). One symbol pair is deliberately exempted: `set.kurt`'s
+`:`/`→` (mapping notation) genuinely has no axioms written yet at all
+(the file's own comment admits "two mappings are equal if they give the
+same output for all inputs" was never implemented) — that's a real,
+separate incompleteness, not the same kind of oversight, so it's excluded
+from the check rather than papered over with an invented axiom.
 
 ## How to extend this
 
