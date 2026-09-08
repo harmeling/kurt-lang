@@ -759,6 +759,16 @@ constant introduced on the block's own level) — with that check passed, it
 becomes the block's result on the parent level, without any reference to
 the witness.
 
+`SYMBOL` must be a bare new-or-existing name, unlike `let`'s otherwise
+similar `let SYMBOL` / `let SYMBOL>0` (§9.2) — a `pick`ed witness can never
+carry an extra condition of its own the way a `let`-bound one can: `let`'s
+condition becomes an assumption that gets quantified away when the block
+closes, but a `pick`ed witness is existential, so an unearned extra
+condition on it would just be an unproven fact about a specific value, not
+a sound derivation. `pick x>0 with FACT` is therefore rejected outright
+(`EvalError`) rather than silently accepted or silently ignored; the
+witness's only property comes from `FACT` itself.
+
 ### 9.4 `sandbox`
 
     sandbox

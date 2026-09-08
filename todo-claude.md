@@ -384,15 +384,45 @@ Status as assessed:
   extends the existing 2-file cycle regression to a 3-file chain, confirming
   `_loading_in_progress`'s check isn't accidentally hardcoded to exactly one
   back-and-forth. No code changes needed — all of this already worked.
-- **Merge `pick`'s parsing into `unpack_condition`** ("allow `let x with
-  F(x)`, ... merge `pick` and `let` to use `unpack_condition`") — `let`
-  already uses `unpack_condition` and supports `let x>0`-style conditions
-  (line 2167). `pick`, by contrast, has its own hand-rolled match on
-  `[SYMBOL, SYMBOL('with'), *fact_expr]` (line 2740) and does not go through
-  `unpack_condition` at all. Unifying them so `let x with F(x)` and `pick
-  x>0` both work symmetrically is a well-scoped, localized change (touches
-  `eval_let`, `eval_pick`, and the `let`/`pick` branches in
-  `eval_keyword_expression`).
+- ~~**Merge `pick`'s parsing into `unpack_condition`**~~ — **done, but
+  deliberately not full symmetry with `let`.** ("allow `let x with F(x)`,
+  ... merge `pick` and `let` to use `unpack_condition`") `pick`'s new-const
+  parsing now goes through `unpack_condition`, same as `let`'s — genuine
+  code sharing, better/consistent error messages (e.g. `pick f with P f`
+  for an already-declared `f` now says so specifically, instead of the
+  generic "takes a new constant, keyword `with` and a formula"). The
+  bigger discovery along the way: `pick`'s args never go through
+  `parse_expression` at all (`pick` isn't in `keywords_with_parsing`, see
+  `parse_tokenstream`) — they're still a *flat list of raw tokens*, split
+  only on top-level commas, with `with` marking where the new-constant part
+  ends and the fact begins. So the merge is: find `with`, and if exactly
+  *one* raw token precedes it, feed that one token through
+  `unpack_condition` (trivial for a bare token, but the same code path
+  `let` uses); more than one token before `with` now gets its own specific
+  "does not support an extra condition" error instead of falling through
+  to the generic message.
+  Explicitly did **not** implement the todo's literal "`pick x>0` works
+  symmetrically to `let x>0`" ask, after actually thinking through what it
+  would mean: `let x>0`'s condition becomes an *assumption*, discharged
+  (quantified away) when the block closes (§9.2) -- it's sound precisely
+  because nothing is asserted about `x` outright, only "if x>0, then...".
+  A `pick`ed witness is different in kind: it's *existential*, introduced
+  because some `exists $x P` is already known to hold for *some* value,
+  with `FACT` (`P` with the witness substituted in) as its only
+  established property. Accepting `pick x>0 with FACT` would silently add
+  `x>0` as an unproven, unquantified fact about that one witness -- a
+  soundness hole, not a convenience, since nothing ever justified `x>0`
+  specifically. `unpack_condition`'s condition-branch is deliberately kept
+  reachable in the code (`assert`ed unreachable would be wrong, since
+  nothing currently prevents a future parsing change from producing a
+  compound pre-`with` expression) but always rejected with a clear error
+  naming the reason, rather than silently ignored or silently accepted.
+  Similarly did not add a symmetric `with`-clause to `let` itself --
+  `let`'s existing inline condition (`let x>0`) already covers the same
+  need `pick`'s `with` covers for `pick`, so a second syntax for the same
+  thing would just be redundant, not an actual gap.
+  Regression test: `proofs/debug/pick-error-messages.kurt`. Documented in
+  `doc/kurt-doc.md` §9.3.
 - **`f()` (zero-argument call) doesn't parse** ("why not `f()`???") —
   confirmed: `arity f 1` (or any arity/bracket combo) followed by `f()`
   raises `SyntaxError: token \`)\` cannot start an expression`, because

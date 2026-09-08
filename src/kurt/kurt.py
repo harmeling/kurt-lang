@@ -3345,9 +3345,36 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             # doc/kurt-soundness.md #3.4).
             level_before = kb.level
             try:
+                # `pick`'s args never went through `parse_expression` (it's not in
+                # `keywords_with_parsing`, see `parse_tokenstream`) -- `expr` here is still a
+                # flat list of raw tokens, split only on top-level commas, not a parsed
+                # expression tree; `with` is where the new constant ends and the fact begins.
                 match expr:
-                    case [Token(label='SYMBOL', value=new_const), Token(label='SYMBOL', value='with'), *fact_expr] if isinstance(new_const, str) and not kb.is_const(new_const):
-                        kb, fact = eval_pick(kb, expr[0], fact_expr, input_line, filename, line, mainstream)
+                    case [*tail] if sum(1 for t in tail if is_helper_keyword(t)) == 1:
+                        with_index = next(i for i, t in enumerate(tail) if is_helper_keyword(t))
+                        pre_with, fact_expr = tail[:with_index], tail[with_index+1:]
+                        if len(pre_with) != 1:
+                            raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{" ".join(str(t.value) for t in pre_with)}`' if len(pre_with) > 1 else msg)
+                        new_const_expr = pre_with[0]
+                        # reuse `let`'s own "extract the one new-or-existing symbol" parsing
+                        # (`unpack_condition`) for consistency -- but unlike `let x>0`, which
+                        # quantifies its condition away as an assumption when the block closes
+                        # (§9.2), a `pick`ed witness is existential, so it can never carry an
+                        # inline condition of its own: an extra condition here would be an
+                        # unproven fact asserted about a specific value with no justification --
+                        # a soundness hole, not a convenience. The witness's only property comes
+                        # from matching the existential's own body (below). In practice this
+                        # branch of `unpack_condition` is unreachable today: `pre_with` is
+                        # always exactly one raw token (nothing upstream parses it into a
+                        # compound expression), so `condition` is always `None` here already --
+                        # the check stays as a clear, deliberate guard, not dead code, in case
+                        # that ever changes.
+                        new_const, condition = unpack_condition(new_const_expr, kb)
+                        if condition is not None:
+                            raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{expr_str(new_const_expr, kb)}`', get_column(new_const_expr))
+                        if kb.is_const(new_const):
+                            raise KurtException(f'EvalError: `pick` requires a new constant or existing variable, got already-declared constant `{new_const}`')
+                        kb, fact = eval_pick(kb, new_const_expr, fact_expr, input_line, filename, line, mainstream)
                     case _:
                         raise KurtException(msg)
             except KurtException:
