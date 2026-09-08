@@ -570,16 +570,31 @@ Status as assessed:
   inherently associative by construction can't also assert it's ambiguous
   to chain). Regression test:
   `proofs/soundness/nonassoc-rejects-chained-usage.kurt`.
-- **`'thus'` keyword** ("'thus' with one step shorter, for `qed` we use
-  match, for `thus` we use equal") — not implemented at all today (no
-  `'thus'` anywhere in `eval_keyword_expression`'s dispatch). The todo's own
-  description is a usable spec: unlike `qed`, which re-derives the planned
-  goal via full `derive_expr` search, `thus` would close a block (or end an
-  equational step) by checking the last formula is *literally equal* (via
-  `equal_expr`, already used elsewhere for exactly this kind of check) to
-  the target, which is cheaper and more predictable for long equational
-  chains (see `group.kurt`'s style of proof). Well-specified, self-contained
-  new keyword.
+- ~~**`'thus'` keyword**~~ — **done.** ("'thus' with one step shorter, for
+  `qed` we use match, for `thus` we use equal") New keyword, `qed`'s
+  sibling: closes a `proof` block (only a `proof` — not `assume`/`case`/
+  `let`/`pick`, unlike `qed`) by checking the block's last formula is
+  *literally* the planned goal, via `equal_expr` (alpha-equivalence-aware,
+  the same notion of "the same formula" used elsewhere), instead of `qed`'s
+  full `derive_expr` search — cheaper and its outcome is predictable just
+  by reading the last line, at the cost of rejecting a last line that's one
+  more derivation step short of the goal (`qed` would take that step;
+  `thus` won't). Implemented as `eval_thus` (mirrors `eval_qed`'s structure
+  exactly, right down the reused `Formula`-carrying-label/local logic), with
+  its own dispatch branch in `scan_parse_check_eval` (mirroring `qed`'s: a
+  parse-time "must have a real dedent" check, then a dry-run block-mode
+  check restricted to `proof` only) since — like `qed` — closing is
+  special-cased ahead of the ordinary `eval_keyword_expression` dispatch.
+  Also removed `eval_qed`'s long-dead commented-out "option 2" sketch
+  (a `unify_exprs_with_patterns`-based alternate design) now that `thus`
+  covers that use case for real. Regression tests: `proofs/debug/thus.kurt`
+  (positive: last line is literally the goal) and
+  `proofs/debug/thus-rejects-non-literal-match.kurt` (negative: last line
+  is one `impl-elim` short of the goal, `qed` would accept it but `thus`
+  correctly rejects it — uses the older `;;; ` marker convention, not
+  `expect`, since the failure happens while `thus` itself closes the block,
+  same reasoning as `forall-intro-rejects-leaked-constant.kurt`). Documented
+  in `doc/kurt-doc.md` §7 and §9's keyword-listing paragraph.
 - ~~**`Formula.origin`**~~ — **investigated; based on a misunderstanding,
   nothing to build.** `Token.origin` isn't a general provenance field — it
   specifically stores the user's originally-*typed* alias name (e.g. `∈`)

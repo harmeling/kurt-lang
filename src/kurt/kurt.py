@@ -120,6 +120,7 @@ latex_map = {
     'show':          r'\text{To show: }',
     'proof':         r'\textbf{proof}',
     'qed':           r'\textbf{qed}',
+    'thus':          r'\textbf{thus}',
     'and':           r'\and',
     'or':            r'\or',
     'implies':       r'\Rightarrow',
@@ -394,6 +395,7 @@ keywords: dict[str, str] = {
     'show':        'plan to prove a formula',
     'proof':       'start a proof block to prove the last planned formula',
     'qed':         'end a proof block, to finish the proof of the last planned formula (optional -- dedenting alone already does this; `qed` documents it and double-checks you meant to close a `proof`, not some other kind of block)',
+    'thus':        'end a proof block like `qed`, but only by checking that the last formula is literally (up to alpha-equivalence) the planned goal, instead of `qed`\'s full derivation search -- cheaper and more predictable for equational chains, but rejects a goal that would need any extra derivation step',
 
     'todo':        'without a formula it is a joker for the next one, with a formula it is a joker for that one',
 
@@ -415,7 +417,7 @@ helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
 keywords_with_parsing = ['use', 'show', 'def', 'assume', 'case', 'let', 'todo', 'parse']
 keywords_opening_blocks = ['proof', 'assume', 'case', 'let', 'pick', 'sandbox', 'expect']
-keywords_closing_blocks = ['qed', 'break']
+keywords_closing_blocks = ['qed', 'thus', 'break']
 
 @dataclass
 class Token:
@@ -2505,13 +2507,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         # block all free variables of the planned expression, since they are universally quantified
         blocked_as_domain = frozenset(free_vars_only(planned_expr, kb))
         s = State({}, blocked_as_domain, frozenset())
-        # next either `derive_expr` or `unify_exprs_with_patterns` (for unify we have to state the `planned_expr` again as `proven_expr`)
-        # option 1:
         _, _ = derive_expr(planned_expr, filename, mainstream, s, kb)  # this might raise ProofError exceptions
-        # option 2:
-        #optional_s = _first_or_none(unify_exprs_with_patterns([(planned_expr, proven_expr)], s, kb))
-        #if optional_s is None:
-        #    raise KurtException(f'ProofError: planned formula `{expr_str(planned_expr, kb)}` does not match the last formula in the theory `{expr_str(proven_expr, kb)}`')
         reason = decorate_reason(mainstream, reason, filename, str(line))
     # carry the `show`'s own label/local marker forward -- a proved, named theorem must stay
     # exportable exactly like a labelled `use`/`def` axiom would be (see doc/kurt-doc.md's
@@ -2522,6 +2518,39 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     kb.theory_append(f)                        # add a copy to the current theory
     if mainstream:
         log(kb, 'qed', '', kb.level)
+    return kb
+
+def eval_thus(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
+    # like `eval_qed`, but instead of a full `derive_expr` search over the whole theory, only
+    # checks that the last proven formula is literally (up to alpha-equivalence, via `equal_expr`)
+    # the planned goal -- cheaper and more predictable for long equational chains (e.g. group.kurt
+    # style proofs), at the cost of never doing any search: the last line must already spell out
+    # the goal exactly, not just something the goal follows from.
+    parent = kb.parent
+    if not kb.mode_str == 'proof'  or  parent is None:
+        raise KurtException(f'EvalError: no proof to finish, `thus` can only appear at the end of a `proof` block')
+    assert len(parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
+    planned_f = parent.show[-1]
+    planned_expr = planned_f.simplified_expr        # peek at the last planned formula from previous level
+    if len(kb.theory) == 0:
+        raise KurtException(f'ProofError: no formula has been proven, `thus` can only be used after a successful proof')
+    proven_f = kb.theory[-1]               # check the last formula
+    proven_expr = proven_f.simplified_expr          # what actually has been proven
+    if proven_expr == todo_token:
+        reason = f'by a miracle'
+        if mainstream:
+            log(kb, 'todo', reason, kb.level)
+    else:
+        if not equal_expr(planned_expr, proven_expr, kb):
+            raise KurtException(f'ProofError: last formula `{expr_str(proven_expr, kb)}` is not literally the planned formula `{expr_str(planned_expr, kb)}` -- `thus` only accepts an exact (up to alpha-equivalence) match, use `qed` if the goal needs an extra derivation step')
+        reason = decorate_reason(mainstream, '', filename, str(line))
+    # carry the `show`'s own label/local marker forward, same as `eval_qed`
+    f = Formula(kb, planned_f.expr, planned_f.input_line, str(planned_f.line), filename, planned_f.label, reason, keyword='', local=planned_f.local)
+    kb = kb.pop_level()                        # drop current level and perform some checks
+    kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
+    kb.theory_append(f)                        # add a copy to the current theory
+    if mainstream:
+        log(kb, 'thus', '', kb.level)
     return kb
 
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
@@ -3110,6 +3139,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         assert False, '`qed` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
+    elif keyword == 'thus':           # like `qed`, but checks literal (alpha-)equality instead of deriving
+        assert False, '`thus` should have been handled in `scan_parse_check_eval`'
+        pass    # do nothing, it was already handled in `scan_parse_check_eval`
+
     elif keyword == 'break':
         assert False, '`break` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
@@ -3425,7 +3458,7 @@ def latexify(kb: KnowledgeBase, s: str) -> str:
     return s
 
 def starts_with_keyword(s: str) -> bool:
-    keywords = ['theory', 'use', 'def', 'todo', 'qed', 'done', 'break', 'inspect', 'show', 'proof', 'sandbox', 'assume', 'case', 'let', 'pick']
+    keywords = ['theory', 'use', 'def', 'todo', 'qed', 'thus', 'done', 'break', 'inspect', 'show', 'proof', 'sandbox', 'assume', 'case', 'let', 'pick']
     for kw in keywords:
         if s.startswith(kw + ' ') or s == kw:
             return True
@@ -4607,6 +4640,8 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
     if keyword == 'qed' and dedents == 0:
         raise KurtException(f'ParseError: `qed` must be used with dedentation at line {line} in {filename}')
+    if keyword == 'thus' and dedents == 0:
+        raise KurtException(f'ParseError: `thus` must be used with dedentation at line {line} in {filename}')
 
     # chain management continued
     if chained:
@@ -4669,6 +4704,30 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
                 kb = eval_done(kb, filename, line, mainstream)  # done with a block, yield a formula
             else:
                 assert False, f'BUG: `qed` closed a non-proof/assume/let/pick block'
+            dedents -= 1
+    elif keyword == 'thus':
+        # dry run to check the block modes and that we are not closing too many levels -- unlike
+        # `qed`, `thus` only ever closes a `proof` block (it's specifically a cheaper alternative
+        # to `qed`'s derivation search, not a general block closer)
+        dedents_check = dedents
+        kb_check = kb
+        while dedents_check > 0:
+            mode_str = kb_check.mode_str
+            if mode_str == 'sandbox':
+                raise KurtException(f'EvalError: `thus` never closes a `sandbox`')
+            elif mode_str == 'root':
+                assert False, f'BUG: `thus` closed too many levels at line {line} in {filename}'
+            elif dedents_check == 1 and mode_str != 'proof':
+                raise KurtException(f'EvalError: `thus` must close a `proof` block at line {line} in {filename}, not a `{mode_str}` block')
+            assert kb_check.parent is not None, f'BUG: `thus` closed too many levels'
+            kb_check = kb_check.parent   # don't pop yet, just check
+            dedents_check -= 1
+        # now actually pop the levels
+        while dedents > 0:
+            if kb.mode_str == 'proof':
+                kb = eval_thus(kb, filename, line, mainstream)   # thus with a block, yield a formula
+            else:
+                assert False, f'BUG: `thus` closed a non-proof block'
             dedents -= 1
     else:
         # process the DEDENTs -- this is how every block ordinarily closes, `proof` included

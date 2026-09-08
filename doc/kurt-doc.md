@@ -494,6 +494,20 @@ Kurt knows how many nested blocks to close, and a single `qed` can close
 several at once this way. This is identical in a file and in the
 interactive shell — see §9's introduction.
 
+`thus` is an alternative to `qed` (and to plain dedenting) for closing a
+`proof` block: instead of re-deriving the goal from scratch, it only checks
+that the block's *last line is already, literally, the goal* (up to
+alpha-equivalence of bound variables — the same notion of "the same
+formula" used elsewhere, e.g. by `use`/`show` restatement checks). No
+search happens at all, so `thus` is cheap and its outcome is easy to
+predict just by reading the last line, but it also means `thus` rejects a
+proof whose last line is one step short of the goal even when `qed` would
+happily take that step — write out that last step explicitly, or use `qed`
+instead. Like `qed`, `thus` must line up with the `proof`/`show` it closes
+and can only close a `proof` block (not `assume`/`case`/`let`/`pick` —
+those close with `qed`/dedent only). Prefer `thus` for long equational or
+`iff`-chain proofs where every line already restates the goal-so-far.
+
 ## 8. Building the theory: hard-coded core vs. loaded theories
 
 ### 8.1 What's hard-coded (needs no `load`)
@@ -652,10 +666,12 @@ closes as many levels as the drop in indentation implies, applying
 whatever each level's closing rule is (`impl-intro`, `forall-intro`, ...,
 below). There is no separate "shell mode" for this: the interactive shell
 reads real leading whitespace exactly like a file does, so pasting file
-content into `kurt -i` behaves the same as running it as a file. Two
+content into `kurt -i` behaves the same as running it as a file. Three
 keywords remain as *optional*, position-independent alternatives to
 dedenting, and work identically in files and the shell: `qed` (§7 — still
-needs a real dedent, but also checks you're closing a `proof`) and `break`
+needs a real dedent, but also checks you're closing a `proof`), `thus`
+(§7 — also still needs a real dedent and only closes a `proof`, but checks
+the goal by literal match instead of re-deriving it), and `break`
 (§9.5 — needs no dedent at all, and is the only way to close a `sandbox`
 without dedenting past it).
 
