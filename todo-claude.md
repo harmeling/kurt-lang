@@ -74,11 +74,14 @@ Status as assessed:
   (`proofs/mafi1/001-two-equal-sets.kurt`). One documented, real gap: `:`/`→`
   (mapping notation) has syntax declared but zero axioms — function
   extensionality was never written. Needs design thought, not a quick fix.
-- **`induction.kurt`** — empty stub (just a comment + test marker). Needs a
-  design decision first: what does a *general* induction principle (as
-  opposed to `natural.kurt`'s Peano-specific one) even mean here — strong/
-  well-founded induction over `<`? Over an arbitrary well-founded relation?
-  Don't fill this in mechanically before deciding what it's for.
+- ~~**`induction.kurt`**~~ — **removed**, per explicit maintainer decision:
+  `natural.kurt` already has the one induction principle actually wanted
+  (Peano-style, over `Nat`) — a separate general/transfinite/well-founded
+  induction theory is deliberately out of scope for now, so the empty stub
+  was deleted rather than filled in. Removed its `theory` table row in
+  `doc/kurt-doc.md`, its mention in `CLAUDE.md`'s file list, and the stale
+  `induction.kurt`+`lambda-calculus.kurt` pairing in `suggestions-claude.md`
+  (that suggestion's example now just points at `lambda-calculus.kurt`).
 - **`lambda-calculus.kurt`** — empty stub. Needs real design work from
   scratch (abstraction/application syntax, beta reduction, substitution
   semantics built on the existing `sub`/binding machinery) — the biggest
@@ -110,9 +113,28 @@ Status as assessed:
   known gaps, pointer to a real proof under `proofs/`) to `natural.kurt`,
   `arith.kurt`, `modal.kurt`, `prop.kurt`, `logic.kurt`, `equality.kurt`,
   `set.kurt`, `latex.kurt`. `minimal.kurt` already had one (rewritten
-  earlier this session). Left `induction.kurt`/`lambda-calculus.kurt` for
-  whenever their real content gets written — no point documenting the scope
-  of a file that's still empty.
+  earlier this session). Left `lambda-calculus.kurt` (still empty) for
+  whenever its real content gets written — no point documenting the scope
+  of a file that's still empty. (`induction.kurt` itself was later removed
+  entirely, see above.)
+
+## Testing-infrastructure follow-up (noted, not yet done)
+
+- **Revisit the `;;; ` marker convention more broadly** — the `expect`-based
+  relaxation above only covers files that use `expect`. Every *other*
+  successfully-completing proof file (the large majority) has the exact
+  same situation: its marker is just `;;; Proof checked.`, equally
+  information-free, for the same reason (the harness's own default success
+  message, not anything specific to that file). Worth asking whether
+  `file_last_line` should default to expecting clean success for *any* file
+  with no marker (not just `expect`-using ones), and only require an
+  explicit `;;; ` line for the genuinely special cases: a file that expects
+  a *specific* failure without using `expect` (the 3 files noted above that
+  rely on the 17-char fallback on purpose) or one whose point is specific
+  non-error *output* text. Not done yet — flagged for a deliberate look
+  rather than folded into the `expect`-only fix above, since it touches the
+  default behavior for the vast majority of `proofs/*.kurt` files, not just
+  the dozen `expect` ones.
 
 ## Already done / stale (recommend deleting from `todo.md`)
 

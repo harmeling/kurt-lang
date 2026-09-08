@@ -563,7 +563,7 @@ declaring their own prerequisites via their own `load` lines:
 | `natural.kurt` | natural numbers | `set` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
 | `latex.kurt` | LaTeX rendering setup for `kurt -l` | none declared |
-| `induction.kurt`, `lambda-calculus.kurt` | *(placeholder stubs — a few comment lines each, no syntax or axioms yet; induction itself lives in `natural.kurt`)* | none declared |
+| `lambda-calculus.kurt` | *(placeholder stub — a few comment lines, no syntax or axioms yet)* | none declared |
 
 `load` with no arguments lists every file loaded so far, level by level.
 
