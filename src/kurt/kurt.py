@@ -4523,6 +4523,15 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                 # here indentation matters, we read exactly what is in the file
                 new_line = input_stream.readline()
                 if not new_line:
+                    if continued:
+                        # still mid-parse (e.g. an unclosed bracket) when the file ran out --
+                        # raise instead of silently breaking, otherwise this looks exactly
+                        # like a clean "Proof checked" even though everything from here on
+                        # (including whatever the file's actual last statement should have
+                        # been) was never read at all
+                        raise KurtException(
+                            f'ParseError: unexpected end of file while still parsing a statement that started around line {line} in {input_stream.name} -- unclosed bracket or incomplete expression?',
+                            line=line, filename=input_stream.name)
                     break
                 new_line = new_line.rstrip()
             new_line = new_line.expandtabs(tab_indent)     # tabs are ok, but are converted

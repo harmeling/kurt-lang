@@ -125,6 +125,18 @@ No code was changed while producing this file.
   before any `brackets` declaration exists (they're just never eligible to
   merge with neighbours either way now). See `doc/kurt-soundness.md` §7 and
   `proofs/soundness/bracket-adjacency-lexes-correctly.kurt`.
+- ~~**A much more general version of the same failure mode: EOF mid-statement
+  silently truncated the file**~~ — **fixed.** Found immediately after fixing
+  the lexer bug above, by asking "is silently swallowing the rest of the
+  file on EOF really specific to that one lexer bug, or could *any*
+  genuinely unclosed construct trigger it?" It could: `read_eval_loop`
+  broke out of its loop on EOF unconditionally, with no check for whether a
+  statement was still mid-parse (`continued == True`) — so a plain typo
+  (forgetting to close a bracket, anywhere, for any reason) silently
+  discarded everything from that point on and reported `Proof checked`,
+  exit code 0. Fixed by raising a clear `ParseError` instead of breaking in
+  that case. See `doc/kurt-soundness.md` §7.2 and
+  `proofs/soundness/eof-mid-statement-rejected.kurt`.
 
 ## Testing-infrastructure issue — now has a real fix (`expect`), partially retrofitted
 

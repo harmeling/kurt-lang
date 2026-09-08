@@ -604,6 +604,23 @@ genuinely multi-char operators untouched by this change (`<=`, `>=`, `!=`,
 `doc/kurt-doc.md` §11 and the matching `todo-claude.md` item. Regression:
 `proofs/soundness/bracket-adjacency-lexes-correctly.kurt`.
 
+### 7.2 Bug found and fixed: EOF mid-statement silently truncated the file
+
+A much more severe, general version of the bug above, independent of the
+specific lexer cause: `read_eval_loop`'s file-reading branch did `if not
+new_line: break` on EOF, with no check for whether a statement was still
+incomplete (`continued == True` — waiting for more input after a
+`StopIteration`, e.g. from a genuinely unclosed bracket, nothing to do
+with the lexer bug in §7's `...}` case specifically). Hitting EOF in that
+state silently discarded the incomplete statement and returned success —
+`Proof checked`, exit code 0, for a file whose real last statement (and
+anything after the point where it went wrong) was never actually read.
+This is precisely the failure mode the whole soundness audit is about:
+Kurt reporting a proof fine when it wasn't actually all checked. Fixed by
+raising a clear `ParseError` naming the approximate line instead of
+breaking, whenever EOF is hit while still `continued`. Regression:
+`proofs/soundness/eof-mid-statement-rejected.kurt`.
+
 ### 7.1 Bug found and fixed: a labelled bare/conjunction claim silently lost its label
 
 Found while checking whether labelling was really uniform across every
