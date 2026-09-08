@@ -556,14 +556,20 @@ Status as assessed:
   so `derive_expr` only scans plausible candidates. This is the kind of
   change that needs before/after benchmarks (see "run profiling" above) to
   justify, since it adds real complexity to `KnowledgeBase`.
-- **`nonassoc` operators** ("implement 'nonassoc', this could then be
-  checked in 'post_process'") — `add_infix` currently always resolves
-  associativity from `lbp`/`rbp` (confirmed via `parse_expression` and the
-  binding-power comparisons); there's no way to declare e.g. `<` as
-  non-associative so that `a < b < c` is a syntax error rather than silently
-  parsing one way or another. Well-scoped: a new `infix ... nonassoc` form
-  (or a separate `nonassoc` keyword as titled) plus a check in
-  `post_process` (line 1876) or the parser itself.
+- ~~**`nonassoc` operators**~~ — **done.** New `nonassoc OP` keyword
+  (mirroring `flat`/`sym`'s existing "declare a property of an already-
+  `infix` operator" pattern, rather than extending `infix`'s own argument
+  list): `a OP b OP c` now raises a `ParseError` right at the second `OP`
+  instead of silently left-associating, while explicit parenthesization
+  (either grouping) still works fine. Implemented at parse time (in the
+  operator's own `led`, checking whether the token right after the parsed
+  right operand is the same operator again), not in `post_process` as
+  originally suggested — catches it exactly where the ambiguity is, with a
+  precise column, rather than needing a separate later pass. Mutually
+  exclusive with `flat` (checked both declaration orders — an operator that's
+  inherently associative by construction can't also assert it's ambiguous
+  to chain). Regression test:
+  `proofs/soundness/nonassoc-rejects-chained-usage.kurt`.
 - **`'thus'` keyword** ("'thus' with one step shorter, for `qed` we use
   match, for `thus` we use equal") — not implemented at all today (no
   `'thus'` anywhere in `eval_keyword_expression`'s dispatch). The todo's own
@@ -574,11 +580,15 @@ Status as assessed:
   the target, which is cheaper and more predictable for long equational
   chains (see `group.kurt`'s style of proof). Well-specified, self-contained
   new keyword.
-- **`Formula.origin`** ("have `origin` (see class Token) also on the
-  Formula level") — `Token` (line 331) already carries an `origin` field;
-  `Formula` (line 369) does not. Small, mechanical addition, useful for
-  provenance/debugging (e.g. "which `load`ed file did this axiom really
-  come from" beyond just `filename`/`line`).
+- ~~**`Formula.origin`**~~ — **investigated; based on a misunderstanding,
+  nothing to build.** `Token.origin` isn't a general provenance field — it
+  specifically stores the user's originally-*typed* alias name (e.g. `∈`)
+  so display can show it back instead of always printing the canonical
+  name (`in`), see the scanner's `SYMBOL` case. It has nothing to do with
+  "which file did this come from." `Formula` already has `.filename`/
+  `.line` for exactly that, actively used already (`formula_ref`'s
+  cross-file `by "file.kurt:42"` reason strings, `theory_str`'s printing) —
+  the thing this todo asked for already exists under a different name.
 - ~~**File-local variables / explicit theory export**~~ — **implemented.**
   ("variables and syntax should be file only... problem: how to show
   formulas that are imported"; "define what gets exported when loading a

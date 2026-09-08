@@ -1,0 +1,15 @@
+; coverage test for the `nonassoc` keyword: declaring an infix operator non-associative makes
+; `a OP b OP c` a ParseError (ambiguous: could mean `(a OP b) OP c` or `a OP (b OP c)`) instead
+; of silently left-associating, while still allowing explicit parenthesization either way.
+infix "myop" 20 20
+bool "myop" 0
+var x, y, z
+nonassoc "myop"
+
+; still fine: explicit grouping resolves the ambiguity either way
+parse (x myop y) myop z
+parse x myop (y myop z)
+
+expect "ParseError"
+    x myop y myop z
+;;; Proof checked.

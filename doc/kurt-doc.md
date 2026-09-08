@@ -262,6 +262,20 @@ operator already has a partial `bool` signature (§5), that signature must
 be consistent with binary use (both argument positions boolean, or
 neither; no signature information beyond position 2).
 
+### 4.5a `nonassoc`
+
+    nonassoc OP     ; e.g. nonassoc "<"
+
+Also requires `OP` to already be `infix`. Ordinarily, writing the same
+infix operator twice in a row (`a < b < c`) silently parses one way or the
+other, decided by the operator's own left/right binding powers — usually
+left-associating. `nonassoc OP` makes that a `ParseError` instead:
+`a OP b OP c` is rejected as ambiguous, and you must add parentheses
+(`(a OP b) OP c` or `a OP (b OP c)`) to say which one you mean. Mutually
+exclusive with `flat` (declaring either one after the other is an error) —
+a `flat` operator is inherently associative by construction, the opposite
+of what `nonassoc` asserts. Can only be declared once per operator.
+
 ### 4.6 `chain`
 
     chain OP1 OP2 ...     ; e.g. chain = <=  or  chain iff implies
@@ -327,8 +341,8 @@ open level; `syntax SYMBOL` prints just what's known about one symbol.
 s-expression form and the same per-symbol syntax info as `syntax`.
 `tokenize EXPR` shows the raw token stream before parsing. Each of
 `infix`/`prefix`/`postfix`/`brackets`/`arity`/`bindop`/`flat`/`sym`/
-`chain`/`bool`/`var`/`const`/`alias`/`latex`, called with no arguments,
-also prints its own currently-declared table.
+`nonassoc`/`chain`/`bool`/`var`/`const`/`alias`/`latex`, called with no
+arguments, also prints its own currently-declared table.
 
 ## 5. Boolean typing
 

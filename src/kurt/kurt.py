@@ -375,6 +375,7 @@ keywords: dict[str, str] = {
     'bindop':      'declare a binding operator',
     'flat':        'declare infix operator to be flat',
     'sym':         'declare infix operator to be symmetric',
+    'nonassoc':    'declare infix operator to be non-associative, e.g. `a < b < c` becomes a ParseError instead of silently picking a side',
     'bool':        'declare symbols to have output type boolean',
     'calc':        'declare symbols to trigger calculations if applied to numbers',
     'chain':       'declare a chain of symbols, for automatic transitivity',
@@ -702,6 +703,7 @@ class KnowledgeBase:
         self.bindop:   set[str]                  = set()  # set for variable binding operators
         self.flat:     set[str]                  = set()  # set for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
         self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
+        self.nonassoc: set[str]                  = set()  # set for declaring a non-associative operator, i.e., `a < b < c` is a ParseError
         self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
         self.used:     set[str]                  = set()  # set of all symbols that are used in formulas (i.e., not only declared)
         self.latex:    dict[str, str]            = {}     # dict from symbols to latex strings
@@ -860,7 +862,7 @@ class KnowledgeBase:
 
         self.theory = exported
         symbol_keyed_attrs = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop',
-                               'flat', 'sym', 'alias', 'used', 'latex', 'lbp', 'rbp', 'nud',
+                               'flat', 'sym', 'nonassoc', 'alias', 'used', 'latex', 'lbp', 'rbp', 'nud',
                                'led', 'const', 'bool')
         for attr in symbol_keyed_attrs:
             value = getattr(self, attr)
@@ -931,6 +933,7 @@ class KnowledgeBase:
         elif keyword == 'arity':    return f'arity {key} {value}'
         elif keyword == 'flat':     return f'flat {key}'
         elif keyword == 'sym':      return f'sym {key}'
+        elif keyword == 'nonassoc': return f'nonassoc {key}'
         elif keyword == 'bindop':   return f'bindop {key}'
         elif keyword == 'bool':     
             assert isinstance(value, list), f'BUG!  Unexpected value for `bool`, got {value}'
@@ -1029,6 +1032,9 @@ class KnowledgeBase:
 
     def is_sym(self, s: str) -> bool:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
+
+    def is_nonassoc(self, s: str) -> bool:
+        return s in self.nonassoc or (self.parent is not None and self.parent.is_nonassoc(s))
 
     def is_var(self, s: str) -> bool:
         # is_var checks whether a symbol is a variable (could be non-boolean or boolean)
@@ -1273,6 +1279,8 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare flatness')
         if self.is_flat(op):
             raise KurtException(f'EvalError: operator `{op}` is already declared "flat"')
+        if self.is_nonassoc(op):
+            raise KurtException(f'EvalError: operator `{op}` is declared "nonassoc", can not also be "flat" (inherently associative)')
         self.check_bool_sig_sym_flat(op)
         self.flat.add(op)
 
@@ -1283,6 +1291,37 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: operator `{op}` is already declared "sym"')
         self.check_bool_sig_sym_flat(op)
         self.sym.add(op)
+
+    def get_infix_rbp(self, op: str) -> int:
+        # `self.infix[op]` is written once by `add_infix` and never read back during ordinary
+        # parsing (the right binding power is baked directly into the `led` closure it
+        # creates) -- `add_nonassoc` is the one place that needs the original `rbp` back, to
+        # wrap that same `led` behavior with an extra check, so this has to search parent
+        # levels the same way `get_led`/`get_lbp` do, since `infix` and `nonassoc` need not be
+        # declared on the same level.
+        if op in self.infix:
+            return self.infix[op][1]
+        assert self.parent is not None, f'BUG: get_infix_rbp called for non-infix operator `{op}`'
+        return self.parent.get_infix_rbp(op)
+
+    def add_nonassoc(self, op: str) -> None:
+        if not self.is_infix(op):
+            raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare non-associativity')
+        if self.is_flat(op):
+            raise KurtException(f'EvalError: operator `{op}` is declared "flat" (inherently associative), can not also be "nonassoc"')
+        if self.is_nonassoc(op):
+            raise KurtException(f'EvalError: operator `{op}` is already declared "nonassoc"')
+        rbp = self.get_infix_rbp(op)
+        def led(ts: PeekableGenerator, kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
+            right = parse_expression(ts, kb, rbp)
+            # if the next token is this same nonassoc operator, the ordinary parse loop would
+            # otherwise happily left-associate `a < b < c` into `(a < b) < c` -- reject it here
+            # instead, right at the point of ambiguity, rather than silently picking a side
+            if ts.peek.label == 'SYMBOL' and ts.peek.value == op:
+                raise KurtException(f'ParseError: `{op}` is non-associative, `... {op} ... {op} ...` is ambiguous -- add parentheses to say which one you mean', column=ts.peek.column)
+            return [op_token, left, right]
+        self.led[op] = led
+        self.nonassoc.add(op)
 
     def add_brackets(self, lbracket, rbracket) -> None:
         if self.is_used(lbracket):
@@ -2890,6 +2929,20 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
         for op in new_stuff:
             kb.add_sym(op)
+    elif keyword == 'nonassoc':
+        if len(args) == 0:
+            log(kb, kb.dict_or_set_str_all_levels(keyword))
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    new_stuff.append(op)    # first collect
+                case _:
+                    msg = create_usage(keyword, [[], ['STRING']])
+                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        for op in new_stuff:
+            kb.add_nonassoc(op)
     elif keyword == 'bool':
         if len(args) == 0:
             log(kb, kb.dict_or_set_str_all_levels(keyword))
