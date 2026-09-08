@@ -1543,13 +1543,13 @@ class KnowledgeBase:
             self.parent.add_new_symbols(f.expr)
         else:
             self.add_new_symbols(f.expr)
-        f.simplified_expr = remove_outer_forall_quantifiers(f.simplified_expr, self)
+        f.simplified_expr, _ = remove_outer_forall_quantifiers(f.simplified_expr, self)
         f.simplified_expr = rename_all_vars(f.simplified_expr, self)
         self.theory.append(f)
 
     def show_append(self, f: Formula) -> None:
         self.add_new_symbols(f.expr)
-        f.simplified_expr = remove_outer_forall_quantifiers(f.simplified_expr, self)
+        f.simplified_expr, _ = remove_outer_forall_quantifiers(f.simplified_expr, self)
         f.simplified_expr = rename_all_vars(f.simplified_expr, self)
         self.show.append(f)
 
@@ -3495,10 +3495,28 @@ def new_bool_var_name() -> str:
     # use format like this: %%07
     return f'%%{new_bool_var_name.counter:02d}'   # the `%%` ensures that it is not a kurt variable that the user can define
 
-def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> Expr:
+def replace_token_value(expr: Expr, old_value: str, new_token: Token) -> Expr:
+    # pure structural replacement of every occurrence of a specific token value -- unlike
+    # `apply_subst`, this does NOT respect binder scoping (it will happily rewrite a bindop's
+    # own binder slot too). Only safe to use when `old_value` is a synthetic, globally-unique
+    # name that cannot collide with some other, unrelated variable of the same name in a
+    # different scope -- see `strip_premise_with_synced_conclusion`, its one caller.
+    if isinstance(expr, Token):
+        return new_token if expr.value == old_value else expr
+    return [replace_token_value(e, old_value, new_token) for e in expr]
+
+def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, frozenset[str]]:
     # this function must remove all outer universal quantifiers
     # if there is a condition, it turns it into an implication
+    # Returns (stripped_expr, fresh_vars): `fresh_vars` are the freshly-generated names that
+    # stood in for the removed quantifiers' bound variables. A caller using the result as a
+    # *premise to search for* (as opposed to a conclusion to unify against a real goal) MUST
+    # block these from being unified away to a specific value: they represent a genuinely
+    # arbitrary/generic instance ("true for all x"), and letting the search bind them to
+    # whatever's convenient defeats the whole point of universal generalization -- see
+    # doc/kurt-soundness.md's writeup of the `impl_elim` bug this was added to fix.
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
+    fresh_vars: set[str] = set()
 
     # chop off all outer universal quantifiers that have **no condition** and rename their bound vars
     while is_forall(expr):
@@ -3525,9 +3543,53 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> Expr:
             implies_token = Token(label='SYMBOL', value='implies', column=get_column(condition))
             expr = [implies_token, condition, expr[2]]
         free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
+        fresh_vars.add(free_var)
         s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
         expr = apply_subst(expr, s, kb)
-    return expr
+    return expr, frozenset(fresh_vars)
+
+def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr, kb: KnowledgeBase) -> tuple[Expr, Expr, frozenset[str]]:
+    # like `remove_outer_forall_quantifiers`, but for an implication's PREMISE specifically,
+    # where the SAME bound variable(s) may also occur in the CONCLUSION -- e.g. forall-elim's
+    # own axiom, `(forall $x %A) implies (sub $x $a %A)`, where `$x` appears in both halves.
+    # Renaming must be applied identically to both sides to keep them in sync: doing it via
+    # two independent `remove_outer_forall_quantifiers` calls (the first version of this fix)
+    # silently generated a fresh name for the premise's own copy of `$x` that then went
+    # unused, since `%A` is an opaque schema token that doesn't literally contain `$x` to
+    # rename -- meaning the conclusion's *original*, un-renamed `$x` was the one that actually
+    # ended up inside whatever `%A` got matched to, and blocking the (wrong, unused) fresh
+    # name from the premise-only rename didn't block anything real. See
+    # doc/kurt-soundness.md's writeup of the underlying `impl_elim` soundness bug.
+    premise = deepcopy_expr(premise_raw)
+    conclusion = deepcopy_expr(conclusion_raw)
+    fresh_vars: set[str] = set()
+    while is_forall(premise):
+        if not (isinstance(premise, list) and len(premise) == 3):
+            raise KurtException(f'EvalError: `forall` is not declared as a proper binding operator, got `{expr_str(premise, kb)}`')
+        if isinstance(premise[1], Token):
+            assert isinstance(premise[1].value, str)
+            bound_var = premise[1].value
+            premise = premise[2]
+        else:
+            bound_var, condition = unpack_condition(premise[1], kb)
+            assert condition is not None, f'BUG: expected a condition'
+            implies_token = Token(label='SYMBOL', value='implies', column=get_column(condition))
+            premise = [implies_token, condition, premise[2]]
+        free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
+        fresh_vars.add(free_var)
+        fresh_token = Token(label='SYMBOL', value=free_var)
+        # a pure structural (non-capture-avoiding) rename, not `apply_subst`: `apply_subst`
+        # deliberately protects a bindop's own binder slot from substitution (correct for
+        # ordinary substitution, since you must never substitute into a variable's own
+        # binding declaration) -- but `sub` is itself a bindop, so it would refuse to rename
+        # `bound_var` inside the conclusion's own `sub $x $a %A` binder position, leaving
+        # premise and conclusion referring to two different names for what must be the same
+        # variable. Safe here specifically because `bound_var` is always a synthetic,
+        # globally-unique name (from `rename_all_vars`'s own counter): there's no risk of
+        # accidentally renaming some other, unrelated variable that just happens to share it.
+        premise = replace_token_value(premise, bound_var, fresh_token)
+        conclusion = replace_token_value(conclusion, bound_var, fresh_token)
+    return premise, conclusion, frozenset(fresh_vars)
 # ALL variables are renamed on the formula level
 # * rename free vars in `expr` with generated names to avoid clashes with other expressions
 #   this is necessary, because free variables are implicitly universally bound per formula,
@@ -4199,16 +4261,30 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
 
     # assign `conclusion` and `premises`
     premise: Optional[Expr] = None
+    premise_fresh_vars: frozenset[str] = frozenset()
     if is_implication(formula_expr):      # case 1: implication with a premise
         assert isinstance(formula_expr, list)
-        premise    = remove_outer_forall_quantifiers(formula_expr[1], kb)
-        conclusion = remove_outer_forall_quantifiers(formula_expr[2], kb)
+        premise, conclusion, premise_fresh_vars = strip_premise_with_synced_conclusion(formula_expr[1], formula_expr[2], kb)
+        # the conclusion may *also* have its own outer forall(s), independent of the
+        # premise's (e.g. "induction"'s premise is `and`-headed, but its conclusion is
+        # `forall $n in Nat (...)`) -- strip those too. Safe to leave their fresh names
+        # unblocked: they get resolved via ordinary unification against the real goal
+        # (`expr`), not via a premise search, so the soundness issue this function's sibling
+        # guards against doesn't apply here.
+        conclusion, _ = remove_outer_forall_quantifiers(conclusion, kb)
     elif is_iff(formula_expr):
         assert isinstance(formula_expr, list)
         op_token = formula_expr[0]
         assert isinstance(op_token, Token)
-        LHS = remove_outer_forall_quantifiers(formula_expr[1], kb)
-        RHS = remove_outer_forall_quantifiers(formula_expr[2], kb)
+        # deliberately NOT stripped here (unlike the implication case above): stripping now
+        # and discarding the resulting fresh-var set would lose exactly the information the
+        # recursive `impl_elim` call below needs to block them correctly during its own
+        # premise search -- passing the raw, unstripped LHS/RHS through defers stripping (and
+        # fresh-var tracking) to that recursive call's own case-1 handling above, which does
+        # this eigenvariable bookkeeping correctly. See doc/kurt-soundness.md's writeup of the
+        # bug this matters for.
+        LHS = formula_expr[1]
+        RHS = formula_expr[2]
         # first attempt: LHS implies RHS
         LHSimpliesRHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), LHS, RHS], kb)
         reason, s_local = impl_elim(expr, LHSimpliesRHS, filename, mainstream, s, kb)
@@ -4242,6 +4318,18 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
             # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
             # and we have to apply the various substitutions to it, which might change from call to call
             premise_local, s_local = trigger_sub(premise, s_matched, kb)
+
+            # block the premise's own freshly-introduced eigenvariables (from stripping this
+            # axiom's own antecedent forall, above) from being resolved to a specific value
+            # during the search below -- they stand for a genuinely arbitrary/generic
+            # instance ("true for all x"), not something the search gets to pick. Without
+            # this, e.g. forall-elim's own premise `forall $x %A` degenerates (via a
+            # legitimate single-hole decomposition of the *conclusion*, `%A := ($x = g)`)
+            # into needing just `$$fresh = g` -- and unifying that fresh eigenvariable
+            # straight to a concrete value like `g` let ANY two objects be proven equal, a
+            # real soundness bug found and fixed this session (see doc/kurt-soundness.md).
+            for fresh_v in premise_fresh_vars:
+                s_local = s_local.block_as_domain(fresh_v)
 
             # search for the premise as well, i.e., match the theory against the `premise`
             success, matched_formulas, s_final = match_all_theory([premise_local], s_local, kb)
@@ -4289,7 +4377,7 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
                 return ['by a miracle (todo)'], s
 
     # rename variables
-    expr = remove_outer_forall_quantifiers(expr, kb)
+    expr, _ = remove_outer_forall_quantifiers(expr, kb)
     expr = rename_all_vars(expr, kb)    # rename variables
 
     # "top-intro"

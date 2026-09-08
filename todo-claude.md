@@ -69,11 +69,32 @@ Status as assessed:
   no defining axioms here, see the file's own new header). Also added a
   proper documentation header to the file itself (see the new "document
   theories well" item below).
-- **`set.kurt`** — reasonably developed (comprehension, extensionality, ∅,
-  ∩, ∪, subset, power-set), one substantial real proof already exercises it
-  (`proofs/mafi1/001-two-equal-sets.kurt`). One documented, real gap: `:`/`→`
-  (mapping notation) has syntax declared but zero axioms — function
-  extensionality was never written. Needs design thought, not a quick fix.
+- ~~**`set.kurt`**~~ — **done.** Filled the `:`/`→` gap: mappings are
+  modelled as opaque, applicable set objects (reusing kurt's existing
+  general space-application, `$f $a` — no new syntax needed), `A → B` is
+  *defined* as the set of all A→B mappings via the same comprehension
+  machinery as `∩`/`∪`/`Pow` ("function-space"/"function-space-def"), `:`
+  is a plain alias of `in` (so `f : A → B` parses as `f ∈ (A → B)`, exactly
+  like `∈` is already an alias of `in`), and function extensionality is
+  added as a genuine new axiom (not derivable here, unlike `∩`/`∪`'s
+  properties — see the file's own comment on why). Deliberately did *not*
+  build full ZF-style pairs/products/relations — a much bigger, separate
+  undertaking than this gap warranted. 3 new tests under
+  `proofs/set-theory/`. Caught my own mistake while writing the negative
+  test: an earlier "confirmed function-extensionality works" check had
+  actually been silently exploiting the `forall-elim` soundness bug (§0)
+  rather than testing the new axiom at all — re-verified properly using
+  the "combine the whole antecedent into one conjunction" pattern
+  `impl_elim`'s single-hop matching needs (same as `induction`'s
+  base-and-step).
+- ~~**Severe soundness bug: `forall-elim` could prove any two things
+  equal**~~ — **found (while testing the above) and fixed.** `load logic,
+  equality` alone let `f = g` derive for two unrelated constants, no
+  premise at all — nothing to do with `set.kurt`. See
+  `doc/kurt-soundness.md` §0 for the full mechanism and fix; this was the
+  single most severe finding of the whole session. Also fixed a genuine
+  proof (`proofs/mafi1/001-two-equal-sets.kurt`) that turned out to have
+  been passing only by accidentally relying on the same bug.
 - ~~**`induction.kurt`**~~ — **removed**, per explicit maintainer decision:
   `natural.kurt` already has the one induction principle actually wanted
   (Peano-style, over `Nat`) — a separate general/transfinite/well-founded

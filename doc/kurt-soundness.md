@@ -16,6 +16,139 @@ not completeness (finding every valid one) — the performance/multi-hop
 items in `todo-claude.md` are a different, lower-stakes concern by
 comparison.
 
+## 0. The most severe bug found in this whole audit: `forall-elim` could prove any two things equal
+
+**Found while working on `set.kurt`, but has nothing to do with `set.kurt`
+at all.** `load logic, equality` — nothing else, no other theory involved —
+let `f = g` be derived for two freshly-declared, completely unrelated
+constants, no premise connecting them whatsoever:
+
+    load logic, equality
+    const f, g
+    f = g          ; used to succeed! ("Proof checked.")
+
+This is about as bad as a soundness bug gets: `logic.kurt` + `equality.kurt`
+is very likely the single most common theory combination in the entire
+ecosystem (nearly every other theory loads one or both, directly or
+transitively), so this wasn't a corner case — any proof anywhere using
+`forall`-quantified facts alongside equality reasoning was at risk.
+
+### 0.1 Mechanism
+
+`forall-elim`'s own axiom is `(forall $x %A) implies (sub $x $a %A)`.
+Deriving `f = g` via this axiom:
+
+1. **The conclusion decomposes degenerately.** Matching the conclusion
+   `sub $x $a %A` against the goal `f = g` uses `generate_all_combinations`'s
+   "single-hole decomposition" search, which tries *every* node of the goal
+   as a candidate hole — including, for any expression, the trivial "the
+   hole is one whole side" decomposition. One such decomposition gives
+   `%A := ($x = g)` and `$a := f` (replace the `f` leaf with the hole,
+   keep `g`) — perfectly legal on its own; `sub`-based decomposition is
+   *supposed* to explore exactly this space, and needs to for legitimate
+   proofs.
+2. **forall-elim's own premise gets stripped of meaning.** To apply
+   forall-elim, its own antecedent — `forall $x %A` — must be satisfied.
+   `impl_elim` strips that outer `forall`, since the standard way to
+   satisfy "I need a universally-quantified fact" is "show `%A` holds for a
+   fresh, arbitrary `$x`" (this is `remove_outer_forall_quantifiers`,
+   applied here to forall-elim's *own* defining antecedent). With `%A`
+   already bound (from step 1) to `$x = g`, the premise search now just
+   needs to establish **`$x = g`** — for the fresh `$x` that's supposed to
+   mean "any value whatsoever".
+3. **The fresh eigenvariable gets resolved anyway.** Nothing prevented that
+   `$x` from being unified straight to the concrete value `g` while
+   searching the theory for a match — here, against "equal-intro"'s
+   `$a = $a` (which forces `$x` and `g` to be the same thing). A variable
+   that's supposed to mean "true no matter what this is" instead got
+   treated as an ordinary, freely-assignable unification variable — which
+   is exactly what "for all x" must *not* permit. That's the actual bug:
+   not the decomposition (needed elsewhere), not the premise-stripping
+   (needed elsewhere) — the missing piece was that the **eigenvariable
+   introduced specifically to stand for "an arbitrary instance" was never
+   protected from being resolved to a specific one** during the search for
+   that instance.
+
+The same defect independently broke a genuine proof that had nothing to do
+with equality at all: `proofs/mafi1/001-two-equal-sets.kurt` (a real
+distributive-law proof, `A∩(B∪C) = (A∩B)∪(A∩C)`) turned out to have been
+passing *only* because of this exact bug — several steps silently jumped
+straight from `x ∈ (A∩B)` to `x ∈ (A∩B)∪(A∩C)` via the same "eigenvariable
+resolved to a lucky concrete value" mechanism, which would just as happily
+have "proven" membership in that union from membership in *any* unrelated
+set. Fixing the underlying bug correctly rejected that shortcut; the proof
+needed (and now has) the actually-missing `or-intro` steps to reach the
+same true conclusion soundly. See §0.3.
+
+### 0.2 The fix
+
+`impl_elim`'s premise-handling now tracks which variable(s) were freshly
+introduced specifically to stand in for a stripped-off `forall` in the
+*premise* it's trying to satisfy, and blocks them (`State.block_as_domain`)
+before searching the theory for that premise. Blocking as *domain* only
+(not `block_always`, which would also block them as *range*) is
+deliberate: it stops the eigenvariable from being *assigned* a concrete
+value, while still allowing a genuinely matching fact's *own* variable to
+be unified onto it — which is exactly how the legitimate case (matching one
+generic/fresh instance against another) keeps working.
+
+Getting this right took two attempts:
+
+- **First attempt (wrong): reuse `remove_outer_forall_quantifiers`
+  independently on the premise and the conclusion.** This generated a
+  fresh name for the premise's own copy of `$x`, but `%A` is an opaque
+  schema token that doesn't literally *contain* `$x` — so the rename was a
+  no-op, and the conclusion's separately-extracted, *never-renamed* `$x`
+  was the one that actually ended up inside whatever `%A` matched. Blocking
+  the (unused) fresh name from the premise-only rename blocked nothing
+  real; the bug reproduced unchanged.
+- **Second attempt (also wrong, closer): rename the premise's `$x` and
+  apply the same substitution to the conclusion via `apply_subst`.**
+  `apply_subst` is (correctly, for ordinary substitution) capture-avoiding:
+  it refuses to substitute into a bindop's own binder slot. But `sub` is
+  itself registered as a bindop, and forall-elim's conclusion is
+  `sub $x $a %A` — so `apply_subst` refused to rename `$x` sitting right in
+  `sub`'s own binder position, again leaving premise and conclusion
+  referring to two different variables for what must be the same one.
+- **Working fix: a dedicated helper, `strip_premise_with_synced_conclusion`**,
+  that strips the premise's outer foralls and renames *both* the premise
+  and the conclusion together using a **pure structural replacement**
+  (`replace_token_value`) rather than `apply_subst` — safe here
+  specifically because the name being replaced is always a synthetic,
+  globally-unique one (from `rename_all_vars`'s own counter), so there's no
+  capture risk to avoid in the first place. `impl_elim` then blocks exactly
+  the resulting fresh name(s) before the premise search.
+
+One more subtlety: the *conclusion* can independently have its own outer
+forall(s) unrelated to the premise's (e.g. `induction`'s premise is
+`and`-headed, but its conclusion is `forall $n in Nat (...)`) — those still
+need stripping too, just via the plain (fresh-var-discarding)
+`remove_outer_forall_quantifiers`, since they get resolved by unifying
+against the real goal, not by a premise search, so this specific danger
+doesn't apply to them.
+
+### 0.3 Verification
+
+- Confirmed the bug reproduces with the *original*, untouched code (before
+  any change this session), with nothing but `load logic, equality` — ruling
+  out any chance this was introduced by other work this session.
+- After the fix, ran the *entire* proof suite and manually inspected every
+  regression: two genuine proofs initially broke
+  (`proofs/linear-algebra/injective2.kurt`,
+  `proofs/mafi1/001-two-equal-sets.kurt`) — traced both to confirm they were
+  passing *only* via this same unsound shortcut, not a false positive in
+  the fix. `injective2.kurt` needed no content change (a missing
+  independent-conclusion-stripping case in the fix itself, see above);
+  `001-two-equal-sets.kurt` needed real, additional `or-intro` steps that
+  the original proof had been silently skipping.
+- Regression tests: `proofs/soundness/forall-elim-cannot-prove-arbitrary-equality.kurt`
+  (the minimal reproduction, now correctly rejected) and
+  `proofs/soundness/forall-elim-still-works-legitimately.kurt` (confirms the
+  fix doesn't overcorrect into breaking genuine `forall`-instantiation).
+- Adversarially retried the same exploit shape against several other theory
+  combinations (`arith`+`logic`, `modal`+`logic`, bare `logic`+`equality`
+  with different constant names) — all correctly rejected post-fix.
+
 ## 1. What's genuinely hard-coded
 
 `derive_expr`/`eval_expression` implement four rules directly in Python,

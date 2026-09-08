@@ -1,12 +1,13 @@
 ; set theory
 ;
 ; covers: set comprehension (`{$z | P($z)}`), extensionality, empty set, intersection, union,
-; subset, and power set -- enough for real proofs, see proofs/mafi1/001-two-equal-sets.kurt
-; (a full distributive-law proof: A∩(B∪C) = (A∩B)∪(A∩C)).
+; subset, power set, and mappings (`:`/`→`, `f : A → B` for "f is a function from A to B",
+; with function extensionality) -- see proofs/mafi1/001-two-equal-sets.kurt for a real
+; distributive-law proof and proofs/set-theory/ for mapping-specific examples.
 ;
-; known gap: `:`/`→` (function/mapping notation) has syntax declared but zero axioms -- see
-; the comment further down for why (function extensionality needs real design thought, not a
-; quick fix).
+; mappings are modelled as opaque, applicable set objects (kurt's ordinary space-application,
+; `$f $a`), not as ZF-style sets of ordered pairs -- see the comment further down, right above
+; "function-space", for why.
 load equality, logic
 
 ; syntax
@@ -21,8 +22,11 @@ bool     ∈ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
 brackets [ ]             ; squared brackets
+; `A → B` is the *set* of all mappings from A to B; `f : A → B` reads as `f ∈ (A → B)` --
+; "f is a member of the set of A→B mappings" -- exactly like `∈` is already just an alias of
+; `in`
 infix    → 30 30         ; for mappings
-infix    : 20 20         ; for mappings
+alias    : in
 
 ; we assume that all objects are sets
 
@@ -30,12 +34,23 @@ infix    : 20 20         ; for mappings
 use $a ∈ { $z | sub $x $z %F }  ≡  sub $x $a %F   "set-comprehension"
 
 ; axioms for mappings
-; two mappings are equal if they give the same output for all inputs
-; -- genuinely not written yet (unlike `^`'s syntax-with-no-axiom gap in arith.kurt, this
-;    isn't a one-line fix: function extensionality needs real thought). Since nothing here
-;    uses `:`/`→` in an exported fact, both are correctly *not* exported by `load set` right
-;    now (see doc/kurt-soundness.md #7 on selective export) -- that's accurate, not a bug:
-;    there's no meaning attached to them yet for anything downstream to rely on.
+;
+; a mapping is modelled as an opaque, applicable set object, not (as in ZF set theory) a set
+; of ordered pairs -- there are no pairs or Cartesian products in this file, so building the
+; full ZF machinery (pairs, products, single-valuedness) would be a much bigger, separate
+; undertaking than "complete this gap." Application uses kurt's ordinary space-application
+; (`$f $a`, already fully general, no new syntax needed) -- `A → B` is simply *defined*, via
+; the same comprehension machinery as `∩`/`∪`/`Pow`, as the set of all objects that behave
+; like an A→B mapping when applied.
+def $A → $B = { $f | ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B) }        "function-space"
+use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space-def"
+
+; function extensionality is a genuine new axiom here, not a derived theorem: under this
+; "opaque applicable object" model, `$f`/`$g` aren't literally sets of pairs, so knowing they
+; agree on every input says nothing, via ordinary set extensionality, about whether they're
+; the *same set* -- unlike `∩`'s/`∪`'s properties (which really do follow from their
+; comprehension-based defs plus set extensionality), this one has to be postulated directly.
+use ($f ∈ ($A → $B)) and ($g ∈ ($A → $B)) and (∀ $a ($a ∈ $A implies ($f $a) = ($g $a))) implies $f = $g   "function-extensionality"
 
 ; axioms for =, ∅, ∩, ∪, Pow
 use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)      "extensionality" ; two sets are equal iff they have the same elements

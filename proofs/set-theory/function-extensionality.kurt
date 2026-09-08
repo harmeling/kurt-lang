@@ -1,0 +1,19 @@
+; coverage test for set.kurt's "function-extensionality" axiom -- a genuine new axiom, not a
+; derived theorem (see set.kurt's own comment on why: under the "opaque applicable object"
+; model, two mappings agreeing on every input doesn't follow from ordinary set extensionality
+; the way it would if functions were literally sets of pairs).
+;
+; note the "combine the whole antecedent into one conjunction" step before the final line:
+; kurt's derivation is single-hop, so `impl_elim` needs the axiom's entire (three-part)
+; antecedent to match as one already-derived fact, not three separate ones (same pattern as
+; arith.kurt's factorial-recursion / natural.kurt's induction proofs).
+load set
+const A, B, f, g
+
+use ∀ $a  ($a ∈ A implies (f $a) ∈ B)
+use g ∈ (A → B)
+use ∀ $a  ($a ∈ A implies (f $a) = (g $a))
+
+(f ∈ (A → B)) and (g ∈ (A → B)) and (∀ $a (($a ∈ A) implies ((f $a) = (g $a))))
+f = g
+;;; Proof checked.

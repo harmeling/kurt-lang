@@ -10,14 +10,17 @@ proof
             x ∈ A  ∧  x ∈ B ∪ C
             x ∈ A
             x ∈ B ∪ C
+            (x ∈ B) or (x ∈ C)
             case x ∈ B
                 x ∈ A  ∧  x ∈ B
                 x ∈ A ∩ B
+                (x ∈ A ∩ B) or (x ∈ A ∩ C)
                 x ∈ (A ∩ B) ∪ (A ∩ C)
                 ;done
             case x ∈ C
                 x ∈ A  ∧  x ∈ C
                 x ∈ A ∩ C
+                (x ∈ A ∩ B) or (x ∈ A ∩ C)
                 x ∈ (A ∩ B) ∪ (A ∩ C)
                 ;done
             x ∈ (A ∩ B) ∪ (A ∩ C)
@@ -25,14 +28,19 @@ proof
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     proof
         let x ∈ (A ∩ B) ∪ (A ∩ C)
+            (x ∈ A ∩ B) or (x ∈ A ∩ C)
             case x ∈ A ∩ B
                 x ∈ A  ∧  x ∈ B
                 x ∈ A
+                x ∈ B
+                (x ∈ B) or (x ∈ C)
                 x ∈ B ∪ C
                 x ∈ A ∩ (B ∪ C)
             case x ∈ A ∩ C
                 x ∈ A  ∧  x ∈ C
                 x ∈ A
+                x ∈ C
+                (x ∈ B) or (x ∈ C)
                 x ∈ B ∪ C
                 x ∈ A ∩ (B ∪ C)
             x ∈ A ∩ (B ∪ C)
