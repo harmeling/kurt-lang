@@ -53,9 +53,36 @@ except ImportError:
     # print("Warning: readline not available. Line editing features will be limited.")
     readline = None
 
+try:
+    import hashlib       # for `file_fingerprint()` below -- always in the stdlib, but some
+except ImportError:      # exotic/stripped-down Python builds lack the C extension backing it
+    hashlib = None
+
 # config: general information
 version        = 0.1
 made_by        = 'made by Stefan Harmeling, 2025'
+
+def file_fingerprint() -> str:
+    # a short, self-verifying identifier for exactly which `kurt.py` is running. Unlike a
+    # version number or a baked-in commit hash, this can never silently go stale: change one
+    # byte of this file and the fingerprint changes right along with it -- so two people
+    # comparing fingerprints can always tell whether they're really running the same code, no
+    # matter which of the three ways they got this file (git checkout, the standalone bundle
+    # from `scripts/build_standalone.py`, or a `pip install`). Best-effort by design: falls
+    # back to 'unknown' rather than raising, since this is a diagnostic nicety, not something
+    # any proof-checking logic depends on -- covers `__file__` being unavailable or unreadable
+    # (some embedded/frozen environment) and `hashlib` being unavailable (some exotic build).
+    if hashlib is None:
+        return 'unknown'
+    try:
+        with open(__file__, 'rb') as f:
+            content = f.read()
+    except (NameError, OSError):
+        return 'unknown'
+    try:
+        return hashlib.sha256(content).hexdigest()[:12]
+    except Exception:
+        return 'unknown'
 
 # config: the indentation for the different blocks
 proof_indent   =  4       # how much to indent for a `proof` block
@@ -4694,7 +4721,7 @@ def main() -> None:
     latex_flag = args.latex
 
     # say hello
-    log(kb, f'This is Kurt, v{version} ({made_by})')
+    log(kb, f'This is Kurt, v{version} ({made_by}), file {file_fingerprint()}')
 
     # readline history
     if readline:

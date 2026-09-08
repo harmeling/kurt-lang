@@ -3,7 +3,7 @@
 The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `kurt.py` contains the whole implementation.  You can either call `./kurt.py` or `kurt` (after installation via `pip`).  Let's start proving:
 
     ~/git/kurt-lang (main ✗) kurt
-    This is Kurt, v0.1 (made by Stefan Harmeling, 2025)
+    This is Kurt, v0.1 (made by Stefan Harmeling, 2025), file 7131d6838ffe
     ;[1] bool A, B
     ;[2] use A implies B
     use A implies B                           ; 2 without proof
@@ -25,11 +25,17 @@ Alternatively, create a file `modus-ponens.kurt`:
 Then just check it in the commandline:
 
     ~/git/kurt-lang (main ✗) kurt modus-ponens.kurt 
-    This is Kurt, v0.1 (made by Stefan Harmeling, 2025)
+    This is Kurt, v0.1 (made by Stefan Harmeling, 2025), file 7131d6838ffe
     use A implies B                           ; 3 without proof
     use A                                     ; 4 without proof
     B                                         ; 5 by 4, 3
     Proof checked
+
+The `file <hash>` in the banner is a fingerprint of the exact `kurt.py` bytes you're running (a
+truncated SHA-256) — it changes whenever the file's content does, so if you and someone else are
+comparing notes on unexpected behavior, matching (or mismatching) fingerprints tell you at a
+glance whether you're really running the same code, independent of version numbers or how you
+got the file (git checkout, the standalone bundle, or `pip install`).
 
 Happy proving!
 
