@@ -663,10 +663,16 @@ block was literally `false`, closing *additionally* derives `not EXPR` via
 `assume` (there is currently no extra checking specific to `case`, see
 `todo-claude.md`) — it's meant to be used as a sequence of `case`s covering
 a disjunction, each producing its own `EXPR implies <goal>`; actually
-concluding the goal from all the cases (or-elim) then needs the `or`
-theory's `or-elim` axiom (from `load prop`) and one more explicit claim
-combining them (Kurt does not automatically finish an or-elim the moment
-the last `case` closes).
+concluding the goal from all the cases (or-elim) then needs **two** things
+already in scope, not just the sequence of `case` blocks itself: the `or`
+theory's `or-elim` axiom (from `load prop`), *and* the disjunction fact
+itself (`%A or %B`, covering exactly the case expressions used) as its own
+derivable/`use`d line — Kurt never checks that your `case`s are actually
+exhaustive, it just needs the real disjunction to exist. Forgetting either
+piece (the disjunction fact, or the final explicit claim restating the
+goal after the cases close, needed to trigger the match) is the most
+common way a `case` proof silently doesn't finish — it fails with an
+ordinary "can not derive" on that final line, not a `case`-specific error.
 
 ### 9.2 `let`
 

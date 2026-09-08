@@ -403,14 +403,26 @@ Status as assessed:
   even parse *to* (a 0-arg application node, distinct from bare `f`).
   Self-contained but touches core parsing; worth a design decision first
   (see `suggestions-claude.md`).
-- **"do checks for `case` statements"** — confirmed: `case` is handled
-  completely identically to `assume` everywhere (`eval_keyword_expression`'s
-  combined `assume`/`case` branch, line 2700, and `eval_done`'s combined
-  `'assume' | 'case'` branch, line 2032) — there is no case-specific
-  validation (e.g. that the cases are exhaustive, or that the case
-  expressions are mutually related to a disjunction already in scope before
-  `or-elim` fires at the end). Small, localized addition once it's decided
-  what "check" should mean.
+- ~~**"do checks for `case` statements"**~~ — **investigated; resolved as a
+  documentation gap, not a code one.** `case` is handled completely
+  identically to `assume` everywhere, confirmed — there is no case-specific
+  validation, and there's no clean way to add real exhaustiveness checking
+  without new cross-statement state (`case` blocks aren't tracked as a
+  group at all; each is popped independently, and the final `or-elim`
+  combination is just an *ordinary* derived fact, requiring the user to
+  have separately `use`d the real disjunction and to explicitly restate the
+  goal after the cases close — see `doc/kurt-doc.md` §9.1, now spelled out
+  precisely). Crucially: this is **not a soundness gap** — `or-elim` always
+  needs the genuine disjunction fact to fire, so a missing "case" simply
+  makes the proof fail to complete (an ordinary "can not derive" on the
+  final restated line), it never accepts an unsound one. Given that,
+  building real exhaustiveness checking would only improve error-message
+  clarity, not correctness — a real but lower-value feature than it first
+  sounds, so left undone; documented the two actual prerequisites clearly
+  instead (`doc/kurt-doc.md` §9.1, `tutorial/23-case.kurt`), which is
+  exactly what would have saved time debugging
+  `proofs/mafi1/001-two-equal-sets.kurt`'s missing disjunction fact
+  earlier this session.
 - ~~**Quantifier variable-kind check**~~ — **investigated and resolved, no
   code change needed.** Confirmed (see `doc/kurt-soundness.md` §6) that
   `let`'s boolean/non-boolean handling doesn't add or remove any
