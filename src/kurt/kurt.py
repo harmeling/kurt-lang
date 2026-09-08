@@ -159,10 +159,15 @@ class EmbeddedTheories:
 default_theory = 'theory.kurt'             # default theory
 try:
     _packaged_theories = resources.files("kurt.theories")   # path of packaged theories, when installed
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ValueError):
     # `kurt.py` run standalone (`python3 kurt.py`, no install) -- `kurt` isn't an importable
     # package in that case, so fall back to a `theories/` directory next to this very file,
-    # which is exactly what the README's "copy just kurt.py" classroom workflow expects
+    # which is exactly what the README's "copy just kurt.py" classroom workflow expects. Also
+    # catch `ValueError`: the kurt-web playground runs this exact file as a loose script inside
+    # Pyodide's in-browser filesystem and independently needed to guard against a `ValueError`
+    # from this same lookup there (reason unconfirmed -- likely a quirk of Pyodide's own
+    # `importlib.resources` under WebAssembly -- but cheap to guard against regardless, since
+    # this fallback already has a sensible default either way).
     _packaged_theories = Path(__file__).resolve().parent / "theories"
 theory_path = [Path.cwd(),                             # current working directory
                           _packaged_theories]
