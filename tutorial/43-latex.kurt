@@ -13,6 +13,7 @@ bool A, B
 use A xor B
 A xor B
 
-; This mapping only affects `-l` output (or `format latex`, from the
-; interactive shell) -- it changes nothing about proving or checking, it is
-; purely cosmetic, exactly like `alias` (40-alias.kurt) is purely syntactic.
+; This mapping only affects `-l` output (or `format latex`, which switches
+; the session's own print format to LaTeX) -- it changes nothing about
+; proving or checking, it is purely cosmetic, exactly like `alias`
+; (40-alias.kurt) is purely syntactic.

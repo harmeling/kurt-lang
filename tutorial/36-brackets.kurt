@@ -10,8 +10,8 @@
 brackets "[" "]"
 
 var a
-; the `[ ... ]` you declared is its own operator, shown below as `[$$$]` --
-; Kurt's internal name for "the operator made of `[` and `]`":
+; the `[ ... ]` you declared is its own operator, shown below as `[]` --
+; "the operator made of `[` and `]`", applied to `a`:
 parse [a]
 
 ; Giving it meaning is up to you, exactly like for `infix`/`prefix`/

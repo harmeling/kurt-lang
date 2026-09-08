@@ -1609,6 +1609,9 @@ def expr_sexpr(expr: Expr, kb: KnowledgeBase) -> str:                      # cre
                 return str(v)
             else:
                 return str(origin)
+        case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_bracket_placeholder(a):
+            left, right = a.split('$$$')                  # e.g. `{$$$}` -> show as `{}`, not the internal placeholder
+            return f'({left}{right} {" ".join([expr_sexpr(e, kb) for e in tail])})'
         case [*entries]:
             return f'({" ".join([expr_sexpr(e, kb) for e in entries])})'
     assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
@@ -1641,32 +1644,40 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
             return f'({" ".join([expr_normal(e, kb) for e in tail])})'
     assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
 
-def expr_latex(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression
+def expr_latex_token(t: Token, kb: KnowledgeBase) -> str:
+    # like expr_sexpr for a bare token, but substituted via the `latex` mapping (`add_latex`) if declared
+    if t.label == 'SYMBOL' and isinstance(t.value, str):
+        replacement = kb.get_latex(t.value)
+        if replacement is not None:
+            return replacement
+    return expr_sexpr(t, kb)
+
+def expr_latex(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression, substituting `latex` names
     match expr:
         case Token():
-            return expr_sexpr(expr, kb)            # reuse implementation from expr_sexpr
+            return expr_latex_token(expr, kb)
         case [e0]:
-            return expr_normal(e0, kb)
-        case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_prefix(a):
-            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)})'
-        case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_postfix(a):
-            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)})'
-        case [Token(label='SYMBOL', value=a), e1, e2] if isinstance(a, str) and kb.is_infix(a):
-            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)} {expr_normal(e2, kb)})'
+            return expr_latex(e0, kb)
+        case [Token(label='SYMBOL', value=a) as op, e1] if isinstance(a, str) and kb.is_prefix(a):
+            return f'({expr_latex_token(op, kb)} {expr_latex(e1, kb)})'
+        case [Token(label='SYMBOL', value=a) as op, e1] if isinstance(a, str) and kb.is_postfix(a):
+            return f'({expr_latex(e1, kb)} {expr_latex_token(op, kb)})'
+        case [Token(label='SYMBOL', value=a) as op, e1, e2] if isinstance(a, str) and kb.is_infix(a):
+            return f'({expr_latex(e1, kb)} {expr_latex_token(op, kb)} {expr_latex(e2, kb)})'
         case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_bracket_placeholder(a):
             # split `a` into `left` + `$$$` + `right`
             parts = a.split('$$$')
             assert len(parts) == 2, f'BUG: bracket placeholder must contain `$$$`'
             left, right = parts
-            return f'{left} {" ".join([expr_normal(e, kb) for e in tail])} {right}'
-        case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_flat(a):
-            return f'({f" {expr_normal(expr[0], kb)} ".join([expr_normal(e, kb) for e in tail])})'
+            return f'{left} {" ".join([expr_latex(e, kb) for e in tail])} {right}'
+        case [Token(label='SYMBOL', value=a) as op, *tail] if isinstance(a, str) and kb.is_flat(a):
+            return f'({f" {expr_latex_token(op, kb)} ".join([expr_latex(e, kb) for e in tail])})'
         case [e0, e1]:
-            return f'{expr_normal(e0, kb)} {expr_normal(e1, kb)}'
-        case [Token(label='SYMBOL', value=a), e1, e2]:
-            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
+            return f'{expr_latex(e0, kb)} {expr_latex(e1, kb)}'
+        case [Token(label='SYMBOL', value=a) as op, e1, e2]:
+            return f'({expr_latex_token(op, kb)} {expr_latex(e1, kb)} {expr_latex(e2, kb)})'
         case [*tail]:
-            return f'({" ".join([expr_normal(e, kb) for e in tail])})'
+            return f'({" ".join([expr_latex(e, kb) for e in tail])})'
     assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
 
 def is_op_expr(e: Expr, op: str) -> bool:
@@ -2095,7 +2106,8 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optiona
                 raise e      # reraise it
     else:
         expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
-        check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
+        if keyword != 'format':      # `format latex` needs to accept `latex`, which is also a keyword
+            check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
     return keyword_token, expr_list, label, local
 
 ## kurt eval
@@ -2511,7 +2523,7 @@ def eval_global_format(keyword: str, args: list[Expr], kb: KnowledgeBase) -> Non
                     kb = kb.parent
                     kb.format = option
             case _:
-                raise KurtException(f'ParseError: wrong argument, possible is:\n    format {"\n    format".join(format_options)}')
+                raise KurtException(f'ParseError: wrong argument, possible is:\n    format {"\n    format ".join(format_options)}')
     else:
         raise KurtException(f'ParseError: wrong arguments, possible is:\n    format {" | ".join(format_options)}')
 
@@ -3013,7 +3025,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             log(kb, f'{keyword} {assumptions_str}', reason, kb.level-1)  # log the new constant
 
     elif keyword == 'let':
-        msg = 'EvalError: `fix` takes new constants or boolean expressions'
+        msg = 'EvalError: `let` takes new constants or boolean expressions'
         if len(args) == 0:
             raise KurtException(msg)
         # add the new constants and their constraints (if boolean expressions are given)

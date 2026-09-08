@@ -1,0 +1,13 @@
+; regression test: `format latex` used to be unreachable from a `.kurt` file at all, since
+; `latex` is itself a reserved keyword (for the separate `latex <key> <value>` command) and
+; `parse_tokenstream`'s generic `check_no_keyword` check rejected any keyword-valued token
+; appearing as an argument, with no exception for `format`'s own small, fixed set of option
+; names. Confirmed the break directly: `format latex` raised `SyntaxError: keywords not
+; allowed inside expressions` before this fix. Fixed by skipping that check specifically for
+; `format`'s arguments, which are always validated against the fixed `format_options` list
+; right afterwards anyway (`eval_global_format`), so there's no way to smuggle a real keyword
+; through as a side effect.
+format latex
+format normal
+true
+;;; Proof checked.

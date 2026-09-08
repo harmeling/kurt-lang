@@ -1,0 +1,9 @@
+; regression test: `let` with no arguments used to raise an error message that still said
+; "`fix` takes new constants..." -- a leftover from before the keyword was renamed from `fix`
+; to `let`. Confirmed the stale wording directly before fixing it. Not a soundness bug (the
+; statement is correctly rejected either way, so `expect "EvalError"` alone wouldn't catch a
+; regression back to the old wording), just a confusing error message -- caught here via the
+; usual `;;; ` marker instead, since the differing word falls within the harness's first-17-
+; characters comparison window.
+let
+;;; EvalError: `let` takes new constants or boolean expressions

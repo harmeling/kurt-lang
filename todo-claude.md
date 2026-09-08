@@ -59,33 +59,55 @@ No code was changed while producing this file.
   Regression tests in `tests/test_cli_exit_code.py` (subprocess-based, since
   this is CLI/process behaviour, not something the in-process proof-file
   harness can observe).
-- **"repair messages for 'pick', 'fix', 'assume'"** — confirmed: `eval_let`
-  (line ~2717) still raises `EvalError: \`fix\` takes new constants...` even
-  though the keyword has been renamed to `let` everywhere else. Trivial
-  string fix, one call site.
-- **`format latex` is unreachable from a `.kurt` file** — this is exactly
-  todo.md's "format 'latex', also allow custom latex formats", now with a
-  root cause: `latex` is itself a reserved keyword (`keywords` dict, line
-  268), so the scanner refuses it as a plain argument token
-  (`SyntaxError: keywords not allowed inside expressions`), and passing it
-  as a quoted string (`format "latex"`) fails too because `eval_global_format`
-  only accepts a bare `SYMBOL` matching `format_options`. You can only ever
-  reach `latex` formatting via `kurt -l`. Fix: let `eval_global_format`
-  also accept a `STRING` token, or special-case `format` to not treat its
-  own argument position as keyword-sensitive.
-- **`brackets` leaks its internal sentinel into user-facing output.** Also
-  not in `todo.md`, found while writing `tutorial/36-brackets.kurt`.
-  `add_brackets`'s `nud` (line 1137) always wraps a *custom* bracket pair in
-  an operator token named `f'{lbracket}$$${rbracket}'`. For the built-in
-  `(` `)` there's a special-case unwrap (line 1826, `case
-  [Token(label='SYMBOL', value='($$$)'), sub_expr]`), but it only matches
-  literally `"($$$)"` — any other bracket pair a user declares (`brackets
-  "[" "]"`, `brackets "{" "}"`, ...) stays wrapped forever and shows up
-  verbatim as `[$$$]` in `parse`/`sexpr` output. Either generalize the
-  unwrap to any bracket pair that's meant to be transparent, or (more
-  honestly, since custom brackets are *supposed* to carry meaning, see
-  `suggestions-claude.md`) document that only `(` `)` is transparent and give
-  the synthetic operator a less leaky display name than `$$$`.
+- ~~**"repair messages for 'pick', 'fix', 'assume'"**~~ — **fixed.**
+  `eval_keyword_expression`'s `let` branch still raised `EvalError: \`fix\`
+  takes new constants...` even though the keyword was renamed to `let`
+  everywhere else. One-line string fix; regression test
+  `proofs/soundness/let-empty-error-message-mentions-let.kurt` (checks the
+  message text, not just the error kind, since both old and new wording
+  are equally rejected — only the wording was wrong).
+- ~~**`format latex` is unreachable from a `.kurt` file**~~ — **fixed.** Root
+  cause: `latex` is itself a reserved keyword (also used for the separate
+  `latex <key> <value>` command), so `parse_tokenstream`'s generic
+  `check_no_keyword` check rejected it as an argument
+  (`SyntaxError: keywords not allowed inside expressions`) before
+  `eval_global_format` ever got a chance to validate it against
+  `format_options`. Fixed by skipping that check specifically for
+  `format`'s own arguments — safe, since they're immediately validated
+  against the small fixed `format_options` list right afterwards anyway, so
+  there's no way to smuggle a real keyword through. Also fixed an unrelated
+  cosmetic bug turned up alongside it: the "possible is:" error listing ran
+  option names together with no space (`formatnormal`) due to a
+  missing-space typo in the join separator. Regression test:
+  `proofs/soundness/format-latex-argument-parses.kurt`. Making `format
+  latex` reachable exposed a further, real, pre-existing bug it had never
+  been possible to trigger before: `expr_latex` (the function `format
+  latex` actually prints through — a separate code path from `-l`'s own
+  document generator) was a stale copy-paste of `expr_normal` that still
+  called `expr_normal` recursively and never consulted `kb.get_latex` at
+  all, so `format latex` silently printed identically to `format normal`,
+  ignoring every `latex SYMBOL REPLACEMENT` declaration. Fixed by making
+  `expr_latex` recurse into itself and substitute each operator token
+  through `kb.get_latex` (falling back to the symbol's own name). Confirmed
+  `-l`'s own LaTeX document generation is unaffected (separate `latexify`
+  code path, string-based, not `expr_latex`). Regression test:
+  `tests/test_format_latex.py` (needs `mainstream=True`, real printed
+  output, so it can't live under `proofs/`, same reasoning as the bracket
+  test below).
+- ~~**`brackets` leaks its internal sentinel into user-facing output.**~~ —
+  **fixed.** `add_brackets`'s `nud` wraps a *custom* bracket pair in an
+  operator token named `f'{lbracket}$$${rbracket}'`. `expr_normal`/
+  `expr_latex` already had a dedicated case to strip the `$$$` back out for
+  *any* declared bracket pair (via `is_bracket_placeholder`), but
+  `expr_sexpr` (used by `format sexpr`, and by `parse`/`sexpr` regardless of
+  the active format) had no such case, so it printed the placeholder
+  literally, e.g. `([$$$] A)` for a user-declared `brackets "[" "]"`. Fixed
+  by giving `expr_sexpr` the same bracket-placeholder case, printing e.g.
+  `[]` (concatenated left+right) as the s-expression head. Regression test:
+  `tests/test_bracket_sexpr_display.py` (a real CLI subprocess run, not a
+  `proofs/` file — `parse`'s output is only printed when `mainstream=True`,
+  which the auto-discovered `proofs/` harness never exercises since it
+  always calls `load_file` with `mainstream=False`).
 - **Run a profiler once** ("TODO run profiling") — trivial to just do
   (`python -m cProfile -m kurt.kurt some-proof.kurt`, or profile the test
   suite), and its output would directly inform the several perf todos below

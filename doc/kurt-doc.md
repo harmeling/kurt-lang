@@ -201,8 +201,7 @@ pair (declared exactly this way in `minimal.kurt`) is treated as pure,
 disappearing grouping** — `(A)` really is just `A`. Any *other* bracket
 pair you declare yourself stays around as a genuine operator: `[A]` parses
 to a real term whose operator is an internal name combining `[` and `]`
-(currently rendered as `[$$$]` if you `parse`/`format sexpr` it — a leaky
-implementation detail, see `todo-claude.md`), not to `A`. Custom brackets
+(rendered as `[]` if you `parse`/`format sexpr` it), not to `A`. Custom brackets
 are meant to carry their own meaning (e.g. `|x|` for absolute value, `⟨a,
 b⟩` for pairing) via `arity`/`bool`/`use` axioms about the resulting
 operator, not as alternative parentheses. `brackets` takes exactly the two
@@ -306,10 +305,11 @@ introduces a genuinely new constant that needs an inference step
 (`equal-elim`/`iff-elim`) to unfold.
 
 `latex` records how a symbol should render in a generated LaTeX proof
-document (`kurt -l`); it has no effect on parsing or proving, and — because
-`latex` is itself a reserved keyword — there is currently no way to select
-LaTeX rendering *from inside* a `.kurt` file via `format latex` (only via
-the `-l` command-line flag); see `todo-claude.md`.
+document (`kurt -l`); it has no effect on parsing or proving. `format latex`
+also switches the *session's* print format to LaTeX from inside a `.kurt`
+file (§10) — note this is a separate thing from the `-l` command-line flag,
+which generates a whole LaTeX proof document rather than just changing how
+formulas print in the shell.
 
 ### 4.8 Inspecting the grammar
 
@@ -750,7 +750,7 @@ this case) — those still need the older `;;; ` marker convention.
 
 ## 10. Session toggles and output
 
-    format sexpr | normal        ; how formulas are printed: (and A B), or A and B
+    format sexpr | normal | original | latex   ; how formulas are printed: (and A B), or A and B, ...
     verbose on | off              ; print extra detail about *why* a match succeeded
     hint on | off                  ; reserved for future use — currently a no-op
     calc on | off                   ; auto-simplify `+`/`*` on int/float literals before checking
@@ -772,10 +772,9 @@ nothing reads its value yet.
 - `and-elim` needs `load prop` (or a manual axiom instance) — it is not
   hard-coded the way `and-intro` is (§8.1).
 - `f()` — a zero-argument call — does not parse (§4.3).
-- `format latex` cannot be reached from inside a `.kurt` file (§4.7); use
-  `kurt -l` instead.
 - A custom `brackets` pair does not disappear the way `(` `)` does — it
-  stays a real (currently rather ugly-printing) operator (§4.2).
+  stays a real operator, printed as e.g. `[]`/`{}` in s-expression form
+  (§4.2).
 
 See `todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.
