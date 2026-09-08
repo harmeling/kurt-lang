@@ -1,4 +1,12 @@
 ; modal logic
+;
+; covers: box (□, necessity) and diamond (◇, possibility), their duality (box-def/
+; diamond-def), distribution over and/or, system K (box distributes over implication), and a
+; seriality-style axiom labelled "T" (%p implies possibly %p) -- note this is *not* the
+; standard modal-logic "T" axiom (usually □%p implies %p); the name here is this file's own
+; convention, not standard terminology. See proofs/modal-logic/ for worked examples.
+;
+; not covered: systems S4/S5 (no "4"/"5" axioms), no accessibility-relation reasoning.
 load prop
 prefix b 20, d 20          ; box and diamond
 bool b, d

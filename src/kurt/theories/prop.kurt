@@ -1,4 +1,13 @@
 ; propositional logic
+;
+; covers: not, or, invimplies (backwards implication), iff, and the standard elimination/
+; introduction rules connecting them and the hardcoded connectives (and-intro/elim, or-intro/
+; elim, iff-intro/elim, not-intro/elim, bottom-intro/elim, top-elim). `true`/`false`/
+; `implies`/`and` themselves are hardcoded directly in kurt.py (see minimal.kurt for exactly
+; what) -- this file only adds `not`, `or`, `invimplies`, `iff`, and the rules relating them.
+;
+; loaded (directly or transitively) by nearly every other theory here -- logic.kurt,
+; equality.kurt, set.kurt, arith.kurt, and modal.kurt all `load prop` first.
 
 ;; builtin syntax
 ; infix  implies 13 12  ; logical implies, right associative (since 13>12)

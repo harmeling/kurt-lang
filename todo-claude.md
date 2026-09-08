@@ -102,18 +102,17 @@ Status as assessed:
   the proof theories above since it only affects LaTeX rendering, never
   proving/checking.
 
-**Also added mid-pass**: every shipped theory file used to open with just a
-one-line title comment (`; arithmetic`, `; modal logic`, ...) and nothing
-else — no stated scope, no "what this doesn't cover," no pointer to a real
-example proof. Now being given a proper header (scope, known gaps, pointer
-to a real proof under `proofs/`) as each theory gets touched in this pass:
-done for `natural.kurt`. Still needed: `arith.kurt`, `modal.kurt` (both
-touched this pass but not yet given the same header treatment),
-`prop.kurt`/`logic.kurt`/`equality.kurt` (solid content, never got a real
-header at all), `set.kurt` (already has a good inline comment about the
-`:`/`→` gap, but no top-level scope summary), `latex.kurt`. Leave
-`induction.kurt`/`lambda-calculus.kurt` for whenever their real content
-gets written — no point documenting the scope of a file that's still empty.
+- ~~**Document every theory's scope inside the `.kurt` file itself**~~ —
+  **done for the 8 theories with real content.** Every shipped theory used
+  to open with just a one-line title comment (`; arithmetic`, `; modal
+  logic`, ...) and nothing else — no stated scope, no "what this doesn't
+  cover," no pointer to a real example proof. Added a proper header (scope,
+  known gaps, pointer to a real proof under `proofs/`) to `natural.kurt`,
+  `arith.kurt`, `modal.kurt`, `prop.kurt`, `logic.kurt`, `equality.kurt`,
+  `set.kurt`, `latex.kurt`. `minimal.kurt` already had one (rewritten
+  earlier this session). Left `induction.kurt`/`lambda-calculus.kurt` for
+  whenever their real content gets written — no point documenting the scope
+  of a file that's still empty.
 
 ## Already done / stale (recommend deleting from `todo.md`)
 

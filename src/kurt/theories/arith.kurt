@@ -1,4 +1,17 @@
 ; arithmetic
+;
+; covers: +, -, *, /, ^ (with real algebraic identities: distributivity, inverses, identities,
+; the exponent laws), <, >, <=, >= (with transitivity, antisymmetry, trichotomy), and
+; factorial (recursively defined via "factorial-step", not just the base case) -- see
+; proofs/arithmetic/ for worked examples of all of this.
+;
+; known gap: `calc on` only simplifies literal numeric expressions you type yourself, never an
+; axiom's own internal substitution result -- so chaining a recursive fact like
+; "factorial-step" across concrete numbers needs each intermediate literal-arithmetic equality
+; (e.g. `3 - 1 = 2`) stated explicitly and combined in via "equal-elim", rather than something
+; `calc` does automatically. See proofs/arithmetic/factorial-recursion.kurt for the pattern,
+; and doc/kurt-soundness.md #6 for a related matching-engine limitation when chaining more
+; than one such substitution through the same `flat` operator (`*`).
 load equality
 
 ;; syntax

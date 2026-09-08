@@ -1,4 +1,11 @@
 ; first order logic
+;
+; covers: forall-elim (instantiate a universal at a specific value) and exists-intro
+; (introduce an existential from a witness). forall-intro and exists-elim are *not* axioms
+; here -- they're the effect of closing a `let`/`pick` block (see kurt.py's `eval_done`).
+;
+; not covered: `existsunique` (unique existence) -- drafted below but commented out, needs
+; more thought about how to state/use uniqueness cleanly before it's worth adding for real.
 
 ;; syntax
 load prop  ; syntax and rules for prop logic

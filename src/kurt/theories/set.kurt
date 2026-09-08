@@ -1,4 +1,12 @@
 ; set theory
+;
+; covers: set comprehension (`{$z | P($z)}`), extensionality, empty set, intersection, union,
+; subset, and power set -- enough for real proofs, see proofs/mafi1/001-two-equal-sets.kurt
+; (a full distributive-law proof: A∩(B∪C) = (A∩B)∪(A∩C)).
+;
+; known gap: `:`/`→` (function/mapping notation) has syntax declared but zero axioms -- see
+; the comment further down for why (function extensionality needs real design thought, not a
+; quick fix).
 load equality, logic
 
 ; syntax
