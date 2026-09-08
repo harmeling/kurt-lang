@@ -688,6 +688,42 @@ same output for all inputs" was never implemented) — that's a real,
 separate incompleteness, not the same kind of oversight, so it's excluded
 from the check rather than papered over with an invented axiom.
 
+### 7.4 Bug found and fixed: a failed conditioned-quantifier goal crashed instead of raising `ProofError`
+
+Found while assessing `natural.kurt`'s induction axiom for the first
+time — it turned out nothing anywhere in the repo had ever loaded
+`natural.kurt` outside its own self-check (0 files, confirmed by grep), so
+its one real axiom had never actually been exercised end-to-end. Writing
+a first real test of it (`P 0`, a step fact, then claiming `forall $n in
+Nat P $n`) surfaced not a soundness problem with the axiom itself, but an
+unrelated, general robustness bug with nothing specific to `natural.kurt`
+or induction: **any** failed derivation of a *conditioned* quantifier goal
+(`forall $x in Nat ...`, `forall $x>0 ...`, and the `exists` equivalents)
+crashed with an internal `AssertionError` instead of a clean `ProofError`
+— confirmed independently with `set.kurt`'s `in`, no `natural.kurt`
+involved at all.
+
+Root cause: `remove_outer_forall_quantifiers` desugars `forall $x (cond)
+body` into `forall $x (cond implies body)` by synthesizing a plain
+`Token(label='SYMBOL', value='implies')` with no `column` (defaults to
+`None`). Harmless when derivation *succeeds* — the synthetic token is
+purely internal and never shown to the user — but when derivation
+*fails*, `get_column` (used to build the `ProofError`'s message) asserts
+every token it walks down to has a real integer column, and hits this one
+instead. Fixed by giving the synthetic `implies` token a column borrowed
+from the condition it wraps (which does have one, since it came from real
+source text). Regression:
+`proofs/soundness/conditioned-quantifier-failure-does-not-crash.kurt`.
+
+Once the crash was out of the way, `natural.kurt`'s induction axiom
+itself checked out as functionally correct — `(P 0) and (forall $n in Nat
+(P $n implies P ($n+1)))` derives `forall $n in Nat P $n` via one
+`impl_elim` step, as expected. The ergonomic catch (not a bug): the base
+case and step must be phrased as a single conjunction, not two separate
+`use` facts, since `impl_elim` only does one hop and needs the whole
+antecedent to match at once — the same single-hop limitation already
+noted in §6.1, not something specific to this axiom.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

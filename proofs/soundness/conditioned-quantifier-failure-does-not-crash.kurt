@@ -1,0 +1,20 @@
+; regression test: found while assessing natural.kurt's (never-before-exercised) induction
+; axiom for the first time -- a *failed* derivation of a conditioned quantifier goal
+; (`forall $x in Nat ...`, `forall $x>0 ...`, and similarly for `exists`) used to crash with an
+; internal `AssertionError` instead of raising a clean `ProofError`. Root cause:
+; `remove_outer_forall_quantifiers` desugars `forall $x (cond) body` into
+; `forall $x (cond implies body)` by synthesizing a plain `Token(label='SYMBOL',
+; value='implies')` with no `column` set (defaults to `None`); that's harmless when
+; derivation *succeeds*, since the synthetic token never gets shown to the user -- but when
+; derivation *fails*, `get_column` (building the ProofError's message) asserts every token it
+; walks down to has a real integer column, and crashes here instead. This has nothing to do
+; with `natural.kurt`/induction specifically -- any conditioned-quantifier goal that fails to
+; derive hits it (confirmed independently with `set.kurt`'s `in`, no `natural.kurt` involved).
+; Fixed by giving the synthetic `implies` token a column borrowed from the condition it wraps.
+load set, logic
+bool P
+arity P 1
+const P, Nat
+expect "ProofError"
+    forall $x in Nat  P $x
+;;; Proof checked.

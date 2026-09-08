@@ -3516,7 +3516,14 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> Expr:
         else:
             bound_var, condition = unpack_condition(expr[1], kb)
             assert condition is not None, f'BUG: expected a condition'
-            expr = [Token(label='SYMBOL', value='implies'), condition, expr[2]]
+            # give the synthetic `implies` token a real column (borrowed from `condition`,
+            # which does have one) rather than leaving it `None` -- otherwise a failed
+            # derivation whose goal is a conditioned quantifier (`forall $x in Nat ...`,
+            # `forall $x>0 ...`, ...) crashes with an internal AssertionError instead of a
+            # clean ProofError, since `get_column` (used to build that error's message)
+            # asserts every token it walks down to has a real column
+            implies_token = Token(label='SYMBOL', value='implies', column=get_column(condition))
+            expr = [implies_token, condition, expr[2]]
         free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
         s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
         expr = apply_subst(expr, s, kb)
