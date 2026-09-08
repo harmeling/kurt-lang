@@ -217,10 +217,16 @@ parses as one call `(f a b)`, not curried. A symbol with no declared arity
 defaults to arity 0 and behaves as ordinary curried space-application. You
 cannot set an `arity` on a symbol that's already `infix`/`prefix`/`postfix`
 or a bracket (their arities — 2, 1, 1 — are implicit and fixed), and you
-cannot re-set an arity once declared. There is currently no way to write a
-literal zero-argument call `f()` — an arity-1 (or more) symbol followed by
-empty brackets is a syntax error (`SyntaxError: token ')' cannot start an
-expression`), see `todo-claude.md`.
+cannot re-set an arity once declared.
+
+Empty brackets (`()`, `{}`, ...) are allowed and parse to nothing; the only
+place this is meaningful is directly after an arity-0 symbol, where `f()`
+then parses to *exactly* `f` — the same expression as writing `f` alone,
+matching ordinary mathematical usage of `()` for "no arguments." Directly
+after a symbol with a declared arity of 1 or more, `f()` is instead a
+clear, specific `EvalError` ("empty parentheses `()` cannot supply an
+argument for `f`, which needs N argument(s)"), not a confusing parse —
+empty parens can never actually supply a real argument.
 
 ### 4.4 `bindop`
 

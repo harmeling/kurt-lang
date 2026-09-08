@@ -1348,11 +1348,17 @@ class KnowledgeBase:
         self.add_const(rbracket)
         self.brackets[rbracket] = lbracket    # to list the brackets (not used for parsing)
         def nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
+            if ts.peek.value == rbracket:
+                # empty body, e.g. `f()` -- see `is_empty_bracket_node`/`process_arity`,
+                # which is what turns this into "exactly `f`" for an arity-0 `f`
+                token = next(ts)
+                token.value = f'{lbracket}$$${rbracket}'
+                return [token]
             expr: Expr = parse_expression(ts, kb, bracket_rbp)
             token: Token = next(ts)
             if token.label == 'END':
                 raise StopIteration
-            if token.value != rbracket: 
+            if token.value != rbracket:
                 raise KurtException(f'SyntaxError: expected `{rbracket}`', column=token.column)
             token.value = f'{lbracket}$$${rbracket}'    # use a value that can not come from the tokenizer, avoid space for readability
             return [token, expr]
@@ -2100,6 +2106,14 @@ def flatten_all(expr: Expr, kb: KnowledgeBase) -> Expr:
         expr = flatten_op(op, expr, kb)       # flatten certain operators
     return expr
 
+def is_empty_bracket_node(e: Expr, kb: KnowledgeBase) -> bool:
+    # `()`/`{}`/etc. parsed with nothing inside -- see `add_brackets`'s `nud`. Used by
+    # `group_by_arity`/`process_arity` to give `f()` a meaning: exactly `f` for an arity-0
+    # `f` (see `todo.md`'s own spec: "`f()` ... should be parsed [like] just `f`"), and a
+    # clear rejection rather than a confusing parse for a positive-arity `f`.
+    return (isinstance(e, list) and len(e) == 1 and isinstance(e[0], Token)
+            and isinstance(e[0].value, str) and kb.is_bracket_placeholder(e[0].value))
+
 def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
     # input: `expr` which is a list of functions and arguments
     # output: `e` which is properly group and the `tail` which is the rest of non-eaten arguments
@@ -2112,6 +2126,8 @@ def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
                 ei: Expr
                 tail: list[Expr]
                 ei, tail = group_by_arity(tail, kb)             # let the next one eat as many expr as it needs
+                if is_empty_bracket_node(ei, kb):
+                    raise KurtException(f'EvalError: empty parentheses `()` cannot supply an argument for `{op}`, which needs {arity} argument(s)')
                 e.append(ei)
             return e, tail
         case [head, *tail]:        # list with operator that doesn't have an arity > 0
@@ -2127,6 +2143,13 @@ def process_arity(expr: Expr, kb: KnowledgeBase) -> Expr:
             return expr
         case [Token(label='SYMBOL', value=v), *tail] if v==SPACE_SYMBOL:
             expr, tail = group_by_arity(tail, kb)
+            # `f()` for arity-0 `f` means exactly `f` -- drop a leading empty-parens marker
+            # rather than wrapping it into a call, so `f()` and `f` parse identically
+            if (len(tail) > 0 and is_empty_bracket_node(tail[0], kb)
+                    and isinstance(expr, Token) and isinstance(expr.value, str) and kb.get_arity(expr.value) == 0):
+                tail = tail[1:]
+                if len(tail) == 0:
+                    return expr              # `f()` alone parses to exactly `f`, nothing to recurse into
             if len(tail) > 0:
                 expr = [expr] + tail         # extra arguments (might be there for keywords!)
     assert isinstance(expr, list)

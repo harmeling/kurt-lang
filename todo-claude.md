@@ -423,16 +423,46 @@ Status as assessed:
   thing would just be redundant, not an actual gap.
   Regression test: `proofs/debug/pick-error-messages.kurt`. Documented in
   `doc/kurt-doc.md` §9.3.
-- **`f()` (zero-argument call) doesn't parse** ("why not `f()`???") —
-  confirmed: `arity f 1` (or any arity/bracket combo) followed by `f()`
-  raises `SyntaxError: token \`)\` cannot start an expression`, because
-  brackets' `nud` (line 1137) unconditionally tries to `parse_expression`
-  before expecting the closing bracket — there's no path for "immediately
-  see the closing bracket". Fixing this means special-casing an empty
-  bracket body in `add_brackets`'s `nud`, and deciding what `f()` should
-  even parse *to* (a 0-arg application node, distinct from bare `f`).
-  Self-contained but touches core parsing; worth a design decision first
-  (see `suggestions-claude.md`).
+- ~~**`f()` (zero-argument call) doesn't parse**~~ — **done.** ("why not
+  `f()`??? what is it? it should be parsed `(f)` instead of just `f`") The
+  original `todo.md` wording actually already answers its own "design
+  decision" question, once read literally: `f()` should parse the same as
+  `(f)` -- and `(f)`, once `remove_round_brackets` strips its purely
+  grouping parens (as it already does for any `(EXPR)`), is *exactly* bare
+  `f`. So the target was never a distinct "0-arg application node" (as
+  `todo-claude.md`'s own earlier, more speculative note here guessed) --
+  just "`f()` means `f`," full stop.
+  Two changes: (1) `add_brackets`'s `nud` now accepts an empty body (peeks
+  for the closing bracket immediately after the opening one) instead of
+  unconditionally calling `parse_expression` first and choking on it --
+  returns a bracket-placeholder node with an empty tail rather than
+  raising `SyntaxError: token ')' cannot start an expression`. This alone
+  makes `()`/`{}`/etc. parseable wherever a bracket is legal, not just
+  after a symbol. (2) `process_arity`/`group_by_arity` give that empty
+  node a meaning specifically when it directly follows a symbol: for an
+  arity-0 symbol, drop it entirely (`f()` and `f` produce the identical
+  parsed `Expr`, confirmed by their log lines printing identically and by
+  `parse f()` / `parse f` printing the same sexpr); for a symbol with a
+  declared arity of 1 or more, raise a clear, specific `EvalError` ("empty
+  parentheses `()` cannot supply an argument for `f`, which needs N
+  argument(s)") rather than letting the empty-bracket node silently become
+  a nonsensical "argument value" (which is what `group_by_arity`'s
+  existing greedy consumption would otherwise have done, unnoticed).
+  Verified this doesn't regress ordinary calls (`f(x)`/`f a` still work
+  identically) and doesn't crash on a bracket with no preceding symbol at
+  all (`parse ()`) -- it just parses to a standalone empty-bracket node,
+  which is a new but harmless parseable shape, not a new axiom or
+  soundness-relevant construct.
+  Note on methodology: initially verified this in a scratch copy under a
+  separate `PYTHONPATH`, which produced 3 unrelated test failures
+  ("symbol already exists") that turned out to reproduce identically with
+  a completely *unmodified* copy of `kurt.py` under that same scratch
+  path -- an artifact of running the test suite against a package copy
+  outside the editable install, not a real regression. Confirmed clean
+  (`OK`, 95/95) once applied to and tested against the real repo via the
+  normal `PYTHONPATH=src python3 -m unittest`.
+  Regression test: `proofs/debug/zero-arg-call.kurt`. Documented in
+  `doc/kurt-doc.md` §4.3.
 - ~~**"do checks for `case` statements"**~~ — **investigated; resolved as a
   documentation gap, not a code one.** `case` is handled completely
   identically to `assume` everywhere, confirmed — there is no case-specific
