@@ -10,6 +10,84 @@ follow.
 
 No code was changed while producing this file.
 
+## Theory completeness pass (in progress, working one at a time)
+
+Kurt-web now vendors and lets users freely browse/`load` all 11 shipped
+theories (`src/kurt/theories/*.kurt`), not just 3 — which turned "some
+theories are thin or empty stubs" from a hidden internal detail into a
+user-facing gap. Assessed each file's actual state (content depth + how
+much, if any, real proof anywhere in the repo exercises it — not just
+"does it load without error"); the goal now is to work through the
+list, one theory at a time: fill in real gaps, then write permanent
+test proofs under `proofs/` that actually exercise the new (and
+existing, previously-untested) content, not just smoke-test that it
+loads. Order below is roughly easiest/most-contained first.
+
+Status as assessed:
+- ~~**`arith.kurt`**~~ — **done.** Added the two real content gaps: `pow-zero`
+  (`$a ≠ 0 ⇒ $a^0=1`, guarded to dodge 0^0), `pow-add`, `pow-mul` (real
+  exponent laws, previously commented out entirely), and `factorial-step`
+  (`$n>0 ⇒ $n!=$n*($n-1)!` — previously only the base case existed, so no
+  factorial past `0!` was derivable at all). Wrote 4 permanent test proofs
+  under `proofs/arithmetic/` exercising all of this plus the previously-
+  completely-untested order theory (`order-transitivity-chain.kurt` chains
+  two `lt-trans` applications; `order-antisymmetry.kurt` exercises
+  `le-ge-antisym`; `exponent-laws.kurt` and `factorial-recursion.kurt` cover
+  the new axioms). Also fixed two unrelated cosmetic issues found in
+  `prop.kurt` along the way: two duplicate labels (`"iff-elim"` used twice,
+  `"not-intro"` used twice — renamed to `"iff-elim-forward"`/
+  `"iff-elim-backward"` and `"not-not-intro"`) and a stray leftover `trail`
+  debug statement right before the end-of-file marker. Found (but
+  deliberately did not fix, see `doc/kurt-soundness.md` §6) a real matching-
+  engine limitation while writing `factorial-recursion.kurt`: chaining two
+  `equal-elim` substitutions where the substituted value reuses the same
+  `flat` operator as its context (`*`, here) doesn't re-flatten correctly —
+  a completeness gap in `derive_expr`, not a soundness one, and not specific
+  to `arith.kurt` — flagged for separate dedicated investigation.
+- **`modal.kurt`** — real content (box/diamond duality, distribution, systems K
+  and T) but *zero* real proof anywhere uses it; its only appearance in the
+  repo is a load-mechanics smoke test (`proofs/debug/load-twice.kurt`).
+  Needs: at least one real proof of a modal tautology using K/T.
+- **`natural.kurt`** — thin (`Nat` membership + one induction axiom, no
+  arithmetic on `Nat` at all), zero real proofs anywhere. Stress-testing its
+  induction axiom for the first time (see below) found and fixed a real,
+  general `kurt.py` crash bug, unrelated to induction itself — see
+  `doc/kurt-soundness.md` §7.4. The axiom itself checked out correct once
+  that crash was fixed. Needs: a permanent real induction proof under
+  `proofs/`.
+- **`set.kurt`** — reasonably developed (comprehension, extensionality, ∅,
+  ∩, ∪, subset, power-set), one substantial real proof already exercises it
+  (`proofs/mafi1/001-two-equal-sets.kurt`). One documented, real gap: `:`/`→`
+  (mapping notation) has syntax declared but zero axioms — function
+  extensionality was never written. Needs design thought, not a quick fix.
+- **`induction.kurt`** — empty stub (just a comment + test marker). Needs a
+  design decision first: what does a *general* induction principle (as
+  opposed to `natural.kurt`'s Peano-specific one) even mean here — strong/
+  well-founded induction over `<`? Over an arbitrary well-founded relation?
+  Don't fill this in mechanically before deciding what it's for.
+- **`lambda-calculus.kurt`** — empty stub. Needs real design work from
+  scratch (abstraction/application syntax, beta reduction, substitution
+  semantics built on the existing `sub`/binding machinery) — the biggest
+  single piece of remaining work on this list.
+- **`prop.kurt`**/**`logic.kurt`**/**`equality.kurt`**/**`minimal.kurt`** —
+  solid, heavily exercised (34/28/18 files respectively; `minimal.kurt` is
+  intentionally unloadable reference documentation, not meant to carry
+  proof weight). Only issues found were cosmetic and already fixed: two
+  duplicate labels in `prop.kurt` (`"iff-elim"` used twice, `"not-intro"`
+  used twice — labels don't need to be unique for correctness, matching
+  never keys off them, but a duplicate makes the printed `by "label"` reason
+  ambiguous) and a stray leftover `trail` debug statement right before the
+  end-of-file marker.
+- **`latex.kurt`** — not a proof theory (a symbol→LaTeX-macro table for
+  `-l`/`format latex`), so "complete" means something different here: it
+  only covers propositional-logic symbols/keywords, missing everything from
+  `arith`/`set`/`modal`/`natural` (`+`, `∈`, `⊂`, box/diamond, `Nat`, ...)
+  and several newer keywords (`local`, `expect`, `sandbox`). Also has one
+  dead entry, `latex "equiv" "\Leftrightarrow"`, mapping a symbol name
+  that doesn't exist anywhere in kurt's actual grammar. Lower priority than
+  the proof theories above since it only affects LaTeX rendering, never
+  proving/checking.
+
 ## Already done / stale (recommend deleting from `todo.md`)
 
 - **"get group.kurt working with constants and with `var x, y, z`"** —
@@ -297,11 +375,16 @@ No code was changed while producing this file.
   the way `impl_elim` already combines separately-proven facts) is real,
   scoped work inside `derive_expr`, though it interacts with the perf
   concerns below (more candidate matches to try per step).
-- **Extend `calc` beyond `+`/`*` on ints** ("do calculations with integers
-  and reals") — `KnowledgeBase.calculate()` (line 645) only handles `+` and
-  `*` on Python `int`/`float` tokens today (confirmed by reading it and by
-  `tutorial/55-calc.kurt`'s test). Adding `-`, `/`, and being explicit about
-  float precision/equality is a contained extension of one method.
+- ~~**Extend `calc` beyond `+`/`*` on ints**~~ — **this note was stale/wrong,
+  corrected while working through the theory-completeness pass.**
+  `KnowledgeBase.calculate()` already handles `-` (unary and binary), `/`,
+  and `^` on Python `int`/`float` tokens, not just `+`/`*` — confirmed
+  directly while writing `proofs/arithmetic/factorial-recursion.kurt` and
+  `exponent-laws.kurt`, both of which rely on `calc` reducing `-`. What's
+  still genuinely open: no explicit handling of floating-point
+  precision/equality (e.g. `0.1 + 0.2 = 0.3` would compare the raw Python
+  float result, no tolerance), which is a real, separate, much smaller
+  remaining item than the original (inaccurate) note implied.
 - ~~**`$$`-prefixed internal names could collide with user variables**~~ —
   **checked, turns out to be a non-issue.** My earlier claim here was wrong:
   I said "a user *can* type a variable named literally `$$foo`" without

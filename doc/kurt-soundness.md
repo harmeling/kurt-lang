@@ -507,6 +507,25 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   derive (a completeness gap, not a soundness one, since or-elim itself
   still requires the real `%A or %B` axiom to be in scope) — mentioned for
   completeness, not because it looks dangerous.
+- **`equal-elim`-driven substitution doesn't re-flatten into a `flat` operator's
+  argument list** — found while writing a real test proof for `arith.kurt`'s
+  new factorial recursion (`proofs/arithmetic/factorial-recursion.kurt`).
+  Chaining a *second* application of "factorial-step" (to go on from `1! = 1`
+  to prove `2! = 2`) reliably failed: substituting a fact whose RHS is itself
+  a `*`-expression (`1! = 1 * 1`) into another `*`-context (`2 * 1!`)
+  produces some structural shape that doesn't `equal_expr`-match a naturally
+  *typed* target (`2 * (1 * 1)`, which flattens to a 3-argument `2 * 1 * 1`
+  at parse time) — even though both denote the same flattened multiplication.
+  Confirmed this is specifically about the substituted value re-using the
+  same `flat`/`sym` operator as its context (substituting a bare-literal RHS,
+  as `factorial-base`'s `0! = 1` does, works fine at any nesting depth tried).
+  This is a completeness gap, not a soundness one — it can only make a true
+  goal harder to reach in one step, never make a false one derivable — but
+  it's a real limitation of the matching engine, not (as far as tested) a
+  bug in any specific theory. Not investigated further here; worth a
+  dedicated look at wherever `apply_subst`'s substitution result is compared
+  against a `flatten_all`-processed target, next time someone works on
+  `derive_expr`/the matching engine rather than on theory content.
 
 ## 7. Selective export (`load`'s `local` labels)
 

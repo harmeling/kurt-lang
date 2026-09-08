@@ -42,14 +42,12 @@ use $a ≠ 0 ⇒ $a / $a = 1 "div-self"
 use $a + 0 = $a          "add-identity"
 use $a - 0 = $a          "sub-identity"
 
-; use $a ^ $b * $a ^ $c = $a ^ ($b + $c)  ; laws of exponents
-; use ($a ^ $b) ^ $c = $a ^ ($b * $c)     ; laws of exponents
-; use $a ^ 0 = 1                          ; laws of exponents
-; `$a ^ 0 = 1` above stays commented out: 0^0 is conventionally left undefined, so it
-; shouldn't be a blanket, unconditional axiom. `$a ^ 1 = $a` has no such edge case, and is
-; also the only reason `^`'s own `infix` syntax survives `load arith` at all (nothing else
-; here uses `^` -- see doc/kurt-soundness.md #7 on selective export).
-use $a ^ 1 = $a          "pow-identity"
+; `$a ^ 0 = 1` unconditionally would be wrong: 0^0 is conventionally left undefined, so it's
+; guarded by `$a ≠ 0` below instead of being a blanket axiom.
+use $a ^ 1 = $a                          "pow-identity"
+use $a ≠ 0  ⇒  $a ^ 0 = 1                "pow-zero"
+use $a ^ $b * $a ^ $c = $a ^ ($b + $c)   "pow-add"
+use ($a ^ $b) ^ $c = $a ^ ($b * $c)      "pow-mul"
 
 ;; order rules: <
 use $a < $b  ⇒  $a + $c < $b + $c   "lt-add"
@@ -109,7 +107,8 @@ use $a >  $b ∧ $a <= $b  ⇒  false   "gt-le-contra"
 use $a < $b ∨ $a = $b ∨ $a > $b   "trichotomy"
 
 ;; factorial
-use 0! = 1   "factorial-base"
+use 0! = 1                              "factorial-base"
+use $n > 0  ⇒  $n! = $n * ($n - 1)!     "factorial-step"
 
 ; for automatic testing we add the following line:
 ;;; Proof checked.

@@ -753,14 +753,22 @@ this case) — those still need the older `;;; ` marker convention.
     format sexpr | normal | original | latex   ; how formulas are printed: (and A B), or A and B, ...
     verbose on | off              ; print extra detail about *why* a match succeeded
     hint on | off                  ; reserved for future use — currently a no-op
-    calc on | off                   ; auto-simplify `+`/`*` on int/float literals before checking
+    calc on | off       ; auto-simplify `+`/`-`/`*`/`/`/`^` on int/float literals before checking
 
 Each, called with no argument, reports its current setting instead of
-changing it. `calc on` only knows `+` and `*` on numeric literals today
+changing it. `calc on` simplifies `+`/`-`/`*`/`/`/`^` on numeric literals
 (e.g. `1 + 1 = 2` becomes `2 = 2` before checking, once `load equality` and
-`infix "+" ...` make `+`/`=` available at all) — no `-`, `/`, or symbolic
-simplification. `hint` exists and can be toggled but, as of this writing,
-nothing reads its value yet.
+`infix "+" ...` make `+`/`=` available at all) — no symbolic simplification,
+and no explicit handling of floating-point precision (e.g. `0.1 + 0.2 = 0.3`
+compares the raw Python float result, with no tolerance). It only
+simplifies expressions you type yourself, not axiom instantiations produced
+internally during a derivation — e.g. instantiating `$n! = $n * ($n-1)!` at
+`$n=3` gives `3! = 3 * (3-1)!` verbatim, `(3-1)` is never auto-collapsed to
+`2` inside that derived fact, only inside something you write and check
+directly (see `proofs/arithmetic/factorial-recursion.kurt` for how to work
+around this: derive the needed literal equalities, like `3-1=2`, as their
+own facts, and combine them in with `equal-elim` explicitly). `hint` exists
+and can be toggled but, as of this writing, nothing reads its value yet.
 
 `help` prints Kurt's own one-line description of every keyword.
 

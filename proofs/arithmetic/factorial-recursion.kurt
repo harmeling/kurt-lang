@@ -1,0 +1,27 @@
+; coverage test for arith.kurt's factorial recursion, added alongside "factorial-base"
+; (previously the only factorial fact, `0! = 1`, with no recursive step at all -- `n!` for any
+; n != 0 was simply not derivable from anything). Proves `1! = 1` by chaining
+; "factorial-step" + "factorial-base" + "mul-identity".
+;
+; note on a real limitation found while writing this: chaining a *second* application of
+; "factorial-step" (e.g. to go on and prove `2! = 2`) runs into a genuine equal-elim/flat-
+; operator interaction gap -- substituting a fact whose RHS is itself a `*`-expression (like
+; `1! = 1 * 1`) into another `*`-context (like `2 * 1!`) fails to re-flatten and match a
+; naturally-written target (`2 * (1 * 1)` flattens to `2 * 1 * 1` when typed, but the
+; substituted derivation result apparently doesn't get re-flattened the same way before
+; comparison). This is a real, separate, currently-undiagnosed gap in the matching engine, not
+; a soundness bug (it only makes some true things harder to reach, not false things reachable)
+; -- see `todo-claude.md`, flagged there for dedicated investigation rather than being
+; papered over here with a proof that happens to dodge it.
+load arith
+use 1 - 1 = 0   "lit-1-1"
+use 1 > 0
+
+show 1! = 1
+proof
+    1! = 1 * (1-1)!
+       = 1 * 0!
+       = 1 * 1
+       = 1
+qed
+;;; Proof checked.

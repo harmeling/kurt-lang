@@ -70,8 +70,8 @@ use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"
 use (%A invimplies %B) iff (%B implies %A)                         "invimplies-def"
 
 use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"
-use (%A iff %B) implies (%A implies %B)                             "iff-elim"
-use (%A iff %B) implies (%B implies %A)                             "iff-elim"
+use (%A iff %B) implies (%A implies %B)                             "iff-elim-forward"
+use (%A iff %B) implies (%B implies %A)                             "iff-elim-backward"
 use %A iff %A                                                       "iff-reflexive"
 use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
 
@@ -82,8 +82,8 @@ use false implies %A                                                "bottom-elim
 
 use (%A implies false) implies not %A                               "not-intro"
 use not not %A implies %A                                           "not-elim"
-use %A implies not not %A                                           "not-intro"
+use %A implies not not %A                                           "not-not-intro"
 use %A iff not not %A                                               "not-not"
-trail
+
 ; for automatic testing we add the following line:
 ;;; Proof checked.
