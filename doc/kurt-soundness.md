@@ -743,6 +743,33 @@ case and step must be phrased as a single conjunction, not two separate
 antecedent to match at once — the same single-hop limitation already
 noted in §6.1, not something specific to this axiom.
 
+### 7.5 Bug found and fixed: `modal.kurt`'s axioms only worked for two hardcoded propositions
+
+Found while writing `modal.kurt`'s first-ever real test proofs (as
+opposed to its one existing "usage," a pure load-mechanics smoke test
+that never actually proved anything modal). Every axiom in the file
+(`diamond-def`, `box-def`, `diamond-distrib-or`, `box-distrib-and`, `K`,
+`T`) was written with plain symbols (`p`, `q`, `A`, `B`) instead of
+`%`-prefixed schema variables, unlike every other axiom in every other
+shipped theory. A `use` axiom's non-`%`-prefixed symbols aren't
+wildcards — they're the literal declared constants — so every one of
+these axioms only ever applied to the two specific propositions the file
+itself happened to declare. Confirmed directly: with the un-prefixed
+version, `use □(X ⇒ Y)` and `use □X` could never derive `□Y` for a
+newly-declared `X`/`Y`; only the literal `□(p ⇒ q)` and `□p` could ever
+derive `□q`. This is not a soundness bug — a false statement never
+became provable — but it made the whole file close to useless for actual
+reasoning: you could only ever apply `K` (or anything else in the file)
+to two hardcoded atoms, never to a proposition you actually cared about.
+
+Fixed by rewriting all six axioms with `%p`/`%q` (matching `prop.kurt`'s
+`%A`/`%B` convention), and removing the now-unneeded `bool A, B, p, q`
+declaration — only `b`/`d` (the box/diamond operator symbols) are real
+constants now. Regression: `proofs/modal-logic/*.kurt`, deliberately
+using `X`/`Y` rather than the file's own `p`/`q` example symbols so they
+would have caught this; confirmed by reverting the fix and re-running —
+all three fail.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

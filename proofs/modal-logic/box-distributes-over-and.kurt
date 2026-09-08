@@ -1,0 +1,11 @@
+; coverage test for modal.kurt's "box-distrib-and" axiom, generalized (see
+; k-distribution.kurt's comment on the schema-variable bug these were part of).
+load modal
+bool X, Y
+
+use □X
+use □Y
+
+□X and □Y
+□(X and Y)
+;;; Proof checked.

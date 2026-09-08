@@ -1,19 +1,26 @@
 ; modal logic
 load prop
 prefix b 20, d 20          ; box and diamond
-bool b, d, A, B, p, q
+bool b, d
 alias □ b
 alias ◇ d
-use ◇A ≡ ¬□¬A   "diamond-def"
-use □A ≡ ¬◇¬A   "box-def"
-use ◇p ∨ ◇q ≡ ◇(p ∨ q)   "diamond-distrib-or"
-use □p ∧ □q ≡ □(p ∧ q)   "box-distrib-and"
+
+; every axiom below is a schema (`%p`/`%q`, like prop.kurt's `%A`/`%B`) so it applies to *any*
+; boolean expression, not just to two specific hardcoded propositions -- earlier versions of
+; this file wrote `p`/`q`/`A`/`B` without the `%` prefix, which silently pinned every axiom to
+; those exact declared constants and made it impossible to apply K (etc.) to anything else;
+; confirmed the difference directly: `use □(X ⇒ Y)` + `use □X` could never derive `□Y` before
+; this fix, only the literal `□(p ⇒ q)` + `□p` could ever derive `□q`.
+use ◇%p ≡ ¬□¬%p   "diamond-def"
+use □%p ≡ ¬◇¬%p   "box-def"
+use ◇%p ∨ ◇%q ≡ ◇(%p ∨ %q)   "diamond-distrib-or"
+use □%p ∧ □%q ≡ □(%p ∧ %q)   "box-distrib-and"
 
 ; system K
-use □(p ⇒ q) ⇒ (□p ⇒ □q)    "K"
+use □(%p ⇒ %q) ⇒ (□%p ⇒ □%q)    "K"
 
 ; system T
-use p ⇒ ◇p   "T"
+use %p ⇒ ◇%p   "T"
 
 ; for automatic testing we add the following line:
 ;;; Proof checked.

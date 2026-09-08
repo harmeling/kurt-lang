@@ -1,0 +1,14 @@
+; coverage test for modal.kurt's "T" and "box-def"/"diamond-def" axioms, generalized (see
+; k-distribution.kurt's comment on the schema-variable bug these were part of) -- exercised here
+; with a plain declared boolean `X`, not the file's own `p`/`A` example symbols.
+load modal
+bool X
+
+use X
+X ⇒ ◇X
+◇X
+
+use □X
+□X ⇒ ¬◇¬X
+¬◇¬X
+;;; Proof checked.

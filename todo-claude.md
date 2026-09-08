@@ -44,10 +44,22 @@ Status as assessed:
   `flat` operator as its context (`*`, here) doesn't re-flatten correctly —
   a completeness gap in `derive_expr`, not a soundness one, and not specific
   to `arith.kurt` — flagged for separate dedicated investigation.
-- **`modal.kurt`** — real content (box/diamond duality, distribution, systems K
-  and T) but *zero* real proof anywhere uses it; its only appearance in the
-  repo is a load-mechanics smoke test (`proofs/debug/load-twice.kurt`).
-  Needs: at least one real proof of a modal tautology using K/T.
+- ~~**`modal.kurt`**~~ — **done, and found a real bug in the process, bigger
+  than the "needs a test proof" framing suggested.** Every axiom
+  (`diamond-def`, `box-def`, `diamond-distrib-or`, `box-distrib-and`, `K`,
+  `T`) was written with plain symbols (`p`, `q`, `A`, `B`) instead of
+  `%`-prefixed schema variables, unlike every other theory in the repo —
+  silently pinning every axiom to those two exact hardcoded propositions.
+  Confirmed directly before fixing: `use □(X ⇒ Y)` + `use □X` could never
+  derive `□Y`, only the literal `□(p ⇒ q)` + `□p` could ever derive `□q` —
+  `K` (and the rest) were unusable for anything except the two symbols
+  the file itself happened to declare. Fixed by rewriting all six axioms
+  with `%p`/`%q`, and removed the now-unnecessary `bool A, B, p, q`
+  declaration (only `b`/`d`, the box/diamond operator symbols themselves,
+  are still real constants). 3 new permanent test proofs under
+  `proofs/modal-logic/`, deliberately using `X`/`Y` rather than the file's
+  own `p`/`q` example symbols specifically so they'd have caught this bug
+  (confirmed: reverting the fix breaks all three).
 - **`natural.kurt`** — thin (`Nat` membership + one induction axiom, no
   arithmetic on `Nat` at all), zero real proofs anywhere. Stress-testing its
   induction axiom for the first time (see below) found and fixed a real,
