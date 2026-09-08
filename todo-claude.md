@@ -600,13 +600,19 @@ Status as assessed:
   formula) and against how errors are reported (today's `by 3, 2` reasons
   are one hop; multi-hop search needs a real proof-search trace, not just a
   reason string). Worth a design spike before implementation.
-- **"allow multiple replacement in one step (is that possible?)"** — the
-  maintainer's own phrasing suggests this is genuinely open; `
-  generate_all_combinations`'s comment explicitly says "allow only one
-  subterm to be replaced, much more efficient" as a deliberate simplification.
-  Needs a concrete motivating example (a proof that actually needs
-  multi-site substitution in one step) before it's clear whether it's
-  worth the complexity.
+- **"allow multiple replacement in one step (is that possible?)"** — **now
+  has the concrete motivating example this was blocked on**, found and
+  fully diagnosed while writing `arith.kurt`'s factorial-recursion proof:
+  chaining a second `equal-elim` substitution through the same `flat`
+  operator (`*`) fails, because the target has already been flattened into
+  one N-ary node with no addressable sub-node for "these two arguments
+  together are what the substituted value was" — see
+  `doc/kurt-soundness.md` §6 for the full trace. Still not implemented:
+  the real fix (trying every *subset* of a flat node's arguments as a
+  candidate substitution hole, not just every single node) is a genuine
+  combinatorial-cost feature, not a quick fix, in the same family as the
+  O(n^k) performance items below — a deliberate choice to document
+  precisely and defer rather than rush under this pass.
 - ~~**"check whether we need a version of `equal_expr` that allows bounded
   renaming"**~~ — **yes, and fixed.** Found a real, concrete counterexample:
   `pick`/exists-elim outright rejected a valid witness whenever the
