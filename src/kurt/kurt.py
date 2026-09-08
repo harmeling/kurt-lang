@@ -405,7 +405,8 @@ keywords: dict[str, str] = {
     'case':        'open a case analysis block for disjunctions (made for "or-elim"), block must be indented',
     'let':         'fix a new constant, possibly with an assumption (made for "forall-intro"), block must be indented',
     'pick':        'pick a new constant "with" assumption (made for "exists-elim"), block must be indented',
-    'sandbox':     'open a temporary block, useful for trying out things; discarded when closed, whether by dedenting or by `break`',
+    'sandbox':     'open a temporary block, useful for trying out things; discarded when closed, whether by dedenting or by `break` -- unless closed by `commit` instead, which keeps it (like a `load`, only labelled non-`local` facts and the symbols they need travel to the parent level)',
+    'commit':      'close a `sandbox` immediately (no dedent needed, like `break`) and keep its content instead of discarding it -- exactly like `load`\'s selective export: only labelled, non-`local` facts (and the symbols they need) travel to the parent level',
     'expect':      'open a block whose content must raise the named kind of error (one of ProofError, ParseError, EvalError, SyntaxError, TypeError) to succeed; block must be indented and must not itself open further blocks',
 
     # closing a block explicitly (besides just dedenting, which works everywhere and is enough on its own)
@@ -418,7 +419,7 @@ helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
 keywords_with_parsing = ['use', 'show', 'def', 'assume', 'case', 'let', 'todo', 'parse']
 keywords_opening_blocks = ['proof', 'assume', 'case', 'let', 'pick', 'sandbox', 'expect']
-keywords_closing_blocks = ['qed', 'thus', 'break']
+keywords_closing_blocks = ['qed', 'thus', 'break', 'commit']
 
 @dataclass
 class Token:
@@ -695,6 +696,12 @@ class KnowledgeBase:
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
         self.libs: list[str]        = []         # the filenames of loaded libraries
         self.tmp: bool              = tmp        # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
+        self.is_load_boundary: bool = False      # set only on the implicit `sandbox` level `load_file` itself
+                                                  # pushes for the file being loaded -- `break`/`commit` must
+                                                  # refuse to close this one (there's no real, user-written
+                                                  # block here to close), or `load_file`'s own bookkeeping
+                                                  # (it expects to be the only one popping this exact level)
+                                                  # breaks with an internal `assert False`, not a clean error
 
         # syntax
         self.infix:    dict[str, tuple[int,int]] = {}     # left and right binding powers of infix operators
@@ -880,6 +887,7 @@ class KnowledgeBase:
         exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show", "calc", "indent", "hint"}
         exclude |= {"var"}   # variables are local to a file/block
         exclude |= {"tmp"}   # temporary flags are local to a file
+        exclude |= {"is_load_boundary"}   # a per-level marker, never something to propagate upward
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
             if attr in exclude:
@@ -3245,6 +3253,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         assert False, '`break` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
+    elif keyword == 'commit':
+        assert False, '`commit` should have been handled in `scan_parse_check_eval`'
+        pass    # do nothing, it was already handled in `scan_parse_check_eval`
+
     elif keyword == 'inspect':
         raise NotImplementedError('`inspect` keyword is not yet implemented')
         # implementation idea:
@@ -3556,7 +3568,7 @@ def latexify(kb: KnowledgeBase, s: str) -> str:
     return s
 
 def starts_with_keyword(s: str) -> bool:
-    keywords = ['theory', 'use', 'def', 'todo', 'qed', 'thus', 'done', 'break', 'inspect', 'show', 'proof', 'sandbox', 'assume', 'case', 'let', 'pick']
+    keywords = ['theory', 'use', 'def', 'todo', 'qed', 'thus', 'done', 'break', 'commit', 'inspect', 'show', 'proof', 'sandbox', 'assume', 'case', 'let', 'pick']
     for kw in keywords:
         if s.startswith(kw + ' ') or s == kw:
             return True
@@ -4736,6 +4748,8 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             raise KurtException(f'ParseError: `{keyword}` does not take any arguments')
     if keyword == 'break' and dedents > 0:
         raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
+    if keyword == 'commit' and dedents > 0:
+        raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
     if keyword == 'qed' and dedents == 0:
         raise KurtException(f'ParseError: `qed` must be used with dedentation at line {line} in {filename}')
     if keyword == 'thus' and dedents == 0:
@@ -4769,6 +4783,8 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
 
     # process the block closings
     if keyword == 'break':
+        if kb.is_load_boundary:
+            raise KurtException(f'EvalError: `break` has no block to close here -- this is the top level of the file, not a `sandbox` you opened yourself', keyword_token.column if keyword_token is not None else None)
         was_proof = kb.mode_str == 'proof'
         kb = kb.pop_level()             # just pop one level, discarding it, no proof step
         lexer_state.indent_stack.pop()  # pop one indentation level
@@ -4779,6 +4795,15 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             kb.show.pop()
         if mainstream:
             log(kb, 'break', f'{line} discarded the last block', kb.level)
+    elif keyword == 'commit':
+        if kb.is_load_boundary:
+            raise KurtException(f'EvalError: `commit` has no block to close here -- this is the top level of the file, not a `sandbox` you opened yourself', keyword_token.column if keyword_token is not None else None)
+        if kb.mode_str != 'sandbox':
+            raise KurtException(f'EvalError: `commit` only closes a `sandbox` block, not a `{kb.mode_str}` block')
+        kb = kb.merge_and_pop()         # like `load`: only labelled, non-`local` facts survive
+        lexer_state.indent_stack.pop()  # pop one indentation level, no real dedent happened
+        if mainstream:
+            log(kb, 'commit', f'{line} closed, its content is kept', kb.level)
     elif keyword == 'qed':
         # dry run to check the block modes and that we are not closing too many levels
         dedents_check = dedents
@@ -4893,6 +4918,7 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
                 kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
                 level = kb.level      # save current level, this one we want to reach after loading
                 kb.tmp = True              # mark as temporary knowledge base during loading
+                kb.is_load_boundary = True # `break`/`commit` must not be able to close this implicit level
                 kb = read_eval_loop(f, kb, mainstream=mainstream)
             # checks after closing the file
             if kb.level > level:

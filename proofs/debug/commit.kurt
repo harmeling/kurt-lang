@@ -1,0 +1,19 @@
+; coverage test for the `commit` keyword: closes a `sandbox` immediately (no dedent needed,
+; like `break`) but keeps its content instead of discarding it -- selective export, exactly
+; like `load`: only a labelled, non-`local` fact (and the symbols it needs) survives.
+load prop
+bool C, D
+
+; positive: a labelled fact declared inside the sandbox is still derivable afterward
+sandbox
+    use C "c-fact"
+    commit
+C
+
+; negative control: without `commit` (plain `break`), the same kind of fact does NOT survive
+sandbox
+    use D "d-fact"
+    break
+expect "ProofError"
+    D
+;;; Proof checked.

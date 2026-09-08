@@ -692,14 +692,15 @@ closes as many levels as the drop in indentation implies, applying
 whatever each level's closing rule is (`impl-intro`, `forall-intro`, ...,
 below). There is no separate "shell mode" for this: the interactive shell
 reads real leading whitespace exactly like a file does, so pasting file
-content into `kurt -i` behaves the same as running it as a file. Three
+content into `kurt -i` behaves the same as running it as a file. Four
 keywords remain as *optional*, position-independent alternatives to
 dedenting, and work identically in files and the shell: `qed` (§7 — still
 needs a real dedent, but also checks you're closing a `proof`), `thus`
 (§7 — also still needs a real dedent and only closes a `proof`, but checks
-the goal by literal match instead of re-deriving it), and `break`
-(§9.5 — needs no dedent at all, and is the only way to close a `sandbox`
-without dedenting past it).
+the goal by literal match instead of re-deriving it), `break` (§9.5 —
+needs no dedent at all, and is the only way to close a `sandbox` other
+than dedenting past it), and `commit` (§9.5 — `break`'s opposite: also
+needs no dedent, but keeps a `sandbox`'s content instead of discarding it).
 
 **Running a file itself already starts one level deep, inside an implicit
 `sandbox`** (the same mechanism `load` uses, see §8.2) — so `mode`/`level`
@@ -762,25 +763,42 @@ the witness.
 
     sandbox
         ...
-    (closes by dedenting, discarding everything inside — or by `break`, immediately)
+    (closes by dedenting, discarding everything inside -- or by `break`, immediately --
+     or, to keep it instead of discarding it, by `commit`)
 
-A scratch block: everything inside is discarded, never merged into the
-surrounding theory, whether it closes by dedenting (§9's introduction) or
-by `break` (§9.5) right away. A file with an unclosed `sandbox` at
-end-of-file still fails with `EvalError: ... not all blocks closed`, same
-as any other unclosed block.
+A scratch block: everything inside is discarded by default, never merged
+into the surrounding theory, whether it closes by dedenting (§9's
+introduction) or by `break` (§9.5) right away. `commit` (§9.5) is the
+exception: it closes a `sandbox` immediately, like `break`, but keeps its
+content instead. A file with an unclosed `sandbox` at end-of-file still
+fails with `EvalError: ... not all blocks closed`, same as any other
+unclosed block.
 
-### 9.5 `break`
+### 9.5 `break` and `commit`
 
     break     ; discard the current block immediately, without proving anything
+    commit    ; close a `sandbox` immediately, keeping its content instead of discarding it
 
-Closes the current block right away, discarding it — no `impl-intro`,
-`forall-intro`, etc., nothing is added anywhere — without needing to dedent
-past it first. Works identically in a file or the interactive shell, and on
-any open block; it's the only way to close a `sandbox` other than dedenting
-past it (§9.4). Breaking out of a `proof` also gives up the pending `show`
-it was trying to prove, not just the `proof` block itself, so nothing is
-left dangling on the parent level.
+`break` closes the current block right away, discarding it — no
+`impl-intro`, `forall-intro`, etc., nothing is added anywhere — without
+needing to dedent past it first. Works identically in a file or the
+interactive shell, and on any open block. Breaking out of a `proof` also
+gives up the pending `show` it was trying to prove, not just the `proof`
+block itself, so nothing is left dangling on the parent level.
+
+`commit` is `break`'s opposite: it only ever closes a `sandbox` (every
+other block already has its own way to keep what happened inside — dedent,
+or `qed`/`thus` — so `commit` on one of those is rejected rather than
+silently doing something else), and instead of discarding its content, it
+keeps it — via the same selective export a `load` uses (§8.2's "What gets
+exported"): only a labelled, non-`local` fact (and the symbols it needs)
+travels to the parent level, exactly as if the sandbox's content had been
+a separate file the parent `load`ed. An unlabelled fact tried out inside
+the sandbox stays scratch even after `commit`, same as it would in a
+loaded file. Neither `break` nor `commit` can close the file's own
+implicit top-level scope (§8.2, §9's introduction) — there is no real,
+user-written block there to close, so both raise a clean error rather than
+doing anything to it.
 
 ### 9.6 `expect`
 

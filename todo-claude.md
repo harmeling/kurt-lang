@@ -493,15 +493,41 @@ Status as assessed:
   `chain` + the function-application-in-`set.kurt` case together).
   Documented in `doc/kurt-doc.md` §8.2 (`save`, right after `load`'s "What
   gets exported").
-- **`sandbox` can now discard by dedenting too (not just `break`), but still
-  never commits** ("have a `sandbox` block, where we first try and try, and
-  then store it to the theory") — the file/shell unification (see
-  `doc/kurt-doc.md` §9) made `sandbox` close by plain dedent, discarding its
-  contents exactly like `break` does; what's still missing is any way to
-  *keep* what happened inside instead. Adding that (e.g. a distinct closing
-  keyword, or merging on `qed` the way a `proof` does) remains a bounded,
-  well-scoped feature — just no longer blocked on `sandbox` being
-  shell-only, since it isn't anymore.
+- ~~**`sandbox` can commit**~~ — **done.** ("have a `sandbox` block, where we
+  first try and try, and then store it to the theory") New keyword
+  `commit`: closes a `sandbox` immediately (no dedent needed, exactly like
+  `break`) but keeps its content instead of discarding it, via the same
+  mechanism `load` already uses for cross-file export — `KnowledgeBase.
+  merge_and_pop()` — so it's selective export, not "keep everything": only
+  a labelled, non-`local` fact (and the symbols it needs) survives, an
+  unlabelled one stays scratch even after `commit`, exactly as it would in
+  a `load`ed file. Restricted to only ever close a `sandbox` (every other
+  block already has its own way to keep what happened inside on close, so
+  `commit` on one of those is rejected with a clear error rather than
+  silently doing something else via `merge_and_pop`, which isn't built for
+  those block kinds' own semantics).
+  Along the way, found and fixed a real, independent, pre-existing crash:
+  `break` (and now `commit`) at the very top level of a file — not inside
+  any `sandbox` the file itself opened — used to trigger an internal
+  `assert False: BUG: load_file decreased the level` instead of a clean
+  error. Cause: running a file, or `load`ing one, already starts one level
+  deep inside an *implicit* `sandbox` `load_file` itself pushes (see
+  doc/kurt-doc.md §8.2/§9); `break`/`commit` had no way to tell that hidden
+  wrapper apart from a real, user-written `sandbox` block, so a bare
+  `break`/`commit` typed at a file's top level happily closed the wrapper
+  out from under `load_file`, which expects to be the only thing popping
+  that exact level. Fixed with a new marker,
+  `KnowledgeBase.is_load_boundary` (set only on that implicit level, and
+  excluded from `merge_and_pop`'s generic attribute-merging loop like
+  `tmp`/`var`), which `break`/`commit` now check first and refuse with a
+  clean `EvalError` instead of touching that level at all.
+  Regression tests: `proofs/debug/commit.kurt` (positive: a labelled fact
+  survives `commit`; negative control: the same shape without `commit`,
+  via plain `break`, does not), `commit-unlabelled-fact-does-not-export.kurt`
+  (an unlabelled fact stays scratch even after `commit`),
+  `commit-only-closes-sandbox.kurt` (`commit` inside a `proof` is
+  rejected), `commit-and-break-reject-file-top-level.kurt` (the crash fix).
+  Documented in `doc/kurt-doc.md` §9.4/§9.5.
 - ~~**Chains don't generate real transitivity**~~ — **done.** `chain` used
   to only affect *parsing* (deciding which operator a written continuation
   line desugars to). Declaring `chain OP1 OP2 ...` now *also* generates a
