@@ -648,6 +648,32 @@ Example:
                       ; main.kurt is concerned `Q` is just a fresh symbol with no axiom
                       ; behind it (§5), not literally an "unknown symbol" error
 
+#### `save`: the reverse of `load`
+
+    save "path/to/file.kurt"
+
+Writes the current, fully-built-up state — every syntax declaration and
+theory fact from every level below and including the current one (but
+*not* level 0, the pristine hard-coded core described in §8.1, since
+that's already present in any fresh session) — out to `path` as
+self-contained `.kurt` source, in a form that reconstructs the same state
+via a plain `load` (path is resolved relative to the current working
+directory, same as any other file write, not relative to the file being
+run). `save` is a flat snapshot, not a recording: every fact is re-emitted
+as a `use`/`def`/`todo` statement regardless of how it was originally
+obtained — including one proved via `show`/`proof`/`qed`/`thus` — so
+reloading it never re-runs any proof search. Every fact is given a label,
+synthesizing one (`"save-1"`, `"save-2"`, ...) for any fact that didn't
+already have one, so nothing is silently dropped by `load`'s selective
+export (immediately above) if the saved file is later `load`ed from
+somewhere else rather than run directly. Only the theory and syntax are
+saved — a pending `show` goal or an open proof/`assume`/`let`/`pick` block
+is not; call `save` once everything is settled (`root`/`sandbox` level),
+not mid-proof. `save` also deliberately does not try to detect "this came
+from `load prop`" and write `load prop` instead of `prop`'s own facts —
+that would need to reliably tell a loaded theory's facts apart from ones
+added locally, for a saving that's only sometimes smaller.
+
 ## 9. Blocks and natural deduction
 
 Every open `proof`/`assume`/`case`/`let`/`pick`/`sandbox`/`expect` pushes a

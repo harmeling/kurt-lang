@@ -366,6 +366,7 @@ keywords: dict[str, str] = {
     'context':     'print the current context, i.e., all open blocks and their modes',
     'trail':       'print the current context without details in one line',
     'load':        'load file(s), e.g. load standards.kurt or load foo.kurt',
+    'save':        'save the current theory and syntax, flattened into self-contained `.kurt` source that reloads via `load`, e.g. save "state.kurt" (path is relative to the current working directory, not the file being run)',
 
     'syntax':      'print the current syntax',
     'prefix':      'add prefix operator with right binding power',
@@ -1009,6 +1010,7 @@ class KnowledgeBase:
                         self.dict_or_set_str('brackets', key),
                         self.dict_or_set_str('flat', key),
                         self.dict_or_set_str('sym', key),
+                        self.dict_or_set_str('nonassoc', key),
                         self.dict_or_set_str('alias', key),
                         self.dict_or_set_str('var', key),
                         self.dict_or_set_str('const', key),
@@ -1742,7 +1744,15 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
         case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_flat(a):
             return f'({f" {expr_normal(expr[0], kb)} ".join([expr_normal(e, kb) for e in tail])})'
         case [e0, e1]:
-            return f'{expr_normal(e0, kb)} {expr_normal(e1, kb)}'
+            # a plain (arity-processed) function call, e.g. `f a` -- must be parenthesized just
+            # like every other node shape above, not left bare: unlike an infix/prefix/postfix
+            # node, a bare call has no operator token of its own to anchor precedence when it's
+            # nested as an operand of a tighter-binding infix operator (e.g. `f a ∈ B` re-parses
+            # as `f (a ∈ B)` if printed without parens around `f a`, since juxtaposition binds
+            # looser than most infix operators -- see doc/kurt-doc.md and the `save`/`parse`
+            # round-trip regression tests). `expr_str`'s own top-level unwrap already strips this
+            # exact pair of parens back off again when the call is printed on its own.
+            return f'({expr_normal(e0, kb)} {expr_normal(e1, kb)})'
         case [Token(label='SYMBOL', value=a), e1, e2]:
             return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
         case [*tail]:
@@ -1778,7 +1788,8 @@ def expr_latex(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cre
         case [Token(label='SYMBOL', value=a) as op, *tail] if isinstance(a, str) and kb.is_flat(a):
             return f'({f" {expr_latex_token(op, kb)} ".join([expr_latex(e, kb) for e in tail])})'
         case [e0, e1]:
-            return f'{expr_latex(e0, kb)} {expr_latex(e1, kb)}'
+            # see the identical fix (and its comment) in `expr_normal` above
+            return f'({expr_latex(e0, kb)} {expr_latex(e1, kb)})'
         case [Token(label='SYMBOL', value=a) as op, e1, e2]:
             return f'({expr_latex_token(op, kb)} {expr_latex(e1, kb)} {expr_latex(e2, kb)})'
         case [*tail]:
@@ -2704,6 +2715,74 @@ def generate_chain_transitivity(kb: KnowledgeBase, chain: list[str]) -> Knowledg
     stream.name = f'<chain transitivity for {chain}>'   # read_eval_loop needs a real `.name`
     return read_eval_loop(stream, kb, mainstream=False)
 
+def save_state_str(kb: KnowledgeBase) -> str:
+    # `save "file.kurt"`: flatten the current, fully-built-up state (syntax declarations plus
+    # theory facts, across every level from root down to the current one) into self-contained
+    # `.kurt` source that reconstructs the same state via a plain `load`. Deliberately a flat
+    # snapshot, not a replay: every fact -- however it was originally obtained (`use`, `def`,
+    # or proven via `show`/`proof`/`qed`/`thus`) -- is re-emitted as a `use`/`def`/`todo`
+    # statement that doesn't require re-deriving anything, so `save` stays cheap and its output
+    # always loads (no re-running of proof search). Deliberately does *not* try to detect "this
+    # came from `load prop`" and emit `load prop` instead -- that would need to distinguish a
+    # theory file's facts from ones added locally, and reconstructing `load` lines exactly
+    # would only sometimes be smaller output-wise. Only the theory is saved, not any pending
+    # `show` goal or open proof block -- `save` is meant to be called from `root`/`sandbox`
+    # level with nothing left in progress; the level stack itself has no sensible flat
+    # representation to round-trip through a file (see todo-claude.md). Every fact gets a
+    # label, synthesizing one (`"save-N"`) for a fact that didn't already have one -- an
+    # unlabelled fact would still work if the saved file is later run directly, but would
+    # silently disappear (per ordinary `load` selective-export rules) if that file is instead
+    # `load`ed from somewhere else, which defeats the point of saving it.
+    levels: list[KnowledgeBase] = []
+    node: Optional[KnowledgeBase] = kb
+    while node is not None:
+        levels.append(node)
+        node = node.parent
+    levels.reverse()   # root first, current level last
+    levels = levels[1:]   # drop level 0 -- always the pristine hard-coded `initial_kb`
+                          # (minimal.kurt's worth of syntax), already present in any fresh
+                          # session, so re-declaring it on reload would just raise "already
+                          # exists" errors (see doc/kurt-doc.md §8.1/§9's "starts one level
+                          # deep, inside an implicit sandbox")
+    lines = ['; generated by `save` -- flattened theory + syntax, reloads via `load`', '']
+    # `const` is deliberately excluded: constant symbols (operators and plain constants
+    # alike) are auto-registered the first time they appear -- in an operator declaration
+    # (`infix`/`prefix`/...) or in a `use`/`def` formula -- exactly like `prop.kurt` itself
+    # never writes an explicit `const not`/`const or`/etc.; re-declaring them explicitly
+    # here, ahead of those declarations, only risks "already used"/"already exists" errors
+    # against that same auto-registration when the file is replayed in `chain`/`infix`
+    # declaration order rather than the original session's order.
+    # order matters: `bool` must come before `chain` (chain immediately synthesizes and
+    # `use`s transitivity formulas mentioning the operator -- see `generate_chain_transitivity`
+    # -- which would otherwise mark the operator "already used" before its own `bool` line)
+    syntax_keys = ['prefix', 'infix', 'postfix', 'arity', 'bindop', 'brackets',
+                   'bool', 'flat', 'sym', 'nonassoc', 'chain', 'alias', 'var']
+    for lvl in levels:
+        for syntax_key in syntax_keys:
+            s = lvl.dict_or_set_str(syntax_key)
+            if s != '':
+                lines.append(s)
+    lines.append('')
+    # an unlabelled fact still needs a *synthetic* label here: `merge_and_pop`'s selective
+    # export (doc/kurt-doc.md's `load` section) only re-exports a labelled, non-`local` fact,
+    # so without one, a bare `use A` in the saved file would work fine if that file is run
+    # directly, but silently vanish the moment it's `load`ed from somewhere else -- exactly
+    # the kind of surprise `save` exists to avoid.
+    save_counter = 0
+    for lvl in levels:
+        for f in lvl.theory:
+            if f.simplified_expr == todo_token:
+                continue    # bare `todo` placeholder, not a real fact -- nothing to write out
+            text = expr_str(f.expr, kb)
+            head = 'def' if f.keyword == 'def' else ('todo' if f.keyword == 'todo' else 'use')
+            if len(f.label) == 0:
+                save_counter += 1
+                label = f'save-{save_counter}'
+            else:
+                label = f.label
+            lines.append(f'{head} {text} "{label}"')
+    return '\n'.join(lines) + '\n'
+
 def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool, local: bool = False) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
@@ -2736,6 +2815,25 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                             raise
                     case _:
                         assert False, f'BUG: `load` was scanned with wrong args'
+
+    elif keyword == 'save':
+        if len(args) != 1:
+            raise KurtException(f'ParseError: `save` expects exactly one filename, e.g. `save "state.kurt"`', keyword_token.column)
+        arg = args[0]
+        assert isinstance(arg, list) and len(arg) == 1, f'BUG: `save` expects [[fname]]'
+        match arg[0]:
+            case Token(label='STRING', value=fname):
+                assert isinstance(fname, str)
+                content = save_state_str(kb)
+                try:
+                    with open(fname, 'w') as fh:
+                        fh.write(content)
+                except OSError as e:
+                    raise KurtException(f'EvalError: `save` could not write `{fname}`: {e}', arg[0].column)
+                if mainstream:
+                    log(kb, f'save "{fname}"', f'wrote {fname}', kb.level)
+            case _:
+                assert False, f'BUG: `save` was scanned with wrong args'
 
     elif keyword == 'parse':
         if len(args) > 0:

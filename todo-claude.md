@@ -442,14 +442,57 @@ Status as assessed:
   `doc/kurt-soundness.md` §3.1 and
   `proofs/soundness/def-bound-var-not-new-symbol.kurt` /
   `def-lhs-bound-var-rejected.kurt`.
-- **`save` command** ("have a `save` command that stores the current theory
-  and state") — feasible with existing machinery: `KnowledgeBase` already
-  has `theory_str()`, `syntax_str_all_levels()`, etc. for printing
-  everything back out; a `save "file.kurt"` keyword could just redirect
-  those same printers to a file, in a form that re-parses via `load`. The
-  open design question is exactly what "state" means (just the theory? also
-  syntax declarations made ad hoc in the session? the level stack, which
-  can't sensibly round-trip through a flat file?).
+- ~~**`save` command**~~ — **done.** ("have a `save` command that stores the
+  current theory and state") Resolved the open design question ("what does
+  'state' mean?") as: syntax declarations + theory facts, from every level
+  below (and including) the current one, excluding level 0 (the pristine
+  hard-coded core, already present in any fresh session) and excluding the
+  level stack itself (a pending `show`/open proof block has no sensible
+  flat representation — `save` is meant to be called once everything's
+  settled). New function `save_state_str`, reusing the existing per-level
+  `dict_or_set_str` printers for syntax but writing its own theory-fact
+  loop rather than reusing `theory_str` (which prints a proven fact bare,
+  with no `use`, since it's meant for human display, not reload) — every
+  fact is re-emitted as `use`/`def`/`todo`, however it was originally
+  obtained, so reload never re-runs a proof search. Two non-obvious
+  ordering/registration issues found by actually round-tripping the output
+  through `load` (not just eyeballing it):
+  1. `const` declarations must be omitted entirely -- operator/constant
+     symbols auto-register the first time they're used (in a syntax
+     declaration or a formula), exactly like `prop.kurt` itself never
+     writes `const not`/`const or`; emitting an explicit `const` line
+     ahead of that auto-registration collided with it.
+  2. syntax categories must be written in a specific order -- `bool` before
+     `chain`, since `chain` immediately synthesizes and `use`s transitivity
+     formulas mentioning the operator (`generate_chain_transitivity`),
+     which would otherwise mark it "already used" before its own `bool`
+     line runs.
+  Also: every fact gets a label, synthesizing `"save-N"` for one that
+  didn't already have one -- otherwise it would work when the saved file is
+  run directly but silently vanish (per ordinary `load` selective-export
+  rules, see doc/kurt-doc.md's `load` section) the moment that file is
+  instead `load`ed from somewhere else, defeating the point of saving it.
+  Along the way, round-tripping surfaced and fixed a genuine, independent
+  printer bug: `expr_normal`/`expr_latex` never parenthesized a plain
+  (arity-processed) function call (`f a`) when it appears as a *sub*-term
+  of a tighter-binding infix operator, so e.g. `f a ∈ B` printed as
+  literally `f a ∈ B` -- which then re-parses as `f (a ∈ B)` (application
+  binds looser than `∈`), silently changing the formula's meaning on
+  reload. Every other node shape already added its own parens; only the
+  bare 2-element call case didn't. Fixed in both `expr_normal` and
+  `expr_latex`. Also fixed `syntax_str_all_levels` to include `nonassoc`
+  syntax declarations (`add_nonassoc` didn't have display coverage
+  before). Also fixed a stale test exemption in
+  `test_theory_syntax_survives_load.py`: `set.kurt`'s `→` used to be
+  exempted as "genuinely unaxiomatized," which stopped being true once
+  this session's `function-space`/`function-extensionality` work (see the
+  `set.kurt` entry above) gave it a real axiom -- the test now actually
+  checks it. Regression tests: `tests/test_save_command.py` (round-trips
+  `save`'s own output through `load` into a fresh session and checks both
+  a labelled and a synthesized-label fact survive; a second test exercises
+  `chain` + the function-application-in-`set.kurt` case together).
+  Documented in `doc/kurt-doc.md` §8.2 (`save`, right after `load`'s "What
+  gets exported").
 - **`sandbox` can now discard by dedenting too (not just `break`), but still
   never commits** ("have a `sandbox` block, where we first try and try, and
   then store it to the theory") — the file/shell unification (see

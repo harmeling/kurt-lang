@@ -18,12 +18,13 @@ import kurt
 
 THEORIES = ['prop', 'equality', 'logic', 'set', 'arith', 'natural', 'modal']
 
-# genuinely, deliberately unaxiomatized syntax -- set.kurt's own comment says mapping
-# axioms ("two mappings are equal if they give the same output for all inputs") were never
-# actually written, so `:`/`→` correctly don't survive `load set` right now; this isn't the
-# oversight `^`/`invimplies` were, so it's exempted here rather than "fixed" with an invented
-# axiom. Remove this exemption once set.kurt actually defines mapping equality.
-KNOWN_UNAXIOMATIZED = {'set': {':', '→'}}
+# genuinely, deliberately unaxiomatized syntax -- `:` is only ever used as an alias for `in`
+# (see set.kurt's `alias : in`), never as its own standalone operator, so it never appears as
+# an infix symbol in any axiom for `is_infix`/etc. to find; this isn't the oversight
+# `^`/`invimplies` were, so it's exempted here rather than "fixed" with an invented axiom.
+# (`→` used to be exempted here too, for the same reason: no axiom mentioned it. That's fixed
+# now -- set.kurt's function-space/function-extensionality axioms use `→` for real.)
+KNOWN_UNAXIOMATIZED = {'set': {':'}}
 
 def declared_operators(theory: str) -> set[str]:
     path = res.files('kurt.theories').joinpath(f'{theory}.kurt')
