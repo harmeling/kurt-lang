@@ -2607,6 +2607,35 @@ def eval_global_toggle(keyword: str, args: list[Expr], kb: KnowledgeBase) -> Non
     else:
         raise KurtException(f'ParseError: wrong arguments, possible is:\n    {keyword} on\n    {keyword} off')
 
+def generate_chain_transitivity(kb: KnowledgeBase, chain: list[str]) -> KnowledgeBase:
+    # for a declared `chain [op_0, ..., op_{n-1}]` (weakest to strongest, e.g. `chain = <= <`),
+    # generate and register the genuine two-fact transitivity inference for every ordered
+    # pair: `$a op_i $b and $b op_j $c implies $a op_max(i,j) $c` -- reusing exactly the "pick
+    # the operator with the larger index" rule `get_chain_op` already uses to combine
+    # operators within one manually-*written* chain expression (`a = b <= c` concludes
+    # `a <= c`), now applied as a real inference rule spanning two separately-proven facts,
+    # rather than leaving every theory to hand-write its own (as arith.kurt used to for its
+    # `<`/`<=`/`=` chain -- see doc/kurt-soundness.md for the writeup and arith.kurt's own
+    # trimmed-down transitivity section for the before/after).
+    # a chain's operators relate either two boolean arguments (e.g. `iff`/`implies`, where
+    # `bool iff 0 1 2` marks positions 1 and 2 boolean too, not just the result) or two
+    # ordinary/non-boolean ones (e.g. `<`/`<=`/`=`, where only the result, position 0, is
+    # boolean) -- pick `%`- or `$`-prefixed schema variables to match, since a `%`-prefixed
+    # name is unconditionally boolean-typed and a bare argument like `$a` defaults to
+    # non-boolean (see `is_bool`/`bool_expr`), and using the wrong one fails type-checking.
+    arg_is_bool = any(1 in kb.bool_sig(op) for op in chain)
+    va, vb, vc = ('%A', '%B', '%C') if arg_is_bool else ('$a', '$b', '$c')
+    lines = []
+    n = len(chain)
+    for i in range(n):
+        for j in range(n):
+            op_i, op_j, op_k = chain[i], chain[j], chain[max(i, j)]
+            lines.append(f'use ({va} {op_i} {vb}) and ({vb} {op_j} {vc}) implies ({va} {op_k} {vc}) "chain-trans-{i}-{j}"')
+    source = '\n'.join(lines) + '\n'
+    stream = io.StringIO(source)
+    stream.name = f'<chain transitivity for {chain}>'   # read_eval_loop needs a real `.name`
+    return read_eval_loop(stream, kb, mainstream=False)
+
 def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label: str, kb: KnowledgeBase, line: int, filename: str, mainstream: bool, local: bool = False) -> KnowledgeBase:
     keyword = keyword_token.value
     assert isinstance(keyword, str)
@@ -2831,6 +2860,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             new_stuff.append(chain)    # first collect
         for chain in new_stuff:
             kb.add_chain(chain)
+            kb = generate_chain_transitivity(kb, chain)
 
     elif keyword == 'flat':
         if len(args) == 0:

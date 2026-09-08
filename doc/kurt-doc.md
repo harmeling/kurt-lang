@@ -277,14 +277,22 @@ is sugar for two separate checked lines, `x = y` and `x < z` (the second
 line's left-hand side is filled in from the previous line's right-hand
 side, and the operator used is the *strongest* one seen so far in the
 chain, by index in the declared list — this is why `chain = <` lets `= ,
-<`-chains resolve to `<` once a `<` has appeared). **A chain only affects
-*parsing*/desugaring — it does not add any general transitivity inference
-rule.** Getting from `x = y` and `y < z` to `x < z` in the example above
-still requires a real proof step (an axiom or rule that, given both facts,
-actually derives the combined one) to exist in the theory; `chain` just
-lets you *write* the combined claim conveniently and have it checked as two
-separate goals. See `todo-claude.md` for the gap between "chains parse
-transitively" and "chains prove transitively".
+<`-chains resolve to `<` once a `<` has appeared).
+
+Declaring a chain also generates real, directly usable transitivity
+axioms — one for every ordered pair of the chain's operators, using the
+same "pick the operator with the larger index" rule as the parsing sugar
+above. For `chain = <= <`, that includes the familiar `$a < $b and
+$b < $c implies $a < $c` ("lt-trans"), but also every *mixed* pair like
+`$a <= $b and $b < $c implies $a < $c`. So given `x = y` and `y < z` as
+two separately-proven facts (not written as one continuation-line chain),
+`x < z` really is now a single derivation step, citing the
+auto-generated fact — you don't need to hand-write these per theory
+(`arith.kurt` used to; it no longer does). This only combines *two*
+facts in one hop, the same as every other inference rule — three or more
+links in a chain of relations still need an explicit intermediate step,
+same as any other multi-hop reasoning (§6.1's single-hop limitation still
+applies beyond one combination).
 
 Continuation lines must be indented relative to the line that starts the
 chain; writing the continuation at the same indentation is a `ParseError`,
@@ -775,8 +783,11 @@ and can be toggled but, as of this writing, nothing reads its value yet.
 ## 11. Known gaps (so you don't mistake them for bugs in your proof)
 
 - Derivation is single-hop (§6.1) — chain several `A implies B` facts
-  manually, one derived line at a time.
-- `chain` (§4.6) is parsing sugar only, not automatic transitivity.
+  manually, one derived line at a time. The one partial exception: two
+  facts using operators from the same declared `chain` (§4.6) combine
+  automatically in one step (`$a < $b` + `$b < $c` → `$a < $c`, etc.,
+  including `implies`/`iff` chains) — but that's still exactly one
+  combination, not arbitrary-length automatic chaining.
 - `and-elim` needs `load prop` (or a manual axiom instance) — it is not
   hard-coded the way `and-intro` is (§8.1).
 - `f()` — a zero-argument call — does not parse (§4.3).

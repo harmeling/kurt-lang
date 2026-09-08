@@ -100,15 +100,11 @@ use $a > $b  ⇒  ¬($a <= $b)   "gt-not-le"
 use $a <= $b  ⇒  ¬($a > $b)   "le-not-gt"
 use $a >= $b  ⇒  ¬($a < $b)   "ge-not-lt"
 
-;; transitivity
-use $a < $b ∧ $b < $c  ⇒  $a < $c   "lt-trans"
-use $a > $b ∧ $b > $c  ⇒  $a > $c   "gt-trans"
-use $a <= $b ∧ $b <= $c  ⇒  $a <= $c   "le-trans"
-use $a >= $b ∧ $b >= $c  ⇒  $a >= $c   "ge-trans"
-use $a < $b ∧ $b <= $c  ⇒  $a < $c   "lt-le-trans"
-use $a > $b ∧ $b >= $c  ⇒  $a > $c   "gt-ge-trans"
-use $a <= $b ∧ $b < $c  ⇒  $a < $c   "le-lt-trans"
-use $a >= $b ∧ $b > $c  ⇒  $a > $c   "ge-gt-trans"
+;; transitivity: genuinely automatic now, not hand-written -- `chain = <= <` and
+;; `chain = >= >` above make kurt itself generate every combined-transitivity fact
+;; ("lt-trans", "le-lt-trans", "ge-gt-trans", ... one per ordered pair of chain members) as a
+;; real, directly-usable axiom. See `generate_chain_transitivity` in kurt.py and
+;; doc/kurt-soundness.md for how and why.
 
 ;; anti-symmetry
 use $a <= $b ∧ $a >= $b  ⇒  $a = $b   "le-ge-antisym"

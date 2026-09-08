@@ -447,18 +447,34 @@ Status as assessed:
   keyword, or merging on `qed` the way a `proof` does) remains a bounded,
   well-scoped feature — just no longer blocked on `sandbox` being
   shell-only, since it isn't anymore.
-- **Chains don't generate real transitivity** ("`chain`s are always
-  transitive"; "for `a=b≠c=d`... if it is transitive also more") —
-  confirmed by reading `get_chain_op`/`check_with_other_chains` (line
-  910-953): `chain` only affects *parsing* — it decides which operator a
-  continuation line desugars to (picking the "strongest" operator seen so
-  far in one written chain). It does not add any general transitivity
-  *inference* rule usable outside of one hand-written chained proof step.
-  Making declared chains genuinely transitive (so `derive_expr` could
-  combine `a R b` and `b R c` into `a R c` for any declared chain `R`,
-  the way `impl_elim` already combines separately-proven facts) is real,
-  scoped work inside `derive_expr`, though it interacts with the perf
-  concerns below (more candidate matches to try per step).
+- ~~**Chains don't generate real transitivity**~~ — **done.** `chain` used
+  to only affect *parsing* (deciding which operator a written continuation
+  line desugars to). Declaring `chain OP1 OP2 ...` now *also* generates a
+  real, directly-usable transitivity axiom for every ordered pair of the
+  chain's operators (`generate_chain_transitivity`, hooked into the
+  `chain` keyword's own handler) — reusing exactly the same "pick the
+  operator with the larger index" rule the parsing sugar already used, now
+  applied to two *separately-proven* facts rather than one written
+  expression. Implemented by synthesizing `.kurt` source text for each
+  generated axiom and feeding it through the ordinary `read_eval_loop`
+  pipeline (not hand-built `Formula`/`Expr` objects) — reuses all the
+  existing label/type-check/export bookkeeping for free. One real
+  complication: a chain's variables need `%`-prefixed (boolean) schema
+  names for a connective chain (`iff`/`implies`) but `$`-prefixed
+  (non-boolean) ones for a relation chain (`<`/`<=`/`=`) — resolved by
+  checking `kb.bool_sig(op)` for whether argument positions are marked
+  boolean. `arith.kurt` no longer hand-writes its 8 transitivity lemmas
+  (`lt-trans`, `le-lt-trans`, ...) — they're generated automatically from
+  its existing `chain = <= <` / `chain = >= >` now. Verified all 8 replaced
+  cases plus `equality.kurt`'s `chain =` and `prop.kurt`'s
+  `chain iff implies`/`chain iff invimplies` (a nice side effect: plain
+  `A implies B` + `B implies C` → `A implies C` now needs no manual
+  intermediate step either, chipping away at the general single-hop
+  limitation for exactly this one shape). 2 new regression tests under
+  `proofs/soundness/`. Adversarial testing while checking this over
+  surfaced an unrelated, pre-existing type-checking laxness — see the
+  "needs investigation" entry above; confirmed via `git stash` to have
+  nothing to do with this change.
 - ~~**Extend `calc` beyond `+`/`*` on ints**~~ — **this note was stale/wrong,
   corrected while working through the theory-completeness pass.**
   `KnowledgeBase.calculate()` already handles `-` (unary and binary), `/`,
@@ -582,6 +598,21 @@ Status as assessed:
 
 ## Needs investigation before it's clear what "feasible" even means
 
+- **New finding: a declared-but-otherwise-unconstrained `var` can get treated
+  as boolean anyway.** Found by accident while adversarially testing chain
+  transitivity (confirmed via `git stash` to be completely unrelated and
+  pre-existing — reproduces identically on the commit before that work).
+  Minimal repro: `load prop` / `var a` / `bool C` / `a iff C` — derives
+  (`by "not-not"`), even though `a` was explicitly declared via `var` (not
+  `bool`), which should presumably fix it as non-boolean from that point
+  on. Root cause is likely `bool_expr`'s non-strict fallback (`v[0] not in
+  '$%' → return True  # "not used yet and unclear name! so it will soon be
+  boolean"`) not accounting for a symbol that already went through
+  `add_var` explicitly. Not chased further here — didn't look unsound in
+  the "prove something false" sense (unlike the forall-elim bug), more a
+  type-discipline laxness, but worth a dedicated look: does `is_bool`/
+  `bool_expr` need to check `kb.is_used`/`kb.var` membership before falling
+  back to "unclear, assume boolean"?
 - **"why (not x in emptyset) not working?"** — I reproduced the ingredients
   (`set.kurt`'s `def ∅ = { $a | false }`) but did not reproduce a concrete
   failing proof from the one-line description alone; needs the maintainer's
