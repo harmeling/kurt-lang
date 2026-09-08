@@ -38,7 +38,13 @@ Run the interpreter directly:
     kurt -v path/to/proof.kurt  # verbose output
     kurt -l path/to/proof.kurt  # emit LaTeX proof document
 
-`kurt.py` is also runnable standalone without installation (`python3 src/kurt/kurt.py`), as long as the `theories/` directory is reachable — this matters because the README documents copying just the single file for classroom use.
+`kurt.py` is also runnable standalone without installation (`python3 src/kurt/kurt.py`), as long as the `theories/` directory is reachable — this matters because the README documents copying just the single file plus `theories/` for classroom use.
+
+Build the genuinely single-file classroom bundle (`theories/*.kurt` embedded directly, no `theories/` directory needed at all):
+
+    python3 scripts/build_standalone.py       # writes dist/kurt.py
+
+This works via `_EMBEDDED_THEORIES` (empty in `src/kurt/kurt.py`, populated only in the generated `dist/kurt.py`) and the `EmbeddedTheories`/`_EmbeddedTheoryFile` helper classes, which `theory_path` appends as a last-resort search path. `tests/test_standalone_bundle.py` builds the bundle and runs it in a directory with no `theories/` at all to confirm this.
 
 ## Proof files as tests (important — read before adding `.kurt` files)
 

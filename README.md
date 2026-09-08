@@ -35,12 +35,18 @@ Happy proving!
 
 ## Installing Kurt (for users)
 
-A simple way to use Kurt is to just copy `src/kurt/kurt.py` where ever you want and run it with Python 3.10 or higher:
+The simplest way to use Kurt is to download a single self-contained `kurt.py` and run it with Python 3.10 or higher — no `theories/` directory, no other files, no install:
 
     python3 kurt.py
     ./kurt.py          # if you make it executable with `chmod +x kurt.py`
 
-This is useful if you would like to provide the code along an exercises in a lecture or tutorial.  However, you have to make sure that the `theories` are available as well.
+This standalone file has all the standard theories (`prop.kurt`, `logic.kurt`, `arith.kurt`, ...) embedded directly in it, so `load prop` and friends work immediately. It's built from this repo with:
+
+    python3 scripts/build_standalone.py       # writes dist/kurt.py
+
+This is useful if you would like to hand out the interpreter alongside exercises in a lecture or tutorial — copy just that one file anywhere.
+
+If you'd rather keep the theories as separate, readable/editable `.kurt` files next to the interpreter (e.g. to modify a theory yourself), copy `src/kurt/kurt.py` and the `src/kurt/theories/` directory together instead — same usage, but you have to keep `theories/` alongside `kurt.py`.
 
 Alternatively, Kurt is installable directly with pip from the GitHub repository (no cloning required)
 

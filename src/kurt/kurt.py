@@ -33,6 +33,7 @@ if sys.version_info < (3, 10):
     print("Python 3.10 or newer is required, since we are using Python's `match`!  Sorry about that!", file=sys.stderr)
     exit(0)
 import os           # os.path.[isfile, dirname, abspath, join, basename, split, expanduser, exists]
+import io           # io.StringIO, for `EmbeddedTheories` (see `_EMBEDDED_THEORIES` below)
 import argparse     # argparse.ArgumentParser
 import re           # re.[compile, sub, VERBOSE, MULTILINE]
 import atexit       # atexit.register
@@ -125,6 +126,35 @@ EXISTS_SYMBOL = 'exists'     # existential quantification
 EQUAL_SYMBOL  = '='          # equality
 IFF_SYMBOL    = 'iff'        # equivalence
 
+# `_EMBEDDED_THEORIES` is populated (from `theories/*.kurt`) only in the generated single-file
+# bundle produced by `scripts/build_standalone.py` -- empty here, in the real source file. It
+# lets that bundle be a genuinely standalone `kurt.py`: download it alone and `load prop` (etc.)
+# still works, no `theories/` directory required alongside it. See `EmbeddedTheories` below.
+_EMBEDDED_THEORIES: dict[str, str] = {}
+
+class _EmbeddedTheoryFile:
+    def __init__(self, files: dict[str, str], name: str) -> None:
+        self._files = files
+        self._name = name
+    def open(self, encoding: str = 'utf-8') -> io.StringIO:
+        if self._name not in self._files:
+            raise FileNotFoundError(self._name)
+        f = io.StringIO(self._files[self._name])
+        f.name = str(self)              # `read_eval_loop` needs `.name` (a real file always has one)
+        return f
+    def __str__(self) -> str:
+        return f'<embedded>/{self._name}'
+
+class EmbeddedTheories:
+    # a minimal stand-in for a `Path`/`Traversable`, backed by an in-memory dict of theory
+    # file contents -- supports exactly the two operations `load_file` needs (`/` and `.open()`)
+    def __init__(self, files: dict[str, str]) -> None:
+        self._files = files
+    def __truediv__(self, name: str) -> _EmbeddedTheoryFile:
+        return _EmbeddedTheoryFile(self._files, name)
+    def __str__(self) -> str:
+        return '<embedded theories>'
+
 # default theory and theory path
 default_theory = 'theory.kurt'             # default theory
 try:
@@ -136,6 +166,8 @@ except ModuleNotFoundError:
     _packaged_theories = Path(__file__).resolve().parent / "theories"
 theory_path = [Path.cwd(),                             # current working directory
                           _packaged_theories]
+if _EMBEDDED_THEORIES:
+    theory_path.append(EmbeddedTheories(_EMBEDDED_THEORIES))   # last resort, only in the standalone bundle
 
 # debugging
 debug_flag = False
@@ -4477,10 +4509,20 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
         if fname in _loading_in_progress:
             raise KurtException(f'EvalError: circular `load`: `{fname}` is already being loaded (load cycle)') from None
 
-        # try to open and load the file and evaluate its contents
+        # try to open the file at this candidate path -- only *this* step's failure means
+        # "not here, try the next search path"; anything raised while evaluating its contents
+        # (below) is a real error and must propagate, not get silently reinterpreted as
+        # "file not found" (that previously masked a genuine `AttributeError` bug elsewhere,
+        # e.g. `read_eval_loop` needing an input stream's `.name`, as a confusing "unable to
+        # open" message pointing at every search path instead of the real exception)
+        try:
+            candidate_file = candidate.open(encoding='utf-8')
+        except (FileNotFoundError, NotADirectoryError, AttributeError):
+            continue    # try next path
+
         try:
             _loading_in_progress.add(fname)
-            with candidate.open(encoding='utf-8') as f:
+            with candidate_file as f:
                 kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
                 level = kb.level      # save current level, this one we want to reach after loading
                 kb.tmp = True              # mark as temporary knowledge base during loading
@@ -4496,9 +4538,6 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
             kb = kb.merge_and_pop()  # merge 'sandbox' level if everything was ok
             kb.libs.append(fname)
             return kb
-
-        except (FileNotFoundError, NotADirectoryError, AttributeError):
-            continue    # try next path
 
         finally:
             _loading_in_progress.discard(fname)
