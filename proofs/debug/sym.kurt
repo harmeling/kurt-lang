@@ -5,4 +5,3 @@ load prop
 assume p ∨ q
     q ∨ p
 p ∨ q ⇒ q ∨ p
-;;; Proof checked.

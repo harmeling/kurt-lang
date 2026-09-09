@@ -43,4 +43,3 @@ proof
             (f ∘ g) is injective
     f is injective ∧ g is injective  implies  (f ∘ g) is injective
 qed
-;;; Proof checked.

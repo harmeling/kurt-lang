@@ -18,4 +18,3 @@ proof
             a ∧ b
     a ∧ b  ⇔  b ∧ a
 qed
-;;; Proof checked.

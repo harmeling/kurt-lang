@@ -18,4 +18,3 @@ C y
 ; case 4: implicit universal quantification
 use D y
 ∀ $y  D $y
-;;; Proof checked.

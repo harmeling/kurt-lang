@@ -10,4 +10,3 @@ y = 0
 var z
 use z = 1
 y = 1
-;;; Proof checked.

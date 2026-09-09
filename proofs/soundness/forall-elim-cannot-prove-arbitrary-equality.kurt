@@ -19,4 +19,3 @@ load logic, equality
 const f, g
 expect "ProofError"
     f = g
-;;; Proof checked.

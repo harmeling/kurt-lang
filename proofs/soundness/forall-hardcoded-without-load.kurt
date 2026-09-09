@@ -14,4 +14,3 @@ arity A 1
 const a
 use forall x A x
 A a
-;;; Proof checked.

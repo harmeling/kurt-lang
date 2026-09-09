@@ -72,4 +72,3 @@ proof
     qed
     ¬(p∨q) ≡ ¬p ∧ ¬q
 qed
-;;; Proof checked.

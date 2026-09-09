@@ -12,4 +12,3 @@ parse x myop (y myop z)
 
 expect "ParseError"
     x myop y myop z
-;;; Proof checked.

@@ -23,4 +23,3 @@ use (P 0) and (forall $n in Nat (P $n implies P ($n+1)))   "base-and-step"
 ; above.
 forall $n in Nat  P $n
 5 in Nat implies P 5
-;;; Proof checked.

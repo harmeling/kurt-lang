@@ -54,4 +54,3 @@ use sub $x $a %A                        implies  exists $x %A      "exists-intro
 ;     `exists $%1 %B`
 
 ; for automatic testing we add the following line:
-;;; Proof checked.

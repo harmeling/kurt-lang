@@ -14,4 +14,3 @@ show U  "exported-theorem"
 proof
   U
 qed
-;;; Proof checked.

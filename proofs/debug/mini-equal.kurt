@@ -16,4 +16,3 @@ a + c = b + c
 ; the proof:
 ;    a+c = a+c  ; by "equal-intro"
 ;    a+c = b+c  ; by "equal-elim"
-;;; Proof checked.

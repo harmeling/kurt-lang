@@ -7,4 +7,3 @@ const A, B, f
 use ∀ $a  ($a ∈ A implies (f $a) ∈ B)
 f ∈ (A → B)
 f : A → B
-;;; Proof checked.

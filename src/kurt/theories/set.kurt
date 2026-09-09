@@ -66,4 +66,3 @@ use $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B         "in-intersection"
 use $x ∈ $A ∪ $B  ≡  $x ∈ $A ∨ $x ∈ $B         "in-union"
 
 ; for automatic testing we add the following line:
-;;; Proof checked.

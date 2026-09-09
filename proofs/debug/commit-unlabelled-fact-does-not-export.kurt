@@ -8,4 +8,3 @@ sandbox
     commit
 expect "ProofError"
     C
-;;; Proof checked.

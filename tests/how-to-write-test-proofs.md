@@ -1,13 +1,16 @@
 # How to write test-proofs?
 
 1. Write the proof as a `.kurt`-file and store it inside `proofs/`.
-2. The last line of that file should contain `;;; ` followed by the last line of the expected output, e.g.
-     ;;; here comes the content that is used to check
-
-   **Exception**: if the file already uses `expect "KIND"` to check its interesting condition
-   internally (see `doc/kurt-doc.md` §9.6), you can skip the `;;; ` marker entirely — the file
-   is assumed to just need to complete cleanly (`;;; Proof checked.`), which is what every
-   `expect`-using file's marker said anyway before this was added. A file with *neither* a
-   marker *nor* `expect` fails the test suite outright (on purpose — it isn't actually
-   asserting anything), so this isn't a way to skip verification, just to skip retyping the
-   same boilerplate line every time.
+2. That's it — the test suite just checks that `kurt` runs the file to completion without
+   raising. No marker needed for the common case (an ordinary proof that succeeds, or one
+   that uses `expect "KIND"` internally — see `doc/kurt-doc.md` §9.6 — to check its own
+   interesting condition and finishes cleanly either way).
+3. If your file's whole point is a *specific* expected error message rather than clean
+   success — typically because the failure happens while a block *closes* (a dedent, `qed`,
+   `break`, `commit`, ...), which `expect` can't wrap, since `expect` only ever observes an
+   error raised by an ordinary statement directly inside its own body — add `;;; ` on the
+   file's last line, followed by (the start of) the expected error message, e.g.
+     ;;; ProofError: can not derive `q`
+   This also works for a file whose point is specific non-error output text. The comparison
+   only needs the first 17 characters to match if the full line doesn't, so you don't need to
+   spell out the entire message, just enough to identify it.

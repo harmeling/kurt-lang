@@ -23,4 +23,3 @@ proof
   Q implies P
   P
 qed
-;;; Proof checked.

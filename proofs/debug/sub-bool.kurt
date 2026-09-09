@@ -7,4 +7,3 @@ use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
 use A iff B
 C and A  iff  C and A
 C and A  iff  C and B
-;;; Proof checked.

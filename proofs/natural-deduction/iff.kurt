@@ -8,4 +8,3 @@ proof
         p               ; restatement
     p iff p             ; iff-intro
 qed
-;;; Proof checked.

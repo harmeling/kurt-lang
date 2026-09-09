@@ -7,4 +7,3 @@ use A and B implies C
 C
 use A and B and C implies D
 D
-;;; Proof checked.

@@ -21,4 +21,3 @@ proof
             ⊥
         ¬¬%p
 qed                     ; finally generalize from the local constant to a variable
-;;; Proof checked.

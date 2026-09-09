@@ -22,4 +22,4 @@ expect "EvalError"
 ; a normal, unconstrained `pick` still works fine
 pick a with P a
     true
-;;; Proof checked.
+true

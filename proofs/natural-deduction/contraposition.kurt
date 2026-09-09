@@ -37,4 +37,3 @@ proof
            ≡  ¬¬B ∨ ¬A
            ≡  ¬B ⇒ ¬A
 qed
-;;; Proof checked.

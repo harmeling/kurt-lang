@@ -3,4 +3,3 @@
 load load-export-helper
 bool T
 true
-;;; Proof checked.

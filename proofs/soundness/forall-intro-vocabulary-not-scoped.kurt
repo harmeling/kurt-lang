@@ -13,4 +13,3 @@ let x
     use P x
     P x
 true
-;;; Proof checked.

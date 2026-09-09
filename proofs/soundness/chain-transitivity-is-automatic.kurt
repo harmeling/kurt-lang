@@ -14,4 +14,3 @@ var a, b, c
 use a < b
 use b <= c
 a < c
-;;; Proof checked.

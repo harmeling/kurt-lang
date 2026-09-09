@@ -10,4 +10,3 @@ load prop
 bool P
 use ¬¬P implies P
 theory
-;;; Proof checked.

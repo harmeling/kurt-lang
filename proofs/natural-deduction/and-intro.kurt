@@ -4,4 +4,3 @@ bool I, J
 use I
 use J
 I and J
-;;; Proof checked.

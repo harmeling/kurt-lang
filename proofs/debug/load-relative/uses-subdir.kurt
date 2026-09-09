@@ -6,4 +6,3 @@
 load sub/inner.kurt
 use R
 R
-;;; Proof checked.

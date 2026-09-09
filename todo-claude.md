@@ -139,23 +139,50 @@ Status as assessed:
   of a file that's still empty. (`induction.kurt` itself was later removed
   entirely, see above.)
 
-## Testing-infrastructure follow-up (noted, not yet done)
+## Testing-infrastructure follow-up
 
-- **Revisit the `;;; ` marker convention more broadly** — the `expect`-based
-  relaxation above only covers files that use `expect`. Every *other*
-  successfully-completing proof file (the large majority) has the exact
-  same situation: its marker is just `;;; Proof checked.`, equally
-  information-free, for the same reason (the harness's own default success
-  message, not anything specific to that file). Worth asking whether
-  `file_last_line` should default to expecting clean success for *any* file
-  with no marker (not just `expect`-using ones), and only require an
-  explicit `;;; ` line for the genuinely special cases: a file that expects
-  a *specific* failure without using `expect` (the 3 files noted above that
-  rely on the 17-char fallback on purpose) or one whose point is specific
-  non-error *output* text. Not done yet — flagged for a deliberate look
-  rather than folded into the `expect`-only fix above, since it touches the
-  default behavior for the vast majority of `proofs/*.kurt` files, not just
-  the dozen `expect` ones.
+- ~~**Revisit the `;;; ` marker convention more broadly**~~ — **done.**
+  `file_last_line` now defaults to expecting clean success (no exception)
+  for *any* file with no `;;; ` marker at all, regardless of whether it
+  uses `expect` — removing `uses_expect` entirely, since the two cases
+  (uses `expect`, or is just an ordinary successful proof) always wanted
+  the exact same default. A marker is now needed only for the genuinely
+  special cases: a file whose point is a *specific* failure that happens
+  while a block *closes* (`expect` can't wrap that — it only observes an
+  error from an ordinary statement inside its own body) or specific
+  non-error output text.
+  Applied a bulk cleanup across every `proofs/*.kurt` and
+  `src/kurt/theories/*.kurt` file: removed the now-redundant `;;;
+  Proof checked.` marker line (109 files) wherever it was the file's
+  literal last line. Left every genuinely specific marker
+  (`;;; ProofError: ...`, `;;; EvalError: ...`, etc.) untouched — those
+  still serve a real purpose the new default can't provide.
+  Along the way, the bulk cleanup surfaced three unrelated, genuine
+  problems that a marker had been silently masking: two test files I'd
+  just written this session (`proofs/debug/pick-error-messages.kurt`,
+  `proofs/soundness/iff-third-attempt-still-works-legitimately.kurt`) left
+  a `pick`/`let` block open at end-of-file — `load_file` raises
+  `EvalError: ... not all blocks closed` for that, but my own earlier
+  `tail`-only spot-checks of their output never happened to show the error
+  line (stdout/stderr interleaving under `2>&1` put it above the visible
+  window), so I never noticed it hadn't actually been passing; fixed by
+  adding a closing dedent to each. Third:
+  `proofs/debug/todo.kurt` had two *explanatory comment* lines that
+  happened to also start with `;;; ` (not intended as markers at all,
+  just written with the same prefix), which the new "last line only"
+  check would have latched onto once the real marker after them was
+  removed — reworded them to plain `;` comments. Also found and fixed two
+  cosmetic-only pre-existing oddities the bulk pass's "must be the exact
+  last line" check surfaced: `proofs/natural-deduction/or-commutative.kurt`
+  had a stray `;;; Proof checked.` sitting in the *middle* of the file
+  (after its first of two `show`/`proof`/`qed` blocks) that the harness
+  never actually checked even before this change (`file_last_line` always
+  only looked at the true last line) — pure dead noise, removed; and
+  `proofs/mafi1/001-two-equal-sets.kurt` opened with `;;; two-equal sets`
+  as a title-style comment, not a marker — reworded to a plain `;` comment
+  to avoid it ever being mistaken for one.
+  Updated `tests/how-to-write-test-proofs.md` and `CLAUDE.md`'s own
+  description of the convention to match.
 
 ## Already done / stale (recommend deleting from `todo.md`)
 

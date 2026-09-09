@@ -5,4 +5,3 @@
 load ../helper.kurt
 use Q
 Q
-;;; Proof checked.

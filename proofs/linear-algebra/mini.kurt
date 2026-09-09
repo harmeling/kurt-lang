@@ -18,4 +18,3 @@ let z
     0 = -(z + -z) + (z + -z)                 ; by G3
       = -(z + -z) + (z + (0 + -z))           ; by G2
 ∀z (-(z + -z) + (z + (0 + -z)) = 0)
-;;; Proof checked.

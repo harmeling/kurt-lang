@@ -13,4 +13,3 @@ bool a, b
 use a ∧ b
 a                   ; first position
 b                   ; second position
-;;; Proof checked.

@@ -9,4 +9,3 @@ proof
             ⊥
         not A
 qed
-;;; Proof checked.

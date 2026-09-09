@@ -1,4 +1,4 @@
-;;; two-equal sets
+; two-equal sets
 load set
 const A, B, C
 show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
@@ -46,4 +46,3 @@ proof
             x ∈ A ∩ (B ∪ C)
     qed
 qed
-;;; Proof checked.

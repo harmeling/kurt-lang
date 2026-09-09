@@ -12,4 +12,3 @@
 load arith
 calc on
 2 ^ 3 = 8
-;;; Proof checked.

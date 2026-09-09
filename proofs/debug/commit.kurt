@@ -16,4 +16,3 @@ sandbox
     break
 expect "ProofError"
     D
-;;; Proof checked.

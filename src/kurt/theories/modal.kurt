@@ -31,4 +31,3 @@ use □(%p ⇒ %q) ⇒ (□%p ⇒ □%q)    "K"
 use %p ⇒ ◇%p   "T"
 
 ; for automatic testing we add the following line:
-;;; Proof checked.

@@ -16,4 +16,3 @@ proof
         q
         q AND p
 qed
-;;; Proof checked.

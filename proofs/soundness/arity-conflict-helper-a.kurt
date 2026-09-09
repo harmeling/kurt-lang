@@ -5,4 +5,3 @@
 arity P 1
 bool P
 use P $x implies P $x  "trivial"
-;;; Proof checked.

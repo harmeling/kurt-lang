@@ -30,4 +30,3 @@ proof
             g(x) = g(y)                   ; f injective
             x = y                         ; g injective
 qed
-;;; Proof checked.

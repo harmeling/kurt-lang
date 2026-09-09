@@ -11,4 +11,3 @@ load prop
 bool A, B
 use A implies B
 B ⇐ A
-;;; Proof checked.

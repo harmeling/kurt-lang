@@ -15,4 +15,3 @@ use exists x (forall y (R x y))
 pick c with forall y (R c y)
     true
 true
-;;; Proof checked.

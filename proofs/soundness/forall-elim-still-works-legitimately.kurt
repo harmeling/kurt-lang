@@ -9,4 +9,3 @@ const P, c
 
 use ∀ $x P $x
 P c
-;;; Proof checked.

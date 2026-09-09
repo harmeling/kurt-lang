@@ -20,4 +20,4 @@ var x
 bool x
 let x
     x iff (not (not x))
-;;; Proof checked.
+true

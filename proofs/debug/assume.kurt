@@ -7,4 +7,3 @@ A implies B
 assume C
     B
 theory
-;;; Proof checked.

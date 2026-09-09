@@ -14,4 +14,3 @@ proof
         ⊥
     ¬p
 qed
-;;; Proof checked.

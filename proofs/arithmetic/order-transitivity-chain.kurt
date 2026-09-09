@@ -14,4 +14,3 @@ a < b and b < c
 a < c
 a < c and c < d
 a < d
-;;; Proof checked.

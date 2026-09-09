@@ -5,4 +5,3 @@ use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"
 use p implies q
 use q implies p
 p iff q
-;;; Proof checked.

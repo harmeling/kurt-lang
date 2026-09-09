@@ -120,4 +120,3 @@ use 0! = 1                              "factorial-base"
 use $n > 0  ⇒  $n! = $n * ($n - 1)!     "factorial-step"
 
 ; for automatic testing we add the following line:
-;;; Proof checked.

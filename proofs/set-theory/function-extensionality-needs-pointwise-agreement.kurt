@@ -9,4 +9,3 @@ use ∀ $a  ($a ∈ A implies (f $a) ∈ B)
 use g ∈ (A → B)
 expect "ProofError"
     f = g
-;;; Proof checked.

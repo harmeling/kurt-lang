@@ -2,4 +2,3 @@
 load proof-a
 A
 use B "b"
-;;; Proof checked.

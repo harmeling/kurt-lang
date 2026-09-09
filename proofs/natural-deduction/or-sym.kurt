@@ -23,4 +23,3 @@ proof
         a ∨ b  ⇔  b ∨ a
     a ∨ b  ⇔  b ∨ a
 qed
-;;; Proof checked.

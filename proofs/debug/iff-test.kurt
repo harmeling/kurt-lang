@@ -3,4 +3,3 @@ load prop
 
 use p iff q
 p implies q
-;;; Proof checked.

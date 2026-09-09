@@ -12,4 +12,3 @@ use p
 use not p
 ; p and not p
 false
-;;; Proof checked.

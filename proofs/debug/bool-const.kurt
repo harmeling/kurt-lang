@@ -1,4 +1,3 @@
 ; bool-const.kurt
 bool x
 const x
-;;; Proof checked.

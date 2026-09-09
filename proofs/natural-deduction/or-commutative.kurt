@@ -22,7 +22,6 @@ proof
             q ∨ p
         q ∨ p
 qed
-;;; Proof checked.
 
 show (p ∨ q) ⇒ (q ∨ p)
 proof
@@ -33,4 +32,3 @@ proof
     assume p ∨ q
         q ∨ p
 qed
-;;; Proof checked.

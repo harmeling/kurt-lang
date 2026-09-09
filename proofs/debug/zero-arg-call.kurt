@@ -21,4 +21,3 @@ const a
 arity h 1
 use h a
 h a
-;;; Proof checked.

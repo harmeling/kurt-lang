@@ -29,4 +29,3 @@ use $n in Nat  implies  $n+1 in Nat  "nat-succ"
 use ((sub $x 0 %A) ∧ (∀ $n ∈ Nat  (sub $x $n %A  ⇒  sub $x ($n+1) %A)))   ⇒ ∀ $n in Nat  (sub $x $n %A)   "induction"
 
 ; for automatic testing we add the following line:
-;;; Proof checked.

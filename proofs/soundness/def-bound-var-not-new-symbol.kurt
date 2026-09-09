@@ -15,4 +15,3 @@ const z
 use Q z
 def p iff forall x Q x
 true
-;;; Proof checked.

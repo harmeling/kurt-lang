@@ -9,4 +9,3 @@ load equality
 const c
 use forall x (exists y (not (x = y)))
 exists y (not (c = y))
-;;; Proof checked.

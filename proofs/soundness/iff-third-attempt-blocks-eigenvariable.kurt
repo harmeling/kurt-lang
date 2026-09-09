@@ -22,4 +22,3 @@ expect "ProofError"
 ; directly at top level (no `var` involved at all) hits the exact same bug
 expect "ProofError"
     %A iff C
-;;; Proof checked.

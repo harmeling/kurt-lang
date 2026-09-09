@@ -37,4 +37,3 @@ proof
               = 0 + x              ; by G4  (wrong reason)
               = x                  ; by G2
 qed
-;;; Proof checked.

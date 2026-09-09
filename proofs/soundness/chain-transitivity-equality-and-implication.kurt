@@ -14,4 +14,3 @@ bool A, B, C
 use A implies B
 use B implies C
 A implies C
-;;; Proof checked.

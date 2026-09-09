@@ -10,4 +10,3 @@ use prime 2
 def x = 2
 prime x
 ∃ $z prime $z
-;;; Proof checked.
