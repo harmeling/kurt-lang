@@ -4571,8 +4571,20 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
         reason, s_local = impl_elim(expr, RHSimpliesLHS, filename, mainstream, s, kb)
         if len(reason) > 0:
             return reason, s_local
-        # third attempt: LHS iff RHS directly
-        s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s, kb))
+        # third attempt: LHS iff RHS directly -- block `expr`'s own free variables here too
+        # (same reasoning as the case-1/2 blocking below, and the forall-elim fix, see
+        # doc/kurt-soundness.md): without this, a goal like `a iff C` (`a` a free/schema
+        # variable, `C` an unrelated fixed fact) unifies directly against e.g. `not-not`'s
+        # `%A iff (not (not %A))` by binding `a`'s own fresh internal name straight to
+        # `not (not C)` -- a genuinely free variable in the goal getting silently assigned a
+        # concrete value that makes some unrelated axiom match, rather than the goal holding
+        # for whatever `a` actually is. This third attempt is the *only* `is_iff` path that
+        # unifies `expr` directly (attempts one/two recurse into the case-1/2 branch above,
+        # which already blocks correctly) -- found via a `var`-declared symbol whose
+        # auto-inferred boolean-ness was the original, narrower symptom reported.
+        blocked_as_domain = frozenset(s.blocked_as_domain | free_bound_vars(expr, kb)[0])
+        s_blocked = State(s.subst, blocked_as_domain, s.blocked_as_range)
+        s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s_blocked, kb))
         if s_final is not None:
             reason = f'by {formula_ref(proven_formula, filename, mainstream)}'
             return reason, s_final

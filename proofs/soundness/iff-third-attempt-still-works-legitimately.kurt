@@ -1,0 +1,23 @@
+; positive control for iff-third-attempt-blocks-eigenvariable.kurt: confirms the fix (blocking
+; the goal's own free variables before `impl_elim`'s `is_iff` "third attempt" direct match)
+; doesn't overcorrect into breaking genuine `not-not`/`iff` reasoning where there's nothing
+; unsound going on -- either because the goal has no free variables of its own, or because a
+; free variable is legitimately protected (as a fixed constant, not eligible for unification)
+; by an enclosing `let`.
+load prop
+bool P
+use P
+
+; a goal with no free variables of its own: blocking an empty set is a no-op
+not (not P)
+P iff (not (not P))
+
+; a `let`-introduced symbol is a genuine constant (not free-for-unification) for the duration
+; of the block, exactly like `proofs/natural-deduction/and-sym.kurt` relies on -- so the
+; third-attempt match against `not-not` still fires directly (no other axiom involved, so the
+; reason below can only be "not-not", not some other, confounding fact)
+var x
+bool x
+let x
+    x iff (not (not x))
+;;; Proof checked.

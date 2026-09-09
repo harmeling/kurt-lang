@@ -764,21 +764,38 @@ Status as assessed:
 
 ## Needs investigation before it's clear what "feasible" even means
 
-- **New finding: a declared-but-otherwise-unconstrained `var` can get treated
-  as boolean anyway.** Found by accident while adversarially testing chain
-  transitivity (confirmed via `git stash` to be completely unrelated and
-  pre-existing — reproduces identically on the commit before that work).
-  Minimal repro: `load prop` / `var a` / `bool C` / `a iff C` — derives
-  (`by "not-not"`), even though `a` was explicitly declared via `var` (not
-  `bool`), which should presumably fix it as non-boolean from that point
-  on. Root cause is likely `bool_expr`'s non-strict fallback (`v[0] not in
-  '$%' → return True  # "not used yet and unclear name! so it will soon be
-  boolean"`) not accounting for a symbol that already went through
-  `add_var` explicitly. Not chased further here — didn't look unsound in
-  the "prove something false" sense (unlike the forall-elim bug), more a
-  type-discipline laxness, but worth a dedicated look: does `is_bool`/
-  `bool_expr` need to check `kb.is_used`/`kb.var` membership before falling
-  back to "unclear, assume boolean"?
+- ~~**New finding: a declared-but-otherwise-unconstrained `var` can get
+  treated as boolean anyway.**~~ — **investigated; turned out to be a real
+  soundness bug (a second instance of the forall-elim bug class), now
+  fixed — but not the bug the symptom's own framing suggested.** Minimal
+  repro (`load prop` / `var a` / `bool C` / `a iff C`) really does "derive"
+  `a iff C` for two totally unrelated symbols, citing `"not-not"`. But
+  chasing *why* showed the auto-boolean-inference itself is correct,
+  intentional, load-bearing behavior (confirmed by trying to tighten it —
+  requiring `not kb.is_var(s)` before inferring — and watching four
+  legitimate proofs break, including
+  `proofs/natural-deduction/and-sym.kurt`, which declares `var a, b` and
+  relies on exactly this inference as an alternative to `%`-prefixed
+  schema variables). The bare schema variable case (`%A iff C`, no `var`
+  at all) reproduces identically, proving the `var`/boolean angle was
+  never the cause. Real root cause: `impl_elim`'s handling of an
+  `iff`-shaped fact has a "third attempt" (direct match against the whole,
+  unstripped fact, e.g. `not-not`'s `%A iff (not (not %A))`) that — unlike
+  its other two attempts, which recurse into the plain-implication branch
+  and *do* block the goal's own free variables from being assigned during
+  matching — unifies the goal directly with the caller's state completely
+  unblocked, letting a goal's free variable (`a`/`%A` above) be bound
+  straight to `not (not C)`, satisfying the axiom's shape for *some* value
+  never asserted to hold. Same class of bug as the forall-elim finding
+  (§0 above): a variable meaning "this specific, if arbitrary, value" gets
+  unified away instead of required to hold as stated. Fixed by adding the
+  identical blocking to the third attempt. Full write-up, including why a
+  caller can't fix this by pre-blocking (derive_expr's rename-to-fresh-name
+  step uses a global, non-content-addressed counter, so a pre-computed
+  blocked name never matches what's actually being unified against) in
+  `doc/kurt-soundness.md` §0b. Regression tests:
+  `proofs/soundness/iff-third-attempt-blocks-eigenvariable.kurt` and
+  `iff-third-attempt-still-works-legitimately.kurt`.
 - **"why (not x in emptyset) not working?"** — I reproduced the ingredients
   (`set.kurt`'s `def ∅ = { $a | false }`) but did not reproduce a concrete
   failing proof from the one-line description alone; needs the maintainer's

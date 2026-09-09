@@ -149,6 +149,102 @@ doesn't apply to them.
   combinations (`arith`+`logic`, `modal`+`logic`, bare `logic`+`equality`
   with different constant names) — all correctly rejected post-fix.
 
+## 0b. A second, narrower instance of the same eigenvariable class of bug: `impl_elim`'s `is_iff` direct-match path
+
+Found while investigating a much narrower-looking report ("a declared-but-
+unconstrained `var` can get treated as boolean anyway"), which turned out
+to be a *symptom* of a second, independent case of exactly the same
+underlying mistake as §0: a variable that's supposed to mean "this
+specific, if arbitrary, value" gets unified away to whatever value makes
+some unrelated axiom fire, instead of being required to hold as literally
+stated.
+
+### 0b.1 Mechanism
+
+Minimal reproduction, `load prop` alone:
+
+    var a
+    bool C
+    a iff C
+
+This "derives" `a iff C` — for two symbols with *no axiom whatsoever*
+connecting them — citing `"not-not"` (`%A iff (not (not %A))`) as the
+reason. The same thing happens with `%A iff C` written directly (no `var`
+involved at all), confirming the `var`/auto-boolean-inference angle was
+just how the bug was first noticed, not the actual cause.
+
+`impl_elim`'s handling of an `iff`-shaped theory fact (`elif is_iff
+(formula_expr):`) tries three things: rewrite as `LHS implies RHS` and
+recurse, rewrite as `RHS implies LHS` and recurse, and — the "third
+attempt" — unify the goal directly against the *whole*, unstripped `iff`
+fact (`unify_exprs_with_patterns([(expr, formula_expr)], s, kb)`), meant to
+catch a goal that's a direct restatement of the stored fact. The first two
+attempts recurse into the plain-implication branch of `impl_elim`, which
+*does* protect itself: right before matching a conclusion, it computes
+`free_bound_vars(expr, kb)` (on `expr` *after* `derive_expr`'s own
+rename-to-a-fresh-internal-name step) and blocks those names as domain —
+exactly the "this variable must not be assigned a value, only unified onto
+by a candidate's own pattern variable" protection from §0. The third
+attempt, though, unifies `expr` directly using the caller's `s` completely
+unchanged — it never adds this blocking at all. So `a` (renamed internally
+to some fresh `$$NN`/`%%NN` name by `derive_expr`, per whatever `is_bool`
+says about it — irrelevant to the bug itself) is a genuinely free variable
+at that point, and nothing stops the third attempt from binding it
+straight to `not (not C)`, satisfying `not-not`'s shape for *some* value of
+`a` that was never asserted to hold, rather than for whatever `a` actually,
+specifically is.
+
+Why the caller (`eval_qed`, or `eval_expression` for a bare top-level
+statement) can't fix this from the outside by pre-computing a blocked
+`State`: `derive_expr` renames the goal to a *fresh* internal name on
+*every call* (`rename_all_vars`'s counters are global and monotonic, not
+content-addressed), so a caller that blocks the goal's free variables
+*before* calling `derive_expr` is blocking a name that no longer appears
+anywhere in the expression being matched by the time matching happens —
+harmless, but completely inert. This is why the plain-implication branch
+recomputes its own blocking internally, from the already-renamed `expr`,
+instead of trusting whatever the caller passed in; the `is_iff` third
+attempt just never got the same treatment.
+
+### 0b.2 The fix
+
+Added the identical blocking computation immediately before the third
+attempt's `unify_exprs_with_patterns` call, unioned with whatever the
+caller already had blocked (mirrors the plain-implication branch exactly,
+just applied one branch earlier). No changes needed to `eval_qed`,
+`eval_expression`, or the `var`/boolean-inference heuristic that first
+surfaced this — that heuristic (auto-inferring an unconstrained, not-yet-
+used symbol as boolean the first time it appears in a boolean position)
+turned out to be intentional, load-bearing behavior relied on by several
+existing proofs (e.g. `proofs/natural-deduction/and-sym.kurt`, which
+declares `var a, b` and relies on exactly this inference instead of
+`%`-prefixed schema variables) — confirmed by trying to tighten it first
+(requiring `not kb.is_var(s)`) and watching four legitimate proofs break.
+The real bug was never "a `var` symbol shouldn't be inferred boolean" —
+it was "whatever a bare statement's own free variable turns out to be, it
+must not be unifiable away during that statement's own derivation," which
+is a property of `impl_elim`, not of the boolean-inference heuristic.
+
+### 0b.3 Verification
+
+- Confirmed via `git stash` that the minimal reproduction above succeeds
+  (wrongly) on the code from before this fix, and is correctly rejected
+  after.
+- Checked every other `sym`-declared operator in the shipped theories
+  (`=`, `≠`, `or`, `+`, `*`) for an axiom of the same exploitable shape
+  ("bare variable on one side, that same variable wrapped in something on
+  the other") — `not-not` is the only one that currently has it, but the
+  fix is general (protects the `is_iff` branch for any `iff`-shaped fact,
+  present or future), not a patch against this one axiom.
+- Verified legitimate `iff` reasoning is unaffected: `not (not P)` still
+  derives from `P` via `not-not`, and a goal with no free variables of its
+  own (e.g. `P iff (not (not P))` for a plain boolean constant `P`) still
+  matches the third attempt directly, since blocking an empty set of
+  variables is a no-op.
+- Ran the full test suite (95/95) after the fix, including
+  `and-sym.kurt` and every other `var`-as-implicit-schema-variable proof.
+- Regression test: `proofs/soundness/iff-third-attempt-blocks-eigenvariable.kurt`.
+
 ## 1. What's genuinely hard-coded
 
 `derive_expr`/`eval_expression` implement four rules directly in Python,
