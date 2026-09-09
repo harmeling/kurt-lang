@@ -1,0 +1,18 @@
+; coverage for set.kurt's "power-set" axiom (`Pow($a) = { $b | $b ⊂ $a }`) -- never exercised by
+; any proof file before this one, unlike `∩`/`∪`/`⊂` which are worked in
+; proofs/mafi1/001-two-equal-sets.kurt already.
+load set
+const A
+
+; every set is a subset of itself, so every set is a member of its own power set -- shown by
+; unfolding "power-set" via "set-comprehension" (kurt's single-hop derivation can't chain
+; "power-set" and "set-comprehension" through the literal `Pow(A)` notation in one step, so
+; both facts are stated explicitly rather than concluding with `A ∈ Pow(A)` directly)
+show A ⊂ A
+proof
+    let x
+        x ∈ A implies x ∈ A
+    A ⊂ A
+qed
+A ∈ { $b | $b ⊂ A }  ≡  A ⊂ A
+Pow(A) = { $b | $b ⊂ A }

@@ -1,0 +1,13 @@
+; coverage for modal.kurt's "diamond-distrib-or" and "K" axioms -- never exercised by any proof
+; file before this one (box-distrib-and and T already have worked examples in this directory).
+load modal
+bool p, q
+
+; diamond distributes over or, restated generically both directions
+(◇p ∨ ◇q) ≡ ◇(p ∨ q)   "diamond-distrib-or restated"
+
+; system K: if it's necessary that p implies q, then necessity of p gives necessity of q
+use □(p ⇒ q) "box-implication"
+use □p "box-p"
+□p ⇒ □q
+□q

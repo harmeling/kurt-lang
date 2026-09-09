@@ -789,8 +789,46 @@ Status as assessed:
   pre-existing bug found and fixed along the way (`natural.kurt` was
   silently broken, via a lexer token-adjacency issue nobody had ever hit).
 
+- ~~**More proof-suite coverage for arith/set/modal**~~ — **done, partial.**
+  Checked which axiom *labels* declared in `arith.kurt`/`set.kurt`/
+  `modal.kurt` were never cited by any proof file's derivation (a stand-in
+  for "never actually exercised," same idea as
+  `test_theory_syntax_survives_load.py`'s operator-coverage check, but for
+  axioms). Found most of `arith.kurt`'s order-preservation/algebraic-
+  identity/equation-substitution axioms (~48 of 60 labels) had never been
+  used by any proof, plus modal's "K"/"diamond-distrib-or" and set's
+  "power-set". Added `proofs/arithmetic/algebraic-identities.kurt`,
+  `order-preservation.kurt` (each `arith.kurt` order-preservation
+  demonstration wrapped in its own `sandbox` so contradictory assumptions
+  used for different demonstrations — e.g. `c > 0` vs `c < 0` — don't leak
+  into each other), `proofs/modal-logic/diamond-distrib-or-and-k.kurt`, and
+  `proofs/set-theory/power-set-membership.kurt` (the last one is the
+  "partial": couldn't get the empty-set case to close, see the
+  `set-comprehension` finding directly below). Deliberately didn't chase
+  every one of the ~48 remaining arith labels individually — the added
+  files establish the pattern (restate the schema generically, or combine
+  with a `use`d premise) for whoever wants to extend it further; exhaustive
+  one-file-per-label coverage wasn't the point.
+
 ## Needs investigation before it's clear what "feasible" even means
 
+- **New finding: `set-comprehension` doesn't match when the comprehension's
+  body has zero occurrences of the bound variable.** Found while writing
+  `proofs/set-theory/power-set-membership.kurt`'s empty-set case. Minimal
+  repro: `load set` / `const x` / `x ∈ { $a | false } ≡ false` fails with
+  `ProofError: can not derive`, even though it's true by definition
+  (substituting anything for `$a` in `false` is still just `false`, since
+  `$a` doesn't occur in it at all). `set-comprehension`'s axiom is `$a ∈
+  { $z | sub $x $z %F } ≡ sub $x $a %F`, matched via the same "which single
+  syntactic node is `%F`" decomposition mechanism documented as a real,
+  general completeness gap in `doc/kurt-soundness.md` #6 (the equal-elim/
+  flat-operator matching limitation) — plausibly the same root cause
+  (a body with *no* occurrence of the bound variable might be exactly the
+  degenerate case that decomposition mechanism doesn't handle), but not
+  confirmed by tracing the matching code, just worked around in the proof
+  file by dropping the affected step rather than chased down. Worth a
+  dedicated look given how common "the empty set / a constant predicate"
+  is as a base case in set-theoretic proofs.
 - ~~**New finding: a declared-but-otherwise-unconstrained `var` can get
   treated as boolean anyway.**~~ — **investigated; turned out to be a real
   soundness bug (a second instance of the forall-elim bug class), now
