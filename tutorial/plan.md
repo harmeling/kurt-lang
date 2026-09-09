@@ -23,14 +23,17 @@ BASICS -- your first checked proofs
     07-show      stating a goal to be proved
     08-proof     opening the block that proves a `show`n goal
     09-qed       closing a `proof` block
+    09a-thus     closing a `proof` block by literal match, no re-derivation
 
 THEORIES -- building and reusing bodies of knowledge
 -----------------------------------------------------
     10-load      pulling in ready-made theories, e.g. `prop.kurt`
+    10a-save     the reverse of `load`: write the theory out to a file
     11-def       introducing a new constant via its defining equation
     12-theory    inspecting the current theory
     13-todo      admitting a step as an exercise/placeholder
     14-sandbox   a scratch block that is thrown away when closed
+    14a-commit   keeping a `sandbox`'s content instead of discarding it
     15-expect    a block that must fail, with a named kind of error
     16-local     what a loaded file does and doesn't export
 
@@ -64,6 +67,7 @@ SUGAR -- syntactic convenience
     40-alias     giving a symbol an extra name (e.g. Unicode for ASCII)
     41-flat      an infix operator that doesn't need explicit nesting
     42-sym       an infix operator whose arguments may be swapped
+    42a-nonassoc an infix operator that rejects being chained, ambiguously
     43-latex     custom LaTeX rendering for a symbol (see `-l` / `latex.kurt`)
 
 MISC -- REPL/output behaviour and self-documentation
@@ -77,8 +81,6 @@ MISC -- REPL/output behaviour and self-documentation
 Not covered (deliberately)
 ---------------------------
     inspect      raises `NotImplementedError` in `kurt.py` -- not usable yet
-    thus         mentioned in `doc/dev-notes.md`/`todo.md` as a future,
-                 not-yet-implemented shortcut for `qed`/equational proofs
     fix          old name for what is now the `let` keyword (see `21-let.kurt`)
     indent       removed -- the shell's indentation handling used to differ
                  from a file's (see below); once unified, the toggle (and
@@ -91,9 +93,12 @@ Indentation is significant everywhere, in the shell exactly as in a file:
 way, by dedenting -- there is no more `indent` toggle, and no more
 `done` (it existed purely to fake a dedent in the shell; once the shell
 started reading real indentation, it had nothing left to do that dedenting
-didn't already do). `qed` and `break` remain as optional, position-
-independent alternatives to dedenting, and both now work in files too, not
-just the shell: `qed` still needs a real dedent (it just also double-checks
-you're closing a `proof`), while `break` needs none at all -- it discards
-the current block immediately, which is why it's still the one way to close
-a `sandbox` without writing a further, shallower line.
+didn't already do). Four keywords remain as optional, position-independent
+alternatives to dedenting, and all work in files too, not just the shell:
+`qed` (09-qed.kurt) and `thus` (09a-thus.kurt) both still need a real
+dedent -- `qed` re-derives the shown goal, `thus` only checks the block's
+last line already *is* the goal, literally -- while `break` (25-break.kurt)
+and `commit` (14a-commit.kurt) need none at all, closing the current block
+immediately; `break` discards it, `commit` keeps it (and only ever closes
+a `sandbox`, since every other block already has its own way to keep what
+happened inside).

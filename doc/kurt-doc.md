@@ -600,7 +600,7 @@ declaring their own prerequisites via their own `load` lines:
 | `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
 | `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
 | `logic.kurt` | forall-elim, exists-intro (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
-| `set.kurt` | `in`/`∈`, `⊂`, `∪`, `∩`, set-builder `{ ... \| ... }`, `∅`, `Pow` | `equality`, `logic` |
+| `set.kurt` | `in`/`∈`, `⊂`, `∪`, `∩`, set-builder `{ ... \| ... }`, `∅`, `Pow`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers | `set` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
@@ -886,10 +886,12 @@ and can be toggled but, as of this writing, nothing reads its value yet.
   combination, not arbitrary-length automatic chaining.
 - `and-elim` needs `load prop` (or a manual axiom instance) — it is not
   hard-coded the way `and-intro` is (§8.1).
-- `f()` — a zero-argument call — does not parse (§4.3).
 - A custom `brackets` pair does not disappear the way `(` `)` does — it
   stays a real operator, printed as e.g. `[]`/`{}` in s-expression form
   (§4.2).
+- `inspect` is listed by `help` but not implemented yet (raises
+  `NotImplementedError` if used) — it's meant to eventually stop a running
+  file and drop into the interactive shell at that point.
 
 See `todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.

@@ -139,6 +139,35 @@ Status as assessed:
   of a file that's still empty. (`induction.kurt` itself was later removed
   entirely, see above.)
 
+## Documentation review pass
+
+- ~~**Re-check `doc/kurt-doc.md`, `tutorial/*.kurt`, and other docs for
+  staleness**~~ — **done.** Given how much changed this session (`thus`,
+  `save`, `commit`, `nonassoc`, `f()`, chain transitivity), swept for
+  claims that were no longer true. Found and fixed: §11 "Known gaps" still
+  said `f()` doesn't parse (fixed this session); §8.2's theory table didn't
+  mention set.kurt's mapping/function-space additions; `tutorial/plan.md`
+  said `thus` was "a future, not-yet-implemented shortcut" (also fixed
+  this session) and its "File and shell are now handled identically"
+  section only described `qed`/`break` as the position-independent
+  block-closers, missing `thus`/`commit` entirely. Also added a one-line
+  "Known gaps" mention that `inspect` is listed by `help` but not
+  implemented (raises `NotImplementedError`), since nothing said so
+  anywhere before. `README.md` and `doc/kurt-cookbook.md` (still
+  deliberately just a stub) checked and found still accurate/unchanged.
+  `doc/dev-notes.md` deliberately left untouched — it's a chronological
+  design diary (see this file's own instructions), not a reference, so an
+  old entry describing `thus`'s original, more ambitious design (as the
+  general block-closer for every block type, not just `proof`) is
+  correctly a historical record, not something to "fix" to match what
+  actually got built.
+  Wrote four missing tutorial lessons for keywords that had none:
+  `tutorial/09a-thus.kurt`, `10a-save.kurt`, `14a-commit.kurt`,
+  `42a-nonassoc.kurt` (numbered with a letter suffix to slot in next to
+  their closest relative without renumbering every later lesson) — the
+  plan's own stated rule is "one lesson per keyword," and these four had
+  none. Updated `tutorial/plan.md`'s lesson list and prose to match.
+
 ## Testing-infrastructure follow-up
 
 - ~~**Revisit the `;;; ` marker convention more broadly**~~ — **done.**

@@ -1,0 +1,37 @@
+; 09a-thus.kurt
+
+; `thus` is an alternative to `qed` (09-qed.kurt) for closing a `proof`
+; block. Instead of re-deriving the shown goal from scratch (which `qed`
+; does, searching the whole theory again), `thus` only checks that the
+; block's *last line is already, literally, the goal* -- up to
+; alpha-equivalence, the same notion of "the same formula" used elsewhere.
+
+bool A, B
+
+use A implies B
+use A
+
+show B
+proof
+    A
+    B          ; the last line must spell out the goal exactly
+thus
+
+B              ; `B` is available outside the block, exactly like with `qed`
+
+; because `thus` does no search at all, it's cheap and its outcome is easy
+; to predict just by reading the last line -- but it also means it rejects
+; a proof whose last line is one step short of the goal, even when `qed`
+; would happily take that extra step. Try replacing the block above with:
+;
+;     show B "one step short"
+;     proof
+;         A
+;     thus
+;
+; `qed` accepts this (it re-derives `B` from `A`); `thus` rejects it with a
+; `ProofError`, since the last line (`A`) isn't literally the goal (`B`).
+
+; prefer `thus` for long equational or `iff`-chain proofs, where every line
+; already restates the goal-so-far (see `proofs/linear-algebra/group.kurt`
+; for the style this is meant for) -- and `qed` for everything else.
