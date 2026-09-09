@@ -152,12 +152,9 @@ confused student *that* they're wrong but not *why*, or what's close.
   own prerequisites (confirmed: `equality.kurt` loads `prop`, `set.kurt`
   loads `equality, logic`, etc.) — the one thing missing is any way to ask
   "what does theory X depend on?" without opening the file and reading its
-  `load` lines, or to detect at a glance that, say, `lambda-calculus.kurt`
-  currently declares no dependencies at all (worth double-checking it's
-  truly self-contained). A `kurt --deps
-  theory.kurt` that just walks `load` statements recursively and prints the
-  tree would make the theory ecosystem's structure visible instead of
-  implicit.
+  own `load` lines. A `kurt --deps theory.kurt` that just walks `load`
+  statements recursively and prints the tree would make the theory
+  ecosystem's structure visible instead of implicit.
 - **A small "theories registry" convention for third-party packages.**
   `-p`/`--path` and `theory_path` already generalize where `load` looks
   (cwd, then packaged theories, then a user path) — the missing piece for

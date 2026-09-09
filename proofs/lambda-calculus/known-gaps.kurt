@@ -1,0 +1,19 @@
+; coverage for the known gaps documented in src/kurt/theories/lambda-calculus.kurt's own
+; header -- regression tests confirming these limitations are real and stay documented,
+; not just claimed. None of these are soundness issues: each one is kurt correctly refusing
+; to derive something it can't find a matching decomposition for, not accepting anything
+; wrong.
+load lambda-calculus
+bool P
+arity P 2
+const c, d
+
+; the identity function's beta-reduction doesn't derive: the body is *exactly* the bound
+; variable, with nothing else for the decomposition mechanism to find a "hole" in
+expect "ProofError"
+    (λ $x $x) c = c
+
+; currying doesn't derive either: the body of the outer lambda is itself another lambda
+; (a binder), which the decomposition mechanism can't treat as a "hole"
+expect "ProofError"
+    (λ $x (λ $y (P $x $y))) c = (λ $y (P c $y))

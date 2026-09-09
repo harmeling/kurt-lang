@@ -103,10 +103,47 @@ Status as assessed:
   `doc/kurt-doc.md`, its mention in `CLAUDE.md`'s file list, and the stale
   `induction.kurt`+`lambda-calculus.kurt` pairing in `suggestions-claude.md`
   (that suggestion's example now just points at `lambda-calculus.kurt`).
-- **`lambda-calculus.kurt`** — empty stub. Needs real design work from
-  scratch (abstraction/application syntax, beta reduction, substitution
-  semantics built on the existing `sub`/binding machinery) — the biggest
-  single piece of remaining work on this list.
+- ~~**`lambda-calculus.kurt`**~~ — **done, with real, load-bearing scope
+  limits found and documented, not just "less complete than I'd like."**
+  Abstraction is `λ $x %B` — a `bindop` (`arity lambda 2`), exactly like
+  `forall`/`exists`; application needs no new syntax at all, since `(λ $x
+  %B) $a` is already just ordinary space-juxtaposition (`set.kurt`'s `$f
+  $a` idiom). Beta-reduction reuses kurt's own built-in `sub` operator
+  directly (`use (λ $x %B) $a = sub $x $a %B`) rather than defining a new
+  substitution function from scratch — and alpha-equivalence is free too,
+  via kurt's existing bound-variable-aware matching.
+  The real discovery, from actually trying to get beta-reduction to
+  *derive*, not just parse: `sub`'s schema-decomposition matching (the
+  mechanism that lets a concrete goal be matched against `sub $x $a %A` by
+  figuring out what `%A` must have been) only fires when the thing being
+  substituted into is **boolean-typed** (`match_against_sub` requires
+  `kb.is_bool` on that schema var) — confirmed by testing a non-boolean
+  `$B` directly (fails to derive) vs a boolean `%B` (works). This makes
+  the file a genuine but *restricted* lambda calculus: bodies must be
+  boolean (a predicate about the bound variable, e.g. `P($x)`), which
+  rules out the fully general, arbitrary-valued untyped lambda calculus.
+  Two further gaps found the same way, both real matching-engine
+  limitations rather than anything specific to lambda calculus: (1) a
+  body that's *exactly* the bound variable and nothing else (the identity
+  function) doesn't beta-reduce — the decomposition mechanism doesn't
+  find that degenerate a "hole"; (2) currying (a lambda whose body is
+  itself another lambda) doesn't beta-reduce either, even with the inner
+  lambda's own body boolean — the decomposition mechanism can't find a
+  "hole" that itself contains a binder, so every lambda here ends up
+  single-argument, no curried multi-argument application. Deliberately
+  did not add eta-conversion (`λx.(f x) = f`, provided `x` doesn't occur
+  free in `f`) — kurt's axiom syntax has no way to state that side
+  condition, and omitting it would be unsound (nothing would stop `f`
+  from being instantiated to something that does mention `x`).
+  All three gaps are completeness limitations, not soundness ones — kurt
+  correctly refuses to derive what it can't find a decomposition for, it
+  never derives anything wrong.
+  Regression tests: `proofs/lambda-calculus/beta-reduction.kurt` (four
+  worked examples: single predicate, argument that's itself an
+  application, a compound `and` body, a body under `not`) and
+  `known-gaps.kurt` (the identity and currying cases, each wrapped in
+  `expect "ProofError"` to confirm the limitation is real and stays
+  documented). Theory table entry updated in `doc/kurt-doc.md` §8.2.
 - **`prop.kurt`**/**`logic.kurt`**/**`equality.kurt`**/**`minimal.kurt`** —
   solid, heavily exercised (34/28/18 files respectively; `minimal.kurt` is
   intentionally unloadable reference documentation, not meant to carry

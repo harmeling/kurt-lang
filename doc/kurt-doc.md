@@ -608,7 +608,7 @@ declaring their own prerequisites via their own `load` lines:
 | `natural.kurt` | natural numbers | `set` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
 | `latex.kurt` | LaTeX rendering setup for `kurt -l` | none declared |
-| `lambda-calculus.kurt` | *(placeholder stub — a few comment lines, no syntax or axioms yet)* | none declared |
+| `lambda-calculus.kurt` | `λ`/lambda abstraction and beta-reduction (a *predicate* lambda calculus — see the file's own header for why: single-argument, boolean-bodied only, no currying, no eta) | `equality` |
 
 `load` with no arguments lists every file loaded so far, level by level.
 
