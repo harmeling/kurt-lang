@@ -769,6 +769,46 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   family of concern as the O(n^k) performance items in `todo-claude.md`),
   not a bug fix, so deliberately left as a documented, well-understood gap
   with a real motivating test case rather than attempted under this pass.
+- **`set-comprehension` (and any other axiom matched via `sub`-decomposition)
+  couldn't match a substitution body with zero occurrences of the bound
+  variable — found and fixed.** Minimal repro: `load set` / `const x` /
+  `x ∈ { $a | false } ≡ false` failed to derive even though it's true by
+  definition — substituting anything for `$a` into a body (`false`) that
+  never mentions `$a` in the first place obviously still gives `false`.
+  Root cause, traced directly in `generate_all_combinations`: the
+  decomposition mechanism (`all_single_hole_decompositions`) only ever
+  proposes a candidate `%A` by picking one *existing* node of the concrete
+  expression and replacing it with the substitution marker `$x` — every
+  candidate it can produce therefore has *exactly one* occurrence of `$x`.
+  It structurally cannot propose "zero occurrences, `%A` equals the
+  expression verbatim, `$a` is unconstrained" — that shape was simply never
+  tried, in the same family as (but distinct from) the flat-operator gap
+  above: both are cases where a real, sound decomposition exists but the
+  enumeration strategy can't reach it. Fixed by adding exactly that
+  candidate: after the per-node loop, also yield `(expr_a, expr)` unchanged
+  (still checked against `bound_var_safe`, for consistency, though it's
+  vacuously safe here since nothing is actually substituted in this
+  branch) — whatever the caller had already pinned `$a` to (or `None`, if
+  nothing had) is carried through, since the equation holds for *any* value
+  of `$a` once `%A` doesn't mention `$x` at all. Confirmed via `git stash`
+  that the minimal repro fails before the fix and succeeds after, and that
+  the two known, *separate* lambda-calculus gaps (identity function,
+  currying — `proofs/lambda-calculus/known-gaps.kurt`) are unaffected: those
+  fail for a different reason (an alpha-renamed bound variable occupying
+  `%A`'s assigned value isn't recognized as *the* substitution site, since
+  its name doesn't match the sub-marker's own freshly-renamed name — a
+  bound-variable-identity problem, not a missing decomposition candidate).
+  This also restores behavior an old, still-present test file
+  (`tests/test_gen_all_combinations.py`'s `old_examples`) already expected
+  before an earlier "allow only one subterm to be replaced, much more
+  efficient" simplification silently dropped it; the *other* difference
+  between `old_examples` and today's behavior (multi-occurrence
+  decompositions, replacing more than one identical node at once) was a
+  deliberate performance simplification, not a bug, and is not restored.
+  Regression coverage: `tests/test_gen_all_combinations.py` and
+  `tests/test_generate_all_combinations.py` (unit-level, exact candidate
+  sets) and `proofs/set-theory/power-set-membership.kurt`'s new
+  empty-set-case lines (proof-level, the original motivating example).
 
 ## 7. Selective export (`load`'s `local` labels)
 

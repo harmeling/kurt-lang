@@ -902,23 +902,27 @@ Status as assessed:
 
 ## Needs investigation before it's clear what "feasible" even means
 
-- **New finding: `set-comprehension` doesn't match when the comprehension's
-  body has zero occurrences of the bound variable.** Found while writing
-  `proofs/set-theory/power-set-membership.kurt`'s empty-set case. Minimal
-  repro: `load set` / `const x` / `x ∈ { $a | false } ≡ false` fails with
-  `ProofError: can not derive`, even though it's true by definition
-  (substituting anything for `$a` in `false` is still just `false`, since
-  `$a` doesn't occur in it at all). `set-comprehension`'s axiom is `$a ∈
-  { $z | sub $x $z %F } ≡ sub $x $a %F`, matched via the same "which single
-  syntactic node is `%F`" decomposition mechanism documented as a real,
-  general completeness gap in `doc/kurt-soundness.md` #6 (the equal-elim/
-  flat-operator matching limitation) — plausibly the same root cause
-  (a body with *no* occurrence of the bound variable might be exactly the
-  degenerate case that decomposition mechanism doesn't handle), but not
-  confirmed by tracing the matching code, just worked around in the proof
-  file by dropping the affected step rather than chased down. Worth a
-  dedicated look given how common "the empty set / a constant predicate"
-  is as a base case in set-theoretic proofs.
+- ~~**`set-comprehension` doesn't match when the comprehension's body has
+  zero occurrences of the bound variable**~~ — **traced and fixed
+  (2026-09-09).** Confirmed the suspected root cause exactly:
+  `generate_all_combinations`'s decomposition mechanism
+  (`all_single_hole_decompositions`) only ever proposes a `%A` by picking
+  one existing node of the concrete expression and replacing it with the
+  substitution marker — every candidate it can produce has *exactly one*
+  occurrence of the marker, so "zero occurrences, `%A` equals the
+  expression unchanged, `$a` unconstrained" was never tried at all. Fixed
+  by adding exactly that missing candidate. Turns out this restores
+  behavior `tests/test_gen_all_combinations.py`'s own `old_examples` (dead
+  code, never run) already expected before an earlier performance
+  simplification silently dropped it — good independent confirmation this
+  was a real regression, not a novel gap. Full writeup, including why this
+  is a *different* root cause from the lambda-calculus identity/currying
+  gaps (which remain genuinely open, confirmed still failing after this
+  fix), in `doc/kurt-soundness.md` #6. Regression tests:
+  `tests/test_gen_all_combinations.py`, `tests/test_generate_all_combinations.py`
+  (unit-level), and the empty-set-case lines now added to
+  `proofs/set-theory/power-set-membership.kurt` (proof-level, the original
+  motivating example this was found from).
 - ~~**New finding: a declared-but-otherwise-unconstrained `var` can get
   treated as boolean anyway.**~~ — **investigated; turned out to be a real
   soundness bug (a second instance of the forall-elim bug class), now
@@ -952,19 +956,21 @@ Status as assessed:
   `proofs/soundness/iff-third-attempt-blocks-eigenvariable.kurt` and
   `iff-third-attempt-still-works-legitimately.kurt`.
 - ~~**"why (not x in emptyset) not working?"**~~ — **now has a concrete
-  repro and a diagnosis, though still not fixed.** (2026-09-09 revisit.)
-  `load set` / `const x` / `not (x in emptyset)` fails to derive on its own
-  — expected, since `emptyset`'s definition (`def ∅ = { $a | false }`) is a
-  single `def`-equality, and turning `x in emptyset` into `x in {$a|false}`
-  needs an explicit `equal-elim` step of its own (the general single-hop
-  limitation, see the "automatically iterate over all implications" entry
-  below). But spelling that step out by hand doesn't work either: `x in
-  {$a|false}` still can't be derived, because it hits *exactly* the
-  `set-comprehension` zero-occurrence gap documented directly above (the
-  comprehension body `false` never mentions the bound variable, which the
-  decomposition-based matcher can't handle) — so this todo item is fully
-  explained by two already-tracked gaps, not a separate third one. Fixing
-  the zero-occurrence gap above would resolve this for free.
+  repro, a diagnosis, and (as of the `set-comprehension` fix above) half of
+  it now actually works.** (2026-09-09.) `load set` / `const x` / `not (x in
+  emptyset)` still fails to derive on its own — expected, since `emptyset`'s
+  definition (`def ∅ = { $a | false }`) is a single `def`-equality, and
+  turning `x in emptyset` into `x in {$a|false}` needs an explicit
+  `equal-elim` step of its own (the general single-hop limitation, see the
+  "automatically iterate over all implications" entry below — this half is
+  a real, separate, still-open feature gap, not a bug). But the *other*
+  half — `x ∈ {$a|false} ≡ false` itself, which used to fail too, since it
+  hit exactly the `set-comprehension` zero-occurrence gap documented above
+  — now derives, since that gap is fixed. So the full chain (`load set` /
+  `const y` / `y ∈ {$a|false} ≡ false` / `∅ = {$a|false}` / `y ∈ ∅ ≡ false`)
+  works today, just still as three explicit hops rather than one automatic
+  derivation — see `proofs/set-theory/power-set-membership.kurt`'s
+  empty-set-case lines.
 - **"automatically iterate over all implications, in particular convert `≡`
   into two implications"; "iterate over the formulas in theory and over all
   conclusions (RHS of implications) as well"; "better inference rules...

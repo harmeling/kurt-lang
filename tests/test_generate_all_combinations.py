@@ -22,12 +22,21 @@ class TestGenerateAllCombinations(unittest.TestCase):
         """Test with a single atom"""
         expr = self.token_a
         combinations = list(kurt.generate_all_combinations(expr, self.token_x, None, self.kb))
-        
-        # Should have exactly one combination: the whole expression
-        self.assertEqual(len(combinations), 1)
-        expr_a, expr_A = combinations[0]
+
+        # Two combinations: substitute the whole atom (%A=$x, $a=a), or don't substitute at
+        # all (%A=a unchanged, $a unconstrained -- the zero-occurrence case, see
+        # doc/kurt-soundness.md #6)
+        self.assertEqual(len(combinations), 2)
+        substituting = [c for c in combinations if c[1] == self.token_x]
+        self.assertEqual(len(substituting), 1)
+        expr_a, expr_A = substituting[0]
         self.assertEqual(expr_a, self.token_a)
         self.assertEqual(expr_A, self.token_x)
+        zero_occurrence = [c for c in combinations if c[1] != self.token_x]
+        self.assertEqual(len(zero_occurrence), 1)
+        expr_a, expr_A = zero_occurrence[0]
+        self.assertIsNone(expr_a)
+        self.assertEqual(expr_A, self.token_a)
     
     def test_simple_binary_expression(self):
         """Test with a + b"""

@@ -3979,6 +3979,19 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr]
             if bound_var_safe(expr, token_x, cand_expr_a, cand_expr_A, kb):     # requirement (2)
                 yield (cand_expr_a, cand_expr_A)
 
+    ### degenerate case the loop above can never produce: `%A` doesn't mention `$x` at all,
+    ### so `%A == expr` verbatim and `$a` is completely unconstrained by this equation (`sub
+    ### $x $a %A` equals `%A` no matter what `$a` is). `all_single_hole_decompositions` only
+    ### ever proposes a `%A` built by replacing some *existing* node of `expr` with `$x` --
+    ### it can't propose "no node at all", i.e. `%A = expr` unchanged -- so this case (e.g.
+    ### matching `sub $x $a %F` against a concrete `false` when `%F` should just be `false`
+    ### itself, needed for `set-comprehension` on a body with zero occurrences of the bound
+    ### variable, see doc/kurt-soundness.md #6) was never tried at all. Whatever `expr_a`
+    ### already says (a concrete value, or still unconstrained) is carried through unchanged,
+    ### since nothing about this candidate depends on `$a`'s value.
+    if bound_var_safe(expr, token_x, expr_a, expr, kb):     # requirement (2)
+        yield (expr_a, expr)
+
 def all_single_hole_decompositions(expr: Expr, token_x: Token) -> Iterator[tuple[Expr, Expr]]:
     # For each node in expr, yield (node_value, expr_with_that_node_replaced_by_token_x).
     def extract_at_path(e: Expr, path: list[int]) -> tuple[Expr, Expr]:

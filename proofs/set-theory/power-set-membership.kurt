@@ -16,3 +16,14 @@ proof
 qed
 A ∈ { $b | $b ⊂ A }  ≡  A ⊂ A
 Pow(A) = { $b | $b ⊂ A }
+
+; the empty-set case: originally dropped from this file entirely, since it needs unfolding
+; `∅`'s own definition (`def ∅ = { $a | false }`) and matching a comprehension body that's
+; *exactly* `false` -- zero occurrences of the comprehension's own bound variable -- which
+; "set-comprehension" couldn't match at all before the `generate_all_combinations` fix (see
+; doc/kurt-soundness.md #6). Two explicit hops, same reasoning as above (`Pow(A)`'s own
+; unfolding is a separate hop from "set-comprehension"):
+const y
+y ∈ { $a | false }  ≡  false             ; the real regression coverage for the fix itself
+∅ = { $a | false }                       ; restating "empty set" 's own definition
+y ∈ ∅  ≡  false

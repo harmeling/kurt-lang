@@ -3,28 +3,39 @@ import copy
 from kurt import Token, generate_all_combinations, initial_kb
 
 # each example looks like this:
-#   [expr, 
+#   [expr,
 #    [list of possible outputs of generate_all_combinations]]
+#
+# every example's `(None, expr)` entry is the zero-occurrence combination (`%A` doesn't have
+# to mention `$x` at all, so `%A == expr` unchanged and `$a` is unconstrained) -- see
+# doc/kurt-soundness.md #6 for why that candidate has to exist. `old_examples` below still
+# has each of these too, alongside additional multi-hole combinations (replacing more than one
+# occurrence of the same value at once) that were deliberately dropped for performance
+# ("allow only one subterm to be replaced, much more efficient") and haven't been restored --
+# only the zero-occurrence gap was a real gap, not the multi-hole simplification.
 examples = [
     # f 17
-    [[Token(label='SYMBOL', value='f'), Token(label='INT', value='17')], 
+    [[Token(label='SYMBOL', value='f'), Token(label='INT', value='17')],
      ['([f, 17], $%1)',
       '(f, [$%1, 17])',
-      '(17, [f, $%1])']],
+      '(17, [f, $%1])',
+      '(None, [f, 17])']],
 
     # g 17 17
     [[Token(label='SYMBOL', value='g'), Token(label='INT', value='17'), Token(label='INT', value='17')],
      ['([g, 17, 17], $%1)',
       '(g, [$%1, 17, 17])',
       '(17, [g, $%1, 17])',
-      '(17, [g, 17, $%1])']],
+      '(17, [g, 17, $%1])',
+      '(None, [g, 17, 17])']],
 
     # h 17 42
     [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='42')],
      ['([h, 17, 42], $%1)',
       '(h, [$%1, 17, 42])',
       '(17, [h, $%1, 42])',
-      '(42, [h, 17, $%1])']],
+      '(42, [h, 17, $%1])',
+      '(None, [h, 17, 42])']],
 
     # h 17 42 17
     [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='42'), Token(label='INT', value='17')],
@@ -32,27 +43,31 @@ examples = [
       '(h, [$%1, 17, 42, 17])',
       '(17, [h, $%1, 42, 17])',
       '(42, [h, 17, $%1, 17])',
-      '(17, [h, 17, 42, $%1])']],
+      '(17, [h, 17, 42, $%1])',
+      '(None, [h, 17, 42, 17])']],
 
-    # h 17 17 17 
+    # h 17 17 17
     [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='17'), Token(label='INT', value='17')],
      ['([h, 17, 17, 17], $%1)',
       '(h, [$%1, 17, 17, 17])',
       '(17, [h, $%1, 17, 17])',
       '(17, [h, 17, $%1, 17])',
-      '(17, [h, 17, 17, $%1])']],
+      '(17, [h, 17, 17, $%1])',
+      '(None, [h, 17, 17, 17])']],
 
     # h $z
     [[Token(label='SYMBOL', value='h'), Token(label='SYMBOL', value='$z')],
      ['([h, $z], $%1)',
       '(h, [$%1, $z])',
-      '($z, [h, $%1])']],
+      '($z, [h, $%1])',
+      '(None, [h, $z])']],
 
     # h $x
     [[Token(label='SYMBOL', value='h'), Token(label='SYMBOL', value='$x')],
      ['([h, $x], $%1)',
       '(h, [$%1, $x])',
-      '($x, [h, $%1])']],
+      '($x, [h, $%1])',
+      '(None, [h, $x])']],
 
     # more examples where we check that $a does not contain freely any bound variables of $A
     # forall $z f $z -- `forall` is declared a bindop in `initial_kb` itself now (it used not
@@ -62,7 +77,8 @@ examples = [
      ['($z, [forall, $%1, [f, $z]])',
       '([forall, $z, [f, $z]], $%1)',
       '(f, [forall, $z, [$%1, $z]])',
-      '(forall, [$%1, $z, [f, $z]])']]
+      '(forall, [$%1, $z, [f, $z]])',
+      '(None, [forall, $z, [f, $z]])']]
 
      ]
 
