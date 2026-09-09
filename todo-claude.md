@@ -802,6 +802,68 @@ Status as assessed:
   so `derive_expr` only scans plausible candidates. This is the kind of
   change that needs before/after benchmarks (see "run profiling" above) to
   justify, since it adds real complexity to `KnowledgeBase`.
+
+  **2026-09-09 follow-up sweep, specifically for *other* big-O issues beyond
+  the theory-indexing one above** (requested after the `set-comprehension`
+  fix). Found four more, all confirmed by reading the actual code, ranked by
+  how often the hot path is actually hit:
+  1. **`impl_elim` recomputes `free_bound_vars(expr, kb)` from scratch on
+     every call, even though `derive_expr`'s own loop
+     (`for proven_formula in kb.all_theory(): impl_elim(expr, proven_formula,
+     ...)`, line 4690) calls it with the exact same `expr` every single
+     iteration.** Confirmed at kurt.py:4598 (the `is_iff` third-attempt
+     branch) and :4610 (the plain-implication branch) — both recompute
+     `free_bound_vars(expr, kb)[0]` from `expr`, not from anything
+     iteration-specific. Turns an O(expr size) computation into O(theory
+     size × expr size) *per derivation attempt*, on the single most-called
+     path in the whole engine. This is a genuinely quick, low-risk,
+     mechanical fix (hoist the computation into `derive_expr`, pass the
+     result down as a parameter) — unlike the theory-indexing idea above, it
+     changes no matching *semantics* at all, only when a value already used
+     identically everywhere gets computed. Worth doing before the bigger
+     indexing refactor, independently of it.
+  2. **`unify_exprs_with_patterns`'s flat-and-symmetric-operator branch
+     (kurt.py:4297-4317) is combinatorially far more expensive than the
+     already-documented decomposition costs** — worse than the fork's own
+     first-pass report initially flagged, so re-verified directly: matching
+     a schema pattern with `k` variables against a concrete flat+symmetric
+     expression (e.g. `and`/`or`) with `n > k` arguments calls
+     `partitions(tail_e, k)` (a Stirling-number-of-the-second-kind count of
+     ways to partition `n` items into `k` non-empty unordered blocks — much
+     worse growth than the flat-*non*-symmetric branch's `split_into_lists`,
+     which only tries *contiguous* splits), and then for **every** partition
+     additionally runs `itertools.permutations(subset)` over the resulting
+     blocks before even attempting unification on each combination. Live
+     today, not a future concern — any goal matching a multi-variable schema
+     against a longer `and`/`or` chain pays this now (e.g. matching `%A and
+     %B` against a flat 5-way `and` already enumerates every 2-block
+     partition of 5 elements, times every within-partition permutation).
+  3. **`State.bind` (kurt.py:606-610) does `dict(self.subst)` — a full copy
+     of the whole substitution dict — on every single variable binding.**
+     `bind` fires on every successful assignment inside
+     `unify_exprs_with_patterns`, so accumulating `n` bindings across one
+     match costs `1+2+...+n` = O(n²) dict-copying instead of O(n). `State`
+     is deliberately an immutable dataclass (each step gets its own
+     snapshot, which is genuinely why the soundness work this session could
+     reason about "blocked" state cleanly) — a persistent/copy-on-write map
+     (mirroring how `KnowledgeBase` itself already chains via `.parent`
+     instead of copying) would get back to amortized O(1) per bind without
+     giving up immutability. Moderate severity: matters more for
+     schema-variable-heavy axioms/goals, negligible for today's small proof
+     files.
+  4. **Lower priority:** `KnowledgeBase`'s symbol-classification methods
+     (`is_var`, `is_const`, `get_arity`, `bool_sig`, `is_infix`, etc.) are
+     all O(level-stack depth) via `self.parent.is_x(s)` recursion, with no
+     caching, called on essentially every token during parsing and
+     type-checking. Depth is normally small (proof nesting), so low severity
+     today, but it's paid fresh on every call, never memoized even within
+     one statement's processing.
+
+  None of these four were implemented — reported for the maintainer to
+  triage, since #1 is a safe, independent quick win but #2/#3 touch the
+  same matching/`State` machinery this session's soundness fixes depend on,
+  and deserve their own before/after benchmarks and careful review rather
+  than a drive-by change.
 - ~~**`nonassoc` operators**~~ — **done.** New `nonassoc OP` keyword
   (mirroring `flat`/`sym`'s existing "declare a property of an already-
   `infix` operator" pattern, rather than extending `infix`'s own argument
