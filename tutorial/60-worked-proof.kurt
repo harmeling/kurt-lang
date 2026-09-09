@@ -1,0 +1,58 @@
+; 60-worked-proof.kurt
+;
+; Every earlier lesson taught one keyword in isolation. This one is different: it walks
+; through actually writing a non-trivial proof from a blank file, the way you'd really do
+; it -- including a mistake and how to read the error it produces. The goal is one direction
+; of de Morgan's law: ¬(p ∧ q) ⇒ ¬p ∨ ¬q. (Both directions, and the second law, are proved in
+; full in proofs/natural-deduction/de-morgan.kurt if you want the complete picture afterward.)
+
+; Step 1: what do you need loaded? The goal mentions `not`, `and`, `or` -- `and` is
+; hard-coded (minimal.kurt), but `not`/`or` and their inference rules live in `prop.kurt`.
+load prop
+bool p, q
+
+; Step 2: state the goal with `show`, then think about a *strategy* before writing any
+; proof steps. Kurt can't search for a proof for you (see §11 "known gaps" in
+; doc/kurt-doc.md: derivation is single-hop, one `impl_elim` application at a time) -- you
+; supply the outline, kurt only checks each step is a real, valid inference.
+;
+; Strategy for ¬(p ∧ q) ⇒ ¬p ∨ ¬q: assume the antecedent, then case-split on `p ∨ ¬p`
+; (excluded middle, not built in -- you have to `use` it). In the `p` case, `p ∧ q` would
+; need `q` too, but if `q` also held you'd have `p ∧ q`, contradicting the assumption --
+; so `¬q`, hence `¬p ∨ ¬q`. In the `¬p` case, `¬p ∨ ¬q` follows immediately from `¬p`.
+use p ∨ ¬p "excluded-middle"
+
+show ¬(p ∧ q) ⇒ ¬p ∨ ¬q
+proof
+    assume ¬(p ∧ q)
+        ; Step 3: here's the mistake -- jumping straight to the conclusion. It's *true*
+        ; here, but nothing derivable in one step from `¬(p ∧ q)` alone gets you there;
+        ; kurt only checks real inferences, it doesn't take your word for a true-but-
+        ; unjustified restatement (`expect` can only wrap an ordinary statement like this
+        ; one, not a block-opening keyword like the `case` below, which is why this
+        ; deliberate mistake has to be a bare line rather than the actual wrong case split):
+        expect "ProofError"
+            ¬p ∨ ¬q
+
+        ; the error is "can not derive `¬p ∨ ¬q`" -- true, but not a one-step inference from
+        ; what's in scope (`¬(p ∧ q)`). What's missing is the case split the strategy called
+        ; for, and within each case, the actual contradiction that justifies it: `p` together
+        ; with `¬(p ∧ q)` should give `¬q` first (via a nested `assume q` that derives
+        ; `false`), and *then* `¬p ∨ ¬q` follows from `¬q` via "or-intro". Spelling out that
+        ; intermediate step is exactly what single-hop derivation requires of you:
+        case p
+            assume q
+                p ∧ q       ; and-intro, from `p` and this `assume`
+                false       ; bottom-intro, contradicts `¬(p ∧ q)`
+            ¬q              ; not-intro: closing the `assume q` block above
+            ¬p ∨ ¬q         ; or-intro, from `¬q`
+        case ¬p
+            ¬p ∨ ¬q         ; or-intro, straight from `¬p`
+        ¬p ∨ ¬q             ; or-elim: both cases reached the same conclusion
+qed
+
+; that's the whole method: state the goal, sketch a strategy in prose (comments) before
+; writing any kurt, expect to hit "can not derive" at least once, and read *which* step
+; failed to find the missing link -- almost always a contradiction, an elimination rule, or
+; an intermediate restatement that needs to be spelled out explicitly. `sandbox` (14-sandbox)
+; is the right place to try a step you're not sure about without committing to it.

@@ -5048,6 +5048,17 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                     break
                 new_line = new_line.rstrip()
             new_line = new_line.expandtabs(tab_indent)     # tabs are ok, but are converted
+            if not continued and new_line.strip() == '':
+                # a blank line never carries anything to parse -- skip it outright rather
+                # than feeding it through the indentation logic below, where its own leading-
+                # space count (0, whether truly empty or just whitespace) would otherwise be
+                # read as "dedent all the way back to column 0", incorrectly closing every
+                # currently open block regardless of how deeply nested we actually are (e.g.
+                # a blank line for readability inside a `proof`/`assume` block). Only skipped
+                # when not `continued`, i.e. not already mid-statement (an unclosed bracket
+                # spanning a blank line is still part of that statement, not a new one).
+                line += 1
+                continue
             input_line += new_line
             try:
                 kb, lexer_state = scan_parse_check_eval(input_line, lexer_state, kb, line, input_stream.name, mainstream)

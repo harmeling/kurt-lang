@@ -168,6 +168,30 @@ Status as assessed:
   plan's own stated rule is "one lesson per keyword," and these four had
   none. Updated `tutorial/plan.md`'s lesson list and prose to match.
 
+- ~~**New finding: a blank line inside a nested block could silently close
+  it**~~ — **done, fixed.** Found while writing `tutorial/60-worked-proof.kurt`.
+  A blank line's own leading-space count is always 0, and the indentation
+  tracker read that literally as "dedent all the way back to column 0" --
+  incorrectly closing *every* currently open block instead of being
+  ignored, regardless of how deeply nested the blank line actually was.
+  Two distinct symptoms depending on exactly where the blank line landed:
+  a confusing `ParseError: expected increased indentation` (if it came
+  right after a block-opening keyword still waiting for its first indented
+  line), or worse, *silently* closing blocks early and skipping real
+  content that was never parsed at all (if it came after an ordinary
+  statement mid-block -- the exact shape that surfaced this: a blank line
+  right after an `expect` block that had just confirmed an error, which
+  pops its own level, leaving the parent block's still-nonzero
+  indentation in force for the next line). Fixed in `read_eval_loop`: a
+  blank line, when not already mid-statement (an unclosed bracket
+  spanning a blank line is still part of that statement), is now skipped
+  outright before it ever reaches the indentation logic. Verified via
+  `git stash` that the minimal case reproduces pre-fix and is fixed after;
+  full test suite unaffected (95/95), confirming the fix only makes more
+  input accepted, nothing that previously worked stopped working.
+  Regression test: `proofs/debug/blank-line-inside-block.kurt`. Documented
+  in `doc/kurt-doc.md` §2.1.
+
 ## Testing-infrastructure follow-up
 
 - ~~**Revisit the `;;; ` marker convention more broadly**~~ — **done.**

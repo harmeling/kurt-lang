@@ -100,6 +100,9 @@ comment line indented further than the current block is a `ParseError`
 practice this means: don't visually align a wrapped comment's continuation
 under an earlier inline comment by indenting it — keep continuation
 comment lines at column 0 (or at the current block's own indentation).
+A **blank line**, by contrast, is always safe anywhere, including deep
+inside a nested block — it's skipped outright rather than measured, so it
+never dedents anything on its own.
 
 ### 2.2 LaTeX-style input shortcuts (interactive shell only)
 

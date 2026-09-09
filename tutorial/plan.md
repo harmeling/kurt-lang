@@ -78,6 +78,12 @@ MISC -- REPL/output behaviour and self-documentation
     53-verbose   toggle: show extra detail while matching formulas
     55-calc      toggle: automatic arithmetic simplification (`+`, `*`)
 
+PUTTING IT ALL TOGETHER -- writing a proof from scratch, not just one keyword
+------------------------------------------------------------------------------
+    60-worked-proof   a full worked example (de Morgan's law, one direction),
+                      narrating the actual process: state the goal, sketch a
+                      strategy, hit "can not derive" at least once, and fix it
+
 Not covered (deliberately)
 ---------------------------
     inspect      raises `NotImplementedError` in `kurt.py` -- not usable yet
