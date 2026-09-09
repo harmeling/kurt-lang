@@ -951,10 +951,20 @@ Status as assessed:
   `doc/kurt-soundness.md` §0b. Regression tests:
   `proofs/soundness/iff-third-attempt-blocks-eigenvariable.kurt` and
   `iff-third-attempt-still-works-legitimately.kurt`.
-- **"why (not x in emptyset) not working?"** — I reproduced the ingredients
-  (`set.kurt`'s `def ∅ = { $a | false }`) but did not reproduce a concrete
-  failing proof from the one-line description alone; needs the maintainer's
-  original failing snippet to make progress.
+- ~~**"why (not x in emptyset) not working?"**~~ — **now has a concrete
+  repro and a diagnosis, though still not fixed.** (2026-09-09 revisit.)
+  `load set` / `const x` / `not (x in emptyset)` fails to derive on its own
+  — expected, since `emptyset`'s definition (`def ∅ = { $a | false }`) is a
+  single `def`-equality, and turning `x in emptyset` into `x in {$a|false}`
+  needs an explicit `equal-elim` step of its own (the general single-hop
+  limitation, see the "automatically iterate over all implications" entry
+  below). But spelling that step out by hand doesn't work either: `x in
+  {$a|false}` still can't be derived, because it hits *exactly* the
+  `set-comprehension` zero-occurrence gap documented directly above (the
+  comprehension body `false` never mentions the bound variable, which the
+  decomposition-based matcher can't handle) — so this todo item is fully
+  explained by two already-tracked gaps, not a separate third one. Fixing
+  the zero-occurrence gap above would resolve this for free.
 - **"automatically iterate over all implications, in particular convert `≡`
   into two implications"; "iterate over the formulas in theory and over all
   conclusions (RHS of implications) as well"; "better inference rules...
@@ -994,6 +1004,69 @@ Status as assessed:
   regression test: `pick` failing inside `expect` corrupted the level stack
   (`AssertionError`, not a clean failure) — also fixed. See
   `doc/kurt-soundness.md` §3.3-3.4.
+
+## 2026-09-09 revisit of todo.md
+
+Re-read `todo.md` top to bottom against the current state of this file and
+`kurt.py`, since so much of the list above had already absorbed it. Most
+remaining lines are either already covered above (just re-confirmed) or are
+the vague/philosophical items already called out in "Deliberately left out"
+below. Genuinely new or newly-concrete findings from this pass:
+
+- **New finding: `"(%A iff top) implies A" to prop.kurt` has a concrete,
+  reproducible motivating example, and it's the same single-hop limitation
+  already tracked, not a separate gap.** `load prop` / `bool A` / `use A iff
+  true` / `A` fails to derive (`ProofError: can not derive \`A\``) even
+  though `top-elim` (`(true implies %A) implies %A`) plus ordinary iff-elim
+  would get there in two hops. Confirms the "automatically iterate over all
+  implications" entry below is exactly the missing piece here too — no need
+  for a bespoke `prop.kurt` axiom once multi-hop search exists; adding one
+  now would just be working around the real gap. `mafi1`'s example this todo
+  referenced is gone — only `proofs/mafi1/001-two-equal-sets.kurt` remains
+  in that directory today, and it doesn't touch `iff`/`top` at all, so
+  there's nothing left to cross-check there.
+- **The lambda-calculus session (see the theory-completeness entry above)
+  directly answers an old, previously-unchecked TOPICS-2.0 item: "should
+  substitutions be always boolean (see `type_check_expression`)".** Answer,
+  confirmed empirically rather than by reading intent: **effectively yes,
+  today** — `match_against_sub`'s schema-decomposition matching (the thing
+  that lets a concrete goal be matched against a `sub $x $a %A`-shaped
+  pattern) only fires when `kb.is_bool()` holds for the substituted-into
+  schema variable; a non-boolean (`$`-prefixed) one falls into a different,
+  non-decomposing branch. This is exactly why lambda calculus's bodies must
+  be boolean-typed predicates rather than arbitrary terms. Not fixed here
+  (a real matching-engine extension, same family as the other decomposition
+  gaps above), but the open question in `todo.md` now has a definite,
+  demonstrated answer instead of a "maybe" — worth linking the two todo
+  items together if `todo.md` is edited.
+- **"check if lbp > rbp then left-assoc else right-assoc"** — already
+  answered, no code change needed: `infix`'s own help text (`kurt.py` line
+  ~373) already states the rule precisely ("lhb > rhb means right
+  associative"), and `add_infix` already takes both binding powers as
+  explicit, independent parameters from the `infix OP lbp rbp` declaration
+  — there's nothing implicit left to "check". Recommend deleting this line
+  from `todo.md`.
+- **"check conditions in `logic.kurt`"** — already done, just not
+  cross-referenced. `logic.kurt` itself carries a detailed "requirements"
+  comment block (its own header, right below the axioms) spelling out the
+  exact freeness/boundedness conditions for `forall-elim`/`exists-intro`/
+  `exists-elim`, and this session's own §0/§0b soundness fixes (see
+  `doc/kurt-soundness.md`) are precisely the code catching up to what that
+  comment already said was required. Nothing further to check here beyond
+  what §0/§0b already cover.
+- Everything else remaining in `todo.md`'s "NEXT" and "TOPICS before 1.0/2.0"
+  sections that isn't listed as done/investigated above is either (a)
+  genuinely open but vague enough to need a design decision from the
+  maintainer first (what should be loaded by default, get rid of labels,
+  merge `used`/`bool`, frozen `Expr` objects, Token reuse, syntax-vs-theory
+  export split, `x<y<=z` chained-relation *syntax* specifically as opposed
+  to the transitivity semantics already generated, namespaces, refactor the
+  `mainstream` flag) or (b) a pure performance item already tracked under
+  "Larger, well-defined refactors" above (the theory-indexing idea, the
+  equal-elim short-cut idea, profiling). None of these got a deeper look
+  this pass beyond confirming they're still accurate as stated — they're
+  intentionally left for `todo.md` itself to keep tracking rather than
+  duplicated here.
 
 ## Deliberately left out (too broad / not really a `kurt.py` task)
 
