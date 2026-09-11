@@ -605,7 +605,12 @@ class State:
 
     # updates (return new States)
     def bind(self, v: str, e: Expr) -> State:
-        new_subst = dict(self.subst)   # shallow copy
+        new_subst = dict(self.subst)   # shallow copy -- `subst` only ever grows one key at a
+        # time, and stays small in practice (schema variables per match), so a plain dict copy
+        # here is both simpler and, measured directly, at least as fast as a persistent/chained
+        # alternative would be for kurt's actual proof files -- see doc/kurt-soundness.md #6 for
+        # why a linked-frame version was tried and reverted (it trades this O(n) copy for O(depth)
+        # lookups, which loses badly once a derivation accumulates more than a handful of bindings)
         assert not self.occurs(v, e), f'occurs check failed: cannot bind {v} to {e}'
         new_subst[v] = deepcopy_expr(e)
         return State(new_subst, self.blocked_as_domain, self.blocked_as_range)
@@ -615,14 +620,15 @@ class State:
         #   use A, B ⇒ C
         #   D
         # to prove D we first unify D with C, but must block the free variables of D as domain
-        return State(dict(self.subst), self.blocked_as_domain | {v}, self.blocked_as_range)
+        # (`subst` itself is untouched by this, and immutable, so it's shared as-is, not copied)
+        return State(self.subst, self.blocked_as_domain | {v}, self.blocked_as_range)
 
     def block_always(self, v: str) -> State:
         # this is for blocking bound variables
-        return State(dict(self.subst), self.blocked_as_domain | {v}, self.blocked_as_range | {v})
+        return State(self.subst, self.blocked_as_domain | {v}, self.blocked_as_range | {v})
 
     def unblock(self, v: str) -> State:
-        return State(dict(self.subst), self.blocked_as_domain - {v}, self.blocked_as_range - {v})
+        return State(self.subst, self.blocked_as_domain - {v}, self.blocked_as_range - {v})
 
     # walk and occurs
     def walk(self, e: Expr) -> Expr:
@@ -4541,7 +4547,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
 #    free vars in `conclusion` can be matched against anything in `expr`
 # 4. match `premises` against the theory (but allow substitutions in both directions)
 #    free vars in `premises` 
-def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[str, State]:
+def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formula, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[str, State]:
 
     #debug(f'impl_elim: trying to prove `{expr_str(expr, kb)}` using `{expr_str(proven_formula.expr, kb)}`')
 
@@ -4576,12 +4582,12 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
         RHS = formula_expr[2]
         # first attempt: LHS implies RHS
         LHSimpliesRHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), LHS, RHS], kb)
-        reason, s_local = impl_elim(expr, LHSimpliesRHS, filename, mainstream, s, kb)
+        reason, s_local = impl_elim(expr, expr_free_vars, LHSimpliesRHS, filename, mainstream, s, kb)
         if len(reason) > 0:
             return reason, s_local
         # second attempt: RHS implies LHS
         RHSimpliesLHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), RHS, LHS], kb)
-        reason, s_local = impl_elim(expr, RHSimpliesLHS, filename, mainstream, s, kb)
+        reason, s_local = impl_elim(expr, expr_free_vars, RHSimpliesLHS, filename, mainstream, s, kb)
         if len(reason) > 0:
             return reason, s_local
         # third attempt: LHS iff RHS directly -- block `expr`'s own free variables here too
@@ -4595,7 +4601,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
         # unifies `expr` directly (attempts one/two recurse into the case-1/2 branch above,
         # which already blocks correctly) -- found via a `var`-declared symbol whose
         # auto-inferred boolean-ness was the original, narrower symptom reported.
-        blocked_as_domain = frozenset(s.blocked_as_domain | free_bound_vars(expr, kb)[0])
+        blocked_as_domain = frozenset(s.blocked_as_domain | expr_free_vars)
         s_blocked = State(s.subst, blocked_as_domain, s.blocked_as_range)
         s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s_blocked, kb))
         if s_final is not None:
@@ -4607,7 +4613,7 @@ def impl_elim(expr: Expr, proven_formula: Formula, filename: str, mainstream: bo
 
     # to unify `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
     # however, we must not change bound variables, so we block the free variables of `expr` since they are universally quantified
-    blocked_as_domain = frozenset(s.blocked_as_domain | free_bound_vars(expr, kb)[0])
+    blocked_as_domain = frozenset(s.blocked_as_domain | expr_free_vars)
     s = State(s.subst, blocked_as_domain, s.blocked_as_range)
     s_final: Optional[State] = State.empty()
     for s_matched in unify_exprs_with_patterns([(expr, conclusion)], s, kb):
@@ -4685,10 +4691,17 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
         return ['by "top-intro"'], s
 
+    # computed once here since `expr` is fixed for the whole loop below -- `impl_elim` used to
+    # recompute this itself on every single formula tried (and again on every one of its own
+    # recursive self-calls for an `is_iff` fact), turning an O(expr size) computation into
+    # O(theory size * expr size) per derivation attempt for no reason, since the answer never
+    # changes across the loop. See doc/kurt-soundness.md #6.
+    expr_free_vars = free_bound_vars(expr, kb)[0]
+
     # "impl-elim": iterate over the previously proven formulas that form the current theory.
     # this part also handles restatements (as implication without a premise)
     for proven_formula in kb.all_theory():
-        reason, s_matched = impl_elim(expr, proven_formula, filename, mainstream, s, kb)
+        reason, s_matched = impl_elim(expr, expr_free_vars, proven_formula, filename, mainstream, s, kb)
         if len(reason) > 0:
             return [reason], s_matched
 

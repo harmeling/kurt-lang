@@ -807,21 +807,22 @@ Status as assessed:
   the theory-indexing one above** (requested after the `set-comprehension`
   fix). Found four more, all confirmed by reading the actual code, ranked by
   how often the hot path is actually hit:
-  1. **`impl_elim` recomputes `free_bound_vars(expr, kb)` from scratch on
-     every call, even though `derive_expr`'s own loop
-     (`for proven_formula in kb.all_theory(): impl_elim(expr, proven_formula,
-     ...)`, line 4690) calls it with the exact same `expr` every single
-     iteration.** Confirmed at kurt.py:4598 (the `is_iff` third-attempt
-     branch) and :4610 (the plain-implication branch) — both recompute
+  1. ~~**`impl_elim` recomputes `free_bound_vars(expr, kb)` from scratch on
+     every call, even though `derive_expr`'s own loop calls it with the
+     exact same `expr` every single iteration.**~~ — **fixed (2026-09-11).**
+     Confirmed at kurt.py:4598 (the `is_iff` third-attempt branch) and
+     :4610 (the plain-implication branch) — both recomputed
      `free_bound_vars(expr, kb)[0]` from `expr`, not from anything
-     iteration-specific. Turns an O(expr size) computation into O(theory
+     iteration-specific, turning an O(expr size) computation into O(theory
      size × expr size) *per derivation attempt*, on the single most-called
-     path in the whole engine. This is a genuinely quick, low-risk,
-     mechanical fix (hoist the computation into `derive_expr`, pass the
-     result down as a parameter) — unlike the theory-indexing idea above, it
-     changes no matching *semantics* at all, only when a value already used
-     identically everywhere gets computed. Worth doing before the bigger
-     indexing refactor, independently of it.
+     path in the whole engine. Fixed by computing it once in `derive_expr`
+     (before the `for proven_formula in kb.all_theory()` loop) and
+     threading it through as a new `expr_free_vars` parameter, including
+     through `impl_elim`'s own recursive self-calls for an `is_iff` fact
+     (which previously re-triggered the same recomputation again on every
+     recursive hop). Pure hoist, no matching-semantics change — confirmed
+     via the full suite (95/95) and by re-running both `iff`-eigenvariable
+     soundness regression tests directly.
   2. **`unify_exprs_with_patterns`'s flat-and-symmetric-operator branch
      (kurt.py:4297-4317) is combinatorially far more expensive than the
      already-documented decomposition costs** — worse than the fork's own
@@ -840,30 +841,57 @@ Status as assessed:
      partition of 5 elements, times every within-partition permutation).
   3. **`State.bind` (kurt.py:606-610) does `dict(self.subst)` — a full copy
      of the whole substitution dict — on every single variable binding.**
-     `bind` fires on every successful assignment inside
-     `unify_exprs_with_patterns`, so accumulating `n` bindings across one
-     match costs `1+2+...+n` = O(n²) dict-copying instead of O(n). `State`
-     is deliberately an immutable dataclass (each step gets its own
-     snapshot, which is genuinely why the soundness work this session could
-     reason about "blocked" state cleanly) — a persistent/copy-on-write map
-     (mirroring how `KnowledgeBase` itself already chains via `.parent`
-     instead of copying) would get back to amortized O(1) per bind without
-     giving up immutability. Moderate severity: matters more for
-     schema-variable-heavy axioms/goals, negligible for today's small proof
-     files.
-  4. **Lower priority:** `KnowledgeBase`'s symbol-classification methods
+     **Investigated with an actual persistent-map redesign (2026-09-11),
+     then reverted after measuring it — this is exactly the kind of
+     "obvious win on paper" that turned out not to hold up.** Built a
+     `Subst` class (an immutable singly-linked chain of bindings, O(1)
+     `extend` instead of O(n) dict-copy) and switched `bind` to use it.
+     Result: **no measurable improvement on the actual test suite** (three
+     timed runs before/after were statistically indistinguishable, if
+     anything a hair slower — plain-`dict` copying of the *small* dicts
+     kurt's real proof files ever produce is already fast in CPython, and
+     the persistent chain adds Python-level per-node traversal overhead to
+     `lookup`, which is called far more often than `bind` ever is). Worse,
+     a synthetic stress test (20,000 chained binds then 20,000 lookups)
+     showed the *lookup* side degrading to O(chain depth) — 5.7 seconds for
+     20,000 lookups against a 20,000-deep chain, vastly worse than dict's
+     O(1) lookup — meaning the fix would trade a bounded, guaranteed-small
+     cost today for an *unbounded* one in exactly the pathological case
+     (many bindings accumulated in one derivation, e.g. a long flat-operator
+     chain — the same territory as #2 above) it was meant to help with.
+     Reverted `bind` back to plain `dict` copying, with a comment
+     explaining why the persistent version was tried and rejected, so a
+     future reader doesn't reinvent this without re-measuring.
+     **What did survive, and is a genuine, zero-risk, unambiguous win**:
+     `block_as_domain`, `block_always`, and `unblock` were each doing a full
+     `dict(self.subst)` copy too, despite never touching `subst` at all —
+     confirmed no code anywhere mutates a `State.subst` dict in place (only
+     `.get()` reads and full-dict copies existed), so these three methods
+     now just pass `self.subst` through unchanged, eliminating 3 of the 4
+     redundant copies for free, with no representation change and no
+     lookup-cost tradeoff. Full suite (95/95) and the `iff`-eigenvariable
+     soundness regressions re-confirmed after landing this.
+  4. **Investigated, not implemented — genuinely unsafe as a caching fix,
+     not just low-value.** `KnowledgeBase`'s symbol-classification methods
      (`is_var`, `is_const`, `get_arity`, `bool_sig`, `is_infix`, etc.) are
-     all O(level-stack depth) via `self.parent.is_x(s)` recursion, with no
-     caching, called on essentially every token during parsing and
-     type-checking. Depth is normally small (proof nesting), so low severity
-     today, but it's paid fresh on every call, never memoized even within
-     one statement's processing.
-
-  None of these four were implemented — reported for the maintainer to
-  triage, since #1 is a safe, independent quick win but #2/#3 touch the
-  same matching/`State` machinery this session's soundness fixes depend on,
-  and deserve their own before/after benchmarks and careful review rather
-  than a drive-by change.
+     O(level-stack depth) via `self.parent.is_x(s)` recursion with no
+     caching. Traced the actual call pattern before proposing a fix: 
+     `_add_new_symbols` (kurt.py:1499-1521, called on *every* symbol in
+     *every* expression processed anywhere) does exactly `if self.is_var(s)
+     or self.is_const(s): pass; elif not self.is_used(s): ...
+     self.add_const(s)` — i.e., it queries `is_var`/`is_const` on a symbol
+     immediately *before potentially declaring that exact symbol* in the
+     same function call. This is the common case, not an edge case: a
+     symbol's first-ever appearance is always a negative lookup immediately
+     followed by a declaration. Naively memoizing `is_var`/`is_const`
+     results would go stale within the same statement's processing unless
+     the cache were invalidated on every one of the ~15 mutating `add_*`
+     methods (`add_const`, `add_var`, `add_infix`, `add_bool`, ...) — real,
+     error-prone invalidation plumbing for an item this session's own
+     report already flagged as "low severity today" (depth is small, a few
+     levels in practice). Not worth the correctness risk for the payoff;
+     left undone and documented here so a future caching attempt starts
+     from this finding instead of re-discovering it the hard way.
 - ~~**`nonassoc` operators**~~ — **done.** New `nonassoc OP` keyword
   (mirroring `flat`/`sym`'s existing "declare a property of an already-
   `infix` operator" pattern, rather than extending `infix`'s own argument
