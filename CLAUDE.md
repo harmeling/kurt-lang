@@ -84,3 +84,20 @@ Loading and modularity:
 - `mainstream` (a bool threaded through most eval functions) distinguishes output that should be printed/logged from output produced while silently loading dependencies.
 
 Docs worth reading before non-trivial language changes: `doc/kurt-doc.md` (language reference, describes current behavior only), `doc/kurt-soundness.md` (audit of what the inference engine's soundness actually rests on, rule by rule, with pointers to the regression tests in `proofs/soundness/` — read this before touching `eval_done`, `derive_expr`, `impl_elim`, or substitution/capture-avoidance), `doc/kurt-cookbook.md` (task-oriented recipes — currently just a stub, not yet written), `doc/dev-notes.md` (chronological design-decision diary, not a reference — history of *why*, not a description of *what is*), `tutorial/*.kurt` and `tutorial/plan.md` (hands-on lessons). `todo.md` tracks known-missing features and open design questions; `todo-claude.md` and `suggestions-claude.md` are a filtered/verified pass over that backlog plus independent implementation-improvement ideas — check these before assuming something is a bug rather than a documented gap.
+
+## Compute policy (shared node)
+
+Every spawned agent session for this repo runs on `ls8-slurm`, a **shared
+login node** — only 8 CPU cores, ~20 concurrent users, no GPU. Never run
+heavy computation directly there: anything that would peg a core for more
+than a few seconds. Before starting anything nontrivial, check the node
+isn't already loaded (`top`, or `uptime` for load average against 8 cores).
+This project's own test suite (`python -m unittest`) is lightweight and
+fine to run inline, but for any CPU-heavy task, submit it via `srun`/
+`sbatch` to the SLURM scheduler instead:
+- Check `sinfo -N -o "%N %P %T %C %m %G"` for what's free.
+- Ask the user for memory/time-limit requirements if the task didn't
+  already specify them.
+- Log each submitted job (command, job ID, purpose) in `lab-notes.md`.
+- A SLURM time-limit kill only ends that compute job — it does not affect
+  this claude session.
