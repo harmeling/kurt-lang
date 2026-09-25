@@ -1,0 +1,9 @@
+; matching `sub $x $a %A` must skip decompositions that cut into a quantifier's condition (e.g.
+; replacing the `∈` of `∀ $k ∈ Nat`), instead of failing with an EvalError
+load natural
+const sum
+arity sum 3
+bindop sum
+use (sum x (0, 0) x) = 0
+use ∀ $k ∈ Nat  ($k = $k)
+((sum x (0, 0) x) = 0) ∧ (∀ $k ∈ Nat  ($k = $k))

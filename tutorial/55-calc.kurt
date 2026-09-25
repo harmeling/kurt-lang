@@ -16,3 +16,11 @@ calc on
 calc off
 expect "ProofError"
     1 + 1 = 2
+
+; With `calc on`, comparing two numbers is also a calculation:
+infix < 20 20
+bool  < 0
+calc on
+2 + 2 < 5             ; `4 < 5`, true "by calc"
+expect "ProofError"
+    2 + 2 = 5         ; `4 = 5` is false, so it can't be proven

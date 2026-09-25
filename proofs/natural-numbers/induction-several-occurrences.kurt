@@ -1,0 +1,8 @@
+; "induction" needs `sub $x $n %A` to match a formula mentioning `$n` several times, i.e., all
+; of its occurrences must be replaced at once
+load natural
+bool P
+arity P 2
+const P
+use (P 0 0) and (forall $n in Nat (P $n $n implies P ($n+1) ($n+1)))
+forall $n in Nat  P $n $n

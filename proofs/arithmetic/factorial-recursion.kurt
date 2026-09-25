@@ -3,16 +3,11 @@
 ; n != 0 was simply not derivable from anything). Proves `1! = 1` by chaining
 ; "factorial-step" + "factorial-base" + "mul-identity".
 ;
-; note on a real limitation found while writing this: chaining a *second* application of
-; "factorial-step" (e.g. to go on and prove `2! = 2`) runs into a genuine equal-elim/flat-
-; operator interaction gap -- substituting a fact whose RHS is itself a `*`-expression (like
-; `1! = 1 * 1`) into another `*`-context (like `2 * 1!`) fails to re-flatten and match a
-; naturally-written target (`2 * (1 * 1)` flattens to `2 * 1 * 1` when typed, but the
-; substituted derivation result apparently doesn't get re-flattened the same way before
-; comparison). This is a real, separate, currently-undiagnosed gap in the matching engine, not
-; a soundness bug (it only makes some true things harder to reach, not false things reachable)
-; -- see `todo-claude.md`, flagged there for dedicated investigation rather than being
-; papered over here with a proof that happens to dodge it.
+; note: chaining a *second* application of "factorial-step" used to fail, since substituting
+; `1! = 1 * 1` into `2 * 1!` needs to rewrite the group `1 * 1` inside the flat `2 * 1 * 1` --
+; equal-elim can do that now, see proofs/debug/flat-group-rewrite.kurt. The literal
+; arithmetic (`1 - 1 = 0`) still has to be stated, since `calc` doesn't compute while matching
+; an axiom's pattern (`($n - 1)!` against `0!`).
 load arith
 use 1 - 1 = 0   "lit-1-1"
 use 1 > 0

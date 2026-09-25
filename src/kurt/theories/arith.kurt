@@ -5,13 +5,11 @@
 ; factorial (recursively defined via "factorial-step", not just the base case) -- see
 ; proofs/arithmetic/ for worked examples of all of this.
 ;
-; known gap: `calc on` only simplifies literal numeric expressions you type yourself, never an
-; axiom's own internal substitution result -- so chaining a recursive fact like
-; "factorial-step" across concrete numbers needs each intermediate literal-arithmetic equality
-; (e.g. `3 - 1 = 2`) stated explicitly and combined in via "equal-elim", rather than something
-; `calc` does automatically. See proofs/arithmetic/factorial-recursion.kurt for the pattern,
-; and doc/kurt-soundness.md #6 for a related matching-engine limitation when chaining more
-; than one such substitution through the same `flat` operator (`*`).
+; known gap: `calc on` computes what you type and the results of substitutions, but not while
+; matching an axiom's pattern -- so chaining a recursive fact like "factorial-step" across
+; concrete numbers needs each intermediate literal-arithmetic equality (e.g. `3 - 1 = 2`)
+; stated explicitly, since `($n - 1)!` doesn't match `2!`. See
+; proofs/arithmetic/factorial-recursion.kurt for the pattern.
 load equality
 
 ;; syntax
@@ -52,6 +50,8 @@ use -(-$a) = $a          "double-negation"
 use $a * 0 = 0           "mul-zero"
 use $a ≠ 0 ⇒ 0 / $a = 0  "zero-div"
 use $a ≠ 0 ⇒ $a / $a = 1 "div-self"
+use $c ≠ 0 ⇒ ($a * $c) / $c = $a             "mul-div"
+use $c ≠ 0 ⇒ $a / $c + $b / $c = ($a + $b) / $c  "div-add"
 use $a + 0 = $a          "add-identity"
 use $a - 0 = $a          "sub-identity"
 
@@ -93,6 +93,13 @@ use $c > 0 ∧ $a >= $b  ⇒  $a * $c >= $b * $c   "ge-mul-pos"
 use $c > 0 ∧ $a >= $b  ⇒  $a / $c >= $b / $c   "ge-div-pos"
 use $c < 0 ∧ $a >= $b  ⇒  $a * $c <= $b * $c   "ge-mul-neg"
 use $c < 0 ∧ $a >= $b  ⇒  $a / $c <= $b / $c   "ge-div-neg"
+
+;; order rules: adding inequalities, powers
+use $a < $b ∧ $c < $d  ⇒  $a + $c < $b + $d            "lt-add-lt"
+use $a > $b ∧ $c > $d  ⇒  $a + $c > $b + $d            "gt-add-gt"
+use $a > 0  ⇒  $a ^ $b > 0                             "pow-pos"
+use $a > 0 ∧ $a < $b ∧ $c > 0  ⇒  $a ^ $c < $b ^ $c    "pow-lt"
+use $b > 0 ∧ $a > $b ∧ $c > 0  ⇒  $a ^ $c > $b ^ $c    "pow-gt"
 
 ;; order rules: mixed
 use $a < $b  ⇒  ¬($a >= $b)   "lt-not-ge"

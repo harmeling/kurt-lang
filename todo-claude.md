@@ -1075,19 +1075,21 @@ Status as assessed:
   formula) and against how errors are reported (today's `by 3, 2` reasons
   are one hop; multi-hop search needs a real proof-search trace, not just a
   reason string). Worth a design spike before implementation.
-- **"allow multiple replacement in one step (is that possible?)"** — **now
-  has the concrete motivating example this was blocked on**, found and
-  fully diagnosed while writing `arith.kurt`'s factorial-recursion proof:
-  chaining a second `equal-elim` substitution through the same `flat`
-  operator (`*`) fails, because the target has already been flattened into
-  one N-ary node with no addressable sub-node for "these two arguments
-  together are what the substituted value was" — see
-  `doc/kurt-soundness.md` §6 for the full trace. Still not implemented:
-  the real fix (trying every *subset* of a flat node's arguments as a
-  candidate substitution hole, not just every single node) is a genuine
-  combinatorial-cost feature, not a quick fix, in the same family as the
-  O(n^k) performance items below — a deliberate choice to document
-  precisely and defer rather than rush under this pass.
+- ~~**"allow multiple replacement in one step (is that possible?)"**~~ —
+  **done (2026-09-25), for the two cases that came up in real proofs.**
+  `all_single_hole_decompositions` now also proposes (a) every group of two
+  or more (but not all) arguments of a `flat` node as one hole (any subset
+  for a `sym` operator, consecutive ranges otherwise), e.g. `1 * 1` inside
+  `2 * 1 * 1` for the factorial chain, and (b) every subterm that occurs
+  more than once as one hole at *all* its occurrences, which "induction"
+  needs for a formula mentioning `$n` several times (Gauss's sum). Groups
+  are tried only after all single nodes. Other combinations of occurrences
+  are still not tried. Substitution results are normalized again
+  (`normalize_expr`) so they compare equal to what the user typed. Cost:
+  `2^n` group candidates for an `n`-argument sym node, noticeable on long
+  sums (a rewrite inside a 6-term sum takes ~0.4 s instead of ~0.1 s).
+  Regression tests: `proofs/debug/flat-group-rewrite.kurt`,
+  `proofs/natural-numbers/induction-several-occurrences.kurt`.
 - ~~**"check whether we need a version of `equal_expr` that allows bounded
   renaming"**~~ — **yes, and fixed.** Found a real, concrete counterexample:
   `pick`/exists-elim outright rejected a valid witness whenever the

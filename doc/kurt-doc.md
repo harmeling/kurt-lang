@@ -317,6 +317,17 @@ links in a chain of relations still need an explicit intermediate step,
 same as any other multi-hop reasoning (§6.1's single-hop limitation still
 applies beyond one combination).
 
+Relations can also be chained on a single line: `a = b <= c < d` means `a =
+b and b <= c and c < d`, reusing each middle term. This applies to any infix
+operator with a boolean result and no boolean arguments (`bool OP 0`, e.g.
+`=`, `≠`, `<`, `<=`, `in`), whether or not it is declared in a `chain` —
+not to connectives like `and`, `iff`, `implies`. Parentheses switch it off:
+`(a = b) = c` is still an equation between `a = b` and `c`. Since the
+auto-generated transitivity axioms take a conjunction as premise, a single
+chained line like `a = b <= c` directly gives `a <= c` in one more step
+(`proofs/arithmetic/chains.kurt`). A same-line chain can't (yet) be
+continued on indented lines below it.
+
 Continuation lines must be indented relative to the line that starts the
 chain; writing the continuation at the same indentation is a `ParseError`,
 not a chain. All declared chains together must form a DAG (no operator
@@ -605,7 +616,7 @@ declaring their own prerequisites via their own `load` lines:
 | `logic.kurt` | forall-elim, exists-intro (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
 | `set.kurt` | `in`/`∈`, `⊂`, `∪`, `∩`, set-builder `{ ... \| ... }`, `∅`, `Pow`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
-| `natural.kurt` | natural numbers | `set` |
+| `natural.kurt` | natural numbers, induction | `set`, `arith` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
 | `latex.kurt` | LaTeX rendering setup for `kurt -l` | none declared |
 | `lambda-calculus.kurt` | `λ`/lambda abstraction and beta-reduction (a *predicate* lambda calculus — see the file's own header for why: single-argument, boolean-bodied only, no currying, no eta) | `equality` |
@@ -867,14 +878,21 @@ changing it. `calc on` simplifies `+`/`-`/`*`/`/`/`^` on numeric literals
 (e.g. `1 + 1 = 2` becomes `2 = 2` before checking, once `load equality` and
 `infix "+" ...` make `+`/`=` available at all) — no symbolic simplification,
 and no explicit handling of floating-point precision (e.g. `0.1 + 0.2 = 0.3`
-compares the raw Python float result, with no tolerance). It only
-simplifies expressions you type yourself, not axiom instantiations produced
-internally during a derivation — e.g. instantiating `$n! = $n * ($n-1)!` at
-`$n=3` gives `3! = 3 * (3-1)!` verbatim, `(3-1)` is never auto-collapsed to
-`2` inside that derived fact, only inside something you write and check
-directly (see `proofs/arithmetic/factorial-recursion.kurt` for how to work
-around this: derive the needed literal equalities, like `3-1=2`, as their
-own facts, and combine them in with `equal-elim` explicitly). `hint` exists
+compares the raw Python float result, with no tolerance; an exact integer
+division like `6 / 2` stays the integer `3`). With `calc on`, a comparison of
+two numeric literals (`=`, `≠`, `<`, `<=`, `>`, `>=`, e.g. `3 <= 4`) is also
+proven directly "by calc", and a claim follows "by calc" from a fact that
+computes to the same thing (e.g. `x = -25` from `x = (-5) * 5`). Results of
+substitutions (`sub`, as in `induction` or `equal-elim`) are computed too:
+substituting `k + 1` into `$x + 1` gives `k + 2`, not `k + 1 + 1`. What
+`calc` does not do is compute while *matching* an axiom's pattern: `$n! = $n
+* ($n-1)!` at `$n=1` needs `(1-1)!` to match `0!`, which it doesn't — see
+`proofs/arithmetic/factorial-recursion.kurt` for the workaround (derive the
+literal equality, like `1-1=0`, as its own fact). Since `calc` also
+simplifies what you type, a fact like `8 = 2^3` can't be stated with `calc
+on` (it would become `8 = 8`); switch it on only where you need it, as in
+`proofs/arithmetic/solve-math-equation.kurt` — it is a single global toggle,
+not scoped to the current block. `hint` exists
 and can be toggled but, as of this writing, nothing reads its value yet.
 
 `help` prints Kurt's own one-line description of every keyword.
@@ -895,6 +913,12 @@ and can be toggled but, as of this writing, nothing reads its value yet.
 - `inspect` is listed by `help` but not implemented yet (raises
   `NotImplementedError` if used) — it's meant to eventually stop a running
   file and drop into the interactive shell at that point.
+
+- In a pattern like `sum $i ($a, $b) $T`, a non-boolean schema variable
+  (`$T`) can't stand for a term that depends on the bound variable `$i`
+  (only a boolean `%A` can), so there is no way yet to state an axiom about
+  sums of an arbitrary summand — `proofs/natural-numbers/gauss.kurt` states
+  its sum axioms for the summand `$i` itself.
 
 See `todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.

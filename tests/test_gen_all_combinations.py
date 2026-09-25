@@ -8,11 +8,11 @@ from kurt import Token, generate_all_combinations, initial_kb
 #
 # every example's `(None, expr)` entry is the zero-occurrence combination (`%A` doesn't have
 # to mention `$x` at all, so `%A == expr` unchanged and `$a` is unconstrained) -- see
-# doc/kurt-soundness.md #6 for why that candidate has to exist. `old_examples` below still
-# has each of these too, alongside additional multi-hole combinations (replacing more than one
-# occurrence of the same value at once) that were deliberately dropped for performance
-# ("allow only one subterm to be replaced, much more efficient") and haven't been restored --
-# only the zero-occurrence gap was a real gap, not the multi-hole simplification.
+# doc/kurt-soundness.md #6 for why that candidate has to exist. Besides replacing one
+# occurrence, a value occurring several times is also replaced at all of its occurrences at
+# once (e.g. `(17, [g, $%1, $%1])`), but not in any other combination (`old_examples` below
+# still has those too, which were dropped for performance) -- see
+# `all_single_hole_decompositions`.
 examples = [
     # f 17
     [[Token(label='SYMBOL', value='f'), Token(label='INT', value='17')],
@@ -27,6 +27,7 @@ examples = [
       '(g, [$%1, 17, 17])',
       '(17, [g, $%1, 17])',
       '(17, [g, 17, $%1])',
+      '(17, [g, $%1, $%1])',
       '(None, [g, 17, 17])']],
 
     # h 17 42
@@ -44,6 +45,7 @@ examples = [
       '(17, [h, $%1, 42, 17])',
       '(42, [h, 17, $%1, 17])',
       '(17, [h, 17, 42, $%1])',
+      '(17, [h, $%1, 42, $%1])',
       '(None, [h, 17, 42, 17])']],
 
     # h 17 17 17
@@ -53,6 +55,7 @@ examples = [
       '(17, [h, $%1, 17, 17])',
       '(17, [h, 17, $%1, 17])',
       '(17, [h, 17, 17, $%1])',
+      '(17, [h, $%1, $%1, $%1])',
       '(None, [h, 17, 17, 17])']],
 
     # h $z

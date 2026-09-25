@@ -1,9 +1,0 @@
-; simple natural numbers
-load set
-
-use 0 in Nat
-use n in Nat  implies  s n in Nat
-use n + 0 = n
-use (s n) + m = s (n + m)
-use 1 = n 0
-use 2 = n 1
