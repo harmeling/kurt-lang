@@ -9,6 +9,14 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO `square-root-two-is-irrational.kurt`: reducing `m/n` to lowest terms is a hidden induction -- decide: well-ordering axiom in `natural.kurt`, or "every rational has a coprime representation" as an axiom of `Q`.  needs a theory of `divides`/even/odd with the lemma `2 divides m*m ⇒ 2 divides m`; rewrite `exists (m, n)` as `exists m exists n`, `begin`/`end` as `case`, `:=` as `def`, `contradiction` as `false`
 - TODO sums with an arbitrary summand: a non-boolean `$T` in `sum $i ($a, $b) $T` can't depend on `$i` (only `%A` can), so `gauss.kurt` states its axioms for the summand `$i` only -- decide whether (and how) a non-boolean schema variable may depend on a bound variable (soundness-sensitive)
 
+## postponed from the tutorial discussion (2026-09-26)
+
+- TODO `save` as a replay of the accepted input lines instead of a flattened snapshot (keeps proofs checkable, also with `--strict`, keeps labels and open blocks); forbid `save` in files
+- TODO shell: pre-fill each input line with the current indentation (readline `set_startup_hook`), so that a backspace dedents
+- TODO `use` only *directly* in a `sandbox`/`expect`, not in a proof block nested inside them (two soundness tests need `use P $w` before the block instead)
+- TODO get rid of the `;;; ` markers: `expect` with an optional message prefix, and file-level errors (EOF, unclosed blocks, `break` at top level) via `expect` around a `load` of a helper file in a directory the test discovery skips
+- TODO minimal core: remove the name-based special cases (`iff`, `not`/`false`, `=`/`iff` for `def`, `exists`/`pick`) so that `minimal.kurt` really is the core; later maybe separate the rule level from the object level (like Isabelle/Pure)
+
 ## NEXT
 
 - TODO solve the path puzzle, also check `load ../foo.kurt` whether it works
