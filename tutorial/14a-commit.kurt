@@ -13,9 +13,9 @@ sandbox
     use D               ; unlabelled -- stays scratch, even after commit
     commit
 
-C                        ; fine: "c-holds" was exported
+C                       ; fine: "c-holds" was exported
 
-; false            ; would fail: `D` was never exported, so nothing here
+; D                ; would fail: `D` was never exported, so nothing here
 ;                    talks about it -- same as an unlabelled fact in a
 ;                    `load`ed file never reaching whoever loads it
 

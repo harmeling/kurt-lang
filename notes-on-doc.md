@@ -1,0 +1,18 @@
+- `kurt` shouldn't automatically read a file `theory.kurt`
+- distinguish between label and comment
+- do we need the @ sign ?  $ is non-boolean, % boolean...
+- comments an indentation rules, what's good?
+- function application via space as infix operator, good idea?
+- prefix vs space (function), do we need both?
+- just using a symbol makes it a variable or a constant, please check the code and doc
+- can $x or %p be declared constant, should make an error message, check the phrasing in doc
+- how about having a `strict` mode where all symbols must be declared before usage?
+- what about `f a b` vs `f(a,b)`?  is the later the application of a `f` to the pair `(a,b)`?
+- is `f(a,b)` just `f (a,b)`, or `f(a)` just `f a`?
+- `f()` similar question: is it: `f ()` or just `f` (hopefully not)
+- `flat` and `sym`: is that necessary?  or is associativity enough?
+- `nonassoc`: even though `a<b<c` shouldn't parse left- or right-associative, it is a chain, and should be `a<b and b<c`, correct?
+- what about chains in a single line?
+- chains: the order in which the symbols appear matter!
+- maybe omit the `latex` keyword stuff?  should probably not part of `kurt`
+- 

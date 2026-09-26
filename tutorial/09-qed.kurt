@@ -3,7 +3,7 @@
 ; `qed` closes the most recent `proof` block (08-proof.kurt).  It takes
 ; everything derived inside the block, tries once more to derive the shown
 ; goal, and -- if that succeeds -- adds the *goal* (not the intermediate
-; steps) to the theory, at the level where it was `show`n.
+; steps) to the theory, at the level where it was announced via `show`.
 
 bool A, B
 

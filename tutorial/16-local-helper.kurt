@@ -7,5 +7,5 @@
 bool P, Q
 
 use P             "exported"        ; labelled -- travels to whoever loads this file
-use Q  local      "hidden"          ; labelled `local` -- stays inside this file
+use Q local       "hidden"          ; labelled, but `local` -- stays inside this file
 use P implies Q                     ; unlabelled -- also stays inside this file

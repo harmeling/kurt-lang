@@ -16,10 +16,10 @@ proof
     B
 qed
 
+save "/tmp/kurt-tutorial-save-demo.kurt"
 ; writes everything above (syntax + facts) out as flat `.kurt` source --
 ; the path is resolved relative to the current working directory, not this
 ; tutorial file's own location
-save "/tmp/kurt-tutorial-save-demo.kurt"
 
 ; the saved file reconstructs the same facts if `load`ed from a *different*
 ; session -- including `B` (which was *proven*, not `use`d, here; `save`

@@ -1,0 +1,22 @@
+- extra line at the end of `use` w/o args
+- restating a known thing, should add a message at the end
+- applying modus ponens should say so, is it a built-in rule?
+- 03: really, does proving an implication really requires all that?
+- 04: maybe reader first expect `A and B implies A`
+- 00: mention what a comment is
+- 06: mentions that `$A implies $A` might be an axiom, but then says that boolean variables are `%A`.  what is correct, or both?
+- 08: has `use A` inside the last proof.  shouldn't it be just `A`?
+- 08: don't we have to indent?  please mention that in 08 as well
+- 09a: is `thus` a keyword?  do we really need it?  maybe get rid of it?
+-10: `load` should give a message, if something is already loaded
+-10a: renumber please!
+-11: what happen when `def` without loading `prop` and `equality`?
+-11: include an example where the `def` is more complicated, e.g., `def f($x) = $x+$x`
+-14a: again renumber...
+-14a: do we really need `sandbox` and `commit`?
+-15: why have `expect`?  to write good explained code.
+-15: why not have nested `expect`? 
+-20: looks wrong: why do a `use B` in the proof?  maybe `show A implies B` example is not so good?
+-21: what happens when we use `let` without `load firstorder`?
+-21: the first `show` is strange: `forall x true`, what is `x`?  a variable or const?
+

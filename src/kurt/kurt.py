@@ -5186,8 +5186,9 @@ def main() -> None:
     # readline history
     if readline:
         readline_history_file = os.path.expanduser('~/.kurt_history')         # should work on all platforms
-        if os.path.exists(readline_history_file):
+        if os.path.exists(readline_history_file) and False:
             try:
+                print(readline_history_file)
                 readline.read_history_file(readline_history_file)                 # restore history
             except PermissionError:
                 # the file exists but is not readable if it consists only of the header
