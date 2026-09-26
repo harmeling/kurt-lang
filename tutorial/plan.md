@@ -2,7 +2,8 @@ Kurt tutorial -- lesson plan
 ============================
 
 Each lesson is a single `.kurt` file that teaches exactly one keyword (or,
-for `true`/`implies`/`and`, one core built-in symbol).  Lessons are meant to
+for `true`/`implies`/`and`, one core built-in symbol).  Lessons are numbered
+consecutively (the sections below are just for orientation), and are meant to
 be read and run in numeric order: a lesson only uses keywords that were
 already introduced in an earlier lesson (plus whatever `minimal.kurt`
 hard-codes for free: `true`, `implies`, `and`, brackets, comma, space).
@@ -23,71 +24,69 @@ BASICS -- your first checked proofs
     07-show      stating a goal to be proved
     08-proof     opening the block that proves a `show`n goal
     09-qed       closing a `proof` block
-    09a-thus     closing a `proof` block by literal match, no re-derivation
 
 THEORIES -- building and reusing bodies of knowledge
 -----------------------------------------------------
     10-load      pulling in ready-made theories, e.g. `prop.kurt`
-    10a-save     the reverse of `load`: write the theory out to a file
-    11-def       introducing a new constant via its defining equation
-    12-theory    inspecting the current theory
-    13-todo      admitting a step as an exercise/placeholder
-    14-sandbox   a scratch block that is thrown away when closed
-    14a-commit   keeping a `sandbox`'s content instead of discarding it
-    15-expect    a block that must fail, with a named kind of error
-    16-local     what a loaded file does and doesn't export
+    11-save      the reverse of `load`: write the theory out to a file
+    12-def       introducing a new constant via its defining equation
+    13-theory    inspecting the current theory
+    14-todo      admitting a step as an exercise/placeholder
+    15-sandbox   a scratch block that is thrown away when closed
+    16-expect    a block that must fail, with a named kind of error
+    17-local     what a loaded file does and doesn't export
 
 BLOCKS -- natural-deduction-style sub-proofs
 -----------------------------------------------
-    20-assume    hypothetical reasoning ("impl-intro", "not-intro")
-    21-let       introducing a fresh, arbitrary constant ("forall-intro")
-    22-pick      extracting a witness from an existential ("exists-elim")
-    23-case      case distinctions ("or-elim")
-    25-break     abandoning a block immediately, without proving anything
-    26-mode      what kind of block are we in right now?
-    27-trail     the chain of open blocks, one line
-    28-context   the chain of open blocks, in detail
-    29-level     how deeply nested are we?
+    18-assume    hypothetical reasoning ("impl-intro", "not-intro")
+    19-let       introducing a fresh, arbitrary constant ("forall-intro")
+    20-pick      extracting a witness from an existential ("exists-elim")
+    21-case      case distinctions ("or-elim")
+    22-break     abandoning a block immediately, without proving anything
+    23-mode      what kind of block are we in right now?
+    24-trail     the chain of open blocks, one line
+    25-context   the chain of open blocks, in detail
+    26-level     how deeply nested are we?
 
 SYNTAX -- extending Kurt's grammar from Kurt source
 ------------------------------------------------------
-    30-tokenize  see how a string turns into tokens
-    31-parse     see how tokens turn into a term
-    32-syntax    inspect all currently declared syntax
-    33-infix     declaring infix operators (with binding powers)
-    34-prefix    declaring prefix operators
-    35-postfix   declaring postfix operators
-    36-brackets  declaring bracket pairs
-    37-arity     declaring a symbol's number of arguments
-    38-bindop    declaring variable-binding operators (`forall`, `exists`, ...)
-    39-chain     declaring chains of mixed (in)equalities, e.g. `a = b < c`
+    27-tokenize  see how a string turns into tokens
+    28-parse     see how tokens turn into a term
+    29-syntax    inspect all currently declared syntax
+    30-infix     declaring infix operators (with binding powers)
+    31-prefix    declaring prefix operators
+    32-postfix   declaring postfix operators
+    33-brackets  declaring bracket pairs
+    34-arity     declaring a symbol's number of arguments
+    35-bindop    declaring variable-binding operators (`forall`, `exists`, ...)
+    36-chain     declaring chains of mixed (in)equalities, e.g. `a = b < c`
 
 SUGAR -- syntactic convenience
 ---------------------------------
-    40-alias     giving a symbol an extra name (e.g. Unicode for ASCII)
-    41-flat      an infix operator that doesn't need explicit nesting
-    42-sym       an infix operator whose arguments may be swapped
-    42a-nonassoc an infix operator that rejects being chained, ambiguously
-    43-latex     custom LaTeX rendering for a symbol (see `-l` / `latex.kurt`)
+    37-alias     giving a symbol an extra name (e.g. Unicode for ASCII)
+    38-flat      an infix operator that doesn't need explicit nesting
+    39-sym       an infix operator whose arguments may be swapped
+    40-nonassoc  an infix operator that rejects being chained, ambiguously
+    41-latex     custom LaTeX rendering for a symbol (see `-l` / `latex.kurt`)
 
 MISC -- REPL/output behaviour and self-documentation
 --------------------------------------------------------
-    50-format    how formulas are printed (`sexpr` vs `normal`)
-    51-help      list of all keywords, straight from Kurt itself
-    52-hint      toggle: hints for the next input (shell only)
-    53-verbose   toggle: show extra detail while matching formulas
-    55-calc      toggle: automatic arithmetic simplification (`+`, `*`)
+    42-format    how formulas are printed (`sexpr` vs `normal`)
+    43-help      list of all keywords, straight from Kurt itself
+    44-hint      toggle: hints for the next input (shell only)
+    45-verbose   toggle: show extra detail while matching formulas
+    46-calc      toggle: automatic arithmetic simplification (`+`, `*`)
 
 PUTTING IT ALL TOGETHER -- writing a proof from scratch, not just one keyword
 ------------------------------------------------------------------------------
-    60-worked-proof   a full worked example (de Morgan's law, one direction),
+    47-worked-proof   a full worked example (de Morgan's law, one direction),
                       narrating the actual process: state the goal, sketch a
                       strategy, hit "can not derive" at least once, and fix it
 
 Not covered (deliberately)
 ---------------------------
     inspect      raises `NotImplementedError` in `kurt.py` -- not usable yet
-    fix          old name for what is now the `let` keyword (see `21-let.kurt`)
+    fix          old name for what is now the `let` keyword (see `19-let.kurt`)
     indent       removed -- the shell's indentation handling used to differ
                  from a file's (see below); once unified, the toggle (and
                  `done`) had nothing left to switch
@@ -99,12 +98,8 @@ Indentation is significant everywhere, in the shell exactly as in a file:
 way, by dedenting -- there is no more `indent` toggle, and no more
 `done` (it existed purely to fake a dedent in the shell; once the shell
 started reading real indentation, it had nothing left to do that dedenting
-didn't already do). Four keywords remain as optional, position-independent
-alternatives to dedenting, and all work in files too, not just the shell:
-`qed` (09-qed.kurt) and `thus` (09a-thus.kurt) both still need a real
-dedent -- `qed` re-derives the shown goal, `thus` only checks the block's
-last line already *is* the goal, literally -- while `break` (25-break.kurt)
-and `commit` (14a-commit.kurt) need none at all, closing the current block
-immediately; `break` discards it, `commit` keeps it (and only ever closes
-a `sandbox`, since every other block already has its own way to keep what
-happened inside).
+didn't already do). Two keywords remain as optional alternatives to
+dedenting, and both work in files too, not just the shell: `qed`
+(09-qed.kurt) still needs a real dedent and re-derives the shown goal, while
+`break` (22-break.kurt) needs none at all and discards the current block
+immediately.

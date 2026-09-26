@@ -199,14 +199,14 @@ Status as assessed:
   correctly a historical record, not something to "fix" to match what
   actually got built.
   Wrote four missing tutorial lessons for keywords that had none:
-  `tutorial/09a-thus.kurt`, `10a-save.kurt`, `14a-commit.kurt`,
-  `42a-nonassoc.kurt` (numbered with a letter suffix to slot in next to
+  `tutorial/09a-thus.kurt`, `11-save.kurt`, `14a-commit.kurt`,
+  `40-nonassoc.kurt` (numbered with a letter suffix to slot in next to
   their closest relative without renumbering every later lesson) — the
   plan's own stated rule is "one lesson per keyword," and these four had
   none. Updated `tutorial/plan.md`'s lesson list and prose to match.
 
 - ~~**New finding: a blank line inside a nested block could silently close
-  it**~~ — **done, fixed.** Found while writing `tutorial/60-worked-proof.kurt`.
+  it**~~ — **done, fixed.** Found while writing `tutorial/47-worked-proof.kurt`.
   A blank line's own leading-space count is always 0, and the indentation
   tracker read that literally as "dedent all the way back to column 0" --
   incorrectly closing *every* currently open block instead of being
@@ -283,7 +283,7 @@ Status as assessed:
 - **"allow boolean expressions for the bound variable for some binding
   operators"** — already implemented: `type_check_expression`'s `bindop`
   case (around line 2900) and `unpack_condition` (line 2150) both handle
-  `forall x>0 F(x)`-style conditions. Confirmed working (`tutorial/21-let.kurt`
+  `forall x>0 F(x)`-style conditions. Confirmed working (`tutorial/19-let.kurt`
   relies on the simple form; the doc's own example `forall x>0 F(x)` also
   parses).
 - **"what is the difference between `arity f 1` and `prefix f 1`?"** —
@@ -294,7 +294,7 @@ Status as assessed:
   todo removed.
 - **"add syntactic sugar for case distinctions"** — `case` already exists as
   a full keyword (identical to `assume`, feeding "or-elim"); see
-  `tutorial/23-case.kurt`. Todo is stale.
+  `tutorial/21-case.kurt`. Todo is stale.
 - **"write the tutorial" / "write documentation/tutorial for the language"**
   — done in `tutorial/*.kurt` (45 lesson files) + `tutorial/plan.md`. Worth a
   follow-up: `doc/kurt-tutorial.md` still says "Not yet!" — point it at
@@ -456,8 +456,8 @@ Status as assessed:
   `KurtException.kind`, not comparing message text at all — so the file
   either fully succeeds (`;;; Proof checked.`, no marker fragility) or
   fails for real. Retrofitted: `forall-elim-fail.kurt`,
-  `proofs/debug/mini-again.kurt`, `tutorial/55-calc.kurt`, plus a new
-  `tutorial/15-expect.kurt` lesson. **Three files still rely on the 17-char
+  `proofs/debug/mini-again.kurt`, `tutorial/46-calc.kurt`, plus a new
+  `tutorial/16-expect.kurt` lesson. **Three files still rely on the 17-char
   fallback, deliberately**: `proofs/debug/load-cycle-a/b.kurt` need to match
   the error *kind* across two different files' absolute paths, which
   `expect` can't do for a cycle that spans files (the cycle gets "caught"
@@ -596,7 +596,7 @@ Status as assessed:
   building real exhaustiveness checking would only improve error-message
   clarity, not correctness — a real but lower-value feature than it first
   sounds, so left undone; documented the two actual prerequisites clearly
-  instead (`doc/kurt-doc.md` §9.1, `tutorial/23-case.kurt`), which is
+  instead (`doc/kurt-doc.md` §9.1, `tutorial/21-case.kurt`), which is
   exactly what would have saved time debugging
   `proofs/mafi1/001-two-equal-sets.kurt`'s missing disjunction fact
   earlier this session.

@@ -13,5 +13,5 @@ const one, two          ; comma-separated, just like `bool`
 ;     var zero          ; would fail: `zero` is already used as a constant
 
 ; You rarely need `const` directly at the top level -- most of the time a
-; constant gets introduced implicitly, e.g. by `def` (lesson 11) or `let`
-; (lesson 21), simply by naming one particular object.
+; constant gets introduced implicitly, e.g. by `def` (lesson 12) or `let`
+; (lesson 19), simply by naming one particular object.

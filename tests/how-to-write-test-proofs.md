@@ -7,7 +7,7 @@
    interesting condition and finishes cleanly either way).
 3. If your file's whole point is a *specific* expected error message rather than clean
    success — typically because the failure happens while a block *closes* (a dedent, `qed`,
-   `break`, `commit`, ...), which `expect` can't wrap, since `expect` only ever observes an
+   `break`, ...), which `expect` can't wrap, since `expect` only ever observes an
    error raised by an ordinary statement directly inside its own body — add `;;; ` on the
    file's last line, followed by (the start of) the expected error message, e.g.
      ;;; ProofError: can not derive `q`

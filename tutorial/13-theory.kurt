@@ -1,0 +1,14 @@
+; 13-theory.kurt
+
+; `theory` prints the current theory -- every axiom and every proven fact --
+; for the current level and all levels above it.  It is read-only
+; introspection; it never changes anything.
+
+bool A, B
+use A implies B  "our-axiom"
+use A
+B
+
+theory                 ; show everything
+
+theory implies         ; show only formulas whose top-level operator is `implies`

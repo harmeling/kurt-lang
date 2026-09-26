@@ -8,4 +8,4 @@ show a=c
 proof
     a = b          ; just a = b
       = c          ; gets transformed into a = c
-thus
+qed

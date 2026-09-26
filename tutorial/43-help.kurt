@@ -1,0 +1,8 @@
+; 43-help.kurt
+
+; `help` prints Kurt's own one-line description of every keyword -- the
+; ground truth this whole tutorial is trying to expand on.  Worth running
+; whenever you forget what something does, or want to see if a feature you
+; haven't met yet exists.
+
+help

@@ -1,0 +1,22 @@
+; 24-trail.kurt
+
+; `trail` prints the chain of open blocks' modes as one compact line, from
+; the outermost down to the current one -- handy as a quick "where am I?"
+; when blocks are nested several levels deep.  Compare with `mode`
+; (23-mode.kurt), which only prints the current, innermost mode.
+
+; every loaded/checked file is itself wrapped in one "sandbox" level, on top of the
+; always-present "root" -- that's why even the very first `trail` below already shows
+; two levels, not zero.
+bool A, B
+use A implies B
+
+trail                    ; e.g. "; root > sandbox" -- just the implicit outer level
+
+show A implies B "demo"
+proof
+    trail                ; e.g. "; root > sandbox > proof"
+    assume A
+        trail            ; e.g. "; root > sandbox > proof > assume"
+        use B
+qed

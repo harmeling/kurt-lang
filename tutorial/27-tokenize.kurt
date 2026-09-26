@@ -1,0 +1,11 @@
+; 27-tokenize.kurt
+
+; `tokenize` is a peek under the hood: it shows how a piece of source text is
+; split into tokens, before any parsing happens.  Handy when something
+; doesn't parse the way you expect, and you want to check whether Kurt even
+; split it into the symbols you thought it would.
+
+; the trailing `$$$` in the output below is just Kurt's internal end-of-input marker,
+; always appended -- harmless, not part of your actual source text.
+bool A, B
+tokenize A implies B      ; [A, implies, B]  $$$

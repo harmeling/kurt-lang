@@ -1,0 +1,29 @@
+; 22-break.kurt
+
+; `break` discards the current block immediately -- no proof step, nothing
+; added anywhere -- without needing to dedent past it first the way
+; 15-sandbox.kurt's plain dedent did.  It's for when you already know you
+; want to abandon a block right now, rather than writing something at a
+; shallower indentation to trigger the close.
+
+bool A
+use A
+
+sandbox
+    use false
+    break            ; abandon the sandbox here, instead of dedenting out of it
+
+A                   ; still fine, `A` is a real axiom from outside the sandbox
+; false             ; would fail: `false` only ever existed inside the sandbox
+
+; `break` works on any open block, not just `sandbox` -- e.g. abandoning a
+; `proof` you've started but don't want to finish yet also gives up the
+; `show` it was trying to prove, not just the `proof` block itself:
+
+show A implies A
+proof
+    break
+
+; note that there's no `qed` above -- `break` already closed the `proof`
+; block itself (and the `show` promise along with it), so there's nothing
+; left to write; adding a `qed` here would be an error (nothing open to close).

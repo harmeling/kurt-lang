@@ -56,7 +56,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   (Named `expect` rather than `expect-error`: Kurt identifiers can't contain
   a hyphen — `[$%@]?[A-Za-z][A-Za-z0-9]*` — so `expect-error` would have
   lexed as three separate tokens.) See `doc/kurt-doc.md` §9.6 and
-  `tutorial/15-expect.kurt`. It checks `KurtException.kind`, not message
+  `tutorial/16-expect.kurt`. It checks `KurtException.kind`, not message
   text, so it doesn't share the old marker convention's fragility. One
   real, documented limitation surfaced during implementation: the block
   can't itself open a nested block (`show`/`proof`/`assume`/etc.) — the

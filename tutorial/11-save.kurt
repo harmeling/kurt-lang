@@ -1,0 +1,35 @@
+; 11-save.kurt
+
+; `save` is the reverse of `load` (10-load.kurt): it writes the current
+; theory and syntax out to a file, in a form that reconstructs the same
+; state via a plain `load`. Handy for picking up a long session later
+; without re-running every step, or for handing a colleague a
+; self-contained snapshot of where you got to.
+
+bool A, B
+use A implies B "modus-ponens"
+use A
+
+show B
+proof
+    A
+    B
+qed
+
+save "/tmp/kurt-tutorial-save-demo.kurt"
+; writes everything above (syntax + facts) out as flat `.kurt` source --
+; the path is resolved relative to the current working directory, not this
+; tutorial file's own location
+
+; the saved file reconstructs the same facts if `load`ed from a *different*
+; session -- including `B` (which was *proven*, not `use`d, here; `save`
+; flattens either kind of fact the same way, and gives every fact a label
+; if it didn't already have one, so nothing is silently dropped by `load`'s
+; own selective export). It's not meant to be `load`ed back into *this
+; same* session, though -- that would just re-declare syntax and facts
+; already present here. Try it from a fresh shell instead:
+;
+;     kurt /tmp/kurt-tutorial-save-demo.kurt
+
+; `save` only captures the theory and syntax, not an open proof or a
+; pending `show` -- call it once everything is settled, not mid-proof.

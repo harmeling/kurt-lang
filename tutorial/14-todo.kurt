@@ -1,0 +1,23 @@
+; 14-todo.kurt
+
+; `todo` is a joker: it lets a proof continue -- and the file still "check
+; out" -- even though a step has not actually been justified.  It is meant
+; for iteratively developing a proof, or for handing out a proof skeleton
+; with the hard parts left as exercises.
+
+bool p, q
+
+show p
+proof
+    todo p          ; admit `p`, with a note that this needs real work
+qed
+
+show p implies q
+proof
+    todo             ; admit whatever the block's goal is, no note needed
+qed
+
+; A file with unresolved `todo`s does not report "Proof checked" -- Kurt ends
+; with "Proof almost checked: N todos." instead, and lists exactly where each
+; one is, e.g. "14-todo.kurt:12 todo p".  That is Kurt's built-in reminder
+; list: the file runs (nothing is broken), but it's not finished yet.

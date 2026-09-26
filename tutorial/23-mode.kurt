@@ -1,0 +1,22 @@
+; 23-mode.kurt
+
+; Every open block has a "mode": `root`, `sandbox`, `proof`, `assume` (also
+; used for `case`), `let`, `pick`, or `expect` (16-expect.kurt) -- it's
+; simply which keyword opened the block you are currently in.  `mode`
+; prints the mode of the current level.
+
+; Running a *file* actually starts one level deep already, inside an implicit
+; `sandbox` (the same mechanism `load`, lesson 10, uses to keep a failed file
+; from half-loading) -- so even here, at the top, `mode` won't say "root":
+mode
+
+bool A, B
+use A implies B
+
+show A implies B "demo"
+proof
+    mode          ; now inside the `proof` block
+    assume A
+        mode      ; now inside the nested `assume` block
+        use B
+qed

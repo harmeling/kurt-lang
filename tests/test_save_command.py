@@ -26,7 +26,7 @@ use A
 show B
 proof
     B
-thus
+qed
 
 save "{saved_path}"
 ''')

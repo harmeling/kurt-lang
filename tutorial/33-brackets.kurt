@@ -1,0 +1,19 @@
+; 33-brackets.kurt
+
+; `brackets LEFT RIGHT` declares a new bracket pair.  Kurt's own `(` `)` is
+; declared exactly this way in `minimal.kurt` (`brackets ( )`), and is
+; special-cased afterwards to disappear again -- so `(A)` really is just `A`.
+; A *new* bracket pair you declare is not: it stays around as a genuine
+; two-symbol operator, ready to carry its own meaning, e.g. absolute value
+; `|x|`, or a pairing notation `⟨a, b⟩`.
+
+brackets "[" "]"
+
+var a
+; the `[ ... ]` you declared is its own operator, shown below as `[]` --
+; "the operator made of `[` and `]`", applied to `a`:
+parse [a]
+
+; Giving it meaning is up to you, exactly like for `infix`/`prefix`/
+; `postfix`: declare an `arity`/`bool` signature if needed, then add `use`
+; axioms about it.

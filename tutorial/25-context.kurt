@@ -1,0 +1,18 @@
+; 25-context.kurt
+
+; `context` is `trail`'s (24-trail.kurt) more detailed sibling: instead of one
+; compact line, it prints every open level on its own line, with a little
+; more information about each (e.g. what is being `assume`d there).
+
+bool A, B
+use A implies B
+
+context
+
+show A implies B "demo"
+proof
+    context
+    assume A
+        context
+        use B
+qed

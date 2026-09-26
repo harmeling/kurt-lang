@@ -517,20 +517,6 @@ Kurt knows how many nested blocks to close, and a single `qed` can close
 several at once this way. This is identical in a file and in the
 interactive shell — see §9's introduction.
 
-`thus` is an alternative to `qed` (and to plain dedenting) for closing a
-`proof` block: instead of re-deriving the goal from scratch, it only checks
-that the block's *last line is already, literally, the goal* (up to
-alpha-equivalence of bound variables — the same notion of "the same
-formula" used elsewhere, e.g. by `use`/`show` restatement checks). No
-search happens at all, so `thus` is cheap and its outcome is easy to
-predict just by reading the last line, but it also means `thus` rejects a
-proof whose last line is one step short of the goal even when `qed` would
-happily take that step — write out that last step explicitly, or use `qed`
-instead. Like `qed`, `thus` must line up with the `proof`/`show` it closes
-and can only close a `proof` block (not `assume`/`case`/`let`/`pick` —
-those close with `qed`/dedent only). Prefer `thus` for long equational or
-`iff`-chain proofs where every line already restates the goal-so-far.
-
 ## 8. Building the theory: hard-coded core vs. loaded theories
 
 ### 8.1 What's hard-coded (needs no `load`)
@@ -685,7 +671,7 @@ via a plain `load` (path is resolved relative to the current working
 directory, same as any other file write, not relative to the file being
 run). `save` is a flat snapshot, not a recording: every fact is re-emitted
 as a `use`/`def`/`todo` statement regardless of how it was originally
-obtained — including one proved via `show`/`proof`/`qed`/`thus` — so
+obtained — including one proved via `show`/`proof`/`qed` — so
 reloading it never re-runs any proof search. Every fact is given a label,
 synthesizing one (`"save-1"`, `"save-2"`, ...) for any fact that didn't
 already have one, so nothing is silently dropped by `load`'s selective
@@ -716,15 +702,12 @@ closes as many levels as the drop in indentation implies, applying
 whatever each level's closing rule is (`impl-intro`, `forall-intro`, ...,
 below). There is no separate "shell mode" for this: the interactive shell
 reads real leading whitespace exactly like a file does, so pasting file
-content into `kurt -i` behaves the same as running it as a file. Four
-keywords remain as *optional*, position-independent alternatives to
-dedenting, and work identically in files and the shell: `qed` (§7 — still
-needs a real dedent, but also checks you're closing a `proof`), `thus`
-(§7 — also still needs a real dedent and only closes a `proof`, but checks
-the goal by literal match instead of re-deriving it), `break` (§9.5 —
-needs no dedent at all, and is the only way to close a `sandbox` other
-than dedenting past it), and `commit` (§9.5 — `break`'s opposite: also
-needs no dedent, but keeps a `sandbox`'s content instead of discarding it).
+content into `kurt -i` behaves the same as running it as a file. Two
+keywords remain as *optional* alternatives to dedenting, and work
+identically in files and the shell: `qed` (§7 — still needs a real dedent,
+but also checks you're closing a `proof`) and `break` (§9.5 — needs no
+dedent at all, and is the only way to close a `sandbox` other than
+dedenting past it).
 
 **Running a file itself already starts one level deep, inside an implicit
 `sandbox`** (the same mechanism `load` uses, see §8.2) — so `mode`/`level`
@@ -797,21 +780,17 @@ witness's only property comes from `FACT` itself.
 
     sandbox
         ...
-    (closes by dedenting, discarding everything inside -- or by `break`, immediately --
-     or, to keep it instead of discarding it, by `commit`)
+    (closes by dedenting, discarding everything inside -- or by `break`, immediately)
 
 A scratch block: everything inside is discarded by default, never merged
 into the surrounding theory, whether it closes by dedenting (§9's
-introduction) or by `break` (§9.5) right away. `commit` (§9.5) is the
-exception: it closes a `sandbox` immediately, like `break`, but keeps its
-content instead. A file with an unclosed `sandbox` at end-of-file still
-fails with `EvalError: ... not all blocks closed`, same as any other
-unclosed block.
+introduction) or by `break` (§9.5) right away. A file with an unclosed
+`sandbox` at end-of-file still fails with `EvalError: ... not all blocks
+closed`, same as any other unclosed block.
 
-### 9.5 `break` and `commit`
+### 9.5 `break`
 
     break     ; discard the current block immediately, without proving anything
-    commit    ; close a `sandbox` immediately, keeping its content instead of discarding it
 
 `break` closes the current block right away, discarding it — no
 `impl-intro`, `forall-intro`, etc., nothing is added anywhere — without
@@ -820,19 +799,9 @@ interactive shell, and on any open block. Breaking out of a `proof` also
 gives up the pending `show` it was trying to prove, not just the `proof`
 block itself, so nothing is left dangling on the parent level.
 
-`commit` is `break`'s opposite: it only ever closes a `sandbox` (every
-other block already has its own way to keep what happened inside — dedent,
-or `qed`/`thus` — so `commit` on one of those is rejected rather than
-silently doing something else), and instead of discarding its content, it
-keeps it — via the same selective export a `load` uses (§8.2's "What gets
-exported"): only a labelled, non-`local` fact (and the symbols it needs)
-travels to the parent level, exactly as if the sandbox's content had been
-a separate file the parent `load`ed. An unlabelled fact tried out inside
-the sandbox stays scratch even after `commit`, same as it would in a
-loaded file. Neither `break` nor `commit` can close the file's own
-implicit top-level scope (§8.2, §9's introduction) — there is no real,
-user-written block there to close, so both raise a clean error rather than
-doing anything to it.
+`break` can't close the file's own implicit top-level scope (§8.2, §9's
+introduction) — there is no real, user-written block there to close, so it
+raises a clean error rather than doing anything to it.
 
 ### 9.6 `expect`
 
@@ -852,7 +821,7 @@ having raised, *that itself* is now the failure (`ExpectationError: this
 raises but of the *wrong* kind, that's also a failure, reported with both
 kinds shown.
 
-This exists so a proof file (or a lesson, see `tutorial/15-expect.kurt`) can
+This exists so a proof file (or a lesson, see `tutorial/16-expect.kurt`) can
 demonstrate a mistake and have Kurt itself confirm it still fails the
 expected way, rather than relying on a comment nobody re-checks, or on a
 separate test harness matching exact (and therefore fragile — see

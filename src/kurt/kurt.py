@@ -120,7 +120,6 @@ latex_map = {
     'show':          r'\text{To show: }',
     'proof':         r'\textbf{proof}',
     'qed':           r'\textbf{qed}',
-    'thus':          r'\textbf{thus}',
     'and':           r'\and',
     'or':            r'\or',
     'implies':       r'\Rightarrow',
@@ -412,7 +411,6 @@ keywords: dict[str, str] = {
     'show':        'plan to prove a formula',
     'proof':       'start a proof block to prove the last planned formula',
     'qed':         'end a proof block, to finish the proof of the last planned formula (optional -- dedenting alone already does this; `qed` documents it and double-checks you meant to close a `proof`, not some other kind of block)',
-    'thus':        'end a proof block like `qed`, but only by checking that the last formula is literally (up to alpha-equivalence) the planned goal, instead of `qed`\'s full derivation search -- cheaper and more predictable for equational chains, but rejects a goal that would need any extra derivation step',
 
     'todo':        'without a formula it is a joker for the next one, with a formula it is a joker for that one',
 
@@ -421,8 +419,7 @@ keywords: dict[str, str] = {
     'case':        'open a case analysis block for disjunctions (made for "or-elim"), block must be indented',
     'let':         'fix a new constant, possibly with an assumption (made for "forall-intro"), block must be indented',
     'pick':        'pick a new constant "with" assumption (made for "exists-elim"), block must be indented',
-    'sandbox':     'open a temporary block, useful for trying out things; discarded when closed, whether by dedenting or by `break` -- unless closed by `commit` instead, which keeps it (like a `load`, only labelled non-`local` facts and the symbols they need travel to the parent level)',
-    'commit':      'close a `sandbox` immediately (no dedent needed, like `break`) and keep its content instead of discarding it -- exactly like `load`\'s selective export: only labelled, non-`local` facts (and the symbols they need) travel to the parent level',
+    'sandbox':     'open a temporary block, useful for trying out things; discarded when closed, whether by dedenting or by `break`',
     'expect':      'open a block whose content must raise the named kind of error (one of ProofError, ParseError, EvalError, SyntaxError, TypeError) to succeed; block must be indented and must not itself open further blocks',
 
     # closing a block explicitly (besides just dedenting, which works everywhere and is enough on its own)
@@ -435,7 +432,7 @@ helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
 keywords_with_parsing = ['use', 'show', 'def', 'assume', 'case', 'let', 'todo', 'parse']
 keywords_opening_blocks = ['proof', 'assume', 'case', 'let', 'pick', 'sandbox', 'expect']
-keywords_closing_blocks = ['qed', 'thus', 'break', 'commit']
+keywords_closing_blocks = ['qed', 'break']
 
 @dataclass
 class Token:
@@ -720,7 +717,7 @@ class KnowledgeBase:
         self.libs: list[str]        = []         # the filenames of loaded libraries
         self.tmp: bool              = tmp        # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
         self.is_load_boundary: bool = False      # set only on the implicit `sandbox` level `load_file` itself
-                                                  # pushes for the file being loaded -- `break`/`commit` must
+                                                  # pushes for the file being loaded -- `break` must
                                                   # refuse to close this one (there's no real, user-written
                                                   # block here to close), or `load_file`'s own bookkeeping
                                                   # (it expects to be the only one popping this exact level)
@@ -2631,39 +2628,6 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
         log(kb, 'qed', '', kb.level)
     return kb
 
-def eval_thus(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
-    # like `eval_qed`, but instead of a full `derive_expr` search over the whole theory, only
-    # checks that the last proven formula is literally (up to alpha-equivalence, via `equal_expr`)
-    # the planned goal -- cheaper and more predictable for long equational chains (e.g. group.kurt
-    # style proofs), at the cost of never doing any search: the last line must already spell out
-    # the goal exactly, not just something the goal follows from.
-    parent = kb.parent
-    if not kb.mode_str == 'proof'  or  parent is None:
-        raise KurtException(f'EvalError: no proof to finish, `thus` can only appear at the end of a `proof` block')
-    assert len(parent.show) > 0, f'BUG: no planned formula on previous level, this should have been already checked when calling "proof"'
-    planned_f = parent.show[-1]
-    planned_expr = planned_f.simplified_expr        # peek at the last planned formula from previous level
-    if len(kb.theory) == 0:
-        raise KurtException(f'ProofError: no formula has been proven, `thus` can only be used after a successful proof')
-    proven_f = kb.theory[-1]               # check the last formula
-    proven_expr = proven_f.simplified_expr          # what actually has been proven
-    if proven_expr == todo_token:
-        reason = f'by a miracle'
-        if mainstream:
-            log(kb, 'todo', reason, kb.level)
-    else:
-        if not equal_expr(planned_expr, proven_expr, kb):
-            raise KurtException(f'ProofError: last formula `{expr_str(proven_expr, kb)}` is not literally the planned formula `{expr_str(planned_expr, kb)}` -- `thus` only accepts an exact (up to alpha-equivalence) match, use `qed` if the goal needs an extra derivation step')
-        reason = decorate_reason(mainstream, '', filename, str(line))
-    # carry the `show`'s own label/local marker forward, same as `eval_qed`
-    f = Formula(kb, planned_f.expr, planned_f.input_line, str(planned_f.line), filename, planned_f.label, reason, keyword='', local=planned_f.local)
-    kb = kb.pop_level()                        # drop current level and perform some checks
-    kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
-    kb.theory_append(f)                        # add a copy to the current theory
-    if mainstream:
-        log(kb, 'thus', '', kb.level)
-    return kb
-
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
     return kb.is_var(s) or not kb.is_const(s)
 
@@ -2820,7 +2784,7 @@ def save_state_str(kb: KnowledgeBase) -> str:
     # theory facts, across every level from root down to the current one) into self-contained
     # `.kurt` source that reconstructs the same state via a plain `load`. Deliberately a flat
     # snapshot, not a replay: every fact -- however it was originally obtained (`use`, `def`,
-    # or proven via `show`/`proof`/`qed`/`thus`) -- is re-emitted as a `use`/`def`/`todo`
+    # or proven via `show`/`proof`/`qed`) -- is re-emitted as a `use`/`def`/`todo`
     # statement that doesn't require re-deriving anything, so `save` stays cheap and its output
     # always loads (no re-running of proof search). Deliberately does *not* try to detect "this
     # came from `load prop`" and emit `load prop` instead -- that would need to distinguish a
@@ -3341,16 +3305,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         assert False, '`qed` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
-    elif keyword == 'thus':           # like `qed`, but checks literal (alpha-)equality instead of deriving
-        assert False, '`thus` should have been handled in `scan_parse_check_eval`'
-        pass    # do nothing, it was already handled in `scan_parse_check_eval`
-
     elif keyword == 'break':
         assert False, '`break` should have been handled in `scan_parse_check_eval`'
-        pass    # do nothing, it was already handled in `scan_parse_check_eval`
-
-    elif keyword == 'commit':
-        assert False, '`commit` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
     elif keyword == 'inspect':
@@ -3695,7 +3651,7 @@ def latexify(kb: KnowledgeBase, s: str) -> str:
     return s
 
 def starts_with_keyword(s: str) -> bool:
-    keywords = ['theory', 'use', 'def', 'todo', 'qed', 'thus', 'done', 'break', 'commit', 'inspect', 'show', 'proof', 'sandbox', 'assume', 'case', 'let', 'pick']
+    keywords = ['theory', 'use', 'def', 'todo', 'qed', 'done', 'break', 'inspect', 'show', 'proof', 'sandbox', 'assume', 'case', 'let', 'pick']
     for kw in keywords:
         if s.startswith(kw + ' ') or s == kw:
             return True
@@ -5010,12 +4966,8 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             raise KurtException(f'ParseError: `{keyword}` does not take any arguments')
     if keyword == 'break' and dedents > 0:
         raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
-    if keyword == 'commit' and dedents > 0:
-        raise KurtException(f'ParseError: `{keyword}` cannot create dedentation at line {line} in {filename}')
     if keyword == 'qed' and dedents == 0:
         raise KurtException(f'ParseError: `qed` must be used with dedentation at line {line} in {filename}')
-    if keyword == 'thus' and dedents == 0:
-        raise KurtException(f'ParseError: `thus` must be used with dedentation at line {line} in {filename}')
 
     # chain management continued
     if chained:
@@ -5057,15 +5009,6 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             kb.show.pop()
         if mainstream:
             log(kb, 'break', f'{line} discarded the last block', kb.level)
-    elif keyword == 'commit':
-        if kb.is_load_boundary:
-            raise KurtException(f'EvalError: `commit` has no block to close here -- this is the top level of the file, not a `sandbox` you opened yourself', keyword_token.column if keyword_token is not None else None)
-        if kb.mode_str != 'sandbox':
-            raise KurtException(f'EvalError: `commit` only closes a `sandbox` block, not a `{kb.mode_str}` block')
-        kb = kb.merge_and_pop()         # like `load`: only labelled, non-`local` facts survive
-        lexer_state.indent_stack.pop()  # pop one indentation level, no real dedent happened
-        if mainstream:
-            log(kb, 'commit', f'{line} closed, its content is kept', kb.level)
     elif keyword == 'qed':
         # dry run to check the block modes and that we are not closing too many levels
         dedents_check = dedents
@@ -5089,30 +5032,6 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
                 kb = eval_done(kb, filename, line, mainstream)  # done with a block, yield a formula
             else:
                 assert False, f'BUG: `qed` closed a non-proof/assume/let/pick block'
-            dedents -= 1
-    elif keyword == 'thus':
-        # dry run to check the block modes and that we are not closing too many levels -- unlike
-        # `qed`, `thus` only ever closes a `proof` block (it's specifically a cheaper alternative
-        # to `qed`'s derivation search, not a general block closer)
-        dedents_check = dedents
-        kb_check = kb
-        while dedents_check > 0:
-            mode_str = kb_check.mode_str
-            if mode_str == 'sandbox':
-                raise KurtException(f'EvalError: `thus` never closes a `sandbox`')
-            elif mode_str == 'root':
-                assert False, f'BUG: `thus` closed too many levels at line {line} in {filename}'
-            elif dedents_check == 1 and mode_str != 'proof':
-                raise KurtException(f'EvalError: `thus` must close a `proof` block at line {line} in {filename}, not a `{mode_str}` block')
-            assert kb_check.parent is not None, f'BUG: `thus` closed too many levels'
-            kb_check = kb_check.parent   # don't pop yet, just check
-            dedents_check -= 1
-        # now actually pop the levels
-        while dedents > 0:
-            if kb.mode_str == 'proof':
-                kb = eval_thus(kb, filename, line, mainstream)   # thus with a block, yield a formula
-            else:
-                assert False, f'BUG: `thus` closed a non-proof block'
             dedents -= 1
     else:
         # process the DEDENTs -- this is how every block ordinarily closes, `proof` included
@@ -5192,7 +5111,7 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
                 kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
                 level = kb.level      # save current level, this one we want to reach after loading
                 kb.tmp = True              # mark as temporary knowledge base during loading
-                kb.is_load_boundary = True # `break`/`commit` must not be able to close this implicit level
+                kb.is_load_boundary = True # `break` must not be able to close this implicit level
                 kb = read_eval_loop(f, kb, mainstream=mainstream)
             # checks after closing the file
             if kb.level > level:

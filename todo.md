@@ -50,7 +50,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO define what get's exported when loading a file, make variables declarations local?
 - TODO get coverage of 100% in the unit tests
 - TODO test the conditions for forall and exist rules
-- TODO 'thus' with one step shorter, for `qed` we use match, for `thus` we use equal (otherwise matching the correct variables is difficult)
 - TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 - TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 - TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
