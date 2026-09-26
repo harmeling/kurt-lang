@@ -184,12 +184,14 @@ class _EmbeddedTheoryFile:
         f = io.StringIO(self._files[self._name])
         f.name = str(self)              # `read_eval_loop` needs `.name` (a real file always has one)
         return f
+    def is_file(self) -> bool:
+        return self._name in self._files
     def __str__(self) -> str:
         return f'<embedded>/{self._name}'
 
 class EmbeddedTheories:
     # a minimal stand-in for a `Path`/`Traversable`, backed by an in-memory dict of theory
-    # file contents -- supports exactly the two operations `load_file` needs (`/` and `.open()`)
+    # file contents -- supports exactly the operations `load_file` needs (`/`, `.open()`, `.is_file()`)
     def __init__(self, files: dict[str, str]) -> None:
         self._files = files
     def __truediv__(self, name: str) -> _EmbeddedTheoryFile:
@@ -948,11 +950,12 @@ class KnowledgeBase:
             return self.parent.todos()
 
     def loaded_files_str(self) -> str:
-        s = ''
-        if self.parent is not None:
-            s += self.parent.loaded_files_str() + '\n'
-        s += '\n'.join([f'load {lib:<{comment_indent}}; level {self.level}' for lib in self.libs]) if len(self.libs) > 0 else '; no files loaded'
-        return s
+        lines = self._loaded_files_lines()
+        return '\n'.join(lines) if len(lines) > 0 else '; no files loaded'
+
+    def _loaded_files_lines(self) -> list[str]:
+        lines = self.parent._loaded_files_lines() if self.parent is not None else []
+        return lines + [f'load {lib:<{comment_indent}}; level {self.level}' for lib in self.libs]
 
     def _entry_str(self, keyword:str, key:str, value:str|int|tuple[int,int]|list[int]|list[str]|None = None) -> str:
         if   keyword == 'prefix':   return f'prefix {key} {value}'
@@ -1496,15 +1499,18 @@ class KnowledgeBase:
             yield from self.parent.all_theory()
 
     def theory_str(self, op:Optional[str]=None, keyword:Optional[str]=None) -> str:
-        s: str = self.parent.theory_str(op=op) if self.parent is not None else ''
-        s += f'; on level {self.level}\n'
+        # the formulas level by level, levels without any are left out
+        s: str = self.parent.theory_str(op=op, keyword=keyword) if self.parent is not None else ''
+        lines: list[str] = []
         for f in self.theory:
             if op is None or is_op_expr(f.expr, op):
                 if keyword is None or f.keyword==keyword:
                     if self.verbose:
-                        s += f'{f.formula_str(self)}   {f.simplified_expr}\n'
+                        lines.append(f'{f.formula_str(self)}   {f.simplified_expr}')
                     else:
-                        s += f'{f.formula_str(self)}\n'
+                        lines.append(f'{f.formula_str(self)}')
+        if len(lines) > 0:
+            s += f'; on level {self.level}\n' + ''.join(line + '\n' for line in lines)
         return s
 
     # add new symbols and also add them to the list of symbols that are used in formulas
@@ -1636,9 +1642,8 @@ class KnowledgeBase:
 
     def show_str(self) -> str:
         s: str = self.parent.show_str() if self.parent is not None else ''
-        s += f'; on level {self.level}\n'
-        for f in self.show:
-            s += f'{f.formula_str(self)}\n'
+        if len(self.show) > 0:
+            s += f'; on level {self.level}\n' + ''.join(f'{f.formula_str(self)}\n' for f in self.show)
         return s
 
     def all_vars(self) -> set[str]:
@@ -2902,12 +2907,16 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     case Token(label='STRING', value=fname):
                         assert isinstance(fname, str)
                         s_paths = [Path(filename).parent.resolve()] + theory_path
+                        already_loaded = is_already_loaded(fname, kb, s_paths)
                         try:
                             kb = load_file(fname, kb, search_paths=s_paths, mainstream=False)
                         except KurtException as e:
                             if e.column is None:
                                 e.column = arg[0].column
                             raise
+                        if mainstream:
+                            reason = decorate_reason(mainstream, 'already loaded, skipped' if already_loaded else 'loaded', filename, str(line))
+                            log(kb, f'load {fname}', reason, kb.level)
                     case _:
                         assert False, f'BUG: `load` was scanned with wrong args'
 
@@ -3280,7 +3289,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
 
     elif keyword == 'use':
         if len(args) == 0:
-            log(kb, kb.theory_str(keyword=keyword))
+            log(kb, kb.theory_str(keyword=keyword).strip())
         else:
             formulas = []
             for expr in args:
@@ -3296,7 +3305,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
 
     elif keyword == 'def':
         if len(args) == 0:
-            log(kb, kb.theory_str(keyword=keyword))
+            log(kb, kb.theory_str(keyword=keyword).strip())
         else:
             formulas = []
             lhs_consts = []
@@ -3352,7 +3361,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
 
     elif keyword == 'show':
         if len(args) == 0:
-            log(kb, kb.show_str())
+            log(kb, kb.show_str().strip())
         elif len(args) == 1:
             expr = args[0] if len(args) == 1 else args  # allow single expression or a list of expressions
             kb = eval_show(kb, expr, input_line, label, filename, line, mainstream, local)
@@ -3522,8 +3531,12 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
             if len(kb.theory) > 0:
                 last_formula = kb.theory[-1]
                 if equal_expr(last_formula.expr, expr, kb):
-                    # short-cut to avoid duplicates
-                    return kb   # do not add duplicates
+                    # short-cut to avoid duplicates: restating the last formula is logged, not added again
+                    if mainstream:
+                        reason = decorate_reason(mainstream, f'by {formula_ref(last_formula, filename, mainstream)}', filename, str(line))
+                        restated = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='')
+                        log(kb, restated.formula_str(kb), reason, kb.level)
+                    continue
             reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
             if len(reasons) == 1:
                 reason = reasons[0]
@@ -4792,6 +4805,8 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         else:
             reason += f'{refs}, '
     reason += f'{formula_ref(proven_formula, filename, mainstream)}'
+    if premise is not None and len(proven_formula.label) == 0:
+        reason += ', "impl-elim"'    # modus ponens with an unlabelled implication (a label names its own rule)
     return reason, s_final    # bingo!  found an implication (and a substitution)
 
 def get_column(e: Expr) -> int:
@@ -5128,6 +5143,18 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
 # we're about to actually read it, and always removed again in a `finally`, whether loading it
 # succeeded, failed to parse/check, or wasn't found at this particular search path.
 _loading_in_progress: set[str] = set()
+
+def is_already_loaded(filename: str, kb: KnowledgeBase, search_paths) -> bool:
+    # whether `load_file` would skip `filename`, since it finds it loaded before finding it anywhere else
+    if not filename.endswith('.kurt'):
+        filename += '.kurt'
+    for path in search_paths:
+        candidate = path / filename
+        if kb.get_load_level(str(candidate)) is not None:
+            return True
+        if candidate.is_file():
+            return False
+    return False
 
 def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, mainstream:bool=False, silent:bool=False) -> KnowledgeBase:
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads

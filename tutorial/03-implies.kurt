@@ -8,8 +8,9 @@
 bool A, B
 
 ; `B` below is derived automatically via "impl-elim" (modus ponens), logged as e.g.
-; "by 3, 2" -- the two premises' line numbers, not the rule's name (unlike an axiom
-; with its own `use ... "label"`).
+; `by 14, 13, "impl-elim"` -- the line numbers of `A` and of `A implies B`, and the rule.
+; (If the implication has a label, e.g. `use A implies B "my-rule"`, the log shows the
+; label instead, since the label names the rule.)
 use A implies B
 use A
 B

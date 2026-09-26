@@ -14,7 +14,9 @@ B
 ; `load` looks in the current directory first, then in Kurt's own packaged
 ; theories -- so `load "my-theory.kurt"` also works for files you write
 ; yourself.  A file is only ever loaded once, even if several files (or the
-; same file, twice) ask for it.
+; same file, twice) ask for it -- a second `load` just says so:
+
+load prop             ; already loaded, skipped
 
 ; `load` with no arguments lists every file loaded so far:
 load

@@ -412,7 +412,10 @@ automatic — you must first derive `B` as its own line. See
 `todo-claude.md` for the design questions around making this multi-hop.
 
 A claim that's structurally identical to the last thing already in the
-theory is silently treated as a no-op restatement rather than logged again.
+theory is logged as a restatement of it (`by 2`), without being added again.
+Modus ponens with an unlabelled implication is logged with its rule name
+(`by 14, 13, "impl-elim"`); a labelled implication's label names the rule
+instead (`by 10, "and-elim"`).
 
 Labelling (§6.2) isn't specific to `use`/`def` — it's the same mechanism
 for *every* statement, keyworded or not, since they're all parsed through
@@ -597,7 +600,8 @@ given on the command line, then Kurt's own packaged theories
 missing. A file that has *already finished* loading is not loaded again
 (tracked via `get_load_level`, per level, inherited from parent levels) —
 so `load prop` twice in a row, or from two different files that both
-depend on it, is a harmless no-op rather than a duplicate-axiom error. A
+depend on it, is a harmless no-op (logged as `already loaded, skipped`)
+rather than a duplicate-axiom error. A
 file that is still *in the middle* of loading (a genuine cycle: `a.kurt`
 has `load "b.kurt"`, and `b.kurt` has `load "a.kurt"`) is tracked
 separately and raises a clean `EvalError: circular \`load\`: ...` instead
