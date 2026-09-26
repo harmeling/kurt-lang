@@ -736,8 +736,8 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   derive (a completeness gap, not a soundness one, since or-elim itself
   still requires the real `%A or %B` axiom to be in scope) — mentioned for
   completeness, not because it looks dangerous.
-- **`equal-elim`-driven substitution can't replace a multi-argument chunk of
-  a `flat` operator's argument list — root cause now fully diagnosed.**
+- ~~**`equal-elim`-driven substitution can't replace a multi-argument chunk of
+  a `flat` operator's argument list**~~ — **fixed, see §8.2.** Original diagnosis:
   Found while writing a real test proof for `arith.kurt`'s factorial
   recursion (`proofs/arithmetic/factorial-recursion.kurt`): chaining a
   *second* application of "factorial-step" (to go on from `1! = 1` to prove
@@ -1052,6 +1052,58 @@ constants now. Regression: `proofs/modal-logic/*.kurt`, deliberately
 using `X`/`Y` rather than the file's own `p`/`q` example symbols so they
 would have caught this; confirmed by reverting the fix and re-running —
 all three fail.
+
+## 8. Matcher changes for the `proofs-not-yet` backlog (2026-09-25)
+
+Made while moving `gauss.kurt`, `solve-math-equation.kurt`, `chains.kurt`, … from
+`proofs-not-yet/` into the test suite. All but §8.1 widen what the matcher *can find*; the
+argument for each is why nothing false becomes findable.
+
+### 8.1 Bug found and fixed: a `forall` inside a conjunctive premise never matched
+
+Stored facts have their outer `forall`s removed (`KnowledgeBase`'s `simplified_expr`), and
+`impl_elim` strips a premise that *is* a `forall` the same way, blocking the fresh variables
+as eigenvariables (§0). But a `forall` that is only one *part* of a conjunctive premise —
+"induction"'s step `∀ $n ∈ Nat (… ⇒ …)` next to the base case — was compared with its
+quantifier still on, so it could never match a separately proven step (only a single fact
+holding the whole conjunction worked). `match_all_theory` now strips such a part too and
+blocks its fresh variables as domain, exactly as `impl_elim` does, so a specific instance
+still can't stand in for the universal statement. Regression:
+`proofs/soundness/forall-premise-in-conjunction-needs-generic-fact.kurt` (`Q c` does not
+satisfy `forall $x (Q $x)`; `forall $y (Q $y)` does).
+
+### 8.2 More decompositions for `sub $x $a %A`
+
+`all_single_hole_decompositions` (the candidates for `%A` and `$a`) now also yields
+(a) each group of two or more, but not all, arguments of a `flat` node as one hole (any
+subset if `sym`, consecutive ranges otherwise), and (b) each subterm occurring more than once
+(except a bound variable) as one hole at all its occurrences. Each candidate still satisfies
+`expr == sub $x $a %A` up to flattening/sorting, which only use the declared associativity
+and commutativity, and still goes through `bound_var_safe`. Candidates whose hole cuts into a
+binder's condition (e.g. the `∈` of `∀ $k ∈ Nat`) are now skipped rather than raising an
+`EvalError` from `free_bound_vars` (a pre-existing crash). Substitution results
+(`trigger_sub`, `generate_one_combination`) are normalized again (`normalize_expr`) so that
+e.g. `a + (b + c)` compares equal to the typed `a + b + c`. Regressions:
+`proofs/debug/flat-group-rewrite.kurt`,
+`proofs/natural-numbers/induction-several-occurrences.kurt`,
+`proofs/debug/quantifier-condition-not-a-subterm.kurt`.
+
+### 8.3 `equal_expr` compares the arguments of `sym` operators as a multiset
+
+`symmetrize_all` sorts by `canonical_key`, which depends on bound variables' *names*, so two
+alpha-equivalent terms could be sorted differently and compare unequal (this surfaced once
+substitution results were re-sorted, §8.2). `equal_expr_alpha` now matches the arguments of a
+`sym` operator as a multiset — sound, since the operator is declared commutative. `=` and
+`iff` (`SYM_KEEP_ORDER`) keep comparing in order, as they are never sorted either.
+
+### 8.4 `calc on` as an inference rule
+
+With `calc on`: (a) a comparison of two numeric literals (`3 <= 4`) is proven "by calc" when
+it holds, (b) a claim is proven from a fact when both compute to the same normal form
+(`calculate_normalized`), and (c) substitution results are computed as well (§8.2). Each
+step only replaces literal arithmetic by its value, so it preserves truth under the intended
+meaning of the numerals and `+ - * / ^ < <= …`; like `calc` itself, it presumes these symbols
+carry that meaning (`load arith`). A false comparison (`2 = 3`) is simply not derivable.
 
 ## How to extend this
 

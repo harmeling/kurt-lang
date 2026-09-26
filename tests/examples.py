@@ -141,6 +141,10 @@ examples = [
     # equality vs space
     ("a = b c d = e",
      '[(SYMBOL "a"), (SYMBOL "="), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "d"), (SYMBOL "="), (SYMBOL "e"), (END "$$$")]',
-     "(= (= a (b c d)) e)")
+     "(and (= a (b c d)) (= (b c d) e))"),
+    # parentheses keep a relation from chaining
+    ("(a = b) = c",
+     '[(SYMBOL "("), (SYMBOL "a"), (SYMBOL "="), (SYMBOL "b"), (SYMBOL ")"), (SYMBOL "="), (SYMBOL "c"), (END "$$$")]',
+     "(= (= a b) c)")
 ]
 

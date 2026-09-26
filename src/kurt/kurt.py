@@ -154,6 +154,20 @@ EXISTS_SYMBOL = 'exists'     # existential quantification
 EQUAL_SYMBOL  = '='          # equality
 IFF_SYMBOL    = 'iff'        # equivalence
 
+# symmetric operators whose arguments are never sorted, since `def` requires LHS and RHS to be in
+# a certain order
+SYM_KEEP_ORDER = [EQUAL_SYMBOL, IFF_SYMBOL]
+
+# comparisons of two literal numbers that `calc on` evaluates to `true`/`false`
+NUMERIC_COMPARISONS = {
+    '=':  lambda a, b: a == b,
+    '≠':  lambda a, b: a != b,
+    '<':  lambda a, b: a < b,
+    '<=': lambda a, b: a <= b,
+    '>':  lambda a, b: a > b,
+    '>=': lambda a, b: a >= b,
+}
+
 # `_EMBEDDED_THEORIES` is populated (from `theories/*.kurt`) only in the generated single-file
 # bundle produced by `scripts/build_standalone.py` -- empty here, in the real source file. It
 # lets that bundle be a genuinely standalone `kurt.py`: download it alone and `load prop` (etc.)
@@ -427,6 +441,7 @@ class Token:
     value: Value
     column: Optional[int] = None
     origin: Optional[Value] = None
+    chained: bool = False    # an `and` created by `chain_relations`, only needed while parsing
 
     def __repr__(self) -> str:
         return f'{self.value}'
@@ -813,10 +828,13 @@ class KnowledgeBase:
                     if op == '-':
                         s = arg0.value - arg1.value
                     elif op == '/':
-                        s = arg0.value / arg1.value
+                        if isinstance(arg0.value, int) and isinstance(arg1.value, int) and arg1.value != 0 and arg0.value % arg1.value == 0:
+                            s = arg0.value // arg1.value    # stay an integer, e.g. `6 / 2` is `3`, not `3.0`
+                        else:
+                            s = arg0.value / arg1.value
                     elif op == '^':
                         s = arg0.value ** arg1.value
-                    return Token(label=arg1.label if arg1.label == arg0.label else 'FLOAT', value=s)
+                    return Token(label='INT' if isinstance(s, int) else 'FLOAT', value=s)
                 else:
                     return e
             case _:
@@ -1246,7 +1264,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
         self.check_bool_sig_max(op, 2)
         self.infix[op] = (lbp, rbp)                           # to nicely list all operators
-        self.led[op] = lambda ts, kb, left, op_token: [op_token, left, parse_expression(ts, kb, rbp)]
+        self.led[op] = lambda ts, kb, left, op_token: chain_relations(kb, left, op_token, parse_expression(ts, kb, rbp))
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
     def add_postfix(self, op: str, lbp: int) -> None:
@@ -1880,6 +1898,22 @@ def equal_expr_alpha(t1: Expr, t2: Expr, kb: 'KnowledgeBase', bmap1: dict, bmap2
             if c1 is not None and not equal_expr_alpha(c1, c2, kb, new_bmap1, new_bmap2):
                 return False
             return all(equal_expr_alpha(a, b, kb, new_bmap1, new_bmap2) for a, b in zip(tail1, tail2))
+        case ([Token(label='SYMBOL', value=op1) as head1, *args1], [Token(label='SYMBOL', value=op2) as head2, *args2]) \
+                if isinstance(op1, str) and op1 == op2 and len(args1) == len(args2) and len(args1) > 1 \
+                and kb.is_sym(op1) and op1 not in SYM_KEEP_ORDER:
+            # the arguments of a symmetric operator are compared as a multiset: their sorted order
+            # depends on the names of bound variables, which differ between alpha-equivalent terms
+            if not equal_expr_alpha(head1, head2, kb, bmap1, bmap2):
+                return False
+            unused = list(args2)
+            for a in args1:
+                for i, b in enumerate(unused):
+                    if equal_expr_alpha(a, b, kb, bmap1, bmap2):
+                        del unused[i]
+                        break
+                else:
+                    return False
+            return True
         case ([*children1], [*children2]) if len(children1) == len(children2):
             return all(equal_expr_alpha(a, b, kb, bmap1, bmap2) for a, b in zip(children1, children2))
         case _:
@@ -2028,6 +2062,30 @@ def is_nud_token(token: Token, kb: KnowledgeBase) -> bool:
     else:
         return True
 
+def is_relation(op: Value, kb: KnowledgeBase) -> bool:
+    # an infix operator with a boolean result whose arguments are not declared boolean,
+    # e.g. `=`, `≠`, `<`, `<=`, `in` -- but not `and`, `implies`, `iff`
+    return isinstance(op, str) and kb.is_infix(op) and kb.bool_sig(op) == [0]
+
+def chain_relations(kb: KnowledgeBase, left: Expr, op_token: Token, right: Expr) -> Expr:
+    # mathematicians write `a = b <= c` for `a = b and b <= c`: an infix relation whose (not
+    # parenthesized) left operand is itself a relation (or such a chain) becomes a conjunction,
+    # reusing the middle term, e.g. `a = b <= c < d` is `a = b and b <= c and c < d`.  Without
+    # this, `a = b <= c` would parse as `(a = b) <= c`; parentheses still give that reading.
+    if not is_relation(op_token.value, kb) or not isinstance(left, list) or len(left) < 3:
+        return [op_token, left, right]
+    head = left[0]
+    if not isinstance(head, Token) or head.label != 'SYMBOL':
+        return [op_token, left, right]
+    if head.value == AND_SYMBOL and head.chained:
+        last = left[-1]                        # continue an existing chain
+        assert isinstance(last, list) and len(last) == 3
+        return left + [[op_token, deepcopy_expr(last[2]), right]]
+    if is_relation(head.value, kb) and len(left) == 3:
+        and_token = Token('SYMBOL', AND_SYMBOL, column=op_token.column, chained=True)
+        return [and_token, left, [op_token, deepcopy_expr(left[2]), right]]
+    return [op_token, left, right]
+
 # the heart of the Pratt parser (calls 'led' and 'nud' implemented in various versions)
 def parse_expression(ts: PeekableGenerator, kb: KnowledgeBase, rbp: int) -> Expr:
     t: Token = next(ts)                           # get next token
@@ -2072,7 +2130,7 @@ def sort_exprs(exprs: list[Expr], s: State, kb: KnowledgeBase) -> list[Expr]:
     return sorted(exprs, key=lambda e: canonical_key(e, s, kb))
 
 def symmetrize_all(expr: Expr, kb: KnowledgeBase) -> Expr: # symmetric operators can sort their args
-    ignore = [EQUAL_SYMBOL, IFF_SYMBOL] # we never sort the args of `=` and `iff`, because that would break `def` which requires LHS and RHS to be in a certain order
+    ignore = SYM_KEEP_ORDER
     if isinstance(expr, list):
         expr = [symmetrize_all(e, kb) for e in expr] # start inside
         if (isinstance(expr[0], Token) 
@@ -3967,6 +4025,14 @@ def bound_var_safe(expr: Expr, token_x: Token, expr_a: Optional[Expr], expr_A: E
         return free_a.isdisjoint(bound_A)
 
 
+def valid_bindop_conditions(expr: Expr, kb: KnowledgeBase) -> bool:
+    # whether every binding operator in `expr` still has a proper condition (bound variable)
+    try:
+        free_bound_vars(expr, kb)    # raises if some condition is not of the right shape
+        return True
+    except KurtException:
+        return False
+
 def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr], kb: KnowledgeBase) -> Iterator[tuple[Optional[Expr], Expr]]:
     # generate all `($a, %A)` such that `expr == sub $x $a %A`
     # (alternatively: all `($a, %A)` such that `expr == sub %x %a %A`)
@@ -3980,8 +4046,10 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr]
         return    # no combinations possible, since `$x` appears in `expr`, so `sub $x $a %A` is impossible
 
     ### allow only one subterm to be replaced, much more efficient
-    for (cand_expr_a, cand_expr_A) in all_single_hole_decompositions(expr, token_x):
+    for (cand_expr_a, cand_expr_A) in all_single_hole_decompositions(expr, token_x, kb):
         if expr_a is None  or  equal_expr(expr_a, cand_expr_a, kb):
+            if not valid_bindop_conditions(cand_expr_A, kb):
+                continue    # e.g. the hole replaced the `∈` of `∀ $k ∈ Nat ...`, not a real subterm
             if bound_var_safe(expr, token_x, cand_expr_a, cand_expr_A, kb):     # requirement (2)
                 yield (cand_expr_a, cand_expr_A)
 
@@ -3998,18 +4066,49 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr]
     if bound_var_safe(expr, token_x, expr_a, expr, kb):     # requirement (2)
         yield (expr_a, expr)
 
-def all_single_hole_decompositions(expr: Expr, token_x: Token) -> Iterator[tuple[Expr, Expr]]:
+def all_single_hole_decompositions(expr: Expr, token_x: Token, kb: KnowledgeBase) -> Iterator[tuple[Expr, Expr]]:
     # For each node in expr, yield (node_value, expr_with_that_node_replaced_by_token_x).
-    def extract_at_path(e: Expr, path: list[int]) -> tuple[Expr, Expr]:
-        """Extract subterm at path and return (subterm, expr_with_hole)"""
-        subterm = get_at_path(e, path)
-        expr_with_hole = replace_at_path(e, path, token_x)
-        return (subterm, expr_with_hole)
-    
-    # Generate all paths in the expression tree
-    for path, _ in iter_nodes(expr):
-        subterm, expr_with_hole = extract_at_path(expr, path)
-        yield (subterm, expr_with_hole)
+    for path, node in iter_nodes(expr):
+        yield (node, replace_at_path(expr, path, token_x))
+    # each subterm occurring more than once also as one hole at all of its occurrences, e.g. for
+    # `n` in `sum x (0, n) x = n * (n + 1) / 2`
+    # (not for a bound variable, which would also replace its own binder slot)
+    seen: list[Expr] = []
+    bound_vars = free_bound_vars(expr, kb)[1] if valid_bindop_conditions(expr, kb) else set()
+    for path, node in iter_nodes(expr):
+        if len(path) == 0 or any(node == other for other in seen):
+            continue
+        if isinstance(node, Token) and node.value in bound_vars:
+            continue
+        seen.append(node)
+        if sum(1 for _, other in iter_nodes(expr) if other == node) > 1:
+            yield (node, replace_all_occurrences(expr, node, token_x))
+    # for each node of a `flat` operator, each group of two or more (but not all) of its
+    # arguments as one hole, e.g. `b + c` in `a + b + c + d`: flattening forgot that grouping, but
+    # it is still a legitimate subterm (any group, if the operator is also `sym`, otherwise only
+    # consecutive arguments) -- last, since most rewriting steps need no group
+    for path, node in iter_nodes(expr):
+        match node:
+            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) > 2 and kb.is_flat(op):
+                for group, rest in flat_groups(args, kb.is_sym(op)):
+                    subterm: Expr = [node[0], *group]
+                    yield (subterm, replace_at_path(expr, path, token_x, [node[0], *rest]))
+
+def flat_groups(args: list[Expr], sym: bool) -> Iterator[tuple[list[Expr], list[Expr]]]:
+    # yield each `(group, rest)` where `group` has two or more but not all of `args`, and `rest`
+    # is `args` with `group` replaced by a single `None` placeholder (for the hole)
+    n = len(args)
+    if sym:
+        for k in range(2, n):
+            for idx in itertools.combinations(range(n), k):
+                group = [args[i] for i in idx]
+                rest = [args[i] for i in range(n) if i not in idx] + [None]
+                yield group, rest
+    else:
+        for i in range(n):
+            for j in range(i + 2, n + 1):
+                if j - i < n:
+                    yield args[i:j], args[:i] + [None] + args[j:]
 
 def get_at_path(expr: Expr, path: list[int]) -> Expr:
     """Get the subexpression at the given path."""
@@ -4020,15 +4119,26 @@ def get_at_path(expr: Expr, path: list[int]) -> Expr:
     return get_at_path(expr[i], path[1:])
 
 
-def replace_at_path(expr: Expr, path: list[int], token_x: Token) -> Expr:
-    """Return a deep copy of expr where the subexpression at `path` is replaced by `token`."""
+def replace_at_path(expr: Expr, path: list[int], token_x: Token, node_with_hole: Optional[list] = None) -> Expr:
+    """Return a deep copy of expr where the subexpression at `path` is replaced by `token_x`,
+    or, if `node_with_hole` is given, by that node with its `None` placeholder replaced by `token_x`."""
     if len(path) == 0:
-        return token_x
+        if node_with_hole is None:
+            return token_x
+        return [token_x if e is None else deepcopy_expr(e) for e in node_with_hole]
     i = path[0]
     new_list = deepcopy_expr(expr)
     assert isinstance(new_list, list)
-    new_list[i] = replace_at_path(new_list[i], path[1:], token_x)
+    new_list[i] = replace_at_path(new_list[i], path[1:], token_x, node_with_hole)
     return new_list
+
+def replace_all_occurrences(expr: Expr, subterm: Expr, token_x: Token) -> Expr:
+    """Return a deep copy of expr where every occurrence of `subterm` is replaced by `token_x`."""
+    if expr == subterm:
+        return token_x
+    if isinstance(expr, list):
+        return [replace_all_occurrences(e, subterm, token_x) for e in expr]
+    return expr
 
 def iter_nodes(expr: Expr, path_prefix: list[int]|None = None) -> Iterator[tuple[list[int], Expr]]:
     """Yield (path, subexpression) for every node (including the root)."""
@@ -4043,6 +4153,9 @@ def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iter
     # no blocked vars, since we are at the top level
     s = State({var_x: expr_a}, frozenset(), frozenset())   # substitute `$x` with `expr_a`
     cand_expr = apply_subst(expr_A, s, kb)
+    # substituting e.g. `b + c` into the hole of `a + $x + d` gives `a + (b + c) + d`, which must
+    # be normalized again to compare with the normalized `expr`
+    cand_expr = normalize_expr(cand_expr, kb)
     if equal_expr(cand_expr, expr, kb):
         # we have a match, i.e., `expr = sub $x $a $A` where `$a` is `expr_a` and `$A` is `expr_A`
         yield expr_a, expr_A
@@ -4463,6 +4576,8 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                     s_after = s_local.unblock(x)
                     # perform capture-avoiding A[x:=t]
                     A_repl = capture_avoiding_replace(A_s, x, t_s, s_after, kb)
+                    # e.g. `b + c` replacing `$x` in `a + $x` must give the flat `a + b + c`
+                    A_repl = normalize_expr(A_repl, kb)
                     return A_repl, s_after
                 else:
                     # do NOT leave x permanently blocked if we don't fire
@@ -4525,7 +4640,20 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                     if success:
                         #debug(f'`{expr_str(expr, kb)}` against `{expr_str(candidate.simplified_expr, kb)}` with substitution {s_final}`')
                         return True, [candidate, *found_formulas], s_final   # match was found!  BINGO!
-            # no match so far, however, possibly `expr` is a conjunction that we can split into pieces
+            # no match so far, however, a universally quantified `expr` (e.g. one half of a
+            # conjunctive premise) matches the stored facts only without its outer `forall`s,
+            # since those are removed from all facts -- with fresh variables that must stay
+            # generic, exactly like for a quantified premise in `impl_elim`
+            expr_walked = s.walk(expr)
+            if is_forall(expr_walked):
+                stripped, fresh_vars = remove_outer_forall_quantifiers(expr_walked, kb)
+                s_stripped = s
+                for fresh_v in fresh_vars:
+                    s_stripped = s_stripped.block_as_domain(fresh_v)
+                success, found_formulas, s_final = match_all_theory([stripped, *tail], s_stripped, kb)
+                if success:
+                    return True, found_formulas, s_final
+            # still no match, however, possibly `expr` is a conjunction that we can split into pieces
             match expr:
                 # e.g., (A and B) implies C, then `expr = ['and', A, B]`
                 case [Token(label='SYMBOL', value=v), *exprs] if v == AND_SYMBOL:
@@ -4675,6 +4803,27 @@ def get_column(e: Expr) -> int:
             return get_column(children[0])
     return 0
 
+def calculate_normalized(expr: Expr, kb: KnowledgeBase) -> Expr:
+    # compute all literal arithmetic in `expr` and bring the result into normal form again
+    # (flattened before and after: `1 + (1 + k)` must become `2 + k`)
+    return symmetrize_all(flatten_all(kb.calculate(flatten_all(expr, kb)), kb), kb)
+
+def normalize_expr(expr: Expr, kb: KnowledgeBase) -> Expr:
+    # the normal form of what the user types (see `post_process`): flat, sorted (`sym`), and,
+    # with `calc on`, computed -- needed again for expressions created by substitution
+    if kb.calc:
+        return calculate_normalized(expr, kb)
+    return symmetrize_all(flatten_all(expr, kb), kb)
+
+def numeric_comparison_holds(expr: Expr) -> bool:
+    # e.g. `3 <= 4` holds, while `2 = 3` and `x < 4` do not
+    match expr:
+        case [Token(label='SYMBOL', value=op), Token() as a, Token() as b] if op in NUMERIC_COMPARISONS:
+            if is_numeric(a) and is_numeric(b):
+                assert isinstance(a.value, (int, float)) and isinstance(b.value, (int, float))
+                return NUMERIC_COMPARISONS[op](a.value, b.value)
+    return False
+
 def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[list[str], State]:
 
     # do we have a joker?
@@ -4690,6 +4839,16 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     # "top-intro"
     if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
         return ['by "top-intro"'], s
+
+    # "calc": with `calc on`, a comparison of two literal numbers is checked by computing it,
+    # and a fact that computes to `expr` (e.g. `x = (-5) * 5` for `x = -25`) gives `expr`
+    if kb.calc:
+        if numeric_comparison_holds(expr):
+            return ['by calc'], s
+        calc_expr = calculate_normalized(expr, kb)
+        for f in kb.all_theory():
+            if equal_expr(calculate_normalized(f.expr, kb), calc_expr, kb):
+                return [f'by {formula_ref(f, filename, mainstream)}, calc'], s
 
     # computed once here since `expr` is fixed for the whole loop below -- `impl_elim` used to
     # recompute this itself on every single formula tried (and again on every one of its own

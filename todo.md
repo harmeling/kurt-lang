@@ -2,6 +2,13 @@
 
 git checkout main && git pull && git merge dev && git push && git checkout dev
 
+## proofs-not-yet (postponed, analysed 2026-09-25)
+
+- TODO `scalar-product.kurt`: `brackets < >` clashes with the relation `<`, and the lexer rejects `⟨ ⟩` -- decide: allow `⟨ ⟩` in the lexer, or write `ip a b`.  fix the math (`λ = <a,b>/<b,b>`, case `b = 0` separately), add `<a,a> ≥ 0` and bilinearity for `-`.  vectors share `+`/`*` with numbers (see namespaces below), or use separate symbols like `⊕`
+- TODO `limits.kurt`: `∀ε>0` must be written `∀ ($e > 0)` since `>` binds weaker than space -- decide whether relations should bind tighter than function application.  missing: exists-intro for a conditioned `∃` (from `c > 0` and `P c` derive `∃ ($d > 0) (P $d)`), `abs` instead of `|x|` (`|` is taken by set comprehension) with its laws, fix `load forall`/`load arithmetics`, drop the notes in lines 22-36
+- TODO `square-root-two-is-irrational.kurt`: reducing `m/n` to lowest terms is a hidden induction -- decide: well-ordering axiom in `natural.kurt`, or "every rational has a coprime representation" as an axiom of `Q`.  needs a theory of `divides`/even/odd with the lemma `2 divides m*m ⇒ 2 divides m`; rewrite `exists (m, n)` as `exists m exists n`, `begin`/`end` as `case`, `:=` as `def`, `contradiction` as `false`
+- TODO sums with an arbitrary summand: a non-boolean `$T` in `sum $i ($a, $b) $T` can't depend on `$i` (only `%A` can), so `gauss.kurt` states its axioms for the summand `$i` only -- decide whether (and how) a non-boolean schema variable may depend on a bound variable (soundness-sensitive)
+
 ## NEXT
 
 - TODO solve the path puzzle, also check `load ../foo.kurt` whether it works
@@ -17,13 +24,11 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO make a good verbose mode for teaching/being helpful
 - TODO better inference rules that should make part of `impl_elim` not necessary: when iterating through `all_theory()` also iterate over RHS of implications where the LHS is part of the theory
 - TODO `chain`s are always transitive
-- TODO for `a=b≠c=d` the signs must be infix and bool, it will be resolved to `a=b, b≠c, c=d`, if it is transitive also more
 - TODO dependencies: who loads what?  a theory should load all necessary stuff, let theories load their own dependencies
 - TODO check that in forall_intro the quantification either applies to boolean or non-boolean vars, but not both
 - TODO repairs messages for 'pick', 'fix', 'assume'
 - TODO check  if lbp > rbp then left-assoc else right-assoc
 - TODO check theories
-- TODO allow multiple replacement in one step (is that possible?)
 - TODO check again what rules are hard-coded
 - TODO think about short-cut by equality-elim, just compare last two expressions and find the difference, then search for the corresponding equation, this should be much faster
 - TODO check conditions in `logic.kurt`
@@ -49,7 +54,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO what should be loaded by default?  `minimal.kurt` or `standards.kurt`?
 - TODO check all KurtExceptions for ProofError, ParseError, SyntaxError, EvalError
 - TODO check the inference for quantifiers, whether there must be more restrictions, or does the renaming handle it?  try to violate them
-- TODO have `x<y<=z` as a short cut for `x<y and y<=z`, or even store them separately, and also multi-line equations
 - TODO local and export features, files should open a new level, but can export statements as axioms ('use') to the level above them
 - TODO write documentation/tutorial for the language
 - TODO refactoring: work through all 'mainstream', can we avoid them?  check also `decorate_reason` and `formula_ref`.  yes, store the reason in the formula, then generate a log string later up, but we don't need the `mainstream` flag anymore, possibly we need it since some impl-elim are also generating logs, similarly, remove the 'filenames' that are passed around

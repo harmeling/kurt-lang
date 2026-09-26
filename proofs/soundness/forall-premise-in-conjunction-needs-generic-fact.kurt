@@ -1,0 +1,17 @@
+; a universally quantified part of a conjunctive premise, like the induction step in
+; natural.kurt's "induction", is looked up among the stored facts without its outer `forall`
+; (stored facts have theirs removed) -- but its fresh variable must stay generic: one
+; specific instance `Q c` must not count as `forall $x (Q $x)`.
+load prop
+bool Q, R, S
+arity Q 1
+const c
+use ((forall $x (Q $x)) and R) implies S   "ax"
+use R
+use Q c
+expect "ProofError"
+    S
+
+; a genuinely universal fact does satisfy the premise
+use forall $y (Q $y)
+S

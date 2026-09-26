@@ -1,0 +1,63 @@
+; solve-math-equation.kurt
+;
+; find all solutions of 2^x + 8^x = 130
+; https://www.youtube.com/watch?v=lJrI7OwqXVQ
+;
+; with y = 2^x the equation becomes y + y^3 = 130, and y = 5 is its only solution, since
+; y + y^3 is strictly increasing: y < 5 would give y + y^3 < 5 + 5^3 = 130, and y > 5 the
+; opposite.  so 2^x = 5, i.e., x = log_2(5) (logarithms are not part of arith.kurt, yet).
+;
+; `calc` is switched on only for the steps with concrete numbers, since it would also
+; turn the `2^3` needed below back into `8`
+load arith
+const x
+use 2^x + 8^x = 130            "given"
+use 8 = 2^3                    "eight"   ; a numeric fact, stated since `calc on` would store it as `8 = 8`
+
+; substitute y = 2^x
+2^x + (2^3)^x = 130
+(2^3)^x = 2^(3*x)
+(2^x)^3 = 2^(3*x)
+2^x + 2^(3*x) = 130
+2^x + (2^x)^3 = 130
+def y = 2^x                    "y"
+2^x = y
+y + (2^x)^3 = 130
+y + y^3 = 130                  "cubic"
+
+; y is positive
+calc on
+2 > 0
+3 > 0
+5 > 0
+calc off
+2^x > 0
+y > 0
+
+; y = 5 is the only solution, since y + y^3 grows with y
+y < 5  or  y = 5  or  y > 5
+case y < 5
+    y^3 < 5^3
+    y + y^3 < 5 + 5^3
+    130 < 5 + 5^3
+    calc on
+    130 < 130
+    130 >= 130
+    false
+    y = 5
+case y > 5
+    calc off                   ; `calc` is a global toggle, still on from the case above
+    y^3 > 5^3
+    y + y^3 > 5 + 5^3
+    130 > 5 + 5^3
+    calc on
+    130 > 130
+    130 <= 130
+    false
+    y = 5
+case y = 5
+    y = 5
+assume y = 5  or  y > 5       ; `or-elim` combines two cases at a time
+    y = 5
+y = 5
+2^x = 5

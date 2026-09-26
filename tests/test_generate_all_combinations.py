@@ -117,7 +117,7 @@ class TestGenerateAllCombinations(unittest.TestCase):
     def test_all_single_hole_decompositions(self):
         """Test the helper function directly"""
         expr: kurt.Expr = [self.token_plus, self.token_a, self.token_b]
-        decompositions = list(kurt.all_single_hole_decompositions(expr, self.token_x))
+        decompositions = list(kurt.all_single_hole_decompositions(expr, self.token_x, self.kb))
         
         # Should have decompositions for:
         # - whole expression: (a + b, $x)

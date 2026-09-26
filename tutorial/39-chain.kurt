@@ -8,7 +8,7 @@
 
 load equality
 infix < 20 20
-bool  < 0 1 2
+bool  < 0
 chain = <              ; `=` may be followed by `<` in a chain
 
 var x, y, z
@@ -19,6 +19,10 @@ use y < z
 ; previous line's right-hand side -- so this desugars to `x < z`:
 x = y                   ; the first step, as always
   < z                   ; continuing the chain
+
+; On a single line, chained relations mean a conjunction: `x = y < z` is
+; `x = y and y < z` (parentheses, `(x = y) < z`, switch that off):
+x = y < z
 
 ; A chain must be indented to continue (see `doc/dev-notes.md`, "chains");
 ; writing the continuation at the same indentation as the first line is a
