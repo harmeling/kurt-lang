@@ -1105,6 +1105,35 @@ step only replaces literal arithmetic by its value, so it preserves truth under 
 meaning of the numerals and `+ - * / ^ < <= …`; like `calc` itself, it presumes these symbols
 carry that meaning (`load arith`). A false comparison (`2 = 3`) is simply not derivable.
 
+### 8.5 Bug found and fixed: declarations could change the meaning of packaged operators
+
+`flat`, `sym` and `chain` are claims (associativity, commutativity, transitivity), but they
+checked neither whether the operator was already used nor where it came from: after `load
+arith`, `sym -` made `a - b = b - a` derivable, and `chain ≠` generated the "transitivity"
+`$a ≠ $b and $b ≠ $c implies $a ≠ $c`, which derives `a ≠ a` from the true facts `a ≠ b` and
+`b ≠ a`. Now (a) `flat`/`sym` are rejected for an operator already used in a formula (like
+`bool`/`brackets` already were), and (b) the symbols declared by a trusted theory file (packaged,
+or via `-p`) are frozen (`KnowledgeBase.frozen`, filled in `load_file`; the core's symbols are
+frozen in `initial_kb`): other files can't declare them `flat`/`sym`/`nonassoc`, and a `chain`
+from another file may only put frozen operators first and in an order their theory already
+chains them in (`check_chain_not_frozen`) -- so its generated conclusions only ever use the
+file's own operators. In addition, packaged theories can't be shadowed by a local file of the
+same name, and `def` only accepts `=`/`iff` from the packaged `equality.kurt`/`prop.kurt`,
+since a definition is conservative only if they are reflexive. Regression:
+`proofs/soundness/frozen-operators-cannot-be-changed.kurt`.
+
+### 8.6 `use` inside proof blocks, and `--strict`
+
+`use` inside `proof`/`assume`/`case`/`let`/`pick` is rejected: `assume A` with `use B` inside
+used to close as `A implies B` "by impl-intro", a seemingly proven fact that rests on an
+unproven axiom. It stays allowed at a file's top level and inside `sandbox`/`expect`, whose
+content is discarded (`block_forbidding_use`). With `--strict`, untrusted files may not contain
+`use`, `todo` or `chain` at all, so a checked file is proven entirely from trusted theories.
+What `--strict` doesn't cover: the trusted theories themselves (their axioms are trusted by
+definition), and statements that are safe by construction (`def`, syntax declarations for new
+operators). Regressions: `proofs/debug/use-not-allowed-in-proof-blocks.kurt`,
+`tests/test_strict_mode.py`.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

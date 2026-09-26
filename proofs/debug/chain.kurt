@@ -12,16 +12,10 @@ chain = ≤ <
 ;   = b
 ;   = c
 
-infix iff 5 5
-bool  iff 0 1 2
-alias ⇔ iff
-
-infix invimplies 50 50
-bool  invimplies 0 1 2
-alias ⇐ invimplies
-
-chain iff implies      ; implies forwards
-chain iff invimplies   ; implies backwards
+; `iff`, `invimplies` and their chains with `implies` come from `prop.kurt` -- a file can't
+; declare such a chain for its own `iff`, since that would derive new facts about the built-in
+; `implies` from whatever that `iff` means
+load prop
 
 use %A iff %B, %B invimplies %C
 A iff B

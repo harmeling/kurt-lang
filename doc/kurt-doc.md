@@ -26,6 +26,7 @@ the source.
     kurt -v path/to/proof.kurt  # also print verbose matching information
     kurt -l path/to/proof.kurt  # emit a LaTeX proof document instead
     kurt -p DIR path/to/proof.kurt   # also search DIR for `load`ed theories
+    kurt -s path/to/proof.kurt       # strict, for grading (see below)
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
 
 If no filename is given, Kurt starts the shell directly. If a filename is
@@ -37,6 +38,15 @@ check from a successful one without scraping stderr text. Leftover `todo`s
 still exit `0` (a `todo` is a deliberate, self-reported placeholder, not a
 failure), and errors raised only while typing at an interactive shell
 session don't affect the exit code either.
+
+**Strict mode (`-s`/`--strict`), for grading:** the checked file (and any
+file it loads that isn't trusted) may not contain `use`, `todo` or `chain`
+— everything has to be proven from the theories that come with Kurt, or
+from the ones found in a `-p DIR` directory (e.g. an exercise's axioms, as
+given by the teacher). Those are the *trusted* theory files; `use` inside a
+`sandbox` or `expect` stays allowed, since their content is discarded. It
+is a command-line switch rather than a statement in the file, so that the
+file being graded can't switch it off.
 
 **Undocumented-until-now autoload:** before checking the requested file,
 `kurt` silently tries to `load` a file literally named `theory.kurt` from
@@ -270,6 +280,11 @@ declared once per operator (redeclaring raises an error), and if the
 operator already has a partial `bool` signature (§5), that signature must
 be consistent with binary use (both argument positions boolean, or
 neither; no signature information beyond position 2).
+
+Declaring `flat` or `sym` is a claim (associativity, commutativity), so it
+must come before the operator is used in any formula, and it can't be made
+for an operator that comes with one of Kurt's theories or its core (e.g.
+`sym -` or `sym implies` is an error) — see "frozen operators" in §8.2.
 
 ### 4.5a `nonassoc`
 
@@ -592,7 +607,16 @@ given on the command line, then Kurt's own packaged theories
 missing. The packaged theories can't be shadowed: `load prop` always loads
 Kurt's own `prop.kurt`, and a file `prop.kurt` found earlier on the search
 path is an error (rename it) — `def`, and the checks built on the packaged
-theories, rely on their exact content. A file that has *already finished* loading is not loaded again
+theories, rely on their exact content.
+
+The symbols declared by a *trusted* theory file — one that comes with Kurt,
+or one found via `-p DIR` — are **frozen**: no other file can declare them
+`flat`, `sym` or `nonassoc`, or put them into a `chain` in a way that
+derives something new about them. E.g. `chain ≠` (which would make `≠`
+transitive) is rejected, while `chain = lt` for a file's own relation `lt`
+is fine: a frozen operator may be combined with the file's own operators
+if the frozen ones come first (the chain's conclusions use the later
+operator) and are already chained that way in their theory. A file that has *already finished* loading is not loaded again
 (tracked via `get_load_level`, per level, inherited from parent levels) —
 so `load prop` twice in a row, or from two different files that both
 depend on it, is a harmless no-op (logged as `already loaded, skipped`)

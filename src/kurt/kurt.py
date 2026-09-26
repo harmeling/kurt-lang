@@ -223,6 +223,53 @@ if _EMBEDDED_THEORIES:
 def is_packaged_path(path) -> bool:
     return any(str(path) == str(p) for p in packaged_theory_paths)
 
+# `--strict` (for grading): only trusted theory files may contain unproven statements
+strict_mode: bool = False
+trusted_paths: list = []       # the `-p`/`--path` directories, e.g. with a teacher's theories
+
+def is_trusted_file(fname: str) -> bool:
+    # a theory that comes with Kurt, or one from a `-p` directory -- the symbols they declare
+    # are frozen (see `KnowledgeBase.frozen`), and under `--strict` only they may use `use`
+    if fname.startswith('<embedded>/') or fname.startswith('<chain transitivity'):
+        return True
+    packaged = packaged_theory_file(os.path.basename(fname))
+    if packaged is not None and str(packaged) == fname:
+        return True
+    try:
+        parent = Path(fname).resolve().parent
+    except (OSError, ValueError):
+        return False
+    return any(parent == Path(str(p)).resolve() for p in trusted_paths)
+
+def check_not_frozen(ops: list[str], keyword: str, filename: str, kb: 'KnowledgeBase') -> None:
+    # e.g. `sym -` or `chain ≠` would change what `-` or `≠` mean, which a trusted theory declared
+    if is_trusted_file(filename):
+        return
+    for op in ops:
+        if kb.is_frozen(op):
+            raise KurtException(f'EvalError: `{keyword}` can not be declared for `{op}`, it would change the meaning of `{op}`, which comes with a theory of Kurt')
+
+def check_chain_not_frozen(chain: list[str], filename: str, kb: 'KnowledgeBase') -> None:
+    # a chain generates `$a op_i $b and $b op_j $c implies $a op_k $c`, with `op_k` the later
+    # of the two -- an untrusted file may do that for its own operators, and combine them with
+    # frozen ones (e.g. `chain = <` for its own `<`), but must not derive anything new about a
+    # frozen operator (e.g. `chain ≠`, or `chain < =`)
+    if is_trusted_file(filename):
+        return
+    frozen = [op for op in chain if kb.is_frozen(op)]
+    if frozen != chain[:len(frozen)]:
+        raise KurtException(f'EvalError: in `chain {" ".join(chain)}`, the operators that come with a theory of Kurt ({", ".join(frozen)}) must come first -- otherwise the chain would derive new facts about them')
+    for i, a in enumerate(frozen):
+        for b in frozen[i:]:
+            if not any(a in c and b in c and c.index(a) <= c.index(b) for c in kb.all_chains()):
+                if a == b:
+                    raise KurtException(f'EvalError: `chain {" ".join(chain)}` would make `{a}` transitive, which comes with a theory of Kurt that doesn\'t declare it chainable')
+                raise KurtException(f'EvalError: `chain {" ".join(chain)}` would change the meaning of `{a}` and `{b}`, which come with a theory of Kurt -- they aren\'t chained that way there')
+
+def check_strict(keyword: str, filename: str) -> None:
+    if strict_mode and not is_trusted_file(filename):
+        raise KurtException(f'EvalError: `{keyword}` is not allowed with `--strict` -- everything must be proven from the theories that come with Kurt (or the ones given with `-p`)')
+
 def packaged_theory_names() -> list[str]:
     # e.g. `['arith', 'equality', ...]`, the theories that come with Kurt
     names: set[str] = set()
@@ -762,6 +809,7 @@ class KnowledgeBase:
         self.flat:     set[str]                  = set()  # set for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
         self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
         self.nonassoc: set[str]                  = set()  # set for declaring a non-associative operator, i.e., `a < b < c` is a ParseError
+        self.frozen:   set[str]                  = set()  # symbols declared by a trusted theory, see `is_trusted_file`
         self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
         self.used:     set[str]                  = set()  # set of all symbols that are used in formulas (i.e., not only declared)
         self.latex:    dict[str, str]            = {}     # dict from symbols to latex strings
@@ -1166,6 +1214,15 @@ class KnowledgeBase:
                         raise KurtException(f'EvalError: chain `{c}` is in conflict with `{other_c}`, creates a cycle')
                     current = idx
 
+    def is_frozen(self, s: str) -> bool:
+        return s in self.frozen  or (self.parent is not None and self.parent.is_frozen(s))
+
+    def declared_symbols(self) -> set[str]:
+        # every symbol declared on this level (not the parents)
+        symbols = set(self.infix) | set(self.prefix) | set(self.postfix) | set(self.bindop) | set(self.const)
+        symbols |= set(self.bool) | set(self.arity) | self.flat | self.sym | self.nonassoc | set(self.alias)
+        return symbols
+
     def is_used(self, s: str) -> bool:
         return s in self.used    or (self.parent is not None and self.parent.is_used(s))
 
@@ -1341,6 +1398,8 @@ class KnowledgeBase:
     def add_flat(self, op: str) -> None:
         if not self.is_infix(op):
             raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare flatness')
+        if self.is_used(op):
+            raise KurtException(f'EvalError: operator `{op}` has been already used in a formula, declaring it "flat" now would change what that formula means')
         if self.is_flat(op):
             raise KurtException(f'EvalError: operator `{op}` is already declared "flat"')
         if self.is_nonassoc(op):
@@ -1351,6 +1410,8 @@ class KnowledgeBase:
     def add_sym(self, op) -> None:
         if not self.is_infix(op):
             raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare symmetry')
+        if self.is_used(op):
+            raise KurtException(f'EvalError: operator `{op}` has been already used in a formula, declaring it "sym" now would change what that formula means')
         if self.is_sym(op):
             raise KurtException(f'EvalError: operator `{op}` is already declared "sym"')
         self.check_bool_sig_sym_flat(op)
@@ -1753,6 +1814,7 @@ initial_kb.add_const (EXISTS_SYMBOL)                       # exists is const  no
                                                             # never written out literally in ordinary formulas
 initial_kb.add_alias('∀', FORALL_SYMBOL)                   # alias for forall
 initial_kb.add_alias('∃', EXISTS_SYMBOL)                   # alias for exists
+initial_kb.frozen = initial_kb.declared_symbols()          # the core can't be changed, e.g. by `sym implies`
 
 ################
 ## kurt lexer ##
@@ -2651,9 +2713,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     proven_f = kb.theory[-1]               # check the last formula
     proven_expr  = proven_f.simplified_expr         # what actually has been proven
     if proven_expr == todo_token:
-        reason = f'by a miracle'
-        if mainstream:
-            log(kb, 'todo', reason, kb.level)
+        reason = f'by a miracle'    # the `todo` line itself was already logged
     else:
         reason = ''
         # block all free variables of the planned expression, since they are universally quantified
@@ -2822,6 +2882,15 @@ def generate_chain_transitivity(kb: KnowledgeBase, chain: list[str]) -> Knowledg
     stream = io.StringIO(source)
     stream.name = f'<chain transitivity for {chain}>'   # read_eval_loop needs a real `.name`
     return read_eval_loop(stream, kb, mainstream=False)
+
+def inside_sandbox_or_expect(kb: KnowledgeBase) -> bool:
+    # inside a (user-opened) `sandbox` or `expect` of the current file, whose content is discarded
+    node: Optional[KnowledgeBase] = kb
+    while node is not None and not node.is_load_boundary:
+        if node.mode_str in ('sandbox', 'expect'):
+            return True
+        node = node.parent
+    return False
 
 def block_forbidding_use(kb: KnowledgeBase) -> Optional[str]:
     # `use` inside a proof-like block would leak an unproven axiom into a seemingly proven result
@@ -3175,6 +3244,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                         msg = create_usage(keyword, [[], ['STRING', 'STRING'], ['STRING', 'STRING', 'STRING'], ['STRING', 'STRING', 'STRING', 'STRING']])
                         raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
             kb.check_with_other_chains(chain)  # might raise an exception
+            check_chain_not_frozen(chain, filename, kb)
+            check_strict(keyword, filename)   # a chain generates transitivity axioms
             new_stuff.append(chain)    # first collect
         for chain in new_stuff:
             kb.add_chain(chain)
@@ -3192,6 +3263,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 case _:
                     msg = create_usage(keyword, [[], ['STRING']])
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        check_not_frozen(new_stuff, keyword, filename, kb)
         for op in new_stuff:
             kb.add_flat(op)
     elif keyword == 'sym':
@@ -3206,6 +3278,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 case _:
                     msg = create_usage(keyword, [[], ['STRING']])
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        check_not_frozen(new_stuff, keyword, filename, kb)
         for op in new_stuff:
             kb.add_sym(op)
     elif keyword == 'nonassoc':
@@ -3220,6 +3293,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 case _:
                     msg = create_usage(keyword, [[], ['STRING']])
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        check_not_frozen(new_stuff, keyword, filename, kb)
         for op in new_stuff:
             kb.add_nonassoc(op)
     elif keyword == 'bool':
@@ -3340,6 +3414,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             log(kb, kb.theory_str(keyword=keyword).strip())
         else:
             proof_block = block_forbidding_use(kb)
+            if strict_mode and proof_block is None and not inside_sandbox_or_expect(kb):
+                check_strict(keyword, filename)
             if proof_block is not None:
                 raise KurtException(f'EvalError: `use` is not allowed inside `{proof_block}` -- the result would look proven although it relies on this axiom; state it before the proof, or use `todo`', keyword_token.column)
             formulas = []
@@ -3375,18 +3451,24 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     log(kb, f'def {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
 
     elif keyword == 'todo':
+        check_strict(keyword, filename)
         # works like a joker!  however, what to store in the theory?  add a todo token
         if len(args) == 0:
             # `todo` inside proofs, a joker for the next statement, even a `qed`
             kb.theory_append(eval_use(kb, todo_token, input_line, label, filename, line, mainstream, keyword))  # use the expression as an assumption
             todo = decorate_reason(False, f'todo', filename, str(line))
             kb.todo_add(todo)
+            if mainstream:
+                log(kb, 'todo', decorate_reason(mainstream, 'admits the next step, still to do', filename, str(line)), kb.level)
         else:
             for expr in args:
                 # `todo F`, adds `F` like an axiom and takes a note of the todo
-                kb.theory_append(eval_use(kb, expr, input_line, label, filename, line, mainstream, keyword))  # use the expression as an assumption
+                f = eval_use(kb, expr, input_line, label, filename, line, mainstream, keyword)
+                kb.theory_append(f)  # use the expression as an assumption
                 todo = decorate_reason(False, f'todo {expr_str(expr, kb)}', filename, str(line))
                 kb.todo_add(todo)
+                if mainstream:
+                    log(kb, f'todo {expr_str(expr, kb)}', decorate_reason(mainstream, 'admitted, still to do', filename, str(line)), kb.level)
 
     elif keyword == 'qed':            # closes the last block (scope) and checks that the last promised formula has been proved
         assert False, '`qed` should have been handled in `scan_parse_check_eval`'
@@ -5218,6 +5300,8 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
                 raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed.')
             elif kb.level < level:
                 assert False, f'BUG: `load_file` decreased the level from {level} to {kb.level}'
+            if is_trusted_file(fname):
+                kb.frozen |= kb.declared_symbols()   # only this theory may change their meaning
             kb = kb.merge_and_pop()  # merge 'sandbox' level if everything was ok
             kb.libs.append(fname)
             return kb
@@ -5392,6 +5476,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("filename", nargs='?',                       help=f'check the proof in the file, w/o filename start interactively')
     parser.add_argument('-i', '--interactive',  action='store_true', help=f'enter read-eval-print loop after loading `filename`')
     parser.add_argument('-r', '--comment-indent', type=int, default=comment_indent, help=f'specify the indentation for comments (default: {comment_indent})')
+    parser.add_argument('-s', '--strict',       action='store_true', help=f'for grading: reject `use`, `todo` and `chain` outside the theories that come with Kurt or are found via `-p`')
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
@@ -5456,6 +5541,11 @@ def main() -> None:
     global theory_path
     if args.path is not None:
         theory_path.insert(1, Path(args.path))                    # user specified path
+        trusted_paths.append(Path(args.path))
+
+    # strict mode, for grading
+    global strict_mode
+    strict_mode = args.strict
 
     if kb.verbose:
         log(kb, f'Using theory path: {theory_path}')
