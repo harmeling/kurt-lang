@@ -5,12 +5,15 @@
 ; "impl-intro": if you can derive `Q` after assuming `P`, you get
 ; `P implies Q` back, outside the block.
 
-bool A, B
+bool A, B, C
+use A implies B
+use B implies C
 
-show A implies B
+show A implies C
 proof
     assume A
-        use B
+        B
+        C
 qed
 
 ; The same mechanism gives "not-intro": assume `P`, derive `false`, and you

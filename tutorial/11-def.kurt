@@ -18,3 +18,9 @@ x = 18
 p implies q              ; definitions unfold directly, in both directions
 use p
 q
+
+; A definition can also have arguments: the variable `$x` on the left-hand side stands for
+; any argument, so this defines a function `f` (`+` comes from the arithmetic theory):
+load arith
+def f($x) = $x + $x
+f(3) = 3 + 3

@@ -14,8 +14,9 @@ A and B                 ; "and-intro"
 ; the same automatic way -- you have to state the particular instance you
 ; need as an axiom yourself:
 
-bool C
-use A and B implies C
+bool C, D
+use C and D
+use C and D implies C
 C
 
 ; Lesson 10 ("load") shows how to pull in the ready-made `prop` theory, which

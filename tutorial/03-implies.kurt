@@ -21,4 +21,5 @@ use B implies C
 C                       ; uses the just-derived `B` together with `B implies C`
 
 ; Proving an implication itself (instead of just using one as an axiom) needs
-; `show`, `proof`, `assume` and `qed` -- see lessons 07-09 and 20.
+; only an `assume` block (lesson 20): assuming `A` and deriving `B` inside the
+; block gives `A implies B`.

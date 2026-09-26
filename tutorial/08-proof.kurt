@@ -5,6 +5,11 @@
 ; the theory so far, exactly like at the top level.  `qed` (09-qed.kurt)
 ; closes the block and re-derives the goal using everything established
 ; inside it.
+;
+; The lines of a block must be indented, all by the same amount, and with
+; spaces only (tabs are rejected).  Indentation is how Kurt knows which lines
+; belong to the block: going back to the indentation of `show` (dedenting)
+; closes it.
 
 bool A, B, C
 
@@ -19,11 +24,12 @@ proof
 qed
 
 ; A `proof` block doesn't have to restate the goal as its last line -- `qed`
-; simply tries to derive the goal fresh, using the full theory at that point.
-; So a block that only adds redundant information still closes just fine, as
-; long as the goal has become derivable somehow:
+; simply tries to derive the goal fresh, using the full theory at that point:
 
-show B
+bool D
+use C implies D
+
+show D
 proof
-    use A      ; redundant -- `A` was already known -- yet still allowed
+    C          ; `D` is not written down, but follows from `C`
 qed

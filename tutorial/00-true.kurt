@@ -1,5 +1,9 @@
 ; 00-true.kurt
 
+; Everything from a semicolon `;` to the end of the line is a comment -- Kurt ignores it,
+; it is only there for you (like this text).  A comment can also follow a formula on the
+; same line, as below.
+
 ; The statement that is always true is `true`.
 
 true       ; will be always provable.
