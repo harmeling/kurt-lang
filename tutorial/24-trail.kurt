@@ -18,5 +18,5 @@ proof
     trail                ; e.g. "; root > sandbox > proof"
     assume A
         trail            ; e.g. "; root > sandbox > proof > assume"
-        use B
+        B
 qed

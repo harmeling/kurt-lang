@@ -438,7 +438,12 @@ derived as a bare claim.
     def SYMBOL iff EXPR
 
 `use` adds `EXPR` to the theory as an **axiom** — accepted without proof.
-An optional trailing string labels it (shown in later log lines and error
+It is only allowed at the top level of a file, or inside a `sandbox` or
+`expect` (whose content is discarded anyway) — not inside a `proof`,
+`assume`, `case`, `let` or `pick`, where the result would look proven
+although it relies on the axiom (e.g. `assume A` with `use B` inside would
+give `A implies B` "by impl-intro"). State axioms before the proof, or use
+`todo` (§6.3) for a step you want to leave open. An optional trailing string labels it (shown in later log lines and error
 messages instead of a bare line number). The label also controls whether
 `EXPR` is *exported* when this file is `load`ed elsewhere — see §8.2 —
 unless it's marked `local`, in which case the label is still used for
@@ -465,10 +470,11 @@ the **left-hand side** (e.g. `def x = 18`, or `def Pow($a) = { $b | $b ⊂
 $a }` — the new symbol doesn't have to be the very first token, just
 somewhere on the left); the right-hand side must contain no new symbols at
 all (only already-declared constants/variables, or `$`/`%` schema
-variables). `def` needs `=`/`iff` to already
-exist as operators, which means (unlike `use`) it can't be demonstrated
-against the bare `minimal.kurt` theory — you need `load equality` (for
-`=`) or `load prop` (for `iff`) first. Both `use` and `def`, called with no
+variables). A definition is safe (it can't make the theory contradictory)
+only if `=` and `iff` have their usual meaning, so `def` requires them to
+come from the theories that come with Kurt: `load equality` (for `=`) or
+`load prop` (for `iff`) first — an `iff` or `=` declared some other way is
+rejected. Both `use` and `def`, called with no
 arguments, print everything `use`d/`def`ined so far.
 
 ### 6.3 `todo`
@@ -583,7 +589,10 @@ human-readable description of the pristine starting point.
 current directory, from the CLI/shell), then any `-p`/`--path` directory
 given on the command line, then Kurt's own packaged theories
 (`src/kurt/theories/`). The `.kurt` extension is added automatically if
-missing. A file that has *already finished* loading is not loaded again
+missing. The packaged theories can't be shadowed: `load prop` always loads
+Kurt's own `prop.kurt`, and a file `prop.kurt` found earlier on the search
+path is an error (rename it) — `def`, and the checks built on the packaged
+theories, rely on their exact content. A file that has *already finished* loading is not loaded again
 (tracked via `get_load_level`, per level, inherited from parent levels) —
 so `load prop` twice in a row, or from two different files that both
 depend on it, is a harmless no-op (logged as `already loaded, skipped`)
@@ -679,10 +688,10 @@ export (immediately above) if the saved file is later `load`ed from
 somewhere else rather than run directly. Only the theory and syntax are
 saved — a pending `show` goal or an open proof/`assume`/`let`/`pick` block
 is not; call `save` once everything is settled (`root`/`sandbox` level),
-not mid-proof. `save` also deliberately does not try to detect "this came
-from `load prop`" and write `load prop` instead of `prop`'s own facts —
-that would need to reliably tell a loaded theory's facts apart from ones
-added locally, for a saving that's only sometimes smaller.
+not mid-proof. The packaged theories in use (`prop`, `equality`, ...) are
+written as `load` lines instead, and what they declare is left out — they
+can't be shadowed, so reloading them gives exactly the same content (and a
+saved `def` still finds its packaged `=`/`iff`).
 
 ## 9. Blocks and natural deduction
 
@@ -827,17 +836,18 @@ expected way, rather than relying on a comment nobody re-checks, or on a
 separate test harness matching exact (and therefore fragile — see
 `todo-claude.md`) error text.
 
-**Current limitation:** `expect` can only observe a failure raised by an
-*ordinary statement* directly inside its own body — never a failure that
-happens while *closing* a block (its own body's nested block, or even the
-preceding sibling block that this `expect` line's own dedent happens to
-close). In both cases, at the moment the exception is caught, the current
-mode is that other block's own mode (`proof`, `let`, `pick`, ...), not
-`expect` — so `expect`'s check in `read_eval_loop` never sees it, and the
-file just fails normally, as if `expect` had not been used. Concretely,
-this rules out using `expect` to test that closing a `let`/`pick`/`proof`
-block is correctly rejected (see `doc/kurt-soundness.md` §2 for exactly
-this case) — those still need the older `;;; ` marker convention.
+The expected error may come from anywhere inside the block: from a
+statement directly inside it, from inside a nested block (`assume`,
+`proof`, another `expect`, ...), or while such a nested block closes (a
+failing `qed`, or the dedent that closes a `let`/`pick`/`proof`). In the
+last case the line that triggered the dedent is already outside the
+`expect` block, so it is still evaluated afterwards. Any lines of the
+block after the one that raised the error are skipped. Since the content
+of an `expect` block is always discarded, `use` is allowed inside it (see
+§6.2). What `expect` can't do is check the error *message* — a test whose
+point is a specific message still uses a `;;; ` marker (see
+`tests/how-to-write-test-proofs.md`); and a `break` inside `expect` closes
+the `expect` block itself.
 
 ## 10. Session toggles and output
 

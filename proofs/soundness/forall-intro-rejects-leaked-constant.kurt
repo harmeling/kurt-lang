@@ -4,19 +4,13 @@
 ; block; if it were allowed to leak into the generalized conclusion, `forall x` would
 ; be quantifying over the wrong thing while `helper` -- a name with no meaning once the
 ; block closes -- silently rides along. See doc/kurt-soundness.md.
-;
-; note: this can't use `expect` (16-expect.kurt) -- the failure happens while *closing*
-; the `let` block itself (triggered by dedenting below), at which point the current
-; mode is still `let`, not `expect`; `expect` can only ever observe an error raised by
-; an ordinary statement directly inside its own body, never a preceding block's own
-; closing check. Hence the older `;;; ` marker convention here instead.
 load logic
 bool P
 const z
 use P z
-let x
-    const helper
-    use P helper
-    P helper
+expect "ProofError"          ; the block below must fail to close
+    let x
+        const helper
+        use P helper       ; allowed, since inside `expect`
+        P helper
 true
-;;; ProofError: there are constant symbols

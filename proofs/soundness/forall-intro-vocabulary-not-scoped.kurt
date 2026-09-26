@@ -9,7 +9,8 @@
 load logic
 bool P
 arity P 1
-let x
-    use P x
-    P x
+sandbox                ; `use` is only allowed at the top level, or in a `sandbox`
+    let x
+        use P x
+        P x
 true

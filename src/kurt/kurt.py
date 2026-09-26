@@ -40,6 +40,7 @@ import atexit       # atexit.register
 import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
+import copy        # copy.deepcopy, for a fresh session in `save_state_str`
 from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional, get_args
 from pathlib import Path
@@ -214,8 +215,35 @@ except (ModuleNotFoundError, ValueError):
     _packaged_theories = Path(__file__).resolve().parent / "theories"
 theory_path = [Path.cwd(),                             # current working directory
                           _packaged_theories]
+packaged_theory_paths: list = [_packaged_theories]    # the theories that come with Kurt, see `packaged_theory_file`
 if _EMBEDDED_THEORIES:
     theory_path.append(EmbeddedTheories(_EMBEDDED_THEORIES))   # last resort, only in the standalone bundle
+    packaged_theory_paths.append(theory_path[-1])
+
+def is_packaged_path(path) -> bool:
+    return any(str(path) == str(p) for p in packaged_theory_paths)
+
+def packaged_theory_names() -> list[str]:
+    # e.g. `['arith', 'equality', ...]`, the theories that come with Kurt
+    names: set[str] = set()
+    for path in packaged_theory_paths:
+        if isinstance(path, EmbeddedTheories):
+            names |= {n[:-5] for n in path._files if n.endswith('.kurt')}
+        else:
+            names |= {entry.name[:-5] for entry in path.iterdir() if entry.name.endswith('.kurt')}
+    return sorted(names)
+
+def packaged_theory_file(filename: str):
+    # the packaged theory called `filename` (e.g. `prop.kurt`), if there is one -- those can't
+    # be shadowed by a file of the same name elsewhere, since `def` and `--strict` rely on
+    # their content (see `load_file`)
+    if '/' in filename or '\\' in filename:
+        return None
+    for path in packaged_theory_paths:
+        candidate = path / filename
+        if candidate.is_file():
+            return candidate
+    return None
 
 # debugging
 debug_flag = False
@@ -420,7 +448,7 @@ keywords: dict[str, str] = {
     'let':         'fix a new constant, possibly with an assumption (made for "forall-intro"), block must be indented',
     'pick':        'pick a new constant "with" assumption (made for "exists-elim"), block must be indented',
     'sandbox':     'open a temporary block, useful for trying out things; discarded when closed, whether by dedenting or by `break`',
-    'expect':      'open a block whose content must raise the named kind of error (one of ProofError, ParseError, EvalError, SyntaxError, TypeError) to succeed; block must be indented and must not itself open further blocks',
+    'expect':      'open a block whose content must raise the named kind of error (one of ProofError, ParseError, EvalError, SyntaxError, TypeError) to succeed -- anywhere inside, including in nested blocks and while they close; the block is discarded either way',
 
     # closing a block explicitly (besides just dedenting, which works everywhere and is enough on its own)
     'break':       'discard the current block immediately (no proof step, no dedent needed)',
@@ -2420,7 +2448,18 @@ def eval_proof(kb: KnowledgeBase, mainstream: bool) -> KnowledgeBase:
 
 # def
 # LHS: exactly one unused symbol that is not a variable or boolean variable
+# `def` is safe only if `=` and `iff` have their usual meaning, so they must come from the
+# theories that come with Kurt
+DEF_THEORIES = {EQUAL_SYMBOL: 'equality', IFF_SYMBOL: 'prop'}
+
+def is_packaged_theory_loaded(name: str, kb: KnowledgeBase) -> bool:
+    candidate = packaged_theory_file(name + '.kurt')
+    return candidate is not None and kb.get_load_level(str(candidate)) is not None
+
 def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filename: str, line: int, mainstream: bool, local: bool = False) -> tuple[Formula, str]:
+    for op, theory in DEF_THEORIES.items():
+        if contains_symbol(expr, op) and not is_packaged_theory_loaded(theory, kb):
+            raise KurtException(f'EvalError: `def` with `{op}` needs the theory that gives `{op}` its meaning -- `load {theory}` first')
     match expr:
         case [Token(label='SYMBOL', value=s), LHS, RHS] if isinstance(s, str) and (s== EQUAL_SYMBOL or s==IFF_SYMBOL):
             lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s), kb)
@@ -2435,6 +2474,11 @@ def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filenam
     f = eval_use(kb, expr, input_line, label, filename, line, keyword='def', mainstream=False, local=local)
     f.def_symbol = lhs_const
     return f, lhs_const
+
+def contains_symbol(expr: Expr, symbol: str) -> bool:
+    if isinstance(expr, Token):
+        return expr.label == 'SYMBOL' and expr.value == symbol
+    return any(contains_symbol(e, symbol) for e in expr)
 
 def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
     # check whether the expression contains any boolean variables
@@ -2779,6 +2823,23 @@ def generate_chain_transitivity(kb: KnowledgeBase, chain: list[str]) -> Knowledg
     stream.name = f'<chain transitivity for {chain}>'   # read_eval_loop needs a real `.name`
     return read_eval_loop(stream, kb, mainstream=False)
 
+def block_forbidding_use(kb: KnowledgeBase) -> Optional[str]:
+    # `use` inside a proof-like block would leak an unproven axiom into a seemingly proven result
+    # (e.g. `assume A` + `use B` gives `A implies B`) -- the kind of the innermost such block, or
+    # `None` if `use` is fine here: at the top level of a file, or anywhere inside a `sandbox` or
+    # `expect`, whose content is discarded
+    innermost: Optional[str] = None
+    node: Optional[KnowledgeBase] = kb
+    while node is not None:
+        if node.is_load_boundary or node.mode_str == 'root':
+            return innermost
+        if node.mode_str in ('sandbox', 'expect'):
+            return None
+        if innermost is None:
+            innermost = node.mode_str
+        node = node.parent
+    return innermost
+
 def save_state_str(kb: KnowledgeBase) -> str:
     # `save "file.kurt"`: flatten the current, fully-built-up state (syntax declarations plus
     # theory facts, across every level from root down to the current one) into self-contained
@@ -2789,7 +2850,10 @@ def save_state_str(kb: KnowledgeBase) -> str:
     # always loads (no re-running of proof search). Deliberately does *not* try to detect "this
     # came from `load prop`" and emit `load prop` instead -- that would need to distinguish a
     # theory file's facts from ones added locally, and reconstructing `load` lines exactly
-    # would only sometimes be smaller output-wise. Only the theory is saved, not any pending
+    # would only sometimes be smaller output-wise. The exception are the theories that come with
+    # Kurt (`prop`, `equality`, ...): they can't be shadowed and are the same everywhere, so
+    # they are written as `load` lines, and whatever they declare is left out (this also keeps
+    # `def`s valid, which need the packaged `=`/`iff`). Only the theory is saved, not any pending
     # `show` goal or open proof block -- `save` is meant to be called from `root`/`sandbox`
     # level with nothing left in progress; the level stack itself has no sensible flat
     # representation to round-trip through a file (see todo-claude.md). Every fact gets a
@@ -2809,6 +2873,20 @@ def save_state_str(kb: KnowledgeBase) -> str:
                           # exists" errors (see doc/kurt-doc.md §8.1/§9's "starts one level
                           # deep, inside an implicit sandbox")
     lines = ['; generated by `save` -- flattened theory + syntax, reloads via `load`', '']
+    # the packaged theories in use, and what a fresh session gets from loading just them
+    loaded_files = {lib for lvl in levels for lib in lvl.libs}
+    packaged = [name for name in packaged_theory_names() if str(packaged_theory_file(name + '.kurt')) in loaded_files]
+    reference = copy.deepcopy(initial_kb)
+    for name in packaged:
+        reference = load_file(name, reference, search_paths=packaged_theory_paths)
+        lines.append(f'load {name}')
+    if len(packaged) > 0:
+        lines.append('')
+    reference_levels: list[KnowledgeBase] = []
+    node = reference
+    while node is not None:
+        reference_levels.append(node)
+        node = node.parent
     # `const` is deliberately excluded: constant symbols (operators and plain constants
     # alike) are auto-registered the first time they appear -- in an operator declaration
     # (`infix`/`prefix`/...) or in a `use`/`def` formula -- exactly like `prop.kurt` itself
@@ -2821,12 +2899,16 @@ def save_state_str(kb: KnowledgeBase) -> str:
     # -- which would otherwise mark the operator "already used" before its own `bool` line)
     syntax_keys = ['prefix', 'infix', 'postfix', 'arity', 'bindop', 'brackets',
                    'bool', 'flat', 'sym', 'nonassoc', 'chain', 'alias', 'var']
+    def declaration(line: str) -> str:
+        return line.split(';')[0].strip()    # without the `; level N` comment
+    known_syntax = {declaration(line) for lvl in reference_levels for key in syntax_keys for line in lvl.dict_or_set_str(key).split('\n')}
     for lvl in levels:
         for syntax_key in syntax_keys:
-            s = lvl.dict_or_set_str(syntax_key)
+            s = '\n'.join(line for line in lvl.dict_or_set_str(syntax_key).split('\n') if declaration(line) not in known_syntax)
             if s != '':
                 lines.append(s)
     lines.append('')
+    known_facts = {(expr_str(f.expr, reference), f.label) for lvl in reference_levels for f in lvl.theory}
     # an unlabelled fact still needs a *synthetic* label here: `merge_and_pop`'s selective
     # export (doc/kurt-doc.md's `load` section) only re-exports a labelled, non-`local` fact,
     # so without one, a bare `use A` in the saved file would work fine if that file is run
@@ -2838,6 +2920,8 @@ def save_state_str(kb: KnowledgeBase) -> str:
             if f.simplified_expr == todo_token:
                 continue    # bare `todo` placeholder, not a real fact -- nothing to write out
             text = expr_str(f.expr, kb)
+            if (text, f.label) in known_facts:
+                continue    # comes with a packaged theory loaded above
             head = 'def' if f.keyword == 'def' else ('todo' if f.keyword == 'todo' else 'use')
             if len(f.label) == 0:
                 save_counter += 1
@@ -3255,6 +3339,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if len(args) == 0:
             log(kb, kb.theory_str(keyword=keyword).strip())
         else:
+            proof_block = block_forbidding_use(kb)
+            if proof_block is not None:
+                raise KurtException(f'EvalError: `use` is not allowed inside `{proof_block}` -- the result would look proven although it relies on this axiom; state it before the proof, or use `todo`', keyword_token.column)
             formulas = []
             for expr in args:
                 try:
@@ -5079,6 +5166,16 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
     if not filename.endswith('.kurt'):
         filename += '.kurt'
+    # a packaged theory is always loaded from the package, and must not be shadowed
+    packaged = packaged_theory_file(filename)
+    if packaged is not None:
+        for path in search_paths:
+            shadow = path / filename
+            if is_packaged_path(path) or str(shadow) == str(packaged):
+                break
+            if shadow.is_file():
+                raise KurtException(f'EvalError: `{shadow}` has the same name as the theory `{filename}` that comes with Kurt, and would shadow it -- please rename your file')
+        search_paths = packaged_theory_paths
     # iterate over all theory paths
     for path in search_paths:
         candidate = path / filename
@@ -5145,12 +5242,32 @@ def kurt_prompt(level: int, line: int, continued: bool=False) -> str:
     p += '... ' if continued else f'[{line}] ' # continuation?
     return p
 
+def enclosing_expect(kb: KnowledgeBase) -> Optional[KnowledgeBase]:
+    # the innermost `expect` block around the current level (inside the current file)
+    node: Optional[KnowledgeBase] = kb
+    while node is not None and not node.is_load_boundary:
+        if node.mode_str == 'expect':
+            return node
+        node = node.parent
+    return None
+
+def open_block_depth(kb: KnowledgeBase) -> int:
+    # the number of blocks open in the current file, i.e., the index of the current block's
+    # indentation in `LexerState.indent_stack`
+    depth = 0
+    node: Optional[KnowledgeBase] = kb
+    while node is not None and not node.is_load_boundary and node.mode_str != 'root':
+        depth += 1
+        node = node.parent
+    return depth
+
 def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=False) -> KnowledgeBase:
     is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
     line       = 1
     continued  = False
     lexer_state = LexerState()   # lexer state for indentation management
     input_line = ''
+    skip_deeper_than: Optional[int] = None   # skip the rest of an `expect` block after its error
     if not is_file and readline:
         readline.parse_and_bind("tab: complete")    # enable tab completion
     while True:
@@ -5190,6 +5307,11 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                 # spanning a blank line is still part of that statement, not a new one).
                 line += 1
                 continue
+            if not continued and skip_deeper_than is not None:
+                if count_leading_spaces(new_line) > skip_deeper_than:
+                    line += 1
+                    continue      # still inside the `expect` block whose error was confirmed
+                skip_deeper_than = None
             input_line += new_line
             try:
                 kb, lexer_state = scan_parse_check_eval(input_line, lexer_state, kb, line, input_stream.name, mainstream)
@@ -5199,24 +5321,47 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                 line += 1
                 continue
             except KurtException as e:
-                if kb.mode_str == 'expect':
-                    assert len(kb.mode_args) == 1 and isinstance(kb.mode_args[0], Token)
-                    expected_kind = kb.mode_args[0].value
+                expect_kb = enclosing_expect(kb)
+                if expect_kb is not None:
+                    assert len(expect_kb.mode_args) == 1 and isinstance(expect_kb.mode_args[0], Token)
+                    expected_kind = expect_kb.mode_args[0].value
                     if e.kind == expected_kind:
-                        # confirmed: the block did exactly what it promised -- discard
-                        # everything inside it (like `break` would) and move on, whether
-                        # the error came from the block's own content or (if nothing
-                        # inside raised) from `eval_done`'s "you promised an error and
-                        # didn't deliver" check when the block tried to close normally
+                        # confirmed: the block did exactly what it promised -- discard it with
+                        # everything inside it (like `break` would), wherever inside it the
+                        # error came from: a statement directly inside it, a nested block, or a
+                        # nested block that failed to close
+                        while kb is not expect_kb:
+                            assert kb.parent is not None
+                            kb.show.clear()     # discarded, so are its pending `show`s
+                            kb = kb.pop_level()
+                        kb.show.clear()
                         kb = kb.pop_level()
-                        lexer_state.indent_stack.pop()
+                        depth = open_block_depth(kb)
+                        expect_indent = lexer_state.indent_stack[depth]
+                        del lexer_state.indent_stack[depth + 1:]
+                        lexer_state.indent_requester = ''
+                        lexer_state.initial_LHS = None
+                        lexer_state.chained_ops = []
                         if mainstream:
                             log(kb, f'expect "{expected_kind}"', f'{line} confirmed', kb.level)
-                        input_line = ''
-                        continued = False
-                        line += 1
+                        if count_leading_spaces(input_line) > expect_indent:
+                            skip_deeper_than = expect_indent    # skip the rest of the block
+                            input_line = ''
+                            continued = False
+                            line += 1
+                        else:
+                            # the line is already outside the block, it only failed while closing
+                            # the blocks inside it -- so it still has to be evaluated
+                            input_line = ''
+                            continued = False
+                            try:
+                                kb, lexer_state = scan_parse_check_eval(new_line, lexer_state, kb, line, input_stream.name, mainstream)
+                            except StopIteration:
+                                input_line = new_line + ' '
+                                continued = True
+                            line += 1
                         continue
-                    else:
+                    elif not e.msg.lstrip().startswith('ExpectationError'):
                         e.msg = f'expect "{expected_kind}" expected a `{expected_kind}`, got a different error instead:\n{e.msg}'
                 if e.column is None:
                     e.column = proof_indent * kb.level      # put the marker `^` at the beginning of the expression

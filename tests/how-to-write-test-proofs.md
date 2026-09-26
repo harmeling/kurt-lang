@@ -6,9 +6,7 @@
    that uses `expect "KIND"` internally — see `doc/kurt-doc.md` §9.6 — to check its own
    interesting condition and finishes cleanly either way).
 3. If your file's whole point is a *specific* expected error message rather than clean
-   success — typically because the failure happens while a block *closes* (a dedent, `qed`,
-   `break`, ...), which `expect` can't wrap, since `expect` only ever observes an
-   error raised by an ordinary statement directly inside its own body — add `;;; ` on the
+   success (`expect` only checks the kind of an error, not its message) — add `;;; ` on the
    file's last line, followed by (the start of) the expected error message, e.g.
      ;;; ProofError: can not derive `q`
    This also works for a file whose point is specific non-error output text. The comparison

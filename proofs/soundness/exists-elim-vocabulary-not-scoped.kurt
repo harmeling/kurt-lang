@@ -7,7 +7,8 @@ load logic
 bool Q, P
 arity Q 1
 use exists x Q x
-pick y with Q y
-    use P
-    P
+sandbox                ; `use` is only allowed at the top level, or in a `sandbox`
+    pick y with Q y
+        use P
+        P
 true

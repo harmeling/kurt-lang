@@ -22,8 +22,13 @@ true                  ; ...and we're back to normal, checking continues here
 ; message's phrasing changes, the way copying the exact text into a comment
 ; (or into a test's expected output) would.
 
-; One limitation, for now: `expect` only catches an error raised by a
-; statement directly inside it (or inside a nested `expect`).  An error
-; inside another block within it (`show`/`proof`/`assume`/`case`/`let`/
-; `pick`/`sandbox`), or while such a block closes, is not caught -- the file
-; just fails normally, exactly as if `expect` had not been used at all.
+; The error may come from anywhere inside the block, also from inside a
+; nested block, or from a nested block that can't be closed:
+
+bool A, B
+use A
+expect "ProofError"
+    show B
+    proof
+        A             ; `B` doesn't follow, so the proof can't be closed
+    qed

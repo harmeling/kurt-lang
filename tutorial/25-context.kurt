@@ -14,5 +14,5 @@ proof
     context
     assume A
         context
-        use B
+        B
 qed

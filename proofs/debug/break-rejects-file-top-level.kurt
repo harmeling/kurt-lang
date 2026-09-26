@@ -6,8 +6,8 @@
 ; bookkeeping (it expects to be the only one popping that particular level). Fixed via
 ; `KnowledgeBase.is_load_boundary`, set only on that implicit level.
 ;
-; note: this can't use `expect` -- the failure happens while `break` itself tries to close a
-; block, so the `;;; ` marker convention is used instead.
+; note: this can't use `expect` -- inside an `expect` block, `break` would close that block
+; instead of reaching the top level, so the `;;; ` marker convention is used.
 bool A
 use A
 break

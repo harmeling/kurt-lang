@@ -16,7 +16,7 @@ proof
     level          ; one more than above
     assume A
         level      ; one more again
-        use B
+        B
 qed
 
 level              ; back down to where we started

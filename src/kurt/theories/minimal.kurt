@@ -11,6 +11,14 @@ const true                                   ; declare constant symbol
 bool  true                                   ; true has type bool
 infix implies 13 12                          ; logical implies, right associative (since 13>12)
 infix and     16 16                          ; and operator
+bool  implies 0 1 2, and 0 1 2               ; both take and give booleans
+flat  ",", and                               ; lists and conjunctions need no nesting
+sym   and                                    ; `A and B` is the same as `B and A`
+alias ⊤ true
+alias ⇒ implies
+alias ∧ and
+; `EXPR local "label"` marks a label as not exported by `load` -- a special parse rule, no
+; declaration (see `local_led` in `kurt.py`)
 
 ;; inference rules genuinely hard-coded in `kurt.py` (not `use` axioms you could remove)
 ;
@@ -32,6 +40,17 @@ infix and     16 16                          ; and operator
 ; specific instance instead, with `show`/`proof`/`assume`/`qed` (see `tutorial/`,
 ; lessons 08-proof and 18-assume). `not`/`false` themselves also aren't declared here at
 ; all -- see `prop.kurt` for those, and for a general, always-available "not-intro".
+
+;; names the engine itself knows, although they are declared in theories
+;
+; the engine treats these symbols specially *by name*, once some theory declares them:
+; - `iff`: every fact `A iff B` is also used as `A implies B` and `B implies A` (`impl_elim`)
+; - `not`, `false`: closing an `assume` block whose last line is `false` also gives `not A`
+; - `=`, `iff`: the only relations `def` accepts (and only from the packaged `equality.kurt` /
+;   `prop.kurt`); their two sides are never reordered, although both are `sym`
+; - `+ - * / ^` and `= ≠ < <= > >=` on numbers: computed with `calc on`
+; - `sub`, `forall`, `exists`: see below, and the rules behind `let` ("forall-intro") and
+;   `pick` ("exists-elim")
 
 ;; substitution operator
 arity  sub 3                                 ; operator for substitutions

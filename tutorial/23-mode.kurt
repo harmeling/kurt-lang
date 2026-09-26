@@ -18,5 +18,5 @@ proof
     mode          ; now inside the `proof` block
     assume A
         mode      ; now inside the nested `assume` block
-        use B
+        B
 qed
