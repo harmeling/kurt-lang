@@ -3,4 +3,4 @@
 load prop
 show true
 proof
-;;; ParseError: expected increased indentation at line 6 in ./proofs/debug/test-not-all-blocks-close.kurt after `proof`.
+;;; EvalError: inside

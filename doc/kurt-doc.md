@@ -61,12 +61,12 @@ you don't intend this, don't have a file by that name lying around.
 Kurt reads a proof one *statement* at a time; a statement occupies one or
 more physical lines (see §2.1 on indentation/continuation).
 
-- **Comments** start with `;` and run to the end of the line. A comment is
-  attached to whatever formula precedes it and can later be shown again
-  (e.g. as its label, or via `theory`).
+- **Comments** start with `;` and run to the end of the line. They are
+  ignored completely -- a label is written as a string instead (§6.2). A
+  line with nothing but a comment is skipped like a blank line, whatever
+  its indentation.
 - **Symbols** (identifiers) are `[A-Za-z][A-Za-z0-9]*`, optionally preceded
-  by a single `$`, `%`, or `@`. `$` and `%` are meaningful (see §3.2); `@`
-  is accepted by the lexer but nothing currently treats it specially.
+  by a single `$` or `%` (see §3.2).
 - **Numbers** are `INT` (`[0-9]+`) or `FLOAT` (`[0-9]+\.[0-9]+`) literals.
 - **Strings** are `"..."` (no escaping of embedded quotes); used for labels
   (`use ... "my-label"`) and for some keyword arguments that take an
@@ -103,16 +103,10 @@ continuation — no explicit continuation marker is needed.
 In a *file*, indentation is significant. Opening a block (`proof`,
 `assume`, `case`, `let`, `pick`, `sandbox`, see §9) requires the next line
 to be indented relative to it; dedenting afterwards closes as many nested
-blocks as the drop in indentation implies. **A line's indentation is
-measured from its very first character, including comment-only lines** — a
-comment line indented further than the current block is a `ParseError`
-("unexpected increased indentation"), even though it contains no code. In
-practice this means: don't visually align a wrapped comment's continuation
-under an earlier inline comment by indenting it — keep continuation
-comment lines at column 0 (or at the current block's own indentation).
-A **blank line**, by contrast, is always safe anywhere, including deep
-inside a nested block — it's skipped outright rather than measured, so it
-never dedents anything on its own.
+blocks as the drop in indentation implies. A **blank line**, or a line with
+nothing but a **comment**, is always safe anywhere, at any indentation,
+including deep inside a nested block — it's skipped outright rather than
+measured, so it never dedents anything on its own.
 
 ### 2.2 LaTeX-style input shortcuts (interactive shell only)
 
@@ -151,11 +145,10 @@ Every symbol is exactly one of:
 
 - a **constant** — one fixed, specific object, declared with `const x`, or
   implicitly whenever it's introduced by `let`/`pick`/`def`/`brackets`, or
-- a **variable** — may stand for arbitrary objects, declared with `var x`,
-  or implicitly the first time an otherwise-undeclared symbol is used in a
-  formula (see `bool A, B` in the tutorials: `A`/`B` become variables the
-  moment they're first written in an expression, not when `bool` declares
-  them — `bool` only records that they're boolean, see §5).
+  the first time an otherwise-undeclared symbol is used in a formula (e.g.
+  after `use P c`, both `P` and `c` are constants; `bool` only records that
+  a symbol is boolean, see §5, not whether it is a constant), or
+- a **variable** — may stand for arbitrary objects, declared with `var x`.
 
 Once a symbol's role is fixed *on a given level* (see §9 on blocks/levels),
 it cannot be changed in either direction on that level: declaring `const x`
@@ -163,11 +156,13 @@ then `var x` fails, and so does the reverse. A symbol that is a constant
 inside a block can still be an ordinary (as-yet-undecided) symbol outside
 it, once the block closes and its constants go out of scope.
 
-Symbols starting with `$` or `%` are **always** variables, regardless of
-any `const`/`var` declaration — they exist specifically to write *axiom
-schemas* in `use` lines (e.g. `use $A implies $A`), where `$x` stands for
-an arbitrary non-boolean term and `%A` stands for an arbitrary boolean
-formula. You'll see `$`-variables and `%`-variables throughout every
+Symbols starting with `$` or `%` are **always** variables (`const $x` is an
+error) — they exist specifically to write *axiom schemas* in `use` lines,
+where `$x` stands for an arbitrary non-boolean term (e.g. `use $a = $a`)
+and `%A` stands for an arbitrary boolean formula (e.g. `use %A and %B
+implies %A`); mixing them up is a type error (`$A implies $A`). Inside a
+`let` block, `let %A` does turn one into a fixed, arbitrary constant for
+the block. You'll see `$`-variables and `%`-variables throughout every
 `.kurt` theory file under `src/kurt/theories/`.
 
 ### 3.3 What "new" means

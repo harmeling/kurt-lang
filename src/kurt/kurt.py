@@ -2027,7 +2027,7 @@ scanner: re.Pattern = re.compile(fr'''
   (?P<FLOAT>   [0-9]+\.[0-9]+)                    | # floating point literals
   (?P<INT>     [0-9]+)                            | # integer literals
   (?P<STRING>  ["][^"]*["])                       | # string literals
-  (?P<SYMBOL>  [$%@]?[A-Za-z][A-Za-z0-9]*         | # symbols 1: identifiers with at most one leading '$' or '%' or '@'
+  (?P<SYMBOL>  [$%]?[A-Za-z][A-Za-z0-9]*          | # symbols 1: identifiers with at most one leading '$' or '%'
                [(){{}}\[\]]                       | # symbols 2: round/curly/square brackets -- always single char, never
                                                      # merge with each other or with symbols 4 (custom `brackets X Y`
                                                      # pairs need this: adjacent punctuation like three dots must not
@@ -3354,6 +3354,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     msg = create_usage(keyword, [[], ['STRING']])
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
         for op in new_stuff:
+            if op[0] in ['$', '%']:
+                # (inside a `let`, such a symbol does become a fixed, arbitrary constant)
+                raise KurtException(f'EvalError: symbol `{op}` starts with `{op[0]}`, so it is always a variable and can not be declared a constant', keyword_token.column)
             kb.add_const(op)
             if mainstream:
                 log(kb, f'const {op}', f'added constant', kb.level)
@@ -5380,8 +5383,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                     break
                 new_line = new_line.rstrip()
             new_line = new_line.expandtabs(tab_indent)     # tabs are ok, but are converted
-            if not continued and new_line.strip() == '':
-                # a blank line never carries anything to parse -- skip it outright rather
+            if not continued and (new_line.strip() == '' or new_line.lstrip().startswith(';')):
+                # a blank line (or a line with only a comment) never carries anything to parse -- skip it outright rather
                 # than feeding it through the indentation logic below, where its own leading-
                 # space count (0, whether truly empty or just whitespace) would otherwise be
                 # read as "dedent all the way back to column 0", incorrectly closing every
