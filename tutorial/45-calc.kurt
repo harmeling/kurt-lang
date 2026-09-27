@@ -1,4 +1,4 @@
-; 46-calc.kurt
+; 45-calc.kurt
 
 ; `calc` is a toggle (`calc on` / `calc off`) that switches on automatic
 ; arithmetic simplification of `+` and `*` inside expressions, before they

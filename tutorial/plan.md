@@ -66,20 +66,19 @@ SUGAR -- syntactic convenience
     37-alias     giving a symbol an extra name (e.g. Unicode for ASCII)
     38-flat      an infix operator that doesn't need explicit nesting
     39-sym       an infix operator whose arguments may be swapped
-    40-nonassoc  an infix operator that rejects being chained, ambiguously
-    41-latex     custom LaTeX rendering for a symbol (see `-l` / `latex.kurt`)
+    40-latex     custom LaTeX rendering for a symbol (see `-l` / `latex.kurt`)
 
 MISC -- REPL/output behaviour and self-documentation
 --------------------------------------------------------
-    42-format    how formulas are printed (`sexpr` vs `normal`)
-    43-help      list of all keywords, straight from Kurt itself
-    44-hint      toggle: hints for the next input (shell only)
-    45-verbose   toggle: show extra detail while matching formulas
-    46-calc      toggle: automatic arithmetic simplification (`+`, `*`)
+    41-format    how formulas are printed (`sexpr` vs `normal`)
+    42-help      list of all keywords, straight from Kurt itself
+    43-hint      toggle: hints for the next input (shell only)
+    44-verbose   toggle: show extra detail while matching formulas
+    45-calc      toggle: automatic arithmetic simplification (`+`, `*`)
 
 PUTTING IT ALL TOGETHER -- writing a proof from scratch, not just one keyword
 ------------------------------------------------------------------------------
-    47-worked-proof   a full worked example (de Morgan's law, one direction),
+    46-worked-proof   a full worked example (de Morgan's law, one direction),
                       narrating the actual process: state the goal, sketch a
                       strategy, hit "can not derive" at least once, and fix it
 

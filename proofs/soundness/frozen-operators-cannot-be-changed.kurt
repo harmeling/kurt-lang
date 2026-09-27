@@ -1,5 +1,5 @@
 ; the operators that come with Kurt's theories (and its core) are frozen: a file can't declare
-; them `flat`/`sym`/`nonassoc`, or put them into a new `chain`, since that would change their
+; them `flat`/`sym`, or put them into a new `chain`, since that would change their
 ; meaning -- e.g. `chain ≠` would derive `a ≠ a` from `a ≠ b` and `b ≠ a`, and `sym -` would
 ; derive `a - b = b - a`
 load arith

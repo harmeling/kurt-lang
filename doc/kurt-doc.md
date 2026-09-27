@@ -287,20 +287,6 @@ must come before the operator is used in any formula, and it can't be made
 for an operator that comes with one of Kurt's theories or its core (e.g.
 `sym -` or `sym implies` is an error) — see "frozen operators" in §8.2.
 
-### 4.5a `nonassoc`
-
-    nonassoc OP     ; e.g. nonassoc "<"
-
-Also requires `OP` to already be `infix`. Ordinarily, writing the same
-infix operator twice in a row (`a < b < c`) silently parses one way or the
-other, decided by the operator's own left/right binding powers — usually
-left-associating. `nonassoc OP` makes that a `ParseError` instead:
-`a OP b OP c` is rejected as ambiguous, and you must add parentheses
-(`(a OP b) OP c` or `a OP (b OP c)`) to say which one you mean. Mutually
-exclusive with `flat` (declaring either one after the other is an error) —
-a `flat` operator is inherently associative by construction, the opposite
-of what `nonassoc` asserts. Can only be declared once per operator.
-
 ### 4.6 `chain`
 
     chain OP1 OP2 ...     ; e.g. chain = <=  or  chain iff implies
@@ -377,7 +363,7 @@ open level; `syntax SYMBOL` prints just what's known about one symbol.
 s-expression form and the same per-symbol syntax info as `syntax`.
 `tokenize EXPR` shows the raw token stream before parsing. Each of
 `infix`/`prefix`/`postfix`/`brackets`/`arity`/`bindop`/`flat`/`sym`/
-`nonassoc`/`chain`/`bool`/`var`/`const`/`alias`/`latex`, called with no
+`chain`/`bool`/`var`/`const`/`alias`/`latex`, called with no
 arguments, also prints its own currently-declared table.
 
 ## 5. Boolean typing
@@ -612,7 +598,7 @@ theories, rely on their exact content.
 
 The symbols declared by a *trusted* theory file — one that comes with Kurt,
 or one found via `-p DIR` — are **frozen**: no other file can declare them
-`flat`, `sym` or `nonassoc`, or put them into a `chain` in a way that
+`flat` or `sym`, or put them into a `chain` in a way that
 derives something new about them. E.g. `chain ≠` (which would make `≠`
 transitive) is rejected, while `chain = lt` for a file's own relation `lt`
 is fine: a frozen operator may be combined with the file's own operators

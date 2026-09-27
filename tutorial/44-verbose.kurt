@@ -1,4 +1,4 @@
-; 45-verbose.kurt
+; 44-verbose.kurt
 
 ; `verbose` is a toggle (`verbose on` / `verbose off`) that makes Kurt print
 ; extra detail about *why* a match succeeded while it searches the theory:

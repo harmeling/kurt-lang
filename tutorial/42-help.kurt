@@ -1,4 +1,4 @@
-; 43-help.kurt
+; 42-help.kurt
 
 ; `help` prints Kurt's own one-line description of every keyword -- the
 ; ground truth this whole tutorial is trying to expand on.  Worth running

@@ -1,4 +1,4 @@
-; 41-latex.kurt
+; 40-latex.kurt
 
 ; `latex SYMBOL REPLACEMENT` tells Kurt how to render a symbol when producing
 ; a LaTeX proof document -- run `kurt -l my-proof.kurt` on the command line

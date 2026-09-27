@@ -206,7 +206,7 @@ Status as assessed:
   none. Updated `tutorial/plan.md`'s lesson list and prose to match.
 
 - ~~**New finding: a blank line inside a nested block could silently close
-  it**~~ — **done, fixed.** Found while writing `tutorial/47-worked-proof.kurt`.
+  it**~~ — **done, fixed.** Found while writing `tutorial/46-worked-proof.kurt`.
   A blank line's own leading-space count is always 0, and the indentation
   tracker read that literally as "dedent all the way back to column 0" --
   incorrectly closing *every* currently open block instead of being
@@ -456,7 +456,7 @@ Status as assessed:
   `KurtException.kind`, not comparing message text at all — so the file
   either fully succeeds (`;;; Proof checked.`, no marker fragility) or
   fails for real. Retrofitted: `forall-elim-fail.kurt`,
-  `proofs/debug/mini-again.kurt`, `tutorial/46-calc.kurt`, plus a new
+  `proofs/debug/mini-again.kurt`, `tutorial/45-calc.kurt`, plus a new
   `tutorial/16-expect.kurt` lesson. **Three files still rely on the 17-char
   fallback, deliberately**: `proofs/debug/load-cycle-a/b.kurt` need to match
   the error *kind* across two different files' absolute paths, which
