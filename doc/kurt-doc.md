@@ -24,7 +24,6 @@ the source.
     kurt -i path/to/proof.kurt  # check the file, then drop into the shell
     kurt -d path/to/proof.kurt  # also print debug information
     kurt -v path/to/proof.kurt  # also print verbose matching information
-    kurt -l path/to/proof.kurt  # emit a LaTeX proof document instead
     kurt -p DIR path/to/proof.kurt   # also search DIR for `load`ed theories
     kurt -s path/to/proof.kurt       # strict, for grading (see below)
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
@@ -336,10 +335,9 @@ not a chain. All declared chains together must form a DAG (no operator
 ordering may create a cycle across different `chain` declarations) — this
 is checked when the chain is declared.
 
-### 4.7 `alias` and `latex`
+### 4.7 `alias`
 
     alias NEW OLD     ; e.g. alias "⇒" implies
-    latex SYM REPL     ; e.g. latex "xor" "\oplus"
 
 `alias` gives an existing symbol an additional name, resolved *in the
 scanner* (i.e. before parsing, with no inference step) — `implies` and `⇒`
@@ -348,12 +346,9 @@ stored in the theory. This is different from `def` (§6.2), which
 introduces a genuinely new constant that needs an inference step
 (`equal-elim`/`iff-elim`) to unfold.
 
-`latex` records how a symbol should render in a generated LaTeX proof
-document (`kurt -l`); it has no effect on parsing or proving. `format latex`
-also switches the *session's* print format to LaTeX from inside a `.kurt`
-file (§10) — note this is a separate thing from the `-l` command-line flag,
-which generates a whole LaTeX proof document rather than just changing how
-formulas print in the shell.
+A LaTeX document of a proof is not produced by Kurt itself, but by the
+separate script `scripts/kurt2latex.py`, which formats Kurt's output
+(`python3 scripts/kurt2latex.py proof.kurt > proof.tex`).
 
 ### 4.8 Inspecting the grammar
 
@@ -363,7 +358,7 @@ open level; `syntax SYMBOL` prints just what's known about one symbol.
 s-expression form and the same per-symbol syntax info as `syntax`.
 `tokenize EXPR` shows the raw token stream before parsing. Each of
 `infix`/`prefix`/`postfix`/`brackets`/`arity`/`bindop`/`flat`/`sym`/
-`chain`/`bool`/`var`/`const`/`alias`/`latex`, called with no
+`chain`/`bool`/`var`/`const`/`alias`, called with no
 arguments, also prints its own currently-declared table.
 
 ## 5. Boolean typing
@@ -628,7 +623,6 @@ declaring their own prerequisites via their own `load` lines:
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers, induction | `set`, `arith` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
-| `latex.kurt` | LaTeX rendering setup for `kurt -l` | none declared |
 | `lambda-calculus.kurt` | `λ`/lambda abstraction and beta-reduction (a *predicate* lambda calculus — see the file's own header for why: single-argument, boolean-bodied only, no currying, no eta) | `equality` |
 
 `load` with no arguments lists every file loaded so far, level by level.
@@ -862,7 +856,7 @@ the `expect` block itself.
 
 ## 10. Session toggles and output
 
-    format sexpr | normal | original | latex   ; how formulas are printed: (and A B), or A and B, ...
+    format sexpr | normal | original   ; how formulas are printed: (and A B), or A and B, ...
     verbose on | off              ; print extra detail about *why* a match succeeded
     hint on | off                  ; reserved for future use — currently a no-op
     calc on | off       ; auto-simplify `+`/`-`/`*`/`/`/`^` on int/float literals before checking

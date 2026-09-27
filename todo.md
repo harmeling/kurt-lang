@@ -15,6 +15,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO shell: pre-fill each input line with the current indentation (readline `set_startup_hook`), so that a backspace dedents
 - TODO `use` only *directly* in a `sandbox`/`expect`, not in a proof block nested inside them (two soundness tests need `use P $w` before the block instead)
 - TODO get rid of the `;;; ` markers: `expect` with an optional message prefix, and file-level errors (EOF, unclosed blocks, `break` at top level) via `expect` around a `load` of a helper file in a directory the test discovery skips
+- TODO `f(a,b)` for a function of arity 2: currently `f` applied to *one* argument, the comma list `(a,b)` ("not enough arguments"); spread a comma list of n elements over a function of arity n, so that `f(a,b)` means `f a b` (postponed 2026-09-27)
 - TODO minimal core: remove the name-based special cases (`iff`, `not`/`false`, `=`/`iff` for `def`, `exists`/`pick`) so that `minimal.kurt` really is the core; later maybe separate the rule level from the object level (like Isabelle/Pure)
 
 ## NEXT
@@ -114,6 +115,5 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO replace `functool.cmp_to_key` and rewrite `compare_expr`
 - TODO LBYL and EAFP Coding Style? <https://realpython.com/python-lbyl-vs-eafp/>
 - TODO <https://en.wikibooks.org/wiki/Haskell/Indentation#:~:text=The%20golden%20rule%20of%20indentation&text=When%20you%20start%20the%20expression,acceptable%20and%20may%20be%20clearer).&text=This%20tends%20to%20trip%20up,expressions%20must%20be%20exactly%20aligned.>
-- TODO format "latex", also allow custom latex formats
 - TODO use the Token.column information
 - TODO add syntactic sugar for case distinctions

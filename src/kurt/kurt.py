@@ -90,53 +90,6 @@ proof_indent   =  4       # how much to indent for a `proof` block
 comment_indent = 42       # how much the reason is indented
 tab_indent     =  4       # tabs get converted to four spaces
 
-# latex
-latex_flag    = False   # whether to create LaTeX proof document
-latex_header = r'''Automatically generated LaTeX stuff
-\documentclass{article}
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{amsmath,amssymb}
-\usepackage{array}
-\usepackage[a4paper, hmargin={3.5cm,3cm}, vmargin={2cm,2cm}]{geometry}
-\usepackage{stmaryrd}
-
-\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
-
-\begin{document}
-
-\begin{flushleft}
-\begin{tabular}{L{0.45\linewidth} L{0.45\linewidth}}
-'''
-latex_footer = r'''
-\end{tabular}
-\end{flushleft}
-\end{document}
-'''
-latex_map = {
-    'assume':        r'\text{Assume that }',
-    'case':          r'\text{Case }',
-    'let':           r'\text{Let }',
-    'pick':          r'\text{Pick }',
-    'show':          r'\text{To show: }',
-    'proof':         r'\textbf{proof}',
-    'qed':           r'\textbf{qed}',
-    'and':           r'\and',
-    'or':            r'\or',
-    'implies':       r'\Rightarrow',
-    'iff':           r'\Leftrightarrow',
-    'equiv':         r'\equiv',
-    'not':           r'\neg',
-    'true':          r'\text{true}',
-    '⊤':             r'\top',
-    'false':         r'\text{false}',
-    'contradiction': r'\text{contradiction}',
-    '⊥':             r'\bot',
-    'forall':        r'\forall',
-    'exists':        r'\exists',
-    '=':             r'=',
-}
-
 # config: the basic symbols of the kurt language as constants
 AND_SYMBOL   = 'and'         # conjunction (used for premises and conclusions)
 IMPL_SYMBOL  = 'implies'     # implication 
@@ -439,7 +392,7 @@ class KurtException(Exception):
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END', 'TODO']
 Value:  TypeAlias = str | int | float
-Format: TypeAlias = Literal['sexpr', 'normal', 'original', 'latex']
+Format: TypeAlias = Literal['sexpr', 'normal', 'original']
 format_options: list[Format] = list(get_args(Format))  # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
 
 ## the syntax is stored in a hierarchical knowledge base called `KnowledgeBase`
@@ -472,7 +425,6 @@ keywords: dict[str, str] = {
     'var':         'declare symbols as variable',
     'const':       'declare symbols as fresh constants, i.e., they have not been used or declared before',
     'alias':       'add some aliases for a symbol',
-    'latex':       'add some latex command for a symbol',
     'local':       'mark a label (on `use`/`show`/`def`) as local: the labelled formula/symbol is not exported when this file is `load`ed elsewhere, e.g. `use %A implies %A local "restatement"`',
 
     'theory':      'print all formulas, or print formulas that have a certain top level symbol',
@@ -809,7 +761,6 @@ class KnowledgeBase:
         self.frozen:   set[str]                  = set()  # symbols declared by a trusted theory, see `is_trusted_file`
         self.alias:    dict[str, str]            = {}     # dict of alias pointing to the original
         self.used:     set[str]                  = set()  # set of all symbols that are used in formulas (i.e., not only declared)
-        self.latex:    dict[str, str]            = {}     # dict from symbols to latex strings
 
         # parsing related
         self.lbp:      dict[str, int]            = {}     # left binding power
@@ -968,7 +919,7 @@ class KnowledgeBase:
 
         self.theory = exported
         symbol_keyed_attrs = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop',
-                               'flat', 'sym', 'alias', 'used', 'latex', 'lbp', 'rbp', 'nud',
+                               'flat', 'sym', 'alias', 'used', 'lbp', 'rbp', 'nud',
                                'led', 'const', 'bool')
         for attr in symbol_keyed_attrs:
             value = getattr(self, attr)
@@ -1052,7 +1003,6 @@ class KnowledgeBase:
             else:
                 return f'const {key}'
         elif keyword == 'alias':    return f'alias {key} {value}'
-        elif keyword == 'latex':    return f'latex {key} {value}'
         else: 
             assert False, f'BUG: unknown keyword, got {keyword}'
 
@@ -1290,14 +1240,6 @@ class KnowledgeBase:
         else:
             return None
 
-    def get_latex(self, s: str) -> Optional[str]:
-        if s in self.latex:
-            return self.latex[s]
-        elif self.parent is not None:
-            return self.parent.get_latex(s)
-        else:
-            return None
-
     def get_load_level(self, fname: str) -> Optional[int]:
         if fname in self.libs:
             return self.level
@@ -1485,11 +1427,6 @@ class KnowledgeBase:
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol `{s}` is already a constant')
         self.alias[s] = t         # add a key `s` with value `t`
-
-    def add_latex(self, s: str, t: str) -> None:
-        # e.g.: 
-        # self.latex['implies'] = '\Rightarrow'
-        self.latex[s] = t         # add a key `s` with value `t`
 
     def add_bool(self, s: str, v: list[int]) -> None:
         if self.is_used(s):
@@ -1818,8 +1755,6 @@ def expr_str(expr: Expr, kb: KnowledgeBase) -> str:
         if len(s) > 0  and  s[0] == '(' and s[-1] == ')':
             s = s[1:-1]         # the brackets are useful during construction, but on the top level we have to omit them
         return s
-    elif kb.format == 'latex':
-        return expr_latex(expr, kb)
     else:
         assert False, f'BUG: unknown expression format, got {kb.format}'
 
@@ -1873,43 +1808,6 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
             return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
         case [*tail]:
             return f'({" ".join([expr_normal(e, kb) for e in tail])})'
-    assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
-
-def expr_latex_token(t: Token, kb: KnowledgeBase) -> str:
-    # like expr_sexpr for a bare token, but substituted via the `latex` mapping (`add_latex`) if declared
-    if t.label == 'SYMBOL' and isinstance(t.value, str):
-        replacement = kb.get_latex(t.value)
-        if replacement is not None:
-            return replacement
-    return expr_sexpr(t, kb)
-
-def expr_latex(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression, substituting `latex` names
-    match expr:
-        case Token():
-            return expr_latex_token(expr, kb)
-        case [e0]:
-            return expr_latex(e0, kb)
-        case [Token(label='SYMBOL', value=a) as op, e1] if isinstance(a, str) and kb.is_prefix(a):
-            return f'({expr_latex_token(op, kb)} {expr_latex(e1, kb)})'
-        case [Token(label='SYMBOL', value=a) as op, e1] if isinstance(a, str) and kb.is_postfix(a):
-            return f'({expr_latex(e1, kb)} {expr_latex_token(op, kb)})'
-        case [Token(label='SYMBOL', value=a) as op, e1, e2] if isinstance(a, str) and kb.is_infix(a):
-            return f'({expr_latex(e1, kb)} {expr_latex_token(op, kb)} {expr_latex(e2, kb)})'
-        case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_bracket_placeholder(a):
-            # split `a` into `left` + `$$$` + `right`
-            parts = a.split('$$$')
-            assert len(parts) == 2, f'BUG: bracket placeholder must contain `$$$`'
-            left, right = parts
-            return f'{left} {" ".join([expr_latex(e, kb) for e in tail])} {right}'
-        case [Token(label='SYMBOL', value=a) as op, *tail] if isinstance(a, str) and kb.is_flat(a):
-            return f'({f" {expr_latex_token(op, kb)} ".join([expr_latex(e, kb) for e in tail])})'
-        case [e0, e1]:
-            # see the identical fix (and its comment) in `expr_normal` above
-            return f'({expr_latex(e0, kb)} {expr_latex(e1, kb)})'
-        case [Token(label='SYMBOL', value=a) as op, e1, e2]:
-            return f'({expr_latex_token(op, kb)} {expr_latex(e1, kb)} {expr_latex(e2, kb)})'
-        case [*tail]:
-            return f'({" ".join([expr_latex(e, kb) for e in tail])})'
     assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
 
 def is_op_expr(e: Expr, op: str) -> bool:
@@ -2443,8 +2341,7 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optiona
                 raise e      # reraise it
     else:
         expr_list = split_by_comma(list(ts)[:-1])             # [:-1] removes end_token
-        if keyword != 'format':      # `format latex` needs to accept `latex`, which is also a keyword
-            check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
+        check_no_keyword(expr_list)             # don't check the `keyword` and the `label`
     return keyword_token, expr_list, label, local
 
 ## kurt eval
@@ -3395,23 +3292,6 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
         for (s, t) in new_stuff:
             kb.add_alias(s, t)
-    elif keyword == 'latex':
-        if len(args) == 0:
-            log(kb, kb.dict_or_set_str_all_levels(keyword))
-        new_stuff = []
-        for args_i in args:
-            match args_i:
-                case []:
-                    assert False, f'BUG: empty args in `latex` should have been caught earlier'
-                case [Token(label='STRING'|'SYMBOL', value=s), Token(label='STRING'|'SYMBOL', value=t)]:
-                    assert isinstance(s, str) and isinstance(t, str)
-                    new_stuff.append((s, t))    # first collect
-                case _:
-                    msg = create_usage(keyword, [[], ['STRING', 'STRING']])
-                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-        for (s, t) in new_stuff:
-            kb.add_latex(s, t)
-
     # THEORY AND PROOF RELATED
     elif keyword == 'theory':
         if len(args) == 0:
@@ -3841,46 +3721,15 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
 # or written as a kurt formula
 #   A and B and C implies D
 
-def latexify(kb: KnowledgeBase, s: str) -> str:
-    s = s.replace("%", r"\%")
-    parts = re.split(r"[()\s]+", s)
-    for i in range(len(parts)):
-        t = kb.get_latex(parts[i])
-        if t is not None:
-            parts[i] = t
-    s = ' '.join(parts)
-    return s
-
-def starts_with_keyword(s: str) -> bool:
-    keywords = ['theory', 'use', 'def', 'todo', 'qed', 'done', 'break', 'inspect', 'show', 'proof', 'sandbox', 'assume', 'case', 'let', 'pick']
-    for kw in keywords:
-        if s.startswith(kw + ' ') or s == kw:
-            return True
-    return False
-
 def log(kb: KnowledgeBase, s: str, reason: str='', level: Optional[int]=None) -> None:
         if level is not None and level > 0 and kb.tmp:
             level = level - 1
-        if latex_flag:
-            indent: str = '% ' if level is None else '\\quad' * level + ' '
-            if indent.startswith('% '):
-                line = indent + s
-            else:
-                if not starts_with_keyword(s):
-                    s = '\\Rightarrow ' + s
-                s = latexify(kb, s)
-                line = '$ ' + indent + s + ' $'
-                if len(reason) > 0:
-                    line += ' & ; ' + reason
-                line += ' \\\\'
-            print(line, file=sys.stdout)
+        indent: str = '' if level is None else ' ' * (proof_indent * level)
+        if len(reason) == 0:
+            line = indent+s
         else:
-            indent: str = '' if level is None else ' ' * (proof_indent * level)
-            if len(reason) == 0:
-                line = indent+s
-            else:
-                line = f'{(indent+s):<{comment_indent}}; {reason}'
-            print(line, file=sys.stdout)
+            line = f'{(indent+s):<{comment_indent}}; {reason}'
+        print(line, file=sys.stdout)
 
 # how to derive a formula?
 # - equalities lead to two rules
@@ -5520,7 +5369,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
-    parser.add_argument('-l', '--latex',        action='store_true', help=f'create LaTeX proof document')
     return parser.parse_args()
 
 def main() -> None:
@@ -5550,10 +5398,6 @@ def main() -> None:
     # set reason indentation
     global comment_indent
     comment_indent = args.comment_indent
-
-    # LaTeX output?
-    global latex_flag
-    latex_flag = args.latex
 
     # say hello
     log(kb, f'This is Kurt, v{version} ({made_by}), file {file_fingerprint()}')
@@ -5590,10 +5434,6 @@ def main() -> None:
     if kb.verbose:
         log(kb, f'Using theory path: {theory_path}')
 
-    if latex_flag:
-        log(kb, latex_header)
-        kb: KnowledgeBase = load_file("latex.kurt", kb, mainstream=False)
-
     had_error = False
     try:
         # if there is a filename run the file
@@ -5624,9 +5464,6 @@ def main() -> None:
     if args.interactive:
         kb = read_eval_loop(sys.stdin, kb, mainstream=True)
 
-    # some bye to latex?
-    if latex_flag:
-        log(kb, latex_footer)
     # a caught KurtException while checking `args.filename` (e.g. a failed proof, a parse
     # error) must be visible in the exit code -- otherwise a script (CI, an autograder)
     # cannot tell a failed check from a successful one without scraping stderr text.
