@@ -29,6 +29,13 @@ class TestStrictMode(unittest.TestCase):
                 with self.assertRaises(kurt.KurtException):
                     self.check(source, tmp)
 
+    def test_requires_declarations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(kurt.KurtException):
+                self.check('load prop\nB implies B\n', tmp)
+        with tempfile.TemporaryDirectory() as tmp:
+            self.check('load prop\nbool B\nB implies B\n', tmp)
+
     def test_accepts_proofs_from_packaged_theories(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.check('load prop\nbool A\nshow A implies A\nproof\n    assume A\n        A\ntrue\n', tmp)

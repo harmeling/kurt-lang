@@ -1255,6 +1255,11 @@ class KnowledgeBase:
         left, right = parts
         return self.is_lbracket(left) and self.is_rbracket(right)
 
+    def is_declared(self, s: str) -> bool:
+        # declared in some way before its first use, e.g. by `bool A`, `arity f 1`, `infix + 60 60`
+        return (self.is_var(s) or self.is_const(s) or len(self.bool_sig(s)) > 0 or self.is_arity_set(s)
+                or self.is_operator(s) or self.is_bindop(s) or self.is_alias(s))
+
     def is_operator(self, s: str) -> bool:
         return self.is_prefix(s) or self.is_infix(s) or self.is_postfix(s) or self.is_bracket(s)
 
@@ -1610,6 +1615,9 @@ class KnowledgeBase:
     # we ignore all bound vars, since they are temporary
 
     def add_new_symbols(self, e: Expr) -> None:
+        for sym in undeclared_symbols(e, self):
+            if sym not in new_symbols:
+                new_symbols.append(sym)   # noted (or, with `--strict`, rejected) in `scan_parse_check_eval`
         self._add_new_bools(e, True)
         self._add_new_symbols(e, None)
 
@@ -2165,6 +2173,29 @@ def is_relation(op: Value, kb: KnowledgeBase) -> bool:
     # an infix operator with a boolean result whose arguments are not declared boolean,
     # e.g. `=`, `≠`, `<`, `<=`, `in` -- but not `and`, `implies`, `iff`
     return isinstance(op, str) and kb.is_infix(op) and kb.bool_sig(op) == [0]
+
+# symbols used without being declared first, collected by `add_new_symbols`
+new_symbols: list[str] = []
+
+def undeclared_symbols(expr: Expr, kb: KnowledgeBase, bound_vars: frozenset[str] = frozenset()) -> list[str]:
+    # the symbols in `expr` that are neither declared nor used before (so, e.g., not `$x`,
+    # a bound variable, or a symbol declared with `bool`), in order of appearance
+    found: list[str] = []
+    def walk(e: Expr, bound: frozenset[str]) -> None:
+        match e:
+            case Token(label='SYMBOL', value=v) if isinstance(v, str):
+                if (v not in bound and v[0] not in '$%' and '$$$' not in v and v not in found
+                        and not kb.is_used(v) and not kb.is_declared(v)):
+                    found.append(v)
+            case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and kb.is_bindop(op):
+                bv, _ = unpack_condition(cond, kb)
+                for child in e:
+                    walk(child, bound | {bv})
+            case [*children]:
+                for child in children:
+                    walk(child, bound)
+    walk(expr, bound_vars)
+    return found
 
 # whether function application is switched off while parsing, see `bindop_nud`
 space_suspended: list[bool] = [False]
@@ -3481,6 +3512,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     raise
             for (f, lc) in zip(formulas, lhs_consts):
                 kb.theory_append(f)
+                if lc in new_symbols:
+                    new_symbols.remove(lc)    # `def` is how it gets declared
                 if mainstream:
                     reason = f'{line} defining `{lc}`'
                     log(kb, f'def {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
@@ -3697,7 +3730,15 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
                         restated = Formula(kb, expr, input_line, str(line), filename, label, reason, keyword='')
                         log(kb, restated.formula_str(kb), reason, kb.level)
                     continue
-            reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
+            unknown = undeclared_symbols(expr, kb)
+            if len(unknown) > 0 and strict_mode and not is_trusted_file(filename):
+                raise KurtException(f'EvalError: {", ".join(f"`{n}`" for n in unknown)} not declared -- with `--strict`, every symbol must be declared before its use (`const`, `var`, `bool`, ...)')
+            try:
+                reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
+            except KurtException as e:
+                if len(unknown) > 0:
+                    e.msg += f' -- note: {", ".join(f"`{n}`" for n in unknown)} {"was" if len(unknown) == 1 else "were"} never declared or used before, a typo?'
+                raise
             if len(reasons) == 1:
                 reason = reasons[0]
             else:
@@ -5245,7 +5286,15 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
             dedents -= 1
 
         # evaluate the expression
+        new_symbols.clear()
         kb = eval_expression(keyword_token, expr_list, input_line, label, kb, line, filename, mainstream, local) # evaluation
+        if len(new_symbols) > 0:
+            names = ', '.join(f'`{n}`' for n in new_symbols)
+            if strict_mode and not is_trusted_file(filename):
+                raise KurtException(f'EvalError: {names} not declared -- with `--strict`, every symbol must be declared before its use (`const`, `var`, `bool`, ...)')
+            if mainstream:
+                log(kb, f'; new constant{"s" if len(new_symbols) > 1 else ""} {names}, not declared before', '', kb.level)
+            new_symbols.clear()
 
     # update lexer state for indentation handling
     if keyword_token is not None and keyword_token.value in keywords_opening_blocks:

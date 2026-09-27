@@ -40,8 +40,8 @@ failure), and errors raised only while typing at an interactive shell
 session don't affect the exit code either.
 
 **Strict mode (`-s`/`--strict`), for grading:** the checked file (and any
-file it loads that isn't trusted) may not contain `use`, `todo` or `chain`
-— everything has to be proven from the theories that come with Kurt, or
+file it loads that isn't trusted) may not contain `use`, `todo` or `chain`,
+and every symbol must be declared before its use (§3.2) — everything has to be proven from the theories that come with Kurt, or
 from the ones found in a `-p DIR` directory (e.g. an exercise's axioms, as
 given by the teacher). Those are the *trusted* theory files; `use` inside a
 `sandbox` or `expect` stays allowed, since their content is discarded. It
@@ -144,7 +144,12 @@ Every symbol is exactly one of:
   implicitly whenever it's introduced by `let`/`pick`/`def`/`brackets`, or
   the first time an otherwise-undeclared symbol is used in a formula (e.g.
   after `use P c`, both `P` and `c` are constants; `bool` only records that
-  a symbol is boolean, see §5, not whether it is a constant), or
+  a symbol is boolean, see §5, not whether it is a constant). Such a
+  symbol that wasn't declared in any way before (by `const`, `var`,
+  `bool`, `arity`, an operator declaration, ...) is noted in the output
+  (`; new constants `P`, `c`, not declared before`), and a claim that
+  can't be derived mentions it (often it's a typo). With `--strict` (§1),
+  it's an error instead. Or
 - a **variable** — may stand for arbitrary objects, declared with `var x`.
 
 Once a symbol's role is fixed *on a given level* (see §9 on blocks/levels),
