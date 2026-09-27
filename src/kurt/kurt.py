@@ -199,8 +199,7 @@ class EmbeddedTheories:
     def __str__(self) -> str:
         return '<embedded theories>'
 
-# default theory and theory path
-default_theory = 'theory.kurt'             # default theory
+# theory path
 try:
     _packaged_theories = resources.files("kurt.theories")   # path of packaged theories, when installed
 except (ModuleNotFoundError, ValueError):
@@ -1383,6 +1382,7 @@ class KnowledgeBase:
         if self.get_arity(fun) < 2:
             raise KurtException(f'EvalError: arity of binding operators must be at least 2')
         self.bindop.add(fun)
+        self.nud[fun] = lambda ts, kb, t: bindop_nud(ts, kb, t)   # (defined further below)
 
     def check_bool_sig_sym_flat(self, op: str) -> None:    # might raise exceptions, though
         bool_sig = self.bool_sig(op)
@@ -1467,7 +1467,12 @@ class KnowledgeBase:
                 token = next(ts)
                 token.value = f'{lbracket}$$${rbracket}'
                 return [token]
-            expr: Expr = parse_expression(ts, kb, bracket_rbp)
+            suspended = space_suspended[0]
+            space_suspended[0] = False           # inside brackets, `f x` is application again
+            try:
+                expr: Expr = parse_expression(ts, kb, bracket_rbp)
+            finally:
+                space_suspended[0] = suspended
             token: Token = next(ts)
             if token.label == 'END':
                 raise StopIteration
@@ -1554,6 +1559,8 @@ class KnowledgeBase:
         elif token.label == 'END':
             return end_lbp           # this is to finish the while loop in 'expression'
         # the default value
+        if space_suspended[0]:
+            return 0                 # inside a quantifier's condition, see `bindop_nud`
         return space_lbp             # this is used for 'f x y'
 
     def all_flat(self) -> Iterator[str]:
@@ -1767,8 +1774,8 @@ initial_kb.led[LOCAL_SYMBOL] = local_led
 initial_kb.add_infix (COMMA_SYMBOL, 5, 5)                  # comma   is infix operator
 initial_kb.add_infix (IMPL_SYMBOL, 13, 12)                 # implies is infix operator
 initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and     is infix operator
-space_lbp:    int = 22                                     # left  binding power: stronger than '=' (defined in equality.kurt)
-space_rbp:    int = 22                                     # right binding power: stronger than '=' (defined in equality.kurt)
+space_lbp:    int = 90                                     # left  binding power: function application binds most tightly, `f x + y` is `(f x) + y`
+space_rbp:    int = 90                                     # right binding power, see `space_lbp`
 initial_kb.add_infix (SPACE_SYMBOL, space_lbp, space_rbp)  # space op is for fn like `f x`
 
 initial_kb.add_bool  (TRUE_SYMBOL, [0])                    # true is bool
@@ -2158,6 +2165,31 @@ def is_relation(op: Value, kb: KnowledgeBase) -> bool:
     # an infix operator with a boolean result whose arguments are not declared boolean,
     # e.g. `=`, `≠`, `<`, `<=`, `in` -- but not `and`, `implies`, `iff`
     return isinstance(op, str) and kb.is_infix(op) and kb.bool_sig(op) == [0]
+
+# whether function application is switched off while parsing, see `bindop_nud`
+space_suspended: list[bool] = [False]
+
+def bindop_nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
+    # a binding operator with a condition, e.g. `∀ $n ∈ Nat P $n` or `∃ $d > 0 ...`: since
+    # function application binds most tightly, the condition `$n ∈ Nat` is read here, with the
+    # right-hand side extending over infix operators but not over an application -- so the body
+    # `P $n` stays outside of it (`∀ ($n ∈ Nat) (P $n)` with brackets works as well)
+    v = ts.peek
+    if not (isinstance(v, Token) and v.label == 'SYMBOL' and isinstance(v.value, str) and not kb.is_operator(v.value)):
+        return t
+    next(ts)
+    op = ts.peek
+    if not (isinstance(op, Token) and op.label == 'SYMBOL' and is_relation(op.value, kb)):
+        ts.prepend(v)
+        return t
+    next(ts)
+    suspended = space_suspended[0]
+    space_suspended[0] = True
+    try:
+        rhs = parse_expression(ts, kb, kb.get_infix_rbp(op.value))
+    finally:
+        space_suspended[0] = suspended
+    return [space_token, t, [op, v, rhs]]
 
 def chain_relations(kb: KnowledgeBase, left: Expr, op_token: Token, right: Expr) -> Expr:
     # mathematicians write `a = b <= c` for `a = b and b <= c`: an infix relation whose (not
@@ -5559,9 +5591,6 @@ def main() -> None:
 
     had_error = False
     try:
-        # try to load a default theory, if the file does not exist, we just go on silently
-        kb: KnowledgeBase = load_file(default_theory, kb, mainstream=False, silent=True)
-
         # if there is a filename run the file
         if args.filename is not None:
             mainstream = not args.interactive

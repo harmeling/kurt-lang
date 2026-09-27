@@ -48,13 +48,6 @@ given by the teacher). Those are the *trusted* theory files; `use` inside a
 is a command-line switch rather than a statement in the file, so that the
 file being graded can't switch it off.
 
-**Undocumented-until-now autoload:** before checking the requested file,
-`kurt` silently tries to `load` a file literally named `theory.kurt` from
-the current directory (or anywhere else on the theory search path, see
-§8.2) if one exists, ignoring it quietly if it doesn't. This means a stray
-`theory.kurt` sitting in the directory you run `kurt` from becomes part of
-*every* proof you check there, without any `load` line asking for it. If
-you don't intend this, don't have a file by that name lying around.
 
 ## 2. Lexical structure
 
@@ -138,6 +131,10 @@ declared `arity`, see §4.3, in which case `f x y` is one call with two
 arguments). This is also why you can write `not A` even though `not` is
 declared as a `prefix` operator elsewhere — a bare `symbol symbol`
 juxtaposition is space-application regardless.
+
+Function application binds more tightly than every other operator, as in
+mathematics: `f x + y` and `f(x) + y` are `(f x) + y`, and `s n in Nat` is
+`(s n) in Nat`. Parentheses only group, so `f(x)` is just `f x`.
 
 ### 3.2 Constants vs. variables
 
@@ -251,10 +248,14 @@ least 2 (the bound variable plus at least one more argument), and it must
 not already be declared as any kind of operator or already used in a
 formula.
 
-Sugar: the "bound variable" position may instead be a boolean expression
-whose leftmost part is the actual variable, e.g. `forall x>0 F(x)` desugars
-to `forall x (x > 0 implies F(x))`; the type checker requires that
-expression to actually contain a free variable to bind.
+Sugar: the "bound variable" position may instead be a condition, a
+relation whose left-hand side is the actual variable, e.g. `forall x > 0
+F(x)` desugars to `forall x (x > 0 implies F(x))`, and `∀ $n ∈ Nat P $n`
+to `∀ $n ($n ∈ Nat implies P $n)`. The right-hand side of the condition
+extends over infix operators (`∀ $x ∈ A ∪ B ...`) but stops at the first
+function application, which is where the body starts; writing the
+condition in parentheses, `∀ ($n ∈ Nat) (P $n)`, works as well. The type
+checker requires the condition to actually contain a free variable to bind.
 
 ### 4.5 `flat` and `sym`
 

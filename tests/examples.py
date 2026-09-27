@@ -65,7 +65,7 @@ examples = [
     # function call binds less than most other stuff
     ("f 18 + 42",
      '[(SYMBOL "f"), (INT "18"), (SYMBOL "+"), (INT "42"), (END "$$$")]',
-     "(f (+ 18 42))"),
+     "(+ 42 (f 18))"),
     # function call is left associative
     ("f 178 42",
      '[(SYMBOL "f"), (INT "178"), (INT "42"), (END "$$$")]',
@@ -73,7 +73,7 @@ examples = [
     # function call with sum
     ("f 178 + 432 422",
      '[(SYMBOL "f"), (INT "178"), (SYMBOL "+"), (INT "432"), (INT "422"), (END "$$$")]',
-     "(f (+ 178 432) 422)"),
+     "(+ (432 422) (f 178))"),
     # two function calls
     ("f (2) (3)",
      '[(SYMBOL "f"), (SYMBOL "("), (INT "2"), (SYMBOL ")"), (SYMBOL "("), (INT "3"), (SYMBOL ")"), (END "$$$")]',
@@ -97,7 +97,7 @@ examples = [
     # 
     ("f3 1 2+4 3",
      '[(SYMBOL "f3"), (INT "1"), (INT "2"), (SYMBOL "+"), (INT "4"), (INT "3"), (END "$$$")]',
-     "(f3 1 (+ 2 4) 3)"),
+     "(+ (4 3) (f3 1 2))"),
     # one function call
     ("f (17)",
      '[(SYMBOL "f"), (SYMBOL "("), (INT "17"), (SYMBOL ")"), (END "$$$")]',
@@ -125,7 +125,7 @@ examples = [
     # 
     ("1 key1 2+3 key2",
      '[(INT "1"), (SYMBOL "key1"), (INT "2"), (SYMBOL "+"), (INT "3"), (SYMBOL "key2"), (END "$$$")]',
-     "(1 key1 (+ 2 3) key2)"),
+     "(+ (1 key1 2) (3 key2))"),
     # sum of two bracket expressions
     ("(a b) + (c d)",
      '[(SYMBOL "("), (SYMBOL "a"), (SYMBOL "b"), (SYMBOL ")"), (SYMBOL "+"), (SYMBOL "("), (SYMBOL "c"), (SYMBOL "d"), (SYMBOL ")"), (END "$$$")]',
@@ -137,7 +137,7 @@ examples = [
     # two expressions
     ("a * b c + d",
      '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "+"), (SYMBOL "d"), (END "$$$")]',
-     "((* a b) (+ c d))"),
+     "(+ d (* a (b c)))"),
     # equality vs space
     ("a = b c d = e",
      '[(SYMBOL "a"), (SYMBOL "="), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "d"), (SYMBOL "="), (SYMBOL "e"), (END "$$$")]',

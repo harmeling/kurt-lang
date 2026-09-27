@@ -6,7 +6,7 @@ load set
 
 var n, m
 use 0 in Nat                        "zero"
-use n in Nat  implies  (s n) in Nat "succ"   ; `s n in Nat` would parse as `s (n in Nat)`
+use n in Nat  implies  s n in Nat   "succ"   ; function application binds most tightly
 use n + 0 = n                       "add-zero"
 use (s n) + m = s (n + m)           "add-succ"
 use 1 = s 0                         "one"
