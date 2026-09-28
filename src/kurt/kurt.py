@@ -2776,7 +2776,8 @@ def eval_global_format(keyword: str, args: list[Expr], kb: KnowledgeBase) -> Non
                     kb = kb.parent
                     kb.format = option
             case _:
-                raise KurtException(f'ParseError: wrong argument, possible is:\n    format {"\n    format ".join(format_options)}')
+                options = '\n    format '.join(format_options)   # (no backslash inside an f-string's braces before Python 3.12)
+                raise KurtException(f'ParseError: wrong argument, possible is:\n    format {options}')
     else:
         raise KurtException(f'ParseError: wrong arguments, possible is:\n    format {" | ".join(format_options)}')
 

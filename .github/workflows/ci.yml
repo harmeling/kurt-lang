@@ -8,6 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false     # report each Python version on its own
       matrix:
         python-version: ["3.10", "3.12", "3.13"]
     steps:
