@@ -16,7 +16,9 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO `use` only *directly* in a `sandbox`/`expect`, not in a proof block nested inside them (two soundness tests need `use P $w` before the block instead)
 - TODO get rid of the `;;; ` markers: `expect` with an optional message prefix, and file-level errors (EOF, unclosed blocks, `break` at top level) via `expect` around a `load` of a helper file in a directory the test discovery skips
 - TODO `f(a,b)` for a function of arity 2: currently `f` applied to *one* argument, the comma list `(a,b)` ("not enough arguments"); spread a comma list of n elements over a function of arity n, so that `f(a,b)` means `f a b` (postponed 2026-09-27)
-- TODO minimal core: remove the name-based special cases (`iff`, `not`/`false`, `=`/`iff` for `def`, `exists`/`pick`) so that `minimal.kurt` really is the core; later maybe separate the rule level from the object level (like Isabelle/Pure)
+- TODO minimal core: remove the name-based special cases (`iff`, `not`/`false`, `=`/`iff` for `def`) so that `minimal.kurt` really is the core -- the core is first-order natural deduction (`implies`, `and`, `forall`, `sub`, bool vs. non-bool), not a logic-neutral framework
+- TODO quantifiers only with `load logic`: `forall`/`exists` syntax and the blocks `let`/`pick` become available only then (smaller core for propositional/modal courses); the engine's by-name handling of `forall` (e.g. stripping outer quantifiers of facts) must then depend on it being declared
+- TODO modal necessitation ("from a theorem A infer □A") can't be written: `use %p ⇒ □%p` would be unsound. A small `rule %p / □%p "nec"` for rules that only apply to theorems (facts proven with no assumption open) would do
 
 ## NEXT
 
