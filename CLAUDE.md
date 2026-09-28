@@ -29,6 +29,11 @@ Coverage:
     coverage run -m unittest
     coverage report
 
+or, where the `coverage` package isn't installed, with the standard library only (Python 3.12+;
+subprocess-based tests of the CLI aren't counted):
+
+    python3 scripts/line_coverage.py            # add --lines to see each missed line
+
 Run the interpreter directly:
 
     kurt                        # REPL
@@ -55,7 +60,7 @@ This works via `_EMBEDDED_THEORIES` (empty in `src/kurt/kurt.py`, populated only
 `tests/test_kurt_proofs.py` auto-discovers **every** `.kurt` file under `proofs/` (recursively) plus everything in `src/kurt/theories/`, runs each through `kurt.load_file`, and asserts that the last line of output matches an expected marker. Adding a `.kurt` file under `proofs/` makes it a test case automatically — there is no separate registration step.
 
 - By default, a file just needs to run to completion without raising — no marker needed, whether it's an ordinary successful proof or one that uses `expect "KIND"` internally to check its own interesting condition (see `doc/kurt-doc.md` §9.6). Only add a `;;; ` marker on the file's **last line** (see `tests/how-to-write-test-proofs.md`) when the file's point is a *specific* expected error message or output text, since `expect` only checks the kind of an error.
-- `proofs/` = proofs that must currently pass (part of the test suite). `proofs/debug/` holds small regression cases for specific bugs/features; `proofs/soundness/` holds adversarial cases specifically for the inference engine's soundness (see `doc/kurt-soundness.md`) — proof attempts that must be rejected (or, for a false-rejection bug, must now be accepted).
+- `proofs/` = proofs that must currently pass (part of the test suite). `proofs/debug/` holds small regression cases for specific bugs/features; `proofs/soundness/` holds adversarial cases specifically for the inference engine's soundness (see `doc/kurt-soundness.md`) — proof attempts that must be rejected (or, for a false-rejection bug, must now be accepted). `proofs/errors/` exercises the error branches of the implementation (misused declarations and keywords, wrong layout, type errors), one `expect` block per error — the place to add a case for an untested error.
 - `proofs-not-yet/` = proofs that are known not to work yet; they are **not** scanned by the test discovery and exist as a to-do backlog for language features.
 - `tutorial/*.kurt` are the numbered tutorial lesson files (see `tutorial/plan.md`) and are not part of the `proofs/`-style auto-discovered test set — they carry no `;;; ` marker. `tests/test_kurt_tutorial.py` covers them separately: it only asserts that each lesson still `load_file`s without raising a `KurtException`, i.e. that it hasn't bit-rotted as the language changes, not that its output matches anything specific.
 

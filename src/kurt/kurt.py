@@ -1267,6 +1267,8 @@ class KnowledgeBase:
             return None
 
     def add_arity(self, fun: str, a: int) -> None:
+        if self.is_used(fun):
+            raise KurtException(f'EvalError: symbol `{fun}` has been already used in a formula, declaring it now would change what that formula means')
         if self.is_prefix(fun):
             raise KurtException(f'EvalError: arity of prefix operators is one and can not be set')
         if self.is_postfix(fun):
@@ -1296,6 +1298,8 @@ class KnowledgeBase:
                 raise KurtException(f'EvalError: existing `bool` signature of `{op}` has more than {nargs} arg(s)')
 
     def add_prefix(self, op: str, rbp: int) -> None:
+        if self.is_used(op):
+            raise KurtException(f'EvalError: symbol `{op}` has been already used in a formula, declaring it now would change what that formula means')
         if self.is_operator(op) and not self.is_infix(op):    # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
         self.check_bool_sig_max(op, 1)
@@ -1303,6 +1307,8 @@ class KnowledgeBase:
         self.nud[op] = lambda ts, kb, op_token: [op_token, parse_expression(ts, kb, rbp)]
 
     def add_infix(self, op: str, lbp: int, rbp: int) -> None:
+        if self.is_used(op):
+            raise KurtException(f'EvalError: symbol `{op}` has been already used in a formula, declaring it now would change what that formula means')
         if self.is_operator(op) and not self.is_prefix(op):   # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
         self.check_bool_sig_max(op, 2)
@@ -1311,6 +1317,8 @@ class KnowledgeBase:
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
     def add_postfix(self, op: str, lbp: int) -> None:
+        if self.is_used(op):
+            raise KurtException(f'EvalError: symbol `{op}` has been already used in a formula, declaring it now would change what that formula means')
         if self.is_operator(op):
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
         self.check_bool_sig_max(op, 1)
@@ -1669,18 +1677,6 @@ class KnowledgeBase:
         if len(self.show) > 0:
             s += f'; on level {self.level}\n' + ''.join(f'{f.formula_str(self)}\n' for f in self.show)
         return s
-
-    def all_vars(self) -> set[str]:
-        if self.parent is None:
-            return self.var
-        else:
-            return self.var | self.parent.all_vars()   # set union
-
-    def all_bool_vars(self) -> set[str]:
-        if self.parent is None:
-            return self.var
-        else:
-            return self.var | self.parent.all_bool_vars()   # set union
 
 # create initial knowledge base and define some important constant for the parser
 initial_kb: KnowledgeBase = KnowledgeBase(parent=None, mode=('root', []))
@@ -2488,16 +2484,6 @@ def contains_symbol(expr: Expr, symbol: str) -> bool:
         return expr.label == 'SYMBOL' and expr.value == symbol
     return any(contains_symbol(e, symbol) for e in expr)
 
-def contains_bool_vars(expr: Expr, kb: KnowledgeBase) -> bool:
-    # check whether the expression contains any boolean variables
-    match expr:
-        case Token(label='SYMBOL', value=s) if isinstance(s, str) and kb.is_var(s) and kb.is_bool(s):
-            return True
-        case [*children]:
-            return any(contains_bool_vars(c, kb) for c in children)
-        case _:
-            return False
-
 def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
     # check whether the `expr` contains certain `symbols`
     # note that bound variables are ignored
@@ -3019,9 +3005,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 msg += f'{expr_sexpr(args_i, kb)}, '
             msg = msg[:-2] + '\n' # remove last ', ' and add newline
             msg += '; syntax info'
+            info = ''
             for args_i in args:
                 tokens = get_token_set(args_i)
-                info = ''
                 for t in tokens:
                     info += '\n' + kb.info(t)
             info = '\n'.join(sorted([line for line in info.split('\n') if len(line) > 0]))
@@ -3030,11 +3016,12 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 log(kb, msg)
     elif keyword == 'tokenize':
         if len(args) > 0:
-            msg = ''
-            for args_i in args:            
-                tokenlist: Expr = args + [end_token]                               # add end token for parse_expression
+            parts = []
+            for args_i in args:
+                tokenlist: Expr = args_i + [end_token]                             # add end token for parse_expression
                 ts: PeekableGenerator = PeekableGenerator((t for t in tokenlist))  # turn list into peekable generator
-                msg += f'{"  ".join([str(t) for t in ts])}'
+                parts.append("  ".join([str(t) for t in ts]))
+            msg = '\n'.join(parts)
             if mainstream:
                 log(kb, msg)
     elif keyword == 'format':
@@ -3075,23 +3062,23 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
 
     # SYNTAX RELATED
     elif keyword == 'syntax':
+        if len(args) == 0:
+            msg = kb.syntax_str_all_levels().strip()
+        else:
+            msg = ''
+            for arg in args:
+                match arg:
+                    case [Token(label='STRING'|'SYMBOL', value=s)]:
+                        assert isinstance(s, str)
+                        info = kb.syntax_str_all_levels(s).strip()
+                        if len(info) > 0:
+                            msg += info + '\n'
+                    case _:
+                        msg = create_usage(keyword, [[], ['STRING'], ['SYMBOL']])
+                        raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+            msg = '\n'.join(sorted([line for line in msg.split('\n') if len(line) > 0]))
         if mainstream:
-            if len(args) == 0:
-                log(kb, kb.syntax_str_all_levels().strip())
-            else:
-                msg = ''
-                for arg in args:
-                    match arg:
-                        case [Token(label='STRING'|'SYMBOL', value=s)]:
-                            assert isinstance(s, str)
-                            info = kb.syntax_str_all_levels(s).strip()
-                            if len(info) > 0:
-                                msg += info + '\n'
-                        case _:
-                            msg = create_usage(keyword, [[], ['STRING'], ['SYMBOL']])
-                            raise KurtException(f'ParseError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
-                msg = '\n'.join(sorted([line for line in msg.split('\n') if len(line) > 0]))
-                log(kb, msg)
+            log(kb, msg)
     elif keyword == 'prefix':
         if len(args) == 0:
             log(kb, kb.dict_or_set_str_all_levels(keyword))
@@ -3720,8 +3707,8 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
                         fv: set[str] = free_bound_vars(cond, kb)[0]
                         if len(fv) == 0:
                             raise KurtException(f'TypeError: first arg must be or must contain at least one free variable')
-                    case _:
-                        assert False, f'BUG: did not match {tail[0]} while type checking'
+                    case _:     # e.g. a number, `∀ 1 (P 1)`
+                        raise KurtException(f'TypeError: first arg of binding operator must be a variable or a condition, got `{expr_str(tail[0], kb)}`', column=expr_column(tail[0]))
             # (3) recursively go deep and check
             for e in tail:
                 type_check_expression(e, kb)
@@ -3801,27 +3788,6 @@ def apply_subst(expr: Expr, s: State, kb: KnowledgeBase) -> Expr:
         # never reach this one!
         case _:
             assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `apply_subst`'
-
-def bool_vars(expr: Expr, kb: KnowledgeBase) -> set[str]:
-    # return a set of the boolean variables in expression `e`
-    match expr:
-
-        # the token of a boolean
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
-            return set([v])
-        
-        # any other token is not a boolean variable
-        case Token():
-            return set()
-        
-        # collect the boolean variables in the children, covers also `e==[]`
-        case [*children]:
-            bv: set[str] = set()
-            for child in children:
-                bv.update(bool_vars(child, kb))
-            return bv
-        
-    assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `bool_vars`'
 
 # note that a variable can be free and bound at the same time in an expression
 # note that here are only considering non-boolean variables
@@ -4488,15 +4454,6 @@ def is_bool_var_token(e:Expr, kb) -> bool:
     assert isinstance(e.value, str)
     return kb.is_var(e.value) and kb.is_bool(e.value)
 
-def rename_bound_var(e: Expr, old_v: str, new_v: str) -> Expr:
-    match e:
-        case Token(label='SYMBOL', value=v) if v == old_v:
-            return Token('SYMBOL', value=new_v)
-        case [*children]:
-            return [rename_bound_var(c, old_v, new_v) for c in children]
-        case _:
-            return e
-
 # the non-recursive calls are having a single expr and a single pattern, the recursive calls then might have more
 # each "case" with a recursive call loops over all generated local substitutions
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
@@ -4632,31 +4589,8 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                     pass
 
         
-def expr_without_boolean_var(expr: Expr, kb: KnowledgeBase) -> bool:
-    # check whether `expr` is a final expression, i.e., it does not contain any boolean variables
-    match expr:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
-            return False  # boolean variable
-        case Token():
-            return True   # not a boolean variable
-        case [*children]:
-            return all(expr_without_boolean_var(child, kb) for child in children)
-
 def free_vars_only(e: Expr, kb: KnowledgeBase) -> set[str]:
     return free_bound_vars(e, kb)[0]
-
-def free_bool_vars_only(e: Expr, kb: KnowledgeBase) -> set[str]:
-    match e:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
-            return {v}
-        case Token():
-            return set()
-        case [*children]:
-            fv: set[str] = set()
-            for child in children:
-                fv.update(free_bool_vars_only(child, kb))
-            return fv
-    assert False, f'BUG: did not match expression `{expr_str(e, kb)}` in `free_bool_vars_only`'
 
 def alpha_rename_binder_body(body: list[Expr], old: str, new: str, kb: KnowledgeBase) -> list[Expr]:
     # rename bound occurrences of `old` to `new` *inside this binder body only*.
@@ -5020,9 +4954,9 @@ def numeric_comparison_holds(expr: Expr) -> bool:
 
 def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[list[str], State]:
 
-    # do we have a joker?
+    # do we have a joker?  a bare `todo` right before admits the next step (only that one)
     if len(kb.theory) > 0:
-        match kb.theory[0].expr:
+        match kb.theory[-1].expr:
             case Token(label='TODO', value=''):
                 return ['by a miracle (todo)'], s
 
@@ -5089,11 +5023,8 @@ class LexerState:
     col: int = 0                                                 # current column number
 
 def count_leading_spaces(s: str) -> int:
-    """Count leading spaces and reject tabs."""
-    leading = s[:len(s) - len(s.lstrip())]
-    if '\t' in leading:
-        raise KurtException('ParseError: tabs are not allowed for indentation, use spaces only')
-    return len(leading)
+    # (tabs are already converted to spaces by `read_eval_loop`)
+    return len(s) - len(s.lstrip())
 
 def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> tuple[KnowledgeBase, LexerState]:
 
@@ -5113,8 +5044,10 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     # 1. increased indentation, check that we expected it or that we are starting a chain
     # 2. same indentation, do nothing or continue chain
     # 3. decreased indentation, pop levels until we reach the new level or stop a chain
+    requested = False       # was this indentation requested by a keyword opening a block?
     if leading_spaces > lexer_state.indent_stack[-1]:
         if len(lexer_state.indent_requester) > 0:
+            requested = True
             lexer_state.indent_requester = ''       # reset expectation
         elif len(ops) == 1:
             # we are starting a chain, once allow increased indentation
@@ -5167,6 +5100,11 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
                         ts.prepend(LHS_token)             # add dummy token to the front
                     else:
                         raise KurtException(f'ParseError: invalid chain of operators `{ops}` at line {line} in {filename}')
+
+    if indents == 1 and not requested and not chained:
+        # indented after a line that could start a chain, but not continuing it
+        lexer_state.indent_stack.pop()
+        raise KurtException(f'ParseError: unexpected increased indentation at line {line} in {filename}')
 
     # the usual parsing (raises exception if `chained=False` but `first_token` is chainable)
     kb_predecessor = kb

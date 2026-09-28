@@ -1,0 +1,55 @@
+; errors in the layout of a file: indentation, chains across lines, `qed` -- raised while
+; reading the lines, and still caught by `expect`
+load prop, arith
+const c, d
+bool Q
+const Q
+use c = d
+
+expect "ParseError"
+    c = d
+        d = c                ; indented without a reason
+expect "ParseError"
+    assume Q
+    Q                        ; `assume` needs an indented block
+expect "ParseError"
+    assume Q
+        Q
+      Q                      ; matches no block
+
+; chains
+expect "ParseError"
+    c = d
+    = c                      ; a chain starts with an indentation
+expect "ParseError"
+    c = d
+      = c
+        = d                  ; and keeps it
+expect "ParseError"
+    c = d
+      ≠ c                    ; `=` and `≠` are not a chain
+expect "ParseError"
+    c = d
+      = c, d = d             ; one continuation only
+
+; `qed` closes a `proof`, with a dedent and no argument
+expect "ParseError"
+    show c = d
+    proof
+        c = d
+    qed 1
+expect "ParseError"
+    show c = d
+    proof
+        c = d
+        qed
+expect "EvalError"
+    sandbox
+        c = d
+    qed
+expect "EvalError"
+    assume Q
+        Q
+    qed
+expect "ParseError"
+    break 1

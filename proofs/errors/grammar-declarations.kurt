@@ -1,0 +1,135 @@
+; each misuse of a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`,
+; `bindop`, `flat`, `sym`, `chain`, `alias`, `var`, `const`, `bool`) is rejected with an error,
+; and the declaration isn't half-done -- see doc/kurt-doc.md §4
+infix   plus 60 60
+prefix  neg 80
+postfix fac 82
+brackets < >
+const   c
+var     v
+arity   f 2
+
+; a symbol can have one role only (an infix operator may also be prefix, like `-`)
+expect "EvalError"
+    postfix plus 82
+expect "EvalError"
+    brackets plus neg
+expect "EvalError"
+    brackets << neg
+expect "EvalError"
+    alias c plus
+expect "EvalError"
+    alias v c
+expect "EvalError"
+    const $w
+
+; the arity of an operator is given by its kind
+expect "EvalError"
+    arity neg 2
+expect "EvalError"
+    arity fac 2
+expect "EvalError"
+    arity plus 3
+expect "EvalError"
+    arity < 1
+
+; a binder needs an arity of at least two, first, and isn't an operator
+expect "EvalError"
+    bindop g
+arity h 1
+expect "EvalError"
+    bindop h
+expect "EvalError"
+    bindop plus
+arity b 2
+bindop b
+expect "EvalError"
+    bool b 0 1
+
+; `flat` and `sym` are for infix operators, once
+expect "EvalError"
+    flat neg
+expect "EvalError"
+    sym neg
+flat plus
+sym plus
+expect "EvalError"
+    flat plus
+expect "EvalError"
+    sym plus
+
+; a chain needs different infix operators, and no cycle with other chains
+infix lt 20 20
+infix le 20 20
+bool lt 0, le 0
+chain le lt
+infix ge 20 20
+expect "EvalError"
+    chain ge ge
+expect "EvalError"
+    chain lt neg
+expect "EvalError"
+    chain lt le
+
+; `bool` once per symbol, and not after its first use
+bool P
+expect "EvalError"
+    bool P
+use c = c plus c
+expect "EvalError"
+    bool plus 0
+expect "EvalError"
+    const c plus
+expect "EvalError"
+    var c
+
+; the wrong number or kind of arguments
+expect "EvalError"
+    infix times 70
+expect "ParseError"
+    prefix minus
+expect "EvalError"
+    arity k
+expect "EvalError"
+    brackets [
+expect "EvalError"
+    alias only
+expect "EvalError"
+    bool Q 1 2 3 4
+expect "ParseError"
+    postfix bang
+expect "EvalError"
+    flat 1
+expect "EvalError"
+    sym 1
+expect "EvalError"
+    var 1
+expect "EvalError"
+    bindop 1
+expect "EvalError"
+    chain 1 2
+
+; and nothing that was already used in a formula can be declared something else
+use u = u plus w
+expect "EvalError"
+    arity u 2
+expect "EvalError"
+    bindop u
+expect "EvalError"
+    brackets u w2
+expect "EvalError"
+    brackets w3 u
+expect "EvalError"
+    var u
+expect "EvalError"
+    const u
+expect "EvalError"
+    alias u c
+expect "EvalError"
+    prefix u 80
+expect "EvalError"
+    postfix u 80
+
+; `load` needs a file that exists
+expect "EvalError"
+    load no-such-theory

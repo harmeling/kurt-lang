@@ -98,7 +98,9 @@ to be indented relative to it; dedenting afterwards closes as many nested
 blocks as the drop in indentation implies. A **blank line**, or a line with
 nothing but a **comment**, is always safe anywhere, at any indentation,
 including deep inside a nested block — it's skipped outright rather than
-measured, so it never dedents anything on its own.
+measured, so it never dedents anything on its own. A tab counts as four
+spaces. Any other increased indentation is an error — except for the
+continuation lines of a chain (§4.6).
 
 ### 2.2 LaTeX-style input shortcuts (interactive shell only)
 
@@ -511,7 +513,7 @@ arguments, print everything `use`d/`def`ined so far.
 
 ### 6.3 `todo`
 
-    todo          ; admit whatever the current goal is
+    todo          ; admit the next step (a claim, or the goal at `qed`)
     todo EXPR      ; admit EXPR specifically, and add it to the theory
 
 A joker: lets a proof continue (and the file still finish, with `Proof

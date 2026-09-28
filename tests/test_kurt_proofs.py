@@ -72,7 +72,7 @@ class TestProving(unittest.TestCase):
                 out_buf, err_buf = io.StringIO(), io.StringIO()
                 try:
                     with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
-                        _ = kurt.load_file(str(path), kb, mainstream=False)
+                        _ = kurt.load_file(str(path), kb, mainstream=True)   # as when running the file, so the output is produced too
                         print("Proof checked.")
                     actual_last_line = str_last_line(out_buf.getvalue())
 

@@ -1,0 +1,21 @@
+; a bare `todo` is a joker for the next step only -- also after other steps of a block, not
+; only as its first statement, and not for every step after it
+bool p, r
+const p, r
+
+show p
+proof
+    true
+    todo
+    p                   ; admitted
+qed
+
+show p ∧ r
+proof
+    todo
+    p ∧ p               ; admitted
+    expect "ProofError"
+        r               ; not admitted any more
+    todo
+    r
+qed
