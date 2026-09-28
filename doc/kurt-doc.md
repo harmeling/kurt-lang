@@ -252,6 +252,16 @@ least 2 (the bound variable plus at least one more argument), and it must
 not already be declared as any kind of operator or already used in a
 formula.
 
+A schema variable in the body of a binder normally stands for something
+that does *not* depend on the bound variable — in `(∀ $x ($x = $T))`, `$T`
+is one fixed term. A boolean `%A` may depend on it (that's what
+"forall-elim" is about), and so may a non-boolean `$T` that occurs only as
+the *whole* body of binders over the same variable, or as the body of a
+`sub` for it, as in the sum axioms `(sum $i ($a, $a) $T) = sub $i $a $T`
+and `(sum $i ($a, $b+1) $T) = (sub $i ($b+1) $T) + (sum $i ($a, $b) $T)`
+(see `proofs/natural-numbers/gauss.kurt`) — such a `$T` stands for any
+summand, which the axioms only ever use with something substituted for `$i`.
+
 Sugar: the "bound variable" position may instead be a condition, a
 relation whose left-hand side is the actual variable, e.g. `forall x > 0
 F(x)` desugars to `forall x (x > 0 implies F(x))`, and `∀ $n ∈ Nat P $n`
@@ -903,12 +913,6 @@ and can be toggled but, as of this writing, nothing reads its value yet.
 - `inspect` is listed by `help` but not implemented yet (raises
   `NotImplementedError` if used) — it's meant to eventually stop a running
   file and drop into the interactive shell at that point.
-
-- In a pattern like `sum $i ($a, $b) $T`, a non-boolean schema variable
-  (`$T`) can't stand for a term that depends on the bound variable `$i`
-  (only a boolean `%A` can), so there is no way yet to state an axiom about
-  sums of an arbitrary summand — `proofs/natural-numbers/gauss.kurt` states
-  its sum axioms for the summand `$i` itself.
 
 See `todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.

@@ -1162,6 +1162,34 @@ else, normalizing, and comparing with `G` -- so the generator can only make matc
 incomplete, never unsound. Nested `sub` is no longer allowed in axioms (it never matched in a
 conclusion anyway); a rule about two variables is applied once per variable.
 
+### 8.9 Bug found and fixed: a rule variable could depend on a `forall` premise's variable
+
+A premise `forall $x ...` is searched with a fresh variable `v` for `$x`, blocked as domain so
+that it can't be assigned. But nothing kept *other* variables of the rule from taking a value
+containing `v`: with the fact `$a ^ 1 = $a`, the premise of `(forall $x ($x = $T)) implies Q`
+was satisfied by `$T := v ^ 1` (since `v = v ^ 1`), so `$T` depended on `$x` after all and `Q`
+followed -- although "some term equals every x" holds only in a one-element domain. This is
+older than this week's changes (it also happens at commit `79604ef`). Now such variables are
+also recorded in `State.eigen` (`block_eigen`), and a non-boolean variable of the rule (the
+pattern side) can't take a value containing one; a boolean `%A` may (it is *meant* to depend on
+`$x`, as in "forall-elim"), and so may the variables of a fact (the other side), since a
+universal fact may be instantiated at the fresh variable. Regression:
+`proofs/soundness/forall-premise-fresh-variable-stays-generic.kurt`.
+
+### 8.10 Non-boolean binder bodies that depend on the bound variable
+
+For sums (and later `max`, `sup`, `lim`), an axiom must be able to talk about a summand `$T`
+that depends on the bound variable. Letting every `$T` capture it would change what existing
+axioms mean (in `(forall $x ($x = $T)) and (P $T) implies Q`, `$T` is one fixed term). So only
+a variable that occurs exclusively as the *whole* body of binders over the same variable, or as
+the body of `sub` for it, may (`find_dependent_vars`, recorded in `dependent_vars` when a
+formula is stored, checked in `may_capture`): such an axiom only ever uses `$T` for the bound
+variable or with something substituted for it, so the dependence is what it means. Being just
+somewhere inside the scope isn't enough -- the first version allowed that, and the stored fact
+`exists $y (not ($x = $y))` (from `forall x (exists y (not (x = y)))`) then gave `exists y (not
+(y = y))`; `capture-avoidance-blocks-unsound-instantiation.kurt` caught it. Regression:
+`proofs/soundness/dependent-summand.kurt`.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

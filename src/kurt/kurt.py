@@ -623,6 +623,10 @@ class State:
     subst: dict[str, Expr]
     blocked_as_domain: frozenset[str]
     blocked_as_range: frozenset[str]
+    # the fresh variables standing for the bound variable of a `forall` premise: no variable of
+    # the rule (the pattern side) may take a value containing one -- except a boolean `%A`,
+    # which may depend on it by definition -- see `block_eigen`
+    eigen: frozenset[str] = frozenset()
 
     @staticmethod
     def empty() -> State:
@@ -652,7 +656,7 @@ class State:
         # lookups, which loses badly once a derivation accumulates more than a handful of bindings)
         assert not self.occurs(v, e), f'occurs check failed: cannot bind {v} to {e}'
         new_subst[v] = deepcopy_expr(e)
-        return State(new_subst, self.blocked_as_domain, self.blocked_as_range)
+        return State(new_subst, self.blocked_as_domain, self.blocked_as_range, self.eigen)
 
     def block_as_domain(self, v: str) -> State:
         # this is for free variables of the goal, e.g.,
@@ -660,14 +664,27 @@ class State:
         #   D
         # to prove D we first unify D with C, but must block the free variables of D as domain
         # (`subst` itself is untouched by this, and immutable, so it's shared as-is, not copied)
-        return State(self.subst, self.blocked_as_domain | {v}, self.blocked_as_range)
+        return State(self.subst, self.blocked_as_domain | {v}, self.blocked_as_range, self.eigen)
 
     def block_always(self, v: str) -> State:
         # this is for blocking bound variables
-        return State(self.subst, self.blocked_as_domain | {v}, self.blocked_as_range | {v})
+        return State(self.subst, self.blocked_as_domain | {v}, self.blocked_as_range | {v}, self.eigen)
 
     def unblock(self, v: str) -> State:
-        return State(self.subst, self.blocked_as_domain - {v}, self.blocked_as_range - {v})
+        return State(self.subst, self.blocked_as_domain - {v}, self.blocked_as_range - {v}, self.eigen)
+
+    def block_eigen(self, v: str) -> State:
+        # a fresh variable for the bound variable of a premise `forall $x ...`: it stands for an
+        # arbitrary object, so it must not be assigned (blocked as domain), and no other variable
+        # of the rule may take a value containing it -- e.g. `$T` in `(forall $x ($x = $T))
+        # implies Q` is one fixed term, `$T := v ^ 1` would make it depend on `$x`
+        return State(self.subst, self.blocked_as_domain | {v}, self.blocked_as_range, self.eigen | {v})
+
+    def contains_eigen(self, e: Expr) -> bool:
+        e = self.walk(e)
+        if isinstance(e, Token):
+            return isinstance(e.value, str) and e.value in self.eigen
+        return any(self.contains_eigen(c) for c in e)
 
     # walk and occurs
     def walk(self, e: Expr) -> Expr:
@@ -1641,12 +1658,14 @@ class KnowledgeBase:
             self.add_new_symbols(f.expr)
         f.simplified_expr, _ = remove_outer_forall_quantifiers(f.simplified_expr, self)
         f.simplified_expr = rename_all_vars(f.simplified_expr, self)
+        dependent_vars.update(find_dependent_vars(f.simplified_expr, self))
         self.theory.append(f)
 
     def show_append(self, f: Formula) -> None:
         self.add_new_symbols(f.expr)
         f.simplified_expr, _ = remove_outer_forall_quantifiers(f.simplified_expr, self)
         f.simplified_expr = rename_all_vars(f.simplified_expr, self)
+        dependent_vars.update(find_dependent_vars(f.simplified_expr, self))
         self.show.append(f)
 
     def show_str(self) -> str:
@@ -4288,7 +4307,67 @@ def restore_blocked(s_new: State, x: str, s_old: State) -> State:
     # undo the temporary blocking of `$x` (unless it was blocked before)
     if x in s_old.blocked_as_domain:
         return s_new
-    return State(s_new.subst, s_new.blocked_as_domain - {x}, s_new.blocked_as_range)
+    return State(s_new.subst, s_new.blocked_as_domain - {x}, s_new.blocked_as_range, s_new.eigen)
+
+# A non-boolean schema variable `$T` in the body of a binder over `$i` normally stands for a
+# term that does *not* depend on `$i` -- e.g. in `(forall $x ($x = $T)) and (P $T) implies Q`,
+# `$T` is one fixed term, and letting it capture `$x` would change what the axiom says. But if
+# every occurrence of `$T` is inside a binder over `$i`, or is the body of a `sub $i ... $T`,
+# the axiom only ever uses `$T` for the bound `$i` or with something substituted for it, as in
+# `(sum $i ($a, $a) $T) = sub $i $a $T` -- then `$T` may depend on `$i`. `dependent_vars` maps
+# each such (renamed, so globally unique) `$T` to its `$i`.
+dependent_vars: dict[str, str] = {}
+
+def find_dependent_vars(expr: Expr, kb: KnowledgeBase) -> dict[str, str]:
+    # the non-boolean schema variables of `expr` that may depend on a bound variable: those that
+    # only ever occur as the *whole* body of a binder over the same `$i` (`sum $i ($a, $b) $T`)
+    # or of a `sub $i ... $T` -- being just somewhere inside a binder's scope isn't enough, e.g.
+    # the `$x` in `exists $y (not ($x = $y))` must stay independent of `$y`
+    occurrences: dict[str, list[Optional[tuple[str, bool]]]] = {}   # var -> (binder, is a `sub`), or None
+    def note(e: Expr, context: Optional[tuple[str, bool]]) -> bool:
+        if isinstance(e, Token) and isinstance(e.value, str) and e.value.startswith('$') and kb.is_var(e.value) and not kb.is_bool(e.value):
+            occurrences.setdefault(e.value, []).append(context)
+            return True
+        return False
+    def walk(e: Expr) -> None:
+        match e:
+            case Token():
+                note(e, None)
+            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), a, A] if op == SUB_SYMBOL and isinstance(bv, str):
+                walk(a)
+                if not note(A, (bv, True)):
+                    walk(A)
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+                try:
+                    bv, _ = unpack_condition(cond, kb)
+                except KurtException:
+                    return
+                walk(cond)
+                for child in body[:-1]:
+                    walk(child)
+                if body and not note(body[-1], (bv, False)):
+                    walk(body[-1])
+            case [*children]:
+                for child in children:
+                    walk(child)
+    walk(expr)
+    result: dict[str, str] = {}
+    for v, contexts in occurrences.items():
+        binders = {c[0] for c in contexts if c is not None}
+        if None not in contexts and len(binders) == 1 and any(not c[1] for c in contexts if c is not None):
+            result[v] = binders.pop()
+    return result
+
+def may_capture(v: str, expr: Expr, s: State) -> bool:
+    # whether the schema variable `v` may take the value `expr`, which contains a bound variable
+    # (blocked as range): only a dependent variable, and only its own bound variable
+    b = dependent_vars.get(v)
+    return b is not None and blocked_range_vars(expr, s) <= {b}
+
+def blocked_range_vars(expr: Expr, s: State) -> set[str]:
+    if isinstance(expr, Token):
+        return {expr.value} if isinstance(expr.value, str) and s.is_blocked_as_range(expr.value) else set()
+    return set().union(*(blocked_range_vars(e, s) for e in expr)) if expr else set()
 
 # helper functions
 T = TypeVar('T')
@@ -4399,7 +4478,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 assert s.lookup(v) is None
                 bp = kb.is_bool(v)
                 be = bool_expr(expr, kb)
-                if ((bp and be) or (not bp and not be and not s.contains_blocked_as_range(expr))):                
+                if ((bp and be) or (not bp and not be and (not s.contains_blocked_as_range(expr) or may_capture(v, expr, s)) and not s.contains_eigen(expr))):
                     if not s.occurs(v, expr) and not s.is_blocked_as_domain(v):
                         # we can safely assign `v` without creating infinite substitutions
                         s = s.bind(v, expr)   # extend the substitution
@@ -4412,7 +4491,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 assert s.lookup(u) is None
                 be = kb.is_bool(u)
                 bp = bool_expr(expr, kb)
-                if ((bp and be) or (not bp and not be and not s.contains_blocked_as_range(pattern))):
+                if ((bp and be) or (not bp and not be and (not s.contains_blocked_as_range(pattern) or may_capture(u, pattern, s)))):
                     if not s.occurs(u, pattern) and not s.is_blocked_as_domain(u):
                         # we can safely assign `u` without creating infinite substitutions
                         s = s.bind(u, pattern)   # extend the substitution
@@ -4707,7 +4786,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                 stripped, fresh_vars = remove_outer_forall_quantifiers(expr_walked, kb)
                 s_stripped = s
                 for fresh_v in fresh_vars:
-                    s_stripped = s_stripped.block_as_domain(fresh_v)
+                    s_stripped = s_stripped.block_eigen(fresh_v)
                 success, found_formulas, s_final = match_all_theory([stripped, *tail], s_stripped, kb)
                 if success:
                     return True, found_formulas, s_final
@@ -4788,7 +4867,7 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         # which already blocks correctly) -- found via a `var`-declared symbol whose
         # auto-inferred boolean-ness was the original, narrower symptom reported.
         blocked_as_domain = frozenset(s.blocked_as_domain | expr_free_vars)
-        s_blocked = State(s.subst, blocked_as_domain, s.blocked_as_range)
+        s_blocked = State(s.subst, blocked_as_domain, s.blocked_as_range, s.eigen)
         s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s_blocked, kb))
         if s_final is not None:
             reason = f'by {formula_ref(proven_formula, filename, mainstream)}'
@@ -4800,7 +4879,7 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
     # to unify `conclusion` and `premise` iterate over all possible substitutions of the `conclusion`
     # however, we must not change bound variables, so we block the free variables of `expr` since they are universally quantified
     blocked_as_domain = frozenset(s.blocked_as_domain | expr_free_vars)
-    s = State(s.subst, blocked_as_domain, s.blocked_as_range)
+    s = State(s.subst, blocked_as_domain, s.blocked_as_range, s.eigen)
     s_final: Optional[State] = State.empty()
     for s_matched in unify_exprs_with_patterns([(expr, conclusion)], s, kb):
         #f'impl_elim: matched `{expr}` with conclusion `{expr_str(conclusion, kb)}` with substitution {s_matched}')
@@ -4822,7 +4901,7 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
             # straight to a concrete value like `g` let ANY two objects be proven equal, a
             # real soundness bug found and fixed this session (see doc/kurt-soundness.md).
             for fresh_v in premise_fresh_vars:
-                s_local = s_local.block_as_domain(fresh_v)
+                s_local = s_local.block_eigen(fresh_v)
 
             # search for the premise as well, i.e., match the theory against the `premise`
             success, matched_formulas, s_final = match_all_theory([premise_local], s_local, kb)

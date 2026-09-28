@@ -7,7 +7,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO `scalar-product.kurt`: `brackets < >` clashes with the relation `<`, and the lexer rejects `⟨ ⟩` -- decide: allow `⟨ ⟩` in the lexer, or write `ip a b`.  fix the math (`λ = <a,b>/<b,b>`, case `b = 0` separately), add `<a,a> ≥ 0` and bilinearity for `-`.  vectors share `+`/`*` with numbers (see namespaces below), or use separate symbols like `⊕`
 - TODO `limits.kurt`: `∀ε>0` can now be written `∀ $e > 0 ...` (a symbol must be a variable, `$e`, or declared `var`).  missing: exists-intro for a conditioned `∃` (from `c > 0` and `P c` derive `∃ ($d > 0) (P $d)`), `abs` instead of `|x|` (`|` is taken by set comprehension) with its laws, fix `load forall`/`load arithmetics`, drop the notes in lines 22-36
 - TODO `square-root-two-is-irrational.kurt`: reducing `m/n` to lowest terms is a hidden induction -- decide: well-ordering axiom in `natural.kurt`, or "every rational has a coprime representation" as an axiom of `Q`.  needs a theory of `divides`/even/odd with the lemma `2 divides m*m ⇒ 2 divides m`; rewrite `exists (m, n)` as `exists m exists n`, `begin`/`end` as `case`, `:=` as `def`, `contradiction` as `false`
-- TODO sums with an arbitrary summand: a non-boolean `$T` in `sum $i ($a, $b) $T` can't depend on `$i` (only `%A` can), so `gauss.kurt` states its axioms for the summand `$i` only -- decide whether (and how) a non-boolean schema variable may depend on a bound variable (soundness-sensitive)
 
 ## postponed from the tutorial discussion (2026-09-26)
 

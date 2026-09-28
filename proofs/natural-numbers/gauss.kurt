@@ -3,14 +3,13 @@
 load natural
 calc on                  ; e.g. `(k + 1) + 1` is `k + 2`, and `0 * (0 + 1) / 2` is `0`
 
-; sums of the form `sum i (a, b) i`, i.e., a + (a+1) + ... + b
-; (only with the bound variable itself as the summand: a general summand `$T` that depends on
-; the bound variable `$i` can't be written as a pattern yet)
+; sums `sum i (a, b) T` = T(a) + T(a+1) + ... + T(b), for any summand `T` (which may depend
+; on the bound variable `i`, since the axioms only use it with something substituted for `i`)
 const sum
 arity sum 3
 bindop sum
-use (sum $i ($a, $a) $i) = $a                                   "sum-one"
-use (sum $i ($a, $b + 1) $i) = ($b + 1) + (sum $i ($a, $b) $i)  "sum-last"
+use (sum $i ($a, $a) $T) = sub $i $a $T                                   "sum-one"
+use (sum $i ($a, $b + 1) $T) = (sub $i ($b + 1) $T) + (sum $i ($a, $b) $T)   "sum-last"
 
 2 ≠ 0                    ; needed for dividing by 2
 show ∀ $n ∈ Nat  ((sum x (0, $n) x) = $n * ($n + 1) / 2)
