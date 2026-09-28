@@ -511,6 +511,7 @@ class Formula:
         self.keyword: str          = keyword            # one of `use`, `assume`, `show`, `todo`
         self.local: bool           = local              # `label local "..."`: not exported when this file is `load`ed elsewhere
         self.def_symbol: Optional[str] = None           # for `def`-created formulas: the symbol it defines (see `eval_def`)
+        self.direction_of: Optional[Expr] = None        # for `L ⇒ R` made from an `iff`: that `iff` (see `impl_elim`)
         self.id: int               = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
 
@@ -3856,7 +3857,7 @@ def replace_token_value(expr: Expr, old_value: str, new_token: Token) -> Expr:
         return new_token if expr.value == old_value else expr
     return [replace_token_value(e, old_value, new_token) for e in expr]
 
-def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, frozenset[str]]:
+def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, tuple[str, ...]]:
     # this function must remove all outer universal quantifiers
     # if there is a condition, it turns it into an implication
     # Returns (stripped_expr, fresh_vars): `fresh_vars` are the freshly-generated names that
@@ -3867,7 +3868,7 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr
     # whatever's convenient defeats the whole point of universal generalization -- see
     # doc/kurt-soundness.md's writeup of the `impl_elim` bug this was added to fix.
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
-    fresh_vars: set[str] = set()
+    fresh_vars: list[str] = []  # in the order of the quantifiers (the kernel repeats the stripping)
 
     # chop off all outer universal quantifiers that have **no condition** and rename their bound
     # vars -- a quantifier with a condition, `∀ $x > 0 ...`, stays: what it means is said by the
@@ -3886,12 +3887,12 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr
         bound_var = expr[1].value
         expr = expr[2]
         free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
-        fresh_vars.add(free_var)
+        fresh_vars.append(free_var)
         s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
         expr = apply_subst(expr, s, kb)
-    return expr, frozenset(fresh_vars)
+    return expr, tuple(fresh_vars)
 
-def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr, kb: KnowledgeBase) -> tuple[Expr, Expr, frozenset[str]]:
+def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr, kb: KnowledgeBase) -> tuple[Expr, Expr, tuple[str, ...]]:
     # like `remove_outer_forall_quantifiers`, but for an implication's PREMISE specifically,
     # where the SAME bound variable(s) may also occur in the CONCLUSION -- e.g. forall-elim's
     # own axiom, `(forall $x %A) implies (sub $x $a %A)`, where `$x` appears in both halves.
@@ -3905,7 +3906,7 @@ def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr
     # doc/kurt-soundness.md's writeup of the underlying `impl_elim` soundness bug.
     premise = deepcopy_expr(premise_raw)
     conclusion = deepcopy_expr(conclusion_raw)
-    fresh_vars: set[str] = set()
+    fresh_vars: list[str] = []
     while is_forall(premise):
         if not (isinstance(premise, list) and len(premise) == 3):
             raise KurtException(f'EvalError: `forall` is not declared as a proper binding operator, got `{expr_str(premise, kb)}`')
@@ -3915,7 +3916,7 @@ def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr
         bound_var = premise[1].value
         premise = premise[2]
         free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
-        fresh_vars.add(free_var)
+        fresh_vars.append(free_var)
         fresh_token = Token(label='SYMBOL', value=free_var)
         # a pure structural (non-capture-avoiding) rename, not `apply_subst`: `apply_subst`
         # deliberately protects a bindop's own binder slot from substitution (correct for
@@ -3928,7 +3929,7 @@ def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr
         # accidentally renaming some other, unrelated variable that just happens to share it.
         premise = replace_token_value(premise, bound_var, fresh_token)
         conclusion = replace_token_value(conclusion, bound_var, fresh_token)
-    return premise, conclusion, frozenset(fresh_vars)
+    return premise, conclusion, tuple(fresh_vars)
 # ALL variables are renamed on the formula level
 # * rename free vars in `expr` with generated names to avoid clashes with other expressions
 #   this is necessary, because free variables are implicitly universally bound per formula,
@@ -4735,13 +4736,59 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
 
     return trigger_sub_core(expr, s)
 
+################################
+## certificates for the kernel ##
+################################
+# The search above (unification, `sub` matching, stripping quantifiers, blocked and eigen
+# variables, ...) is not trusted: for every step it finds, it hands a *certificate* to the
+# kernel below, which checks the step again on its own -- by substituting the values into the
+# rule, and comparing the result with the goal and the facts, without any search.
+
+kernel_check: bool = False      # check every step with the kernel (the test suite switches it on)
+
+@dataclass
+class Certificate:
+    kind: str                           # 'rule', or 'top', 'calc', 'calc-fact', 'todo'
+    goal: Expr                          # the claim, as `derive_expr` sees it (outer `∀`s removed, variables renamed)
+    fixed: frozenset[str]               # the free variables of the goal, which stand for anything: they get no value
+    rule: Optional[Formula] = None      # the fact or rule used ('rule'), or the fact that computes to the goal ('calc-fact')
+    form: str = ''                      # how the rule is read: 'fact' (the goal is an instance) or 'impl' (premise ⇒ conclusion)
+    expr: Optional[Expr] = None         # the rule as read: its `simplified_expr`, or one direction `L ⇒ R` of an `iff`
+    premise_fresh: tuple[str, ...] = () # the fresh names for the outer `∀`s of the premise, in order
+    conclusion_fresh: tuple[str, ...] = ()  # ... and for those of the conclusion
+    values: dict[str, Expr] = field(default_factory=dict)   # the values of the variables (of the rule and of the facts)
+    facts: list[Formula] = field(default_factory=list)      # the facts that match the parts of the premise
+    fact_fresh: list[tuple[str, ...]] = field(default_factory=list)  # fresh names for `∀` parts of the premise, matched without their `∀`s
+
+certificates: list[Certificate] = []
+
+def record_certificate(cert: Certificate, kb: KnowledgeBase) -> None:
+    if kernel_check:
+        certificates.append(cert)
+
+def resolved_values(s: State) -> dict[str, Expr]:
+    # the value of each variable with a value in `s`, with the values of the variables in it
+    # filled in (ignoring blocked variables: the certificate gives the final values)
+    def resolve(e: Expr, seen: frozenset[str]) -> Expr:
+        match e:
+            case Token(label='SYMBOL', value=v) if isinstance(v, str) and v in s.subst and v not in seen:
+                return resolve(s.subst[v], seen | {v})
+            case Token():
+                return e
+            case [*children]:
+                return [resolve(c, seen) for c in children]
+        assert False, f'BUG: did not match `{e}` in `resolved_values`'
+    return {v: resolve(t, frozenset({v})) for v, t in s.subst.items()}
+
 # unify a list of expression with the theory
-def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bool, list[Formula], State]:
+def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bool, list[Formula], State, list[tuple[str, ...]]]:
+    # returns: success, the facts that matched, the state, and the fresh names of the `forall`s
+    # stripped from `exprs` (for the certificate, see `Certificate`)
     match exprs:
 
         # we unified all `exprs`, done!
         case []:
-            return True, [], s
+            return True, [], s, []
         
         # still at least one to go
         case [expr, *tail]:
@@ -4761,23 +4808,23 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                         tail_local.append(e_local)
                     if not all(valid_bindop_conditions(e, kb) for e in tail_local):
                         continue    # see the same check in `impl_elim`
-                    success, found_formulas, s_final = match_all_theory(tail_local, s_local, kb)
+                    success, found_formulas, s_final, strips = match_all_theory(tail_local, s_local, kb)
                     if success:
                         #debug(f'`{expr_str(expr, kb)}` against `{expr_str(candidate.simplified_expr, kb)}` with substitution {s_final}`')
-                        return True, [candidate, *found_formulas], s_final   # match was found!  BINGO!
+                        return True, [candidate, *found_formulas], s_final, strips   # match was found!  BINGO!
             # no match so far, however, a universally quantified `expr` (e.g. one half of a
             # conjunctive premise) matches the stored facts only without its outer `forall`s,
             # since those are removed from all facts -- with fresh variables that must stay
             # generic, exactly like for a quantified premise in `impl_elim`
             expr_walked = s.walk(expr)
-            stripped, fresh_vars = remove_outer_forall_quantifiers(expr_walked, kb) if is_forall(expr_walked) else (expr_walked, frozenset())
+            stripped, fresh_vars = remove_outer_forall_quantifiers(expr_walked, kb) if is_forall(expr_walked) else (expr_walked, ())
             if fresh_vars:
                 s_stripped = s
                 for fresh_v in fresh_vars:
                     s_stripped = s_stripped.block_eigen(fresh_v)
-                success, found_formulas, s_final = match_all_theory([stripped, *tail], s_stripped, kb)
+                success, found_formulas, s_final, strips = match_all_theory([stripped, *tail], s_stripped, kb)
                 if success:
-                    return True, found_formulas, s_final
+                    return True, found_formulas, s_final, [fresh_vars, *strips]
             # still no match, however, possibly `expr` is a conjunction that we can split into pieces
             match expr:
                 # e.g., (A and B) implies C, then `expr = ['and', A, B]`
@@ -4786,7 +4833,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                     assert len(exprs) > 0
                     return match_all_theory(exprs + tail, s, kb)  # try to match the arguments of the conjunction
             # still no match, so we return `None` and an empty list
-            return False, [], State.empty()  # could not find a match among the candidate `patterns`
+            return False, [], State.empty(), []  # could not find a match among the candidate `patterns`
 
     # we calling `match_all_theory` wrongly, bug!
     assert False, f'BUG: `match_all_theory` did not cover all cases for {exprs}'
@@ -4809,7 +4856,9 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
 
     # assign `conclusion` and `premises`
     premise: Optional[Expr] = None
-    premise_fresh_vars: frozenset[str] = frozenset()
+    premise_fresh_vars: tuple[str, ...] = ()
+    conclusion_fresh_vars: tuple[str, ...] = ()
+    strips: list[tuple[str, ...]] = []
     if is_implication(formula_expr):      # case 1: implication with a premise
         assert isinstance(formula_expr, list)
         premise, conclusion, premise_fresh_vars = strip_premise_with_synced_conclusion(formula_expr[1], formula_expr[2], kb)
@@ -4819,7 +4868,7 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         # unblocked: they get resolved via ordinary unification against the real goal
         # (`expr`), not via a premise search, so the soundness issue this function's sibling
         # guards against doesn't apply here.
-        conclusion, _ = remove_outer_forall_quantifiers(conclusion, kb)
+        conclusion, conclusion_fresh_vars = remove_outer_forall_quantifiers(conclusion, kb)
     elif is_iff(formula_expr):
         assert isinstance(formula_expr, list)
         op_token = formula_expr[0]
@@ -4835,11 +4884,13 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         RHS = formula_expr[2]
         # first attempt: LHS implies RHS
         LHSimpliesRHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), LHS, RHS], kb)
+        LHSimpliesRHS.direction_of = formula_expr
         reason, s_local = impl_elim(expr, expr_free_vars, LHSimpliesRHS, filename, mainstream, s, kb)
         if len(reason) > 0:
             return reason, s_local
         # second attempt: RHS implies LHS
         RHSimpliesLHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), RHS, LHS], kb)
+        RHSimpliesLHS.direction_of = formula_expr
         reason, s_local = impl_elim(expr, expr_free_vars, RHSimpliesLHS, filename, mainstream, s, kb)
         if len(reason) > 0:
             return reason, s_local
@@ -4858,6 +4909,7 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         s_blocked = State(s.subst, blocked_as_domain, s.blocked_as_range, s.eigen)
         s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s_blocked, kb))
         if s_final is not None:
+            record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'fact', formula_expr, values=resolved_values(s_final)), kb)
             reason = f'by {formula_ref(proven_formula, filename, mainstream)}'
             return reason, s_final
         return '', State.empty()    # no luck this time
@@ -4894,7 +4946,7 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
                 s_local = s_local.block_eigen(fresh_v)
 
             # search for the premise as well, i.e., match the theory against the `premise`
-            success, matched_formulas, s_final = match_all_theory([premise_local], s_local, kb)
+            success, matched_formulas, s_final, strips = match_all_theory([premise_local], s_local, kb)
             if success:
                 break           # bingo!  we found one
     else:
@@ -4906,6 +4958,13 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
                 return '', State.empty()    # no luck this time
         else:
             return '', State.empty()     # no luck this time
+    assert s_final is not None
+    if premise is None:     # the goal is an instance of the formula
+        record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'fact', formula_expr, values=resolved_values(s_final)), kb)
+    else:
+        record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'impl', formula_expr,
+                                       premise_fresh_vars, conclusion_fresh_vars, resolved_values(s_final),
+                                       list(matched_formulas), strips), kb)
 
     # create meaningful `reason`
     if kb.verbose:
@@ -4959,6 +5018,7 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     if len(kb.theory) > 0:
         match kb.theory[-1].expr:
             case Token(label='TODO', value=''):
+                record_certificate(Certificate('todo', expr, frozenset()), kb)
                 return ['by a miracle (todo)'], s
 
     # rename variables
@@ -4967,16 +5027,19 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
 
     # "top-intro"
     if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
+        record_certificate(Certificate('top', expr, frozenset()), kb)
         return ['by "top-intro"'], s
 
     # "calc": with `calc on`, a comparison of two literal numbers is checked by computing it,
     # and a fact that computes to `expr` (e.g. `x = (-5) * 5` for `x = -25`) gives `expr`
     if kb.calc:
         if numeric_comparison_holds(expr):
+            record_certificate(Certificate('calc', expr, frozenset()), kb)
             return ['by calc'], s
         calc_expr = calculate_normalized(expr, kb)
         for f in kb.all_theory():
             if equal_expr(calculate_normalized(f.expr, kb), calc_expr, kb):
+                record_certificate(Certificate('calc-fact', expr, frozenset(), f), kb)
                 return [f'by {formula_ref(f, filename, mainstream)}, calc'], s
 
     # computed once here since `expr` is fixed for the whole loop below -- `impl_elim` used to
