@@ -1248,6 +1248,45 @@ but returned the last one, so the continuation rows `a = b`, `< c`, `= d` claime
 instead of `a < d`. The claim then simply failed to derive (a false rejection, not a false
 proof). Regression: the end of `proofs/arithmetic/chains.kurt`.
 
+## 9. The kernel: every step is checked again
+
+The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,
+dependent variables) is where almost all the bugs above were. So each step it accepts comes with a
+*certificate* (`Certificate` in kurt.py), which the kernel (`kernel_verify`) checks on its own,
+without any search:
+
+- the rule is in the theory (or is one direction `L ⇒ R` of an `iff` there), and so is each fact;
+- the rule's outer `∀`s are stripped with the recorded fresh names (for the premise also in the
+  conclusion);
+- the values are filled in *without renaming*: a value may contain a variable that is bound where
+  the variable occurs only if that is meant -- a boolean `%A` may, a non-boolean `$T` only its own
+  bound variable (`k_dependencies`, the criterion of §8.10, written again) -- then `sub` is
+  evaluated with the kernel's own capture-avoiding substitution, and a condition `sub $x $v C` in a
+  binder must not contain `$v` (§8.11);
+- the instance of the conclusion is the goal, and the instance of the premise consists of instances
+  of the facts (a conjunct, a group of flat conjuncts, or the body of a `∀` with a recorded fresh
+  name);
+- the eigen condition: the fresh names of `∀` premises get no value, and no non-boolean variable of
+  the rule depends on them (§0, §8.9); the free variables of the goal get no value.
+
+Besides its own code, the kernel trusts the parser, `unpack_condition` (which variable a binder
+binds), `normalize_expr` (`flat`, `sym`, `calc`), and `equal_expr` (renaming of bound variables;
+for the kernel, `=` and `iff` compare in either order, since they are `sym` but keep their order
+for `def`). Also `top-intro`, `calc` steps, and `todo` have certificates.
+
+In the test suite, every step of every proof file, theory and tutorial lesson is checked by the
+kernel (`tests/utils.py: kernel_checking`); a rejected step raises `KernelError`, which no
+`expect` can catch. `tests/test_kernel.py` changes real certificates (no facts, another goal, a
+rule not in the theory, a value for a goal variable, a value depending on a fresh variable, a
+capture) and checks that the kernel rejects each one.
+
+Not (yet) checked by the kernel: closing a block (impl-intro, forall-intro with its check that no
+constant of the block leaks out, exists-elim, not-intro -- `eval_done`), and `pick`'s match with an
+existential fact. These are short, direct checks in `eval_done`/`eval_pick`, without search. Open
+design question: when may a schema variable depend on a bound variable -- today by the criterion of
+§8.10; the alternatives are to declare it in the rule (like Isabelle's `?T i`) or Metamath's
+distinct-variable conditions.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

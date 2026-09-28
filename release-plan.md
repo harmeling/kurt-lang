@@ -30,7 +30,11 @@ Already there:
    small trusted kernel (LCF style): the whole matcher is trusted; `doc/kurt-soundness.md` is the
    answer so far.
    - [ ] a period of adversarial testing, e.g. students get credit for breaking it
-   - [ ] a small checking kernel (see the comparison below)
+   - [x] a small checking kernel: certificates for each step, checked by `kernel_verify`, on in
+     the test suite (`doc/kurt-soundness.md` §9)
+   - [ ] the kernel also for closing blocks and `pick`
+   - [ ] decide when a schema variable may depend on a bound variable (implicit as now,
+     declared like Isabelle's `?T i`, or Metamath-style distinct-variable conditions)
 3. **Real use.**
    - [ ] one semester in a course (mafi1), collect what students trip over -- also the evidence
      for an education paper

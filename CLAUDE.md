@@ -92,6 +92,8 @@ Loading and modularity:
 - `initial_kb` (module-level) is the pristine starting `KnowledgeBase`; tests `copy.deepcopy` it per test case to avoid cross-test contamination.
 - `mainstream` (a bool threaded through most eval functions) distinguishes output that should be printed/logged from output produced while silently loading dependencies.
 
+The kernel: every step the search accepts comes with a `Certificate`, which `kernel_verify` checks again without search (`doc/kurt-soundness.md` §9); the test suite runs with `kernel_check` on, so a step the kernel rejects fails the tests with `KernelError`. A change to the search that produces a new kind of step needs a certificate for it.
+
 Docs worth reading before non-trivial language changes: `doc/kurt-doc.md` (language reference, describes current behavior only), `doc/kurt-soundness.md` (audit of what the inference engine's soundness actually rests on, rule by rule, with pointers to the regression tests in `proofs/soundness/` — read this before touching `eval_done`, `derive_expr`, `impl_elim`, or substitution/capture-avoidance), `doc/kurt-cookbook.md` (task-oriented recipes — currently just a stub, not yet written), `doc/dev-notes.md` (chronological design-decision diary, not a reference — history of *why*, not a description of *what is*), `tutorial/*.kurt` and `tutorial/plan.md` (hands-on lessons). `todo.md` tracks known-missing features and open design questions; `todo-claude.md` and `suggestions-claude.md` are a filtered/verified pass over that backlog plus independent implementation-improvement ideas — check these before assuming something is a bug rather than a documented gap.
 
 ## Compute policy (shared node)

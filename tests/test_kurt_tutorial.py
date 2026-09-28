@@ -4,7 +4,7 @@ import unittest
 import kurt
 import contextlib
 
-from tests.utils import PROJECT_ROOT
+from tests.utils import PROJECT_ROOT, kernel_checking
 tutorial_root = PROJECT_ROOT / "tutorial"
 
 class TestTutorial(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestTutorial(unittest.TestCase):
                 kb = copy.deepcopy(kurt.initial_kb)
                 out_buf, err_buf = io.StringIO(), io.StringIO()
                 try:
-                    with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                    with kernel_checking(), contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
                         _ = kurt.load_file(str(path), kb, mainstream=False)
                 except kurt.KurtException as e:
                     self.fail(f'{path.name} no longer loads cleanly: {e.msg}')
