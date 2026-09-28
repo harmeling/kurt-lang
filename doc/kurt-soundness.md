@@ -1134,6 +1134,19 @@ definition), and statements that are safe by construction (`def`, syntax declara
 operators). Regressions: `proofs/debug/use-not-allowed-in-proof-blocks.kurt`,
 `tests/test_strict_mode.py`.
 
+### 8.7 Bug found and fixed: set.kurt was inconsistent, and had an unsound axiom
+
+`set.kurt` had an unrestricted comprehension `{ $z | P }`, so Russell's set `{ x | x ∉ x }`
+could be defined and `false` derived in about ten lines -- after `load set`, everything was
+provable. It now follows Zermelo-Fraenkel set theory in a small version: separation
+`{ $z ∈ $A | P }` only forms subsets of a given set (for Russell's set that only shows `R ∉ A`),
+and the empty set, unions, power sets and function spaces are given by their own axioms;
+`in-intersection` is now proven from the definition of `∩`. Separately, the axiom
+`use $A ⊂ $B ≡ $x ∈ $A implies $x ∈ $B` had a free `$x` on its right-hand side, so a single
+`c ∉ A` gave `A ⊂ B` for any `B`; it was redundant next to the correct `def` with `∀` and is
+gone. Regressions: `proofs/soundness/russell-set-cannot-be-formed.kurt`,
+`proofs/soundness/subset-needs-all-elements.kurt`.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing

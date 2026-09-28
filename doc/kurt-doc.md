@@ -463,8 +463,8 @@ every equivalent phrasing).
 `def` is `use` specialised to introducing exactly one **brand-new**
 constant via an equation (`=`) or equivalence (`iff`) — the only two
 top-level operators `def` accepts. Exactly one new symbol must appear on
-the **left-hand side** (e.g. `def x = 18`, or `def Pow($a) = { $b | $b ⊂
-$a }` — the new symbol doesn't have to be the very first token, just
+the **left-hand side** (e.g. `def x = 18`, or `def $a ∩ $b = { $c ∈ $a | $c ∈
+$b }` — the new symbol doesn't have to be the very first token, just
 somewhere on the left); the right-hand side must contain no new symbols at
 all (only already-declared constants/variables, or `$`/`%` schema
 variables). A definition is safe (it can't make the theory contradictory)
@@ -621,7 +621,7 @@ declaring their own prerequisites via their own `load` lines:
 | `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
 | `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
 | `logic.kurt` | forall-elim, exists-intro (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
-| `set.kurt` | `in`/`∈`, `⊂`, `∪`, `∩`, set-builder `{ ... \| ... }`, `∅`, `Pow`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
+| `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers, induction | `set`, `arith` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |

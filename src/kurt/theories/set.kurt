@@ -1,9 +1,15 @@
 ; set theory
 ;
-; covers: set comprehension (`{$z | P($z)}`), extensionality, empty set, intersection, union,
-; subset, power set, and mappings (`:`/`→`, `f : A → B` for "f is a function from A to B",
-; with function extensionality) -- see proofs/mafi1/001-two-equal-sets.kurt for a real
-; distributive-law proof and proofs/set-theory/ for mapping-specific examples.
+; covers: separation (`{$z ∈ $A | P($z)}`, the subset of `$A` of the elements with property P),
+; extensionality, empty set, intersection, union, subset, power set, and mappings (`:`/`→`,
+; `f : A → B` for "f is a function from A to B", with function extensionality) -- see
+; proofs/mafi1/001-two-equal-sets.kurt for a real distributive-law proof and
+; proofs/set-theory/ for more.
+;
+; This follows Zermelo-Fraenkel set theory, in a small version: there is no unrestricted
+; comprehension `{$z | P($z)}`, which would allow Russell's paradox (`{x | x ∉ x}`), but only
+; separation, which forms subsets of a given set. The sets that can't be formed that way --
+; the empty set, unions, power sets, function spaces -- are given by their own axioms.
 ;
 ; mappings are modelled as opaque, applicable set objects (kurt's ordinary space-application,
 ; `$f $a`), not as ZF-style sets of ordered pairs -- see the comment further down, right above
@@ -30,38 +36,44 @@ alias    : in
 
 ; we assume that all objects are sets
 
-; axioms for {, |, }
-use $a ∈ { $z | sub $x $z %F }  ≡  sub $x $a %F   "set-comprehension"
+; extensionality: two sets are equal iff they have the same elements
+use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)                      "extensionality"
+
+; separation: the elements of `$A` with the property `%F`
+use $a ∈ { $z ∈ $A | sub $x $z %F }  ≡  $a ∈ $A ∧ sub $x $a %F    "separation"
+
+; subset
+def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)                    "subset"
+use $M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M                              "eq-def"
+
+; the empty set, unions and power sets exist
+const ∅
+use not ($a ∈ ∅)                                                 "empty-set"
+use $c ∈ $a ∪ $b  ≡  $c ∈ $a ∨ $c ∈ $b                           "union"
+use $b ∈ Pow($a)  ≡  $b ⊂ $a                                     "power-set"
+
+; intersection, by separation
+def $a ∩ $b = { $c ∈ $a | $c ∈ $b }                              "intersection"
+show $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B                         "in-intersection"
+proof
+    $x ∈ { $c ∈ $A | $c ∈ $B }  ≡  $x ∈ $A ∧ $x ∈ $B
+    $A ∩ $B = { $c ∈ $A | $c ∈ $B }
+    $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B
+qed
 
 ; axioms for mappings
 ;
 ; a mapping is modelled as an opaque, applicable set object, not (as in ZF set theory) a set
 ; of ordered pairs -- there are no pairs or Cartesian products in this file, so building the
 ; full ZF machinery (pairs, products, single-valuedness) would be a much bigger, separate
-; undertaking than "complete this gap." Application uses kurt's ordinary space-application
-; (`$f $a`, already fully general, no new syntax needed) -- `A → B` is simply *defined*, via
-; the same comprehension machinery as `∩`/`∪`/`Pow`, as the set of all objects that behave
-; like an A→B mapping when applied.
-def $A → $B = { $f | ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B) }        "function-space"
-use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space-def"
+; undertaking. Application uses kurt's ordinary space-application (`$f $a`), and `A → B` is
+; the set of all objects that behave like an A→B mapping when applied.
+use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space"
 
 ; function extensionality is a genuine new axiom here, not a derived theorem: under this
 ; "opaque applicable object" model, `$f`/`$g` aren't literally sets of pairs, so knowing they
 ; agree on every input says nothing, via ordinary set extensionality, about whether they're
-; the *same set* -- unlike `∩`'s/`∪`'s properties (which really do follow from their
-; comprehension-based defs plus set extensionality), this one has to be postulated directly.
+; the *same set* -- it has to be postulated directly.
 use ($f ∈ ($A → $B)) and ($g ∈ ($A → $B)) and (∀ $a ($a ∈ $A implies ($f $a) = ($g $a))) implies $f = $g   "function-extensionality"
-
-; axioms for =, ∅, ∩, ∪, Pow
-use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)      "extensionality" ; two sets are equal iff they have the same elements
-def ∅ = { $a | false }                         "empty set"
-def $a ∩ $b = { $c | $c ∈ $a and $c ∈ $b }     "intersection"
-def $a ∪ $b = { $c | $c ∈ $a or $c ∈ $b }      "union"
-def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)  "subset"
-def Pow($a) = { $b | $b ⊂ $a }                 "power-set"
-
-use $M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M            "eq-def"
-use $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B         "in-intersection"
-use $x ∈ $A ∪ $B  ≡  $x ∈ $A ∨ $x ∈ $B         "in-union"
 
 ; for automatic testing we add the following line:

@@ -1,29 +1,24 @@
-; coverage for set.kurt's "power-set" axiom (`Pow($a) = { $b | $b ⊂ $a }`) -- never exercised by
-; any proof file before this one, unlike `∩`/`∪`/`⊂` which are worked in
-; proofs/mafi1/001-two-equal-sets.kurt already.
+; coverage for set.kurt's "power-set" and "empty-set" axioms
 load set
 const A
 
-; every set is a subset of itself, so every set is a member of its own power set -- shown by
-; unfolding "power-set" via "set-comprehension" (kurt's single-hop derivation can't chain
-; "power-set" and "set-comprehension" through the literal `Pow(A)` notation in one step, so
-; both facts are stated explicitly rather than concluding with `A ∈ Pow(A)` directly)
+; every set is a subset of itself, so every set is a member of its own power set
 show A ⊂ A
 proof
     let x
         x ∈ A implies x ∈ A
     A ⊂ A
 qed
-A ∈ { $b | $b ⊂ A }  ≡  A ⊂ A
-Pow(A) = { $b | $b ⊂ A }
+A ∈ Pow(A)
 
-; the empty-set case: originally dropped from this file entirely, since it needs unfolding
-; `∅`'s own definition (`def ∅ = { $a | false }`) and matching a comprehension body that's
-; *exactly* `false` -- zero occurrences of the comprehension's own bound variable -- which
-; "set-comprehension" couldn't match at all before the `generate_all_combinations` fix (see
-; doc/kurt-soundness.md #6). Two explicit hops, same reasoning as above (`Pow(A)`'s own
-; unfolding is a separate hop from "set-comprehension"):
-const y
-y ∈ { $a | false }  ≡  false             ; the real regression coverage for the fix itself
-∅ = { $a | false }                       ; restating "empty set" 's own definition
-y ∈ ∅  ≡  false
+; nothing is an element of the empty set, so it is a subset of every set
+show ∅ ⊂ A
+proof
+    let x
+        assume x ∈ ∅
+            not (x ∈ ∅)
+            false
+            x ∈ A
+    ∅ ⊂ A
+qed
+∅ ∈ Pow(A)
