@@ -30,6 +30,7 @@ Already there:
    small trusted kernel (LCF style): the whole matcher is trusted; `doc/kurt-soundness.md` is the
    answer so far.
    - [ ] a period of adversarial testing, e.g. students get credit for breaking it
+   - [ ] a small checking kernel (see the comparison below)
 3. **Real use.**
    - [ ] one semester in a course (mafi1), collect what students trip over -- also the evidence
      for an education paper
@@ -66,6 +67,50 @@ call it 1.0 after the language freeze and a semester of use.
   natural language), Waterproof (Eindhoven, Coq for teaching), Lurch, Mizar, Isabelle/Isar.
   Kurt's points: one file, no dependencies, the grammar itself declared in Kurt's theory files,
   immediate feedback for each line.
+
+## Kurt compared with other proof languages (for the paper)
+
+"Simple" can mean three things: what you have to learn before your first proof, what the
+language rests on, and what you have to trust. (Figures for other systems are rough, to be
+checked.)
+
+| | first proof needs | logical foundation | proof style | implementation / what you trust |
+|---|---|---|---|---|
+| **Kurt** | `bool A, B`, `use`, one line per step; 43 keywords in total | untyped first-order logic, only "boolean or not"; rules are ordinary `use` lines | a sequence of claims, each checked automatically in one step | one Python file (~5600 lines), no dependencies; **all of it trusted** |
+| **Metamath** | substitution rules, labels, very low-level steps | none built in: axioms plus substitution | every rewriting step spelled out | tiny checker (a few hundred lines) and **tiny trusted core**, but hard to read |
+| **Mizar** | a large library, its own vocabulary | Tarski–Grothendieck set theory, soft types | declarative, readable | large system; library and checker trusted |
+| **Isabelle/Isar** | HOL, types, Isar structure, many tools | higher-order logic | declarative (Isar) or tactics | very large; small LCF kernel |
+| **Lean 4 / Coq** | dependent types, tactics, a library (Mathlib) | dependent type theory | mostly tactics | very large; relatively small kernel |
+| **Naproche / Diproche** | controlled natural language | first-order logic plus an automatic prover (Naproche) | text close to mathematical prose | medium; the automatic prover is also trusted |
+| **Waterproof** | Coq underneath, controlled language on top | as Coq | text-like tactics | Coq plus a layer on top |
+
+Where Kurt is simpler:
+
+- **Getting started**: no types, no tactics, no library to learn; a first proof is five lines,
+  and each line gets its own feedback. Only Metamath comes close in concepts, and its proofs are
+  much harder to read.
+- **The logic is visible**: even the grammar (`infix`, `bindop`, `chain`) and the rules
+  ("forall-elim", "lim-intro") are Kurt text in theory files -- students can read why a step goes
+  through; in Lean or Isabelle a lot of this is hidden in tactics and automation.
+- **Deployment**: one file to copy into a classroom; the others need an installation, and often
+  a large library.
+
+Where Kurt is *not* simpler (reviewers will say so):
+
+- **What you trust**: Metamath, HOL Light and Isabelle have small kernels that check everything
+  else; in Kurt the whole matcher is trusted (unification, `sub` matching, calc, chains) -- which
+  is why the soundness bugs of September 2026 mattered. Kurt's simplicity is on the user's side,
+  not yet on the side of trust.
+- **What happens inside a step is hard to predict**: Kurt searches for a single step itself,
+  with second-order matching for `sub`. Convenient, but when a step fails it is hard to say why
+  (the `calc off` workarounds, "forall-cond-def" after `let x ∈ A`).
+- **Expressiveness**: without types, functions on the reals are untyped symbols (`abs`, `lim`),
+  with care about their values where nothing is defined (the intro-only rules of analysis.kurt);
+  typed systems catch such mistakes automatically.
+
+In one sentence: Kurt is at the simple end for *writing and reading* proofs -- about as simple as
+Metamath in concepts, but readable like Mizar or Isar -- but not yet for *trust*. A small checking
+kernel would be the most valuable step toward 1.0 (and a strong point for the paper).
 
 ## Order
 
