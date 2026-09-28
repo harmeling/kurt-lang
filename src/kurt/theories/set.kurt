@@ -61,7 +61,6 @@ def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)  "subset"
 def Pow($a) = { $b | $b ⊂ $a }                 "power-set"
 
 use $M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M            "eq-def"
-use $A ⊂ $B  ≡  $x ∈ $A implies $x ∈ $B        "subset-def"
 use $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B         "in-intersection"
 use $x ∈ $A ∪ $B  ≡  $x ∈ $A ∨ $x ∈ $B         "in-union"
 
