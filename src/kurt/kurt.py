@@ -4168,88 +4168,127 @@ def iter_nodes(expr: Expr, path_prefix: list[int]|None = None) -> Iterator[tuple
         for i, child in enumerate(expr):
             yield from iter_nodes(child, path_prefix + [i])
 
-def generate_one_combination(expr: Expr, var_x: str, expr_a, expr_A, kb) -> Iterator[tuple[Optional[Expr], Expr]]:
-    # no blocked vars, since we are at the top level
-    s = State({var_x: expr_a}, frozenset(), frozenset())   # substitute `$x` with `expr_a`
-    cand_expr = apply_subst(expr_A, s, kb)
-    # substituting e.g. `b + c` into the hole of `a + $x + d` gives `a + (b + c) + d`, which must
-    # be normalized again to compare with the normalized `expr`
-    cand_expr = normalize_expr(cand_expr, kb)
-    if equal_expr(cand_expr, expr, kb):
-        # we have a match, i.e., `expr = sub $x $a $A` where `$a` is `expr_a` and `$A` is `expr_A`
-        yield expr_a, expr_A
-
-# couple of problems:
-# - also we are generating some wrong combinations where we replace bound variables in `%A` with `$x`, what is allowed, can `$a` contain any bound variables of `%A`?  probably not!
-#
-# this should work for:
-# (1) `sub $x a A`  with variable `$x`
-# (2) `sub %x a A`  with boolean variable `%x`
 def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], s: State, kb: KnowledgeBase) -> Iterator[State]:
-
-    # check that `expr` is not a sub expression
+    # match `expr` against `sub $x a A`, i.e., find the states for which `expr == A[$x := a]`
+    # (second-order matching, see `sub_solutions`), and go on with the `tail`
     assert not is_sub(expr)
-
-    # some checks for the pattern which must be `sub $x a A`
     assert isinstance(pattern, list) and len(pattern) == 4
     token_sub, token_x, p_a, p_A = pattern
     assert isinstance(token_sub, Token) and token_sub.value == SUB_SYMBOL
     assert isinstance(token_x, Token) and isinstance(token_x.value, str)
-    var_x = token_x.value
+    for s_sub in sub_solutions(expr, token_x, p_a, p_A, s, kb):
+        yield from unify_exprs_with_patterns(tail, s_sub, kb)
 
-    # `sub $x  a  A` or
-    # `sub $x $a  A` or
-    # `sub $x  a %A` or
-    # `sub $x $a %A` or
-    # `sub %x  a  A` or
-    # `sub %x %a  A` or
-    # `sub %x  a %A` or
-    # `sub %x %a %A`
-    var_a:  Optional[str]
-    a:      Optional[Expr]
-    if isinstance(p_a, Token) and isinstance(p_a.value, str) and kb.is_var(p_a.value):
-        var_a = p_a.value
-        a = s.lookup(var_a)    # `$a`/`%a` might have been assigned earlier, will be None otherwise
-        #  `a` is none, we can choose it later
-    else:
-        var_a = None
-        a = p_a                                       # `a` is fixed
+def sub_solutions(expr: Expr, token_x: Token, p_a: Expr, p_A: Expr, s: State, kb: KnowledgeBase) -> Iterator[State]:
+    # the states extending `s` with `expr == A[$x := a]` for the pattern parts `a` and `A` --
+    # candidates are generated, and each one is then *checked* by computing the substitution
+    # (`sub_holds`), so a generator that proposes too much (or something odd) can never make
+    # the result unsound, only slower; too little makes it incomplete
+    #   1. `A` is fully known, e.g. by the conclusion of "forall-elim": try each subterm of
+    #      `expr` (and nothing) as `a`
+    #   2. otherwise, e.g. `%A` or `R $x $d`: take `expr` apart, i.e., choose a subterm `a` and
+    #      which of its occurrences become the hole `$x` (`generate_all_combinations`), and
+    #      match the rest against `A`
+    # (`sub`s are never nested, see `check_sub_not_nested`)
+    x = token_x.value
+    assert isinstance(x, str)
+    seen: set[str] = set()
+    def checked(s_cand: State) -> Iterator[State]:
+        if sub_holds(expr, token_x, p_a, p_A, s_cand, kb):
+            key = expr_sexpr(apply_subst([p_a, p_A], s_cand, kb), kb)
+            if key not in seen:
+                seen.add(key)
+                yield s_cand
+    def matching_a(candidate: Optional[Expr], s_now: State) -> list[State]:
+        if candidate is None:
+            return [s_now]      # `$x` doesn't occur, `a` stays whatever it is
+        return list(unify_exprs_with_patterns([(candidate, p_a)], s_now, kb))
+    A = apply_subst(p_A, s, kb)
+    if not contains_unbound_var(A, s, kb, except_var=x):
+        for candidate in subterm_candidates(expr, kb):
+            for s_a in matching_a(candidate, s):
+                yield from checked(s_a)
+        return
+    a = apply_subst(p_a, s, kb)
+    a_value = a if not contains_unbound_var(a, s, kb) else None
+    for (cand_a, cand_A) in generate_all_combinations(expr, token_x, a_value, kb):
+        for s_a in matching_a(cand_a, s):
+            for s_A in unify_exprs_with_patterns([(cand_A, p_A)], s_a.block_as_domain(x), kb):
+                yield from checked(restore_blocked(s_A, x, s))
 
-    all_combinations: Iterator[tuple[Optional[Expr], Expr]]  # generator of `a` and `A` that create a match
-    var_A: Optional[str]
-    if isinstance(p_A, Token) and isinstance(p_A.value, str) and kb.is_var(p_A.value) and kb.is_bool(p_A.value):
-        var_A = p_A.value
-        A = s.lookup(var_A)    # `%A` might have been assigned earlier, will be None otherwise
-        if A is None:
-            all_combinations = generate_all_combinations(expr, token_x, a, kb)
+def subterm_candidates(expr: Expr, kb: KnowledgeBase) -> Iterator[Optional[Expr]]:
+    # each distinct subterm of `expr`, including groups of arguments of flat operators, and
+    # `None` (for "no occurrence at all")
+    seen: list[Expr] = []
+    for _, node in iter_nodes(expr):
+        if not any(node == other for other in seen):
+            seen.append(node)
+            yield node
+    for _, node in iter_nodes(expr):
+        match node:
+            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) > 2 and kb.is_flat(op):
+                for group, _ in flat_groups(args, kb.is_sym(op)):
+                    yield [node[0], *group]
+    yield None
+
+def sub_holds(expr: Expr, token_x: Token, p_a: Expr, p_A: Expr, s: State, kb: KnowledgeBase) -> bool:
+    # whether `expr == A[$x := a]` for the values of `a` and `A` in `s`, with the substitution
+    # computed exactly like everywhere else (capture-avoiding, then normalized); an `a` without
+    # value is fine only if `A` doesn't mention `$x`
+    x = token_x.value
+    assert isinstance(x, str)
+    try:
+        A = apply_subst(p_A, s, kb)
+        a = apply_subst(p_a, s, kb)
+        if contains_unbound_var(A, s, kb, except_var=x):
+            return False       # parts still unknown -- nothing to check
+        if contains_unbound_var(a, s, kb):      # no value for `a` (a variable of the goal is one)
+            if contains_symbol(A, x):
+                return False
+            result = A
         else:
-            all_combinations = generate_one_combination(expr, var_x, a, A, kb)    # `%A` was already assigned earlier
-    else:
-        var_A = None
-        # TODO: in this case we should do something more sophisticated, since we could have
-        #       arity F 1
-        #       bool F 0 1
-        #       sub $x $a F %A
-        # where we should be creative with `%A` as well, i.e., we should go on with matching, but keeping in mind we can use `sub $x`
-        # i.e., go on with matching against:  `F sub $x $a %A`
-        # what about
-        #       arity G 2
-        #       bool G 0 1 2
-        #       sub $x $a G %A %B
-        # that should be a problem, however, `generate_all_combinations` must be a bit more sophisticated
-        all_combinations = generate_one_combination(expr, var_x, a, p_A, kb)
+            result, _ = trigger_sub([Token('SYMBOL', SUB_SYMBOL), token_x, a, A], State.empty(), kb)
+        return equal_expr(normalize_expr(result, kb), expr, kb)
+    except KurtException:
+        return False       # e.g. the hole cut into a binder's condition, not a real subterm
 
-    for (expr_a, expr_A) in all_combinations:
-        # check whether `expr_A` is boolean
-        if bool_expr(expr_A, kb):
-            s_local = s     # keeps `s` available in the next iteration
-            # we don't have to match `expr` against `expr_A` since `all_combinations` and also `one_combinations` ensure that they match
-            if var_A is not None and s.lookup(var_A) is None and not s.occurs(var_A, expr_A):
-                s_local = s_local.bind(var_A, expr_A)   # extend the state with the new binding for `%A`
-            if var_a is not None and expr_a is not None:
-                s_local = s_local.bind(var_a, expr_a)   # extend the state with the new binding for `$a`
-            # now that we found a substitution for `$a` and `%A`
-            yield from unify_exprs_with_patterns(tail, s_local, kb)
+def contains_sub(expr: Expr) -> bool:
+    return is_sub(expr) or (isinstance(expr, list) and any(contains_sub(e) for e in expr))
+
+def check_sub_not_nested(expr: Expr) -> None:
+    # a `sub` inside the value or the body of another `sub` isn't supported -- a rule about two
+    # variables can be applied twice instead, one variable at a time
+    if is_sub(expr):
+        assert isinstance(expr, list)
+        if contains_sub(expr[2]) or contains_sub(expr[3]):
+            raise KurtException(f'EvalError: nested `{SUB_SYMBOL}` is not supported -- write a rule for one variable, and apply it once per variable')
+    if isinstance(expr, list):
+        for e in expr:
+            check_sub_not_nested(e)
+
+def contains_unbound_var(expr: Expr, s: State, kb: KnowledgeBase, except_var: Optional[str] = None, bound: frozenset[str] = frozenset()) -> bool:
+    # whether `expr` has a free variable without value in `s` (other than `except_var`)
+    e = s.walk(expr)
+    match e:
+        case Token():
+            # (a free variable of the goal itself is blocked as domain: it is fixed, not unknown)
+            return (is_var_token(e, kb) and e.value != except_var and e.value not in bound
+                    and not s.is_blocked_as_domain(e.value))
+        case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and kb.is_bindop(op):
+            try:
+                bv, _ = unpack_condition(cond, kb)
+            except KurtException:
+                return True
+            return any(contains_unbound_var(c, s, kb, except_var, bound | {bv}) for c in e)
+        case [*children]:
+            return any(contains_unbound_var(c, s, kb, except_var, bound) for c in children)
+    return False
+
+def restore_blocked(s_new: State, x: str, s_old: State) -> State:
+    # undo the temporary blocking of `$x` (unless it was blocked before)
+    if x in s_old.blocked_as_domain:
+        return s_new
+    return State(s_new.subst, s_new.blocked_as_domain - {x}, s_new.blocked_as_range)
 
 # helper functions
 T = TypeVar('T')
@@ -5005,6 +5044,9 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     if keyword_value not in ('use', 'def', 'parse') and any(contains_symbol(e, SUB_SYMBOL) for e in expr_list if not isinstance(e, Token) or e.label == 'SYMBOL'):
         # `sub` is for writing axiom schemas; in a claim it would only stand for its own result
         raise KurtException(f'EvalError: `{SUB_SYMBOL}` is only allowed in `use` and `def`, to write axiom schemas -- write the result of the substitution instead')
+    if keyword_value in ('use', 'def'):
+        for e in expr_list:
+            check_sub_not_nested(e)
 
     # behavior for `break`, `qed`, and pure DEDENTs -- indentation drives block closing
     # identically whether reading a file or the interactive shell:

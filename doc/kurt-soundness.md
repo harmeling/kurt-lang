@@ -1147,6 +1147,21 @@ and the empty set, unions, power sets and function spaces are given by their own
 gone. Regressions: `proofs/soundness/russell-set-cannot-be-formed.kurt`,
 `proofs/soundness/subset-needs-all-elements.kurt`.
 
+### 8.8 Matching `sub`: generate candidates, then check each one
+
+Matching a formula `G` against `sub $x a A` (find `a`, `A` with `G == A[$x := a]`) used to
+accept candidates as they were constructed, trusting the construction. A random round-trip test
+(`tests/test_sub_matching.py`: build `A` with holes, pick `a`, compute `G`, match `G` back)
+found a candidate that isn't a decomposition at all -- the hole in a binder's own slot,
+`forall $x (...)`, with `a` left unconstrained -- which the old `bound_var_safe` pre-check let
+through; and gaps: no solution for a structured body with an unknown `a` (`sub $x $a (R $x d)`),
+nor for a known body with an unknown `a`. Now `sub_solutions` generates candidates (all
+decompositions of `G`, or, for a known `A`, every subterm of `G` as `a`) and `sub_holds` checks
+each one by computing `A[$x := a]` with the same capture-avoiding substitution used everywhere
+else, normalizing, and comparing with `G` -- so the generator can only make matching slower or
+incomplete, never unsound. Nested `sub` is no longer allowed in axioms (it never matched in a
+conclusion anyway); a rule about two variables is applied once per variable.
+
 ## How to extend this
 
 New adversarial cases belong in `proofs/soundness/`, following the existing
