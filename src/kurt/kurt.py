@@ -1850,7 +1850,7 @@ def is_iff(expr: Expr) -> bool:
 def is_comma_separated_list(expr: Expr) -> bool:
     return is_op_expr(expr, COMMA_SYMBOL)
 
-def equal_expr(t1: Expr, t2: Expr, kb: 'KnowledgeBase') -> bool:                # equality for expressions
+def equal_expr(t1: Expr, t2: Expr, kb: 'KnowledgeBase', keep_order: bool = True) -> bool:   # equality for expressions
     # note: we assume that `flatness` and `symmetry` has been used to create normalized form
     #
     # alpha-equivalence-aware: two bound variables in corresponding positions (under a
@@ -1862,9 +1862,11 @@ def equal_expr(t1: Expr, t2: Expr, kb: 'KnowledgeBase') -> bool:                
     # unrelated renaming. Only the bound-variable *name* tokens themselves get this
     # leniency -- constants, schema variables, and operators still have to match
     # literally, so this can never make two genuinely different formulas compare equal.
-    return equal_expr_alpha(t1, t2, kb, {}, {})
+    # With `keep_order=False`, also the arguments of `=` and `iff` count in either order
+    # (they are `sym`, but keep their order for `def`, see `SYM_KEEP_ORDER`) -- for the kernel.
+    return equal_expr_alpha(t1, t2, kb, {}, {}, keep_order)
 
-def equal_expr_alpha(t1: Expr, t2: Expr, kb: 'KnowledgeBase', bmap1: dict, bmap2: dict) -> bool:
+def equal_expr_alpha(t1: Expr, t2: Expr, kb: 'KnowledgeBase', bmap1: dict, bmap2: dict, keep_order: bool = True) -> bool:
     match (t1, t2):
         case (Token(label=l1, value=v1), Token(label=l2, value=v2)):
             if l1 != l2:
@@ -1883,27 +1885,27 @@ def equal_expr_alpha(t1: Expr, t2: Expr, kb: 'KnowledgeBase', bmap1: dict, bmap2
                 return False
             new_bmap1 = {**bmap1, bv1: bv2}
             new_bmap2 = {**bmap2, bv2: bv1}
-            if c1 is not None and not equal_expr_alpha(c1, c2, kb, new_bmap1, new_bmap2):
+            if c1 is not None and not equal_expr_alpha(c1, c2, kb, new_bmap1, new_bmap2, keep_order):
                 return False
-            return all(equal_expr_alpha(a, b, kb, new_bmap1, new_bmap2) for a, b in zip(tail1, tail2))
+            return all(equal_expr_alpha(a, b, kb, new_bmap1, new_bmap2, keep_order) for a, b in zip(tail1, tail2))
         case ([Token(label='SYMBOL', value=op1) as head1, *args1], [Token(label='SYMBOL', value=op2) as head2, *args2]) \
                 if isinstance(op1, str) and op1 == op2 and len(args1) == len(args2) and len(args1) > 1 \
-                and kb.is_sym(op1) and op1 not in SYM_KEEP_ORDER:
+                and kb.is_sym(op1) and (op1 not in SYM_KEEP_ORDER or not keep_order):
             # the arguments of a symmetric operator are compared as a multiset: their sorted order
             # depends on the names of bound variables, which differ between alpha-equivalent terms
-            if not equal_expr_alpha(head1, head2, kb, bmap1, bmap2):
+            if not equal_expr_alpha(head1, head2, kb, bmap1, bmap2, keep_order):
                 return False
             unused = list(args2)
             for a in args1:
                 for i, b in enumerate(unused):
-                    if equal_expr_alpha(a, b, kb, bmap1, bmap2):
+                    if equal_expr_alpha(a, b, kb, bmap1, bmap2, keep_order):
                         del unused[i]
                         break
                 else:
                     return False
             return True
         case ([*children1], [*children2]) if len(children1) == len(children2):
-            return all(equal_expr_alpha(a, b, kb, bmap1, bmap2) for a, b in zip(children1, children2))
+            return all(equal_expr_alpha(a, b, kb, bmap1, bmap2, keep_order) for a, b in zip(children1, children2))
         case _:
             return False
 
@@ -4762,9 +4764,267 @@ class Certificate:
 
 certificates: list[Certificate] = []
 
+class KernelError(Exception):
+    # the kernel rejects a step that the search accepted -- a bug in one of the two; not a
+    # `KurtException`, so that no `expect` (or `try`) in the search can swallow it
+    pass
+
 def record_certificate(cert: Certificate, kb: KnowledgeBase) -> None:
     if kernel_check:
         certificates.append(cert)
+        problem = kernel_verify(cert, kb)
+        if problem is not None:
+            raise KernelError(f'KernelError: the kernel rejects the step to `{expr_str(cert.goal, kb)}`: {problem}')
+
+############
+## kernel ##
+############
+# Checks a certificate without any search: it strips the rule's outer `∀`s with the names the
+# search used, fills in the values, evaluates `sub`, and compares the result with the goal and
+# the facts. What it trusts besides its own code: the parser, `unpack_condition` (which variable
+# a binder binds), `normalize_expr` (`flat`, `sym`, `calc`), and `equal_expr` (equality up to
+# renaming bound variables).
+
+class KernelReject(Exception):
+    pass
+
+def k_free(e: Expr, kb: KnowledgeBase, bound: frozenset[str] = frozenset()) -> set[str]:
+    # the free variables of `e`
+    match e:
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
+            return set() if v in bound else {v}
+        case Token():
+            return set()
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            bv, _ = unpack_condition(cond, kb)
+            return set().union(*(k_free(c, kb, bound | {bv}) for c in [cond, *body]))
+        case [*children]:
+            return set().union(*(k_free(c, kb, bound) for c in children)) if children else set()
+    raise KernelReject(f'unexpected expression `{e}`')
+
+def k_rename(e: Expr, old: str, new: str) -> Expr:
+    # rename the variable `old` to the fresh name `new`, everywhere (names are unique)
+    if isinstance(e, Token):
+        return Token('SYMBOL', new, e.column) if e.value == old else e
+    return [k_rename(c, old, new) for c in e]
+
+def k_dependencies(e: Expr, kb: KnowledgeBase) -> dict[str, str]:
+    # which non-boolean schema variables may contain which bound variable: those that only occur
+    # as the whole body of binders over the same variable, or as the body of `sub` for it (the
+    # same criterion as `find_dependent_vars`, written again for the kernel)
+    contexts: dict[str, list[Optional[tuple[str, bool]]]] = {}
+    def note(t: Expr, context: Optional[tuple[str, bool]]) -> bool:
+        if isinstance(t, Token) and isinstance(t.value, str) and t.value.startswith('$') and kb.is_var(t.value) and not kb.is_bool(t.value):
+            contexts.setdefault(t.value, []).append(context)
+            return True
+        return False
+    def walk(t: Expr) -> None:
+        match t:
+            case Token():
+                note(t, None)
+            case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), a, A] if op == SUB_SYMBOL and isinstance(x, str):
+                walk(a)
+                if not note(A, (x, True)):
+                    walk(A)
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+                bv, _ = unpack_condition(cond, kb)
+                walk(cond)
+                for c in body[:-1]:
+                    walk(c)
+                if body and not note(body[-1], (bv, False)):
+                    walk(body[-1])
+            case [*children]:
+                for c in children:
+                    walk(c)
+    walk(e)
+    result = {}
+    for v, cs in contexts.items():
+        binders = {c[0] for c in cs if c is not None}
+        if None not in cs and len(binders) == 1 and any(not c[1] for c in cs if c is not None):
+            result[v] = binders.pop()
+    return result
+
+def k_instantiate(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: KnowledgeBase, bound: frozenset[str] = frozenset()) -> Expr:
+    # fill in the values of the variables -- without renaming, so a value may contain a variable
+    # that is bound where the variable occurs only if that is meant: a boolean `%A` may (as in
+    # "forall-elim"), a non-boolean `$T` only its own bound variable (see `k_dependencies`)
+    match e:
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and v not in bound and v in values:
+            value = values[v]
+            captured = k_free(value, kb) & bound
+            allowed = bound if kb.is_bool(v) else ({deps[v]} if v in deps else set())
+            if not captured <= allowed:
+                raise KernelReject(f'the value `{expr_str(value, kb)}` of `{v}` would capture {sorted(captured - allowed)}')
+            return deepcopy_expr(value)
+        case Token():
+            return e
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            bv, _ = unpack_condition(cond, kb)
+            return [e[0], *(k_instantiate(c, values, deps, kb, bound | {bv}) for c in [cond, *body])]
+        case [*children]:
+            return [k_instantiate(c, values, deps, kb, bound) for c in children]
+    raise KernelReject(f'unexpected expression `{e}`')
+
+def k_replace(A: Expr, x: str, t: Expr, kb: KnowledgeBase) -> Expr:
+    # `A` with `t` for the free occurrences of `x`, renaming a binder that would capture `t`
+    match A:
+        case Token(label='SYMBOL', value=v) if v == x:
+            return deepcopy_expr(t)
+        case Token():
+            return A
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            bv, _ = unpack_condition(cond, kb)
+            if bv == x:
+                return A
+            if bv in k_free(t, kb):
+                fresh = new_bool_var_name() if kb.is_bool(bv) else new_var_name()
+                A = k_rename(A, bv, fresh)
+                assert isinstance(A, list)
+            return [A[0], *(k_replace(c, x, t, kb) for c in A[1:])]
+        case [*children]:
+            return [k_replace(c, x, t, kb) for c in children]
+    raise KernelReject(f'unexpected expression `{A}`')
+
+def k_evaluate(e: Expr, kb: KnowledgeBase) -> Expr:
+    # evaluate the `sub`s, innermost first; a `sub` with a still unknown `%A` stays
+    match e:
+        case Token():
+            return e
+        case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x) as tx, t, A] if op == SUB_SYMBOL and isinstance(x, str):
+            t, A = k_evaluate(t, kb), k_evaluate(A, kb)
+            if is_bool_var_token(A, kb) and A != tx:
+                return [e[0], tx, t, A]
+            return k_replace(A, x, t, kb)
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op) and is_sub(cond):
+            # a binder with any condition, `∀ (sub $x $v C)`: `C` must not contain `$v` itself
+            assert isinstance(cond, list)
+            v = cond[2]
+            assert isinstance(v, Token) and isinstance(v.value, str)
+            if v.value in k_free(cond[3], kb):
+                raise KernelReject(f'the condition `{expr_str(cond[3], kb)}` contains its bound variable `{v.value}`')
+            return [e[0], *(k_evaluate(c, kb) for c in e[1:])]
+        case [*children]:
+            return [k_evaluate(c, kb) for c in children]
+    raise KernelReject(f'unexpected expression `{e}`')
+
+def k_instance(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: KnowledgeBase) -> Expr:
+    return normalize_expr(k_evaluate(k_instantiate(e, values, deps, kb), kb), kb)
+
+def k_strip(e: Expr, names: tuple[str, ...], also: Optional[Expr] = None) -> tuple[Expr, Optional[Expr]]:
+    # remove outer `∀`s (without condition) of `e`, one per name, renaming the bound variable to
+    # the name -- also in `also` (the conclusion, for the `∀`s of a premise)
+    for name in names:
+        match e:
+            case [Token(label='SYMBOL', value=q), Token(label='SYMBOL', value=bv), body] if q == FORALL_SYMBOL and isinstance(bv, str):
+                e = k_rename(body, bv, name)
+                if also is not None:
+                    also = k_rename(also, bv, name)
+            case _:
+                raise KernelReject(f'expected {len(names)} outer `{FORALL_SYMBOL}`s')
+    return e, also
+
+def k_known(f: Formula, kb: KnowledgeBase) -> bool:
+    # whether `f` is a formula of the theory (or one direction of an `iff` of the theory)
+    for g in kb.all_theory():
+        if g is f:
+            return True
+        if f.direction_of is not None and g.id == f.id and g.simplified_expr is f.direction_of:
+            L, R = f.direction_of[1], f.direction_of[2]      # type: ignore[index]
+            e = f.simplified_expr
+            return is_implication(e) and ((e[1] is L and e[2] is R) or (e[1] is R and e[2] is L))  # type: ignore[index]
+    return False
+
+def kernel_verify(cert: Certificate, kb: KnowledgeBase) -> Optional[str]:
+    # `None` if the certificate proves its goal, otherwise what is wrong
+    try:
+        goal = normalize_expr(cert.goal, kb)
+        match cert.kind:
+            case 'todo':
+                return None                 # admitted, and reported as a `todo`
+            case 'top':
+                return None if isinstance(cert.goal, Token) and cert.goal.value == TRUE_SYMBOL else 'not `true`'
+            case 'calc':
+                return None if numeric_comparison_holds(cert.goal) else 'the comparison does not hold'
+            case 'calc-fact':
+                assert cert.rule is not None
+                if not k_known(cert.rule, kb):
+                    return 'the fact is not in the theory'
+                return None if equal_expr(calculate_normalized(cert.rule.expr, kb), calculate_normalized(cert.goal, kb), kb, keep_order=False) else 'the fact does not compute to the goal'
+        assert cert.kind == 'rule' and cert.rule is not None and cert.expr is not None
+        if cert.expr is not cert.rule.simplified_expr or not k_known(cert.rule, kb):
+            return 'the rule is not in the theory'
+        if any(not k_known(f, kb) for f in cert.facts):
+            return 'a fact is not in the theory'
+        if set(cert.values) & cert.fixed:
+            return f'the variables {sorted(set(cert.values) & cert.fixed)} of the goal got a value'
+        deps = k_dependencies(cert.expr, kb)
+        if cert.form == 'fact':
+            if cert.premise_fresh or cert.conclusion_fresh or cert.facts:
+                return 'a fact has no premise'
+            instance = k_instance(cert.expr, cert.values, deps, kb)
+            return None if equal_expr(instance, goal, kb, keep_order=False) else f'the instance `{expr_str(instance, kb)}` is not the goal'
+        if cert.form != 'impl' or not is_implication(cert.expr):
+            return f'unknown form `{cert.form}`'
+        assert isinstance(cert.expr, list)
+        premise, conclusion = k_strip(cert.expr[1], cert.premise_fresh, cert.expr[2])
+        assert conclusion is not None
+        conclusion, _ = k_strip(conclusion, cert.conclusion_fresh)
+        # the fresh variables of the premise's `∀`s stand for anything: no value, and no variable
+        # of the rule (except a boolean one, see `k_instantiate`) may depend on them
+        eigen = set(cert.premise_fresh).union(*cert.fact_fresh)
+        if eigen & set(cert.values):
+            return f'the fresh variables {sorted(eigen & set(cert.values))} of a `∀` premise got a value'
+        rule_vars = {t.value for t in get_token_set(cert.expr) if isinstance(t.value, str) and kb.is_var(t.value) and not kb.is_bool(t.value)}
+        for v in rule_vars:
+            if v in cert.values and k_free(cert.values[v], kb) & eigen:
+                return f'the value of `{v}` depends on the fresh variables {sorted(k_free(cert.values[v], kb) & eigen)} of a `∀` premise'
+        instance = k_instance(conclusion, cert.values, deps, kb)
+        if not equal_expr(instance, goal, kb, keep_order=False):
+            return f'the instance `{expr_str(instance, kb)}` of the conclusion is not the goal'
+        facts = [k_instance(f.simplified_expr, cert.values, k_dependencies(f.simplified_expr, kb), kb) for f in cert.facts]
+        def covered(part: Expr, strips: list[tuple[str, ...]]) -> bool:
+            # `part` of the premise is an instance of a fact, or a `∀` whose body is (with one of
+            # the recorded fresh variables), or a conjunction of such parts
+            if any(equal_expr(part, fact, kb, keep_order=False) for fact in facts):
+                return True
+            if is_forall(part) and isinstance(part, list) and isinstance(part[1], Token):
+                for i, names in enumerate(strips):
+                    try:
+                        body, _ = k_strip(part, names)
+                    except KernelReject:
+                        continue
+                    if covered(normalize_expr(body, kb), strips[:i] + strips[i+1:]):
+                        return True
+            if is_op_expr(part, AND_SYMBOL):
+                assert isinstance(part, list)
+                return covered_all(part[1:], strips)
+            return False
+        def covered_all(parts: list[Expr], strips: list[tuple[str, ...]]) -> bool:
+            # each of the conjuncts `parts` is covered -- alone, or together with others by a fact
+            # that is a conjunction (flattening `%A ∧ ¬%A` with `%A = p ∧ q` gives `p ∧ q ∧ ¬(p ∧ q)`)
+            if not parts:
+                return True
+            first, rest = parts[0], parts[1:]
+            if covered(first, strips) and covered_all(rest, strips):
+                return True
+            for fact in facts:
+                if is_op_expr(fact, AND_SYMBOL) and isinstance(fact, list):
+                    remaining = list(parts)
+                    for c in fact[1:]:
+                        i = next((i for i, r in enumerate(remaining) if equal_expr(c, r, kb, keep_order=False)), None)
+                        if i is None:
+                            break
+                        del remaining[i]
+                    else:
+                        if len(remaining) < len(parts) and not any(r is first for r in remaining) and covered_all(remaining, strips):
+                            return True
+            return False
+        premise_instance = k_instance(premise, cert.values, deps, kb)
+        if not covered(premise_instance, list(cert.fact_fresh)):
+            return f'the premise `{expr_str(premise_instance, kb)}` does not follow from the facts'
+        return None
+    except KernelReject as e:
+        return str(e)
 
 def resolved_values(s: State) -> dict[str, Expr]:
     # the value of each variable with a value in `s`, with the values of the variables in it
