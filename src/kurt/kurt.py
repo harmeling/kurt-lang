@@ -5001,6 +5001,10 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
         assert kb_predecessor.parent is not None, f'BUG: too many dedents at line {line} in {filename}'
         kb_predecessor = kb_predecessor.parent   # go to the predecessor for parsing
     keyword_token, expr_list, label, local = parse_tokenstream(ts, kb_predecessor)  # runs the parser
+    keyword_value = '' if keyword_token is None else keyword_token.value
+    if keyword_value not in ('use', 'def', 'parse') and any(contains_symbol(e, SUB_SYMBOL) for e in expr_list if not isinstance(e, Token) or e.label == 'SYMBOL'):
+        # `sub` is for writing axiom schemas; in a claim it would only stand for its own result
+        raise KurtException(f'EvalError: `{SUB_SYMBOL}` is only allowed in `use` and `def`, to write axiom schemas -- write the result of the substitution instead')
 
     # behavior for `break`, `qed`, and pure DEDENTs -- indentation drives block closing
     # identically whether reading a file or the interactive shell:

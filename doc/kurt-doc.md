@@ -526,7 +526,9 @@ interactive shell — see §9's introduction.
 
 A pristine session starts with `minimal.kurt`'s worth of syntax (space,
 comma, `(` `)`, `implies`, `and`, the constant `true`, the substitution
-operator `sub`, and — see below — `forall`/`exists`) already declared,
+operator `sub` — `sub $x $a %A` is "`%A` with `$a` substituted for `$x`",
+only allowed in `use`/`def` to write axiom schemas like "forall-elim" or
+"equal-elim" — and, see below, `forall`/`exists`) already declared,
 plus these rules implemented directly in Python (not as `use` axioms you
 could remove):
 
