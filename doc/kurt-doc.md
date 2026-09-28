@@ -623,7 +623,6 @@ declaring their own prerequisites via their own `load` lines:
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers, induction | `set`, `arith` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
-| `lambda-calculus.kurt` | `λ`/lambda abstraction and beta-reduction (a *predicate* lambda calculus — see the file's own header for why: single-argument, boolean-bodied only, no currying, no eta) | `equality` |
 
 `load` with no arguments lists every file loaded so far, level by level.
 

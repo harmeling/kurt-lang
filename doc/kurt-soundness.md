@@ -793,7 +793,7 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   of `$a` once `%A` doesn't mention `$x` at all. Confirmed via `git stash`
   that the minimal repro fails before the fix and succeeds after, and that
   the two known, *separate* lambda-calculus gaps (identity function,
-  currying — `proofs/lambda-calculus/known-gaps.kurt`) are unaffected: those
+  currying — `proofs/lambda-calculus/known-gaps.kurt`, since removed together with `lambda-calculus.kurt`) are unaffected: those
   fail for a different reason (an alpha-renamed bound variable occupying
   `%A`'s assigned value isn't recognized as *the* substitution site, since
   its name doesn't match the sub-marker's own freshly-renamed name — a
