@@ -5,7 +5,10 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 ## proofs-not-yet (postponed, analysed 2026-09-25)
 
 - TODO `scalar-product.kurt`: `brackets < >` clashes with the relation `<`, and the lexer rejects `⟨ ⟩` -- decide: allow `⟨ ⟩` in the lexer, or write `ip a b`.  fix the math (`λ = <a,b>/<b,b>`, case `b = 0` separately), add `<a,a> ≥ 0` and bilinearity for `-`.  vectors share `+`/`*` with numbers (see namespaces below), or use separate symbols like `⊕`
-- TODO `limits.kurt`: `∀ε>0` can now be written `∀ $e > 0 ...` (a symbol must be a variable, `$e`, or declared `var`).  missing: exists-intro for a conditioned `∃` (from `c > 0` and `P c` derive `∃ ($d > 0) (P $d)`), `abs` instead of `|x|` (`|` is taken by set comprehension) with its laws, fix `load forall`/`load arithmetics`, drop the notes in lines 22-36
+- DONE `limits.kurt`: now `proofs/analysis/limit-of-linear-function.kurt`, with `analysis.kurt` and the rules for conditions in `logic.kurt` (2026-09-28)
+- TODO `pick` for an `∃` with a condition: currently via "exists-cond-def" first (`∃ $y ($y > 0 ∧ ...)`), then `pick`
+- TODO `argmax`/`argmin` in `analysis.kurt`: not unique, so not `argmax ... = $a`; "some maximizer" needs `sub` with an `argmax` term as value, which is nested `sub`
+- TODO `calc` while matching a rule: `e / 3 > 0 / 3` (from "gt-div-pos") doesn't match the computed `e / 3 > 0`, so proofs need `calc off` steps (limit-of-linear-function.kurt)
 - TODO `square-root-two-is-irrational.kurt`: reducing `m/n` to lowest terms is a hidden induction -- decide: well-ordering axiom in `natural.kurt`, or "every rational has a coprime representation" as an axiom of `Q`.  needs a theory of `divides`/even/odd with the lemma `2 divides m*m ⇒ 2 divides m`; rewrite `exists (m, n)` as `exists m exists n`, `begin`/`end` as `case`, `:=` as `def`, `contradiction` as `false`
 
 ## postponed from the tutorial discussion (2026-09-26)

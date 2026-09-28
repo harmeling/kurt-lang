@@ -1,15 +1,7 @@
 ;; gauss.kurt
 ; proof of Gauss' summation formula 0 + 1 + ... + n = n * (n+1) / 2, by induction on n
-load natural
+load analysis             ; natural numbers, and sums `sum i (a, b) T` = T(a) + ... + T(b)
 calc on                  ; e.g. `(k + 1) + 1` is `k + 2`, and `0 * (0 + 1) / 2` is `0`
-
-; sums `sum i (a, b) T` = T(a) + T(a+1) + ... + T(b), for any summand `T` (which may depend
-; on the bound variable `i`, since the axioms only use it with something substituted for `i`)
-const sum
-arity sum 3
-bindop sum
-use (sum $i ($a, $a) $T) = sub $i $a $T                                   "sum-one"
-use (sum $i ($a, $b + 1) $T) = (sub $i ($b + 1) $T) + (sum $i ($a, $b) $T)   "sum-last"
 
 2 ≠ 0                    ; needed for dividing by 2
 show ∀ $n ∈ Nat  ((sum x (0, $n) x) = $n * ($n + 1) / 2)

@@ -22,4 +22,5 @@ use (P 0) and (forall $n in Nat (P $n implies P ($n+1)))   "base-and-step"
 ; number satisfies P -- including, concretely, the number 5, which was never mentioned anywhere
 ; above.
 forall $n in Nat  P $n
+forall $n ($n in Nat implies P $n)      ; by forall-cond-def
 5 in Nat implies P 5

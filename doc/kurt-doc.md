@@ -259,17 +259,42 @@ is one fixed term. A boolean `%A` may depend on it (that's what
 the *whole* body of binders over the same variable, or as the body of a
 `sub` for it, as in the sum axioms `(sum $i ($a, $a) $T) = sub $i $a $T`
 and `(sum $i ($a, $b+1) $T) = (sub $i ($b+1) $T) + (sum $i ($a, $b) $T)`
-(see `proofs/natural-numbers/gauss.kurt`) — such a `$T` stands for any
-summand, which the axioms only ever use with something substituted for `$i`.
+(see `analysis.kurt`) — such a `$T` stands for any summand, which the
+axioms only ever use with something substituted for `$i`.
 
-Sugar: the "bound variable" position may instead be a condition, a
-relation whose left-hand side is the actual variable, e.g. `forall x > 0
-F(x)` desugars to `forall x (x > 0 implies F(x))`, and `∀ $n ∈ Nat P $n`
-to `∀ $n ($n ∈ Nat implies P $n)`. The right-hand side of the condition
+**Conditions.** The "bound variable" position may instead be a condition on
+it: `∀ $n ∈ Nat P $n`, `∃ $d > 0 ...`, `lim $x > 0 0 (f $x)`. Unbracketed,
+it is a relation whose left-hand side is the variable; its right-hand side
 extends over infix operators (`∀ $x ∈ A ∪ B ...`) but stops at the first
-function application, which is where the body starts; writing the
-condition in parentheses, `∀ ($n ∈ Nat) (P $n)`, works as well. The type
-checker requires the condition to actually contain a free variable to bind.
+function application, which is where the body starts. In parentheses, any
+condition works, `∀ ($x > 0 ∧ $x < 1) (P $x)`, as long as it contains
+exactly one variable (a `$`-variable or one declared `var`), which is the
+one being bound — it may occur more than once.
+
+A condition is part of the formula: `∀ $x > 0 P $x` is not the same
+formula as `∀ $x ($x > 0 ⇒ P $x)`, and the engine doesn't treat it as an
+implication. What a condition means is said by rules, like for any other
+operator — for `∀` and `∃` in `logic.kurt`:
+
+    use (∀ (sub $x $v %C) %P) ∧ (sub $x $a %C)  ⇒  sub $v $a %P                     "forall-cond-elim"
+    use (sub $x $a %C) ∧ (sub $v $a %P)  ⇒  ∃ (sub $x $v %C) %P                     "exists-cond-intro"
+    use (∀ (sub $x $v %C) %P)  ⇔  ∀ $w ((sub $x $w %C) ⇒ (sub $v $w %P))           "forall-cond-def"
+    use (∃ (sub $x $v %C) %P)  ⇔  ∃ $w ((sub $x $w %C) ∧ (sub $v $w %P))           "exists-cond-def"
+
+In a rule (`use`/`def`), a binder `sub $x $v %C` stands for *any*
+condition: `$v` is the bound variable, and `%C` the condition with the
+hole `$x` for it — matching `∀ ($y > 0) ...` gives `%C = $x > 0`, with
+every occurrence of the bound variable in the hole. So `%C` never mentions
+the bound variable itself, and `%C` may only be used with something
+substituted for `$x`, as `sub $x ... %C` (checked when the rule is
+stated). A binder with a condition never matches one without, so rules
+for both kinds are written separately (see `lim` in `analysis.kurt`).
+
+So from `∀ $x > 0 P $x` and `1 > 0` follows `P 1` in one step
+("forall-cond-elim"), while `∀ $x ($x > 0 ⇒ P $x)` takes a step of its
+own ("forall-cond-def") — e.g. to close `∀ $c ($c ∈ A ⇒ $c ∈ B)` (the
+definition of `A ⊂ B`) after a `let x ∈ A` block, which gives
+`∀ x ∈ A (x ∈ B)`.
 
 ### 4.5 `flat` and `sym`
 
@@ -562,7 +587,9 @@ could remove):
   still exists for the same reason a hard-coded rule sometimes also has a
   `use` equivalent lying around: explicit intermediate steps, and cases
   this automatic stripping doesn't reach (a `forall` that isn't the
-  outermost operator of a stored formula).
+  outermost operator of a stored formula). Only a `forall` *without* a
+  condition is stripped: `∀ $x > 0 P $x` stays as it is, and is used via
+  logic.kurt's rules for conditions (§4.4).
 
 `forall`/`exists`'s *syntax* specifically (their `arity`/`bindop`/`bool`
 declarations and `∀`/`∃` aliases — not their axioms, which are still only
@@ -631,10 +658,11 @@ declaring their own prerequisites via their own `load` lines:
 |---|---|---|
 | `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
 | `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
-| `logic.kurt` | forall-elim, exists-intro (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
+| `logic.kurt` | forall-elim, exists-intro, and the rules for quantifiers with a condition (§4.4) (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
 | `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers, induction | `set`, `arith` |
+| `analysis.kurt` | `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
 
 `load` with no arguments lists every file loaded so far, level by level.

@@ -23,6 +23,14 @@ use forall $x %A                        implies  sub $x $a %A      "forall-elim"
 use sub $x $a %A                        implies  exists $x %A      "exists-intro"
 ;use (exists $x %B) and (%B implies %A)  implies  %A                "exists-elim"
 
+; quantifiers with a condition, `∀ $x > 0 P $x` and `∃ $x > 0 P $x`: in a rule, the condition
+; `sub $x $v %C` stands for any condition on the bound variable `$v` (`%C` is the condition
+; with the hole `$x` for `$v`, e.g. `$x > 0`)
+use (forall (sub $x $v %C) %P) and (sub $x $a %C)  implies  sub $v $a %P    "forall-cond-elim"
+use (sub $x $a %C) and (sub $v $a %P)  implies  exists (sub $x $v %C) %P    "exists-cond-intro"
+use (forall (sub $x $v %C) %P)  iff  forall $w ((sub $x $w %C) implies (sub $v $w %P))  "forall-cond-def"
+use (exists (sub $x $v %C) %P)  iff  exists $w ((sub $x $w %C) and (sub $v $w %P))      "exists-cond-def"
+
 ; ;; existsunique
 ; use %A and (forall $x (%A implies (forall $y (%A implies ($x = $y)))))  implies  existsunique $x %A  "existsunique-intro"
 ; use existsunique $x %A  implies  exists $x %A  "existsunique-elim-1"

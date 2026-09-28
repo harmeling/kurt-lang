@@ -1016,6 +1016,8 @@ instead. Fixed by giving the synthetic `implies` token a column borrowed
 from the condition it wraps (which does have one, since it came from real
 source text). Regression:
 `proofs/soundness/conditioned-quantifier-failure-does-not-crash.kurt`.
+(Since §8.11, a condition isn't turned into an implication by the engine at
+all, so the synthetic token is gone; the regression test stays.)
 
 Once the crash was out of the way, `natural.kurt`'s induction axiom
 itself checked out as functionally correct — `(P 0) and (forall $n in Nat
@@ -1189,6 +1191,62 @@ somewhere inside the scope isn't enough -- the first version allowed that, and t
 `exists $y (not ($x = $y))` (from `forall x (exists y (not (x = y)))`) then gave `exists y (not
 (y = y))`; `capture-avoidance-blocks-unsound-instantiation.kurt` caught it. Regression:
 `proofs/soundness/dependent-summand.kurt`.
+
+### 8.11 Quantifiers with a condition: rules instead of a hard-coded rewrite
+
+`remove_outer_forall_quantifiers` used to rewrite a stored or claimed `∀ (cond) body` into an
+implication `cond ⇒ body` with a fresh variable. That made conditioned `∀` work, but only `∀`:
+there was no way to say what a condition means for any other binder (`∃ $d > 0 ...` had no
+exists-intro at all, and `lim $x > 0 a T` couldn't be defined). Now a condition is just part of
+the formula, and rules say what it means: in a rule, a binder `sub $x $v %C` stands for any
+condition on the bound variable `$v` (`unpack_condition`), and logic.kurt has
+"forall-cond-elim", "exists-cond-intro", "forall-cond-def", "exists-cond-def".
+
+Matching (`sub_condition_match`): an expression's binder with condition `C` on its bound
+variable `y` matches `sub $x $v %C` with `%C := C[y := $x]` -- *every* occurrence of `y` becomes
+the hole, so the match is unique (no search), and `%C` never contains the bound variable, which
+could otherwise escape its binder when the rule substitutes another value for `$x`. The body is
+renamed from `y` to `$v`, which is blocked like any pattern binder. Three safeguards:
+
+- a rule can use `%C` only as `sub $x ... %C` with the same hole (`check_condition_holes`),
+  since on its own `%C` would mention the rule's `$x` -- e.g. `(∀ (sub $x $v %C) %P) ⇒ %C`
+  would give `$x > 0` for any `$x`;
+- an instance whose binder lost its bound variable -- e.g. `%C := 5 ∈ Nat` from a decomposition
+  of `5 ∈ Nat ⇒ P 5` without a hole -- is skipped (`valid_bindop_conditions` after
+  `trigger_sub`, in `impl_elim` and `match_all_theory`), not stored or crashed on;
+- a binder with a condition never matches one without.
+
+`all_theory` used to yield the body of a stored outer `forall` as a separate fact; that loop was
+dead code while every outer `forall` was stripped on storing, but would have yielded the body of
+a conditioned one *without its condition*, so it was removed. `unpack_condition` now counts
+distinct variables, so a condition may mention its variable twice (`$x > 0 ∧ $x < 1`).
+Regression: `proofs/soundness/conditioned-quantifier-rules.kurt` (conditions can't be dropped,
+weakened, swapped, or leaked; no capture in the body).
+
+The cost: `∀ $x ∈ A (x ∈ B)` (from `let x ∈ A`) and `∀ $c ($c ∈ A ⇒ $c ∈ B)` (the definition of
+`⊂`) are no longer identified silently -- one "forall-cond-def" step connects them
+(`proofs/mafi1/001-two-equal-sets.kurt`, `proofs/natural-numbers/induction.kurt`).
+
+The functions of `analysis.kurt` (`lim`, `sup`, `max`, ...) give a value for every argument, so
+it has only introduction rules: `(lim $v $a $T) = $L ⇔ ε-δ` would, by reflexivity of `=`, prove
+ε-δ for limits that don't exist. And "lim-cond-intro" needs `$a` to be approached by values with
+the condition; otherwise ε-δ holds vacuously for every `$L`, and two limits would prove `5 = 6`
+(`proofs/analysis/limit-with-condition.kurt`).
+
+### 8.12 Bug found and fixed: renaming a bound variable nested a binder's arguments
+
+`alpha_rename_binder_body`, under an inner binder with a condition, rebuilt it as
+`[op, cond, [args...]]` instead of `[op, cond, *args]`, so `sum x (0, n) x` became
+`sum x ((0, n) x)`. Nothing reached it before a binder with a condition (`∀ $n ∈ Nat`) had a
+multi-argument binder (`sum`) in its body -- gauss.kurt, once the conditioned `∀` was no longer
+turned into an implication. It made matching fail (a false rejection), not succeed.
+
+### 8.13 Bug found and fixed: a chain's continuation line used its own operator
+
+`get_chain_op` is meant to return the strongest operator of a chain so far (kurt-doc.md §4.6),
+but returned the last one, so the continuation rows `a = b`, `< c`, `= d` claimed `a = d`
+instead of `a < d`. The claim then simply failed to derive (a false rejection, not a false
+proof). Regression: the end of `proofs/arithmetic/chains.kurt`.
 
 ## How to extend this
 

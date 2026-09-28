@@ -24,6 +24,8 @@ proof
                 x ∈ (A ∩ B) ∪ (A ∩ C)
                 ;done
             x ∈ (A ∩ B) ∪ (A ∩ C)
+        ; `⊂` is defined with `∀ $c ($c ∈ $a implies ...)`, `let x ∈ ...` gave `∀ x ∈ ...`
+        ∀ $x ($x ∈ A ∩ (B ∪ C)  implies  $x ∈ (A ∩ B) ∪ (A ∩ C))     ; by forall-cond-def
     qed
     show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     proof
@@ -44,5 +46,6 @@ proof
                 x ∈ B ∪ C
                 x ∈ A ∩ (B ∪ C)
             x ∈ A ∩ (B ∪ C)
+        ∀ $x ($x ∈ (A ∩ B) ∪ (A ∩ C)  implies  $x ∈ A ∩ (B ∪ C))     ; by forall-cond-def
     qed
 qed

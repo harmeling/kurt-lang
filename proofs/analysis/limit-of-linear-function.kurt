@@ -1,0 +1,33 @@
+; the limit of 3x + 1 for x going to 2 is 7, by ε and δ: for every ε > 0, δ = ε / 3 will do
+load analysis
+calc on
+
+show lim x 2 (3 * x + 1) = 7
+proof
+    let e > 0
+        3 > 0
+        e / 3 > 0
+        let y
+            assume 0 < abs(y - 2) ∧ abs(y - 2) < e / 3
+                abs(y - 2) < e / 3
+                ; `calc` doesn't compute while matching a rule, so these two steps are
+                ; written down before computing `7 - 1` and `2 * 3`
+                calc off
+                (3 * y + 1) - 7 = 3 * y - (7 - 1)                   ; by add-sub
+                (y - 2) * 3 = y * 3 - 2 * 3                         ; by distrib-sub
+                calc on
+                (3 * y + 1) - 7 = 3 * y - 6
+                (y - 2) * 3 = 3 * y - 6
+                (3 * y + 1) - 7 = (y - 2) * 3
+                abs(y - 2) * 3 < (e / 3) * 3                        ; by lt-mul-pos
+                3 ≠ 0
+                (e / 3) * 3 = e                                     ; by div-mul
+                3 >= 0
+                abs(3) = 3                                          ; by abs-nonneg
+                abs((3 * y + 1) - 7) = abs((y - 2) * 3)
+                    = abs(y - 2) * abs(3)
+                    = abs(y - 2) * 3
+                    < (e / 3) * 3
+                    = e
+        ∃ $d > 0 ∀ $y ((0 < abs($y - 2) ∧ abs($y - 2) < $d) ⇒ abs((3 * $y + 1) - 7) < e)
+qed

@@ -11,6 +11,8 @@
 ; with `natural.kurt`/induction specifically -- any conditioned-quantifier goal that fails to
 ; derive hits it (confirmed independently with `set.kurt`'s `in`, no `natural.kurt` involved).
 ; Fixed by giving the synthetic `implies` token a column borrowed from the condition it wraps.
+; (Since then, a condition isn't turned into an implication by the engine at all -- see
+; doc/kurt-soundness.md §8.11 -- so there is no synthetic token any more.)
 load set, logic
 bool P
 arity P 1

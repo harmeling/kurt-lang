@@ -1,0 +1,23 @@
+; a limit with a condition on the variable, `lim $x > 0 0 (f $x)`, the limit from the right:
+; besides ε and δ, "lim-cond-intro" needs that there are `x > 0` arbitrarily close to `0`
+; (otherwise every number would be the limit) -- here both are simply assumed
+load analysis
+const f
+arity f 1
+
+sandbox
+    use ∀ $e > 0 ∃ $d > 0 ∀ $y (($y > 0 ∧ 0 < abs($y - 0) ∧ abs($y - 0) < $d) ⇒ abs(f $y - 5) < $e)
+    expect "ProofError"
+        lim $x > 0 0 (f $x) = 5       ; not yet: are there `x > 0` close to `0`?
+    use ∀ $d > 0 ∃ $y ($y > 0 ∧ 0 < abs($y - 0) ∧ abs($y - 0) < $d)
+    lim $x > 0 0 (f $x) = 5           ; by lim-cond-intro
+    expect "ProofError"
+        lim x 0 (f x) = 5           ; the limit from both sides is a different claim
+    expect "ProofError"
+        lim $x < 0 0 (f $x) = 5       ; and so is the one from the left
+
+; there are no `x > 0` close to `-1`, so ε-δ holds for every number, and none is the limit
+use ∀ $e > 0 ∃ $d > 0 ∀ $y (($y > 0 ∧ 0 < abs($y - -1) ∧ abs($y - -1) < $d) ⇒ abs(f $y - 5) < $e)
+use ∀ $e > 0 ∃ $d > 0 ∀ $y (($y > 0 ∧ 0 < abs($y - -1) ∧ abs($y - -1) < $d) ⇒ abs(f $y - 6) < $e)
+expect "ProofError"
+    lim $x > 0 (-1) (f $x) = 5

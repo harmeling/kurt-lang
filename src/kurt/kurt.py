@@ -1152,8 +1152,9 @@ class KnowledgeBase:
             for op in chain_so_far:
                 assert isinstance(op.value, str)
                 if op.value in c:
-                    max_index = max(max_index, c.index(op.value))
-                    max_op = op
+                    if c.index(op.value) >= max_index:     # e.g. `a = b < c = d` gives `a < d`
+                        max_index = c.index(op.value)
+                        max_op = op
                 else:
                     max_index = -1
                     max_op = None
@@ -1511,13 +1512,6 @@ class KnowledgeBase:
         # iterate over all levels
         for f in reversed(self.theory):
             yield f
-            # can we chop of universal quantifier?
-            while is_forall(f.simplified_expr):
-                # see the identical check in `remove_outer_forall_quantifiers` for why this
-                # can't just be an `assert`: `is_forall` only checks the head symbol
-                if not (isinstance(f.simplified_expr, list) and len(f.simplified_expr) == 3):
-                    raise KurtException(f'EvalError: `forall` is not declared as a proper binding operator, got `{expr_str(f.simplified_expr, self)}`')
-                yield f.clone(f.simplified_expr[2], self)
         if self.parent is not None:
             yield from self.parent.all_theory()
 
@@ -1622,7 +1616,9 @@ class KnowledgeBase:
                             else:
                                 # just a normal operator
                                 for i in range(len(args)):
-                                    if bool_expr(args[i], self):
+                                    if i == 0 and self.is_bindop(op):
+                                        bool_sigs |= _get_new_bool_sigs(args[i], False)   # a binder's variable, or its condition
+                                    elif bool_expr(args[i], self):
                                         bool_sig_local.append(i+1)    # collect information from the args
                                         bool_sigs |= _get_new_bool_sigs(args[i], True)
                                     else:
@@ -2717,8 +2713,18 @@ def unpack_condition(expr: Expr, kb: KnowledgeBase) -> tuple[str, Optional[Expr]
         assert isinstance(expr.value, str)
         new_const = expr.value
         condition = None
+    elif is_sub(expr):
+        # a rule's binder with *any* condition, e.g. `∀ (sub $x $v %C) %P`: the bound variable
+        # is `$v`, and the condition is `%C` with `$v` in the hole `$x` (see `sub_condition_match`)
+        assert isinstance(expr, list)
+        v = expr[2]
+        if not (isinstance(v, Token) and v.label == 'SYMBOL' and isinstance(v.value, str) and kb.is_var(v.value) and not kb.is_bool(v.value)):
+            raise KurtException(f'EvalError: in the condition `{expr_str(expr, kb)}` of a binder, the value of `{SUB_SYMBOL}` must be the bound variable')
+        new_const = v.value
+        condition = expr
     else:
-        new_consts = extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb), kb)
+        # distinct names: the variable may occur more than once, e.g. `$x > 0 ∧ $x < 1`
+        new_consts = list(dict.fromkeys(extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb), kb)))
         if len(new_consts) != 1:
             raise KurtException(f'EvalError: expected exactly one new symbol or existing, got {new_consts} in `{expr_str(expr, kb)}`')
         new_const = new_consts[0]
@@ -3896,7 +3902,9 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr
     expr = deepcopy_expr(expr)  # deep copy to avoid modifying the original expression
     fresh_vars: set[str] = set()
 
-    # chop off all outer universal quantifiers that have **no condition** and rename their bound vars
+    # chop off all outer universal quantifiers that have **no condition** and rename their bound
+    # vars -- a quantifier with a condition, `∀ $x > 0 ...`, stays: what it means is said by the
+    # rules of logic.kurt ("forall-cond-elim", "forall-cond-def"), not by the engine
     while is_forall(expr):
         # `is_forall` only checks the head symbol, not that it's really a bindop-shaped
         # `[forall, bound-var, body]` triple -- if `forall` isn't declared a `bindop` at all
@@ -3905,21 +3913,11 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr
         # it can parse as a plain, flatly space-applied symbol instead, with a different shape.
         if not (isinstance(expr, list) and len(expr) == 3):
             raise KurtException(f'EvalError: `forall` is not declared as a proper binding operator, got `{expr_str(expr, kb)}`')
-        if isinstance(expr[1], Token):
-            assert isinstance(expr[1].value, str)
-            bound_var = expr[1].value
-            expr = expr[2]
-        else:
-            bound_var, condition = unpack_condition(expr[1], kb)
-            assert condition is not None, f'BUG: expected a condition'
-            # give the synthetic `implies` token a real column (borrowed from `condition`,
-            # which does have one) rather than leaving it `None` -- otherwise a failed
-            # derivation whose goal is a conditioned quantifier (`forall $x in Nat ...`,
-            # `forall $x>0 ...`, ...) crashes with an internal AssertionError instead of a
-            # clean ProofError, since `get_column` (used to build that error's message)
-            # asserts every token it walks down to has a real column
-            implies_token = Token(label='SYMBOL', value='implies', column=get_column(condition))
-            expr = [implies_token, condition, expr[2]]
+        if not isinstance(expr[1], Token):
+            break
+        assert isinstance(expr[1].value, str)
+        bound_var = expr[1].value
+        expr = expr[2]
         free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
         fresh_vars.add(free_var)
         s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
@@ -3944,15 +3942,11 @@ def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr
     while is_forall(premise):
         if not (isinstance(premise, list) and len(premise) == 3):
             raise KurtException(f'EvalError: `forall` is not declared as a proper binding operator, got `{expr_str(premise, kb)}`')
-        if isinstance(premise[1], Token):
-            assert isinstance(premise[1].value, str)
-            bound_var = premise[1].value
-            premise = premise[2]
-        else:
-            bound_var, condition = unpack_condition(premise[1], kb)
-            assert condition is not None, f'BUG: expected a condition'
-            implies_token = Token(label='SYMBOL', value='implies', column=get_column(condition))
-            premise = [implies_token, condition, premise[2]]
+        if not isinstance(premise[1], Token):
+            break               # a condition stays, see `remove_outer_forall_quantifiers`
+        assert isinstance(premise[1].value, str)
+        bound_var = premise[1].value
+        premise = premise[2]
         free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
         fresh_vars.add(free_var)
         fresh_token = Token(label='SYMBOL', value=free_var)
@@ -4198,6 +4192,25 @@ def match_against_sub(expr: Expr, pattern: Expr, tail: list[tuple[Expr, Expr]], 
     for s_sub in sub_solutions(expr, token_x, p_a, p_A, s, kb):
         yield from unify_exprs_with_patterns(tail, s_sub, kb)
 
+def sub_condition_match(cond_e: Expr, v_e: str, args_e: list[Expr], cond_p: Expr, args_p: list[Expr], tail: list[tuple[Expr, Expr]], s: State, kb: KnowledgeBase) -> Iterator[State]:
+    # match a binder of `expr` with the condition `cond_e` on its bound variable `v_e`, e.g.
+    # `∀ (y > 0) (P y)`, against a rule's binder `∀ (sub $x $v %C) %P`, which stands for any
+    # condition: `$v` is the bound variable, and `%C` is `cond_e` with the hole `$x` for *every*
+    # occurrence of the bound variable (`$x > 0`) -- so `%C` never contains the bound variable
+    # itself, and the match is unique (no search as for `sub` elsewhere)
+    assert isinstance(cond_p, list) and len(cond_p) == 4
+    _, token_x, token_v, p_C = cond_p
+    assert isinstance(token_x, Token) and isinstance(token_x.value, str)
+    assert isinstance(token_v, Token) and isinstance(token_v.value, str)
+    x, v_p = token_x.value, token_v.value
+    if contains_symbol(cond_e, x) or any(contains_symbol(a, x) for a in args_e):
+        return
+    C = alpha_rename_binder_body([deepcopy_expr(cond_e)], v_e, x, kb)[0]
+    args_r = alpha_rename_binder_body([deepcopy_expr(a) for a in args_e], v_e, v_p, kb)
+    s_local = s.block_always(v_p)
+    for s_C in unify_exprs_with_patterns([(C, p_C)], s_local.block_as_domain(x), kb):
+        yield from unify_exprs_with_patterns(list(zip(args_r, args_p)) + tail, restore_blocked(s_C, x, s_local), kb)
+
 def sub_solutions(expr: Expr, token_x: Token, p_a: Expr, p_A: Expr, s: State, kb: KnowledgeBase) -> Iterator[State]:
     # the states extending `s` with `expr == A[$x := a]` for the pattern parts `a` and `A` --
     # candidates are generated, and each one is then *checked* by computing the substitution
@@ -4284,6 +4297,41 @@ def check_sub_not_nested(expr: Expr) -> None:
     if isinstance(expr, list):
         for e in expr:
             check_sub_not_nested(e)
+
+def check_condition_holes(expr: Expr, kb: KnowledgeBase) -> None:
+    # a rule's binder with any condition, `∀ (sub $x $v %C) %P`: the condition `%C` has the
+    # hole `$x`, so it may only be used with something substituted for `$x`, as `sub $x ... %C`
+    # -- on its own it would mention the rule's `$x`
+    holes: dict[str, str] = {}
+    def binder_slots(e: Expr) -> None:
+        match e:
+            case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and op != SUB_SYMBOL and kb.is_bindop(op) and is_sub(cond):
+                assert isinstance(cond, list)
+                x, C = cond[1], cond[3]
+                if isinstance(x, Token) and isinstance(C, Token) and is_bool_var_token(C, kb):
+                    assert isinstance(x.value, str) and isinstance(C.value, str)
+                    if holes.setdefault(C.value, x.value) != x.value:
+                        raise KurtException(f'EvalError: the condition `{C.value}` must always have the same hole `{holes[C.value]}`')
+        if isinstance(e, list):
+            for c in e:
+                binder_slots(c)
+    def check(e: Expr) -> None:
+        if isinstance(e, Token):
+            if isinstance(e.value, str) and e.value in holes:
+                raise KurtException(f'EvalError: the condition `{e.value}` of a binder can only be used as `{SUB_SYMBOL} {holes[e.value]} ... {e.value}`')
+            return
+        if is_sub(e):
+            x, C = e[1], e[3]
+            if isinstance(C, Token) and isinstance(C.value, str) and C.value in holes:
+                if not (isinstance(x, Token) and x.value == holes[C.value]):
+                    raise KurtException(f'EvalError: the condition `{C.value}` must always have the same hole `{holes[C.value]}`')
+                check(e[2])
+                return
+        for c in e:
+            check(c)
+    binder_slots(expr)
+    if holes:
+        check(expr)
 
 def contains_unbound_var(expr: Expr, s: State, kb: KnowledgeBase, except_var: Optional[str] = None, bound: frozenset[str] = frozenset()) -> bool:
     # whether `expr` has a free variable without value in `s` (other than `except_var`)
@@ -4511,7 +4559,10 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                     match expr:
                         case [Token(label='SYMBOL', value=op_e), cond_e, *args_e] if isinstance(op_e, str) and kb.is_bindop(op_e):
                             v_e, opt_condition_e = unpack_condition(cond_e, kb)
-                            if op_p==op_e and len(args_p)==len(args_e) and ((opt_condition_p is None) == (opt_condition_e is None)):
+                            if op_p==op_e and len(args_p)==len(args_e) and is_sub(cond_p) and opt_condition_e is not None and not is_sub(cond_e):
+                                # a rule's binder with any condition, e.g. `∀ (sub $x $v %C) %P`
+                                yield from sub_condition_match(cond_e, v_e, args_e, cond_p, args_p, tail, s, kb)
+                            elif op_p==op_e and len(args_p)==len(args_e) and ((opt_condition_p is None) == (opt_condition_e is None)):
                                 assert isinstance(v_p, str) and isinstance(v_e, str)
                                 if opt_condition_e is not None:
                                     assert isinstance(cond_e, list) and isinstance(cond_p, list)
@@ -4621,7 +4672,7 @@ def alpha_rename_binder_body(body: list[Expr], old: str, new: str, kb: Knowledge
                     # A new binder that *rebinds* `old` thus do not rename under it
                     return [Token(label='SYMBOL', value=op), cond, *tail]
                 # Otherwise, keep renaming under this binder
-                return [Token(label='SYMBOL', value=op), ren(cond), ren(tail)]
+                return [Token(label='SYMBOL', value=op), ren(cond), *[ren(c) for c in tail]]
             case [*children]:
                 return [ren(c) for c in children]
             case _:
@@ -4773,6 +4824,8 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                     for e in tail:
                         e_local, s_tail = trigger_sub(e, s_local, kb)
                         tail_local.append(e_local)
+                    if not all(valid_bindop_conditions(e, kb) for e in tail_local):
+                        continue    # see the same check in `impl_elim`
                     success, found_formulas, s_final = match_all_theory(tail_local, s_local, kb)
                     if success:
                         #debug(f'`{expr_str(expr, kb)}` against `{expr_str(candidate.simplified_expr, kb)}` with substitution {s_final}`')
@@ -4782,8 +4835,8 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
             # since those are removed from all facts -- with fresh variables that must stay
             # generic, exactly like for a quantified premise in `impl_elim`
             expr_walked = s.walk(expr)
-            if is_forall(expr_walked):
-                stripped, fresh_vars = remove_outer_forall_quantifiers(expr_walked, kb)
+            stripped, fresh_vars = remove_outer_forall_quantifiers(expr_walked, kb) if is_forall(expr_walked) else (expr_walked, frozenset())
+            if fresh_vars:
                 s_stripped = s
                 for fresh_v in fresh_vars:
                     s_stripped = s_stripped.block_eigen(fresh_v)
@@ -4890,6 +4943,8 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
             # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
             # and we have to apply the various substitutions to it, which might change from call to call
             premise_local, s_local = trigger_sub(premise, s_matched, kb)
+            if not valid_bindop_conditions(premise_local, kb):
+                continue        # e.g. `∀ (sub $x $v %C) %P` with a `%C` that doesn't mention `$x`
 
             # block the premise's own freshly-introduced eigenvariables (from stripping this
             # axiom's own antecedent forall, above) from being resolved to a specific value
@@ -5126,6 +5181,7 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     if keyword_value in ('use', 'def'):
         for e in expr_list:
             check_sub_not_nested(e)
+            check_condition_holes(e, kb_predecessor)
 
     # behavior for `break`, `qed`, and pure DEDENTs -- indentation drives block closing
     # identically whether reading a file or the interactive shell:

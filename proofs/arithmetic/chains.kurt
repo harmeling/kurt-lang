@@ -25,3 +25,12 @@ calc off
 use a = b ≤ c < d
 a = b ≤ c
 a ≤ c
+
+; a chain gives its strongest relation: after a `<`, a later `=` still gives `<`
+use e = f
+use f < g
+use g = h
+e = f
+  < g
+  = h
+e < h
