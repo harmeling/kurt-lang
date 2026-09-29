@@ -799,7 +799,9 @@ its lines so far. The result is ordinary Kurt source, which proves its results a
 checked, and gets its certificates in a `.kurtc` then (§1) -- nothing is taken over as an axiom.
 `save` needs all blocks closed and no pending `show`, since otherwise the saved file wouldn't
 load. `load` lines are kept as typed, so a saved file finds its theories as the session did
-(e.g. relative to the working directory).
+(e.g. relative to the working directory). The name must end with `.kurt` and not be the name of
+a theory that comes with Kurt, and `save` works neither with `--strict` nor in a loaded file --
+it writes the checked file's (or the shell's) own lines, nothing else.
 
 ## 9. Blocks and natural deduction
 
@@ -984,8 +986,13 @@ and a symbol that isn't bound is never computed. A binding is like an axiom
 theories, and the symbols of a trusted theory can't be bound anew. Numbers
 are exact: integers, decimals (`0.1` is exactly one tenth, so `0.1 + 0.2 =
 0.3` holds), and fractions, which stay fractions (`1 / 3 + 1 / 3` is `2 / 3`).
-What has no exact value isn't computed: `1 / 0`, `0 ^ -1`, `2 ^ 0.5`.
-`0 + x` and `1 * x` are `x`, `0 * x` is `0`.
+What has no exact value isn't computed: `1 / 0`, `0 ^ -1`, `2 ^ 0.5`, and
+`0 ^ 0` (which arith.kurt leaves open). Neither is a result with more than
+1000 digits, and a longer number literal is a `SyntaxError`.
+`0 + x` and `1 * x` are `x`, `0 * x` is `0`. In arith.kurt, `^` is
+right-associative and binds more tightly than the prefix `-`: `- 2 ^ 2` is
+`- 4`, and `2 ^ 3 ^ 2` is `2 ^ 9`. A decimal with an integer value is that
+integer: `1.0` is `1`.
 
 `calc on` then computes what you type (e.g. `1 + 1 = 2` becomes `2 = 2`
 before checking) — no symbolic simplification. A comparison of two numbers
