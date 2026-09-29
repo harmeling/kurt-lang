@@ -42,3 +42,5 @@ dist/
 
 # personal Claude Code overrides
 .claude/settings.local.json
+# certificates of checked files (see doc/kurt-doc.md, `.kurtc`)
+*.kurtc

@@ -25,4 +25,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-kurt = ["theories/*"]
+kurt = ["theories/*.kurt"]

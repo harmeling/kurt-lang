@@ -61,7 +61,7 @@ def normalize_path_in_line(line: str) -> str:
 class TestProving(unittest.TestCase):
     def test_proving(self):
         example_paths = sorted(proofs_root.rglob("*.kurt"))
-        example_paths += list(traversable_rglob(theories_root, "*.kurt"))
+        example_paths += list(traversable_rglob(theories_root, ".kurt"))   # (`.kurt`, not `*.kurt`: a suffix, not a pattern)
         # Optional: make sure we actually found something to test
         self.assertTrue(example_paths, "No `.kurt` files found under proofs/")
 

@@ -41,6 +41,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 import copy        # copy.deepcopy, for a fresh session in `save_state_str`
+import json        # for `.kurtc` files, the certificates of a file
 from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional, get_args
 from pathlib import Path
@@ -4939,6 +4940,104 @@ def certificate_str(cert: Certificate, problem: Optional[str], kb: KnowledgeBase
     lines.append('kernel:    checked' if problem is None else f'kernel:    REJECTED -- {problem}')
     return '\n'.join('; ' + line for line in lines)
 
+###################################################
+## `.kurtc` files: the certificates of a file ##
+###################################################
+# After a file checks (without errors and `todo`s), its certificates are written to `foo.kurtc`
+# next to `foo.kurt`. When the file is loaded again, unchanged, each claim first tries its stored
+# certificate: rebuilt against the facts as they are now, and checked by the kernel -- only if
+# that fails, the search runs. So a `.kurtc` is only a hint: a wrong or outdated one costs time,
+# but can never get a step accepted that the kernel doesn't check. Internal names (`$$07`) are
+# different in every run: the file uses canonical names (`$$c0`), mapped back by aligning the
+# stored goal, rule and facts with the current ones.
+
+KURTC_VERSION = 1
+kurtc_enabled: bool = False       # write and use `.kurtc` files (`kurt` on the command line does)
+replay_hints: dict[str, dict[int, list[dict]]] = {}      # file -> line -> its stored certificates
+load_dependencies: dict[str, list[str]] = {}              # file -> the files it loads
+
+def source_hash(fname: str) -> Optional[str]:
+    try:
+        with open(fname, 'rb') as f:
+            return hashlib.sha256(f.read()).hexdigest() if hashlib is not None else None
+    except OSError:
+        return None
+
+def expr_to_json(e: Expr, names: dict[str, str]) -> object:
+    # an expression as JSON, with the internal names replaced by canonical ones (`names`)
+    if isinstance(e, Token):
+        v = e.value
+        if is_internal_name(v):
+            assert isinstance(v, str)
+            v = names.setdefault(v, f'{v[:2]}c{len(names)}')
+        return [e.label, v]
+    return {'e': [expr_to_json(c, names) for c in e]}
+
+def expr_from_json(j: object) -> Expr:
+    if isinstance(j, dict):
+        return [expr_from_json(c) for c in j['e']]
+    assert isinstance(j, list) and len(j) == 2
+    return Token(j[0], j[1])
+
+def formula_to_json(f: Formula, names: dict[str, str]) -> dict:
+    # how to find `f` again: its file, line, label, and (to tell apart the formulas of a line) its
+    # formula -- for one direction of an `iff`, the `iff` and the direction
+    if f.direction_of is not None:
+        e = f.simplified_expr
+        direction = 'lr' if isinstance(e, list) and e[1] is f.direction_of[1] else 'rl'   # type: ignore[index]
+        source = f.direction_of
+    else:
+        direction, source = None, f.simplified_expr
+    return {'file': f.filename, 'line': f.line, 'label': f.label, 'direction': direction,
+            'expr': expr_to_json(source, names)}
+
+def certificate_to_json(cert: Certificate) -> dict:
+    assert cert.kind == 'rule' and cert.rule is not None and cert.expr is not None
+    names: dict[str, str] = {}
+    return {
+        'goal': expr_to_json(cert.goal, names),
+        'rule': formula_to_json(cert.rule, names),
+        'form': cert.form,
+        'facts': [formula_to_json(f, names) for f in cert.facts],
+        'premise_fresh': [names.setdefault(v, f'{v[:2]}c{len(names)}') for v in cert.premise_fresh],
+        'conclusion_fresh': [names.setdefault(v, f'{v[:2]}c{len(names)}') for v in cert.conclusion_fresh],
+        'fact_fresh': [[names.setdefault(v, f'{v[:2]}c{len(names)}') for v in fresh] for fresh in cert.fact_fresh],
+        'values': [[names.setdefault(v, f'{v[:2]}c{len(names)}'), expr_to_json(value, names)] for v, value in cert.values.items()],
+    }
+
+def write_kurtc(fname: str) -> None:
+    # the certificates of the claims of `fname`, by line (block closings and `calc` need none)
+    steps: dict[str, list[dict]] = {}
+    for (f, line), certs in certificates_by_line.items():
+        if f == fname:
+            rules = [certificate_to_json(c) for c, _ in certs if c.kind == 'rule']
+            if rules:
+                steps[str(line)] = rules
+    content = {'kurtc': KURTC_VERSION, 'kurt': file_fingerprint(), 'source': os.path.basename(fname),
+               'sha256': source_hash(fname),
+               'depends': [{'file': d, 'sha256': source_hash(d)} for d in load_dependencies.get(fname, [])],
+               'steps': steps}
+    try:
+        with open(fname + 'c', 'w', encoding='utf-8') as out:
+            json.dump(content, out, ensure_ascii=False, separators=(',', ':'))
+    except OSError:
+        pass        # e.g. a directory without write access: no `.kurtc`, nothing else changes
+
+def read_kurtc(fname: str) -> None:
+    # the stored certificates of `fname`, if its `.kurtc` belongs to the file as it is now
+    replay_hints.pop(fname, None)
+    try:
+        with open(fname + 'c', encoding='utf-8') as f:
+            content = json.load(f)
+    except (OSError, ValueError):
+        return
+    if not isinstance(content, dict) or content.get('kurtc') != KURTC_VERSION or content.get('sha256') != source_hash(fname):
+        return
+    try:
+        replay_hints[fname] = {int(line): list(certs) for line, certs in content['steps'].items()}
+    except (KeyError, ValueError, AttributeError, TypeError):
+        replay_hints.pop(fname, None)
+
 ############
 ## kernel ##
 ############
@@ -5853,6 +5952,8 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
         # check if the file was loaded already
         load_level = kb.get_load_level(fname)
         if load_level is not None:
+            if current_line[0] is not None:
+                load_dependencies.setdefault(current_line[0][0], []).append(fname)
             if kb.verbose:
                 log(kb, f'; file `{fname}` has already been loaded, skipping.')
             return kb
@@ -5872,8 +5973,14 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
         except (FileNotFoundError, NotADirectoryError, AttributeError):
             continue    # try next path
 
+        if current_line[0] is not None:
+            load_dependencies.setdefault(current_line[0][0], []).append(fname)
         try:
             _loading_in_progress.add(fname)
+            load_dependencies[fname] = []
+            if kurtc_enabled:
+                read_kurtc(fname)
+            todos_before = len(kb.todos())
             with candidate_file as f:
                 kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
                 level = kb.level      # save current level, this one we want to reach after loading
@@ -5890,6 +5997,8 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
                 assert False, f'BUG: `load_file` decreased the level from {level} to {kb.level}'
             if is_trusted_file(fname):
                 kb.frozen |= kb.declared_symbols()   # only this theory may change their meaning
+            if kurtc_enabled and len(kb.todos()) == todos_before and isinstance(candidate, Path):
+                write_kurtc(fname)       # checked completely: its certificates
             kb = kb.merge_and_pop()  # merge 'sandbox' level if everything was ok
             kb.libs.append(fname)
             return kb
@@ -6068,6 +6177,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {theory_path}')
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
+    parser.add_argument('--no-kurtc',           action='store_true', help=f'neither write nor use `.kurtc` files (the certificates of a checked file, see doc/kurt-doc.md)')
     return parser.parse_args()
 
 def main() -> None:
@@ -6129,6 +6239,10 @@ def main() -> None:
     # strict mode, for grading
     global strict_mode
     strict_mode = args.strict
+
+    # `.kurtc` files: safe also with `--strict`, since the kernel checks each stored certificate
+    global kurtc_enabled
+    kurtc_enabled = not args.no_kurtc
 
     if kb.verbose:
         log(kb, f'Using theory path: {theory_path}')
