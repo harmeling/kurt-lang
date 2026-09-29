@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kurt is a proof language and interpreter: a small language for writing mathematical proofs in a form close to how humans write them, with automatic checking (designed for students to get immediate feedback, similar to automated testing while learning to program). The entire implementation — lexer, Pratt parser, type checker, and proof engine — lives in one file: `src/kurt/kurt.py` (~4300 lines).
+Kurt is a proof language and interpreter: a small language for writing mathematical proofs in a form close to how humans write them, with automatic checking (designed for students to get immediate feedback, similar to automated testing while learning to program). The entire implementation — lexer, Pratt parser, type checker, and proof engine — lives in one file: `src/kurt/kurt.py` (~7000 lines).
 
 ## Commands
 
@@ -98,7 +98,7 @@ The kernel: every step the search accepts comes with a `Certificate`, which `ker
 
 Design rule: the `.kurt` file is the only source of truth. Anything Kurt writes (`.kurtc` certificates, `save` output) must either be Kurt source that is checked again, or hints that the kernel checks again -- never a second copy of facts that is trusted on its own.
 
-Docs worth reading before non-trivial language changes: `doc/kurt-doc.md` (language reference, describes current behavior only), `doc/kurt-soundness.md` (audit of what the inference engine's soundness actually rests on, rule by rule, with pointers to the regression tests in `proofs/soundness/` — read this before touching `eval_done`, `derive_expr`, `impl_elim`, or substitution/capture-avoidance), `doc/kurt-cookbook.md` (task-oriented recipes — currently just a stub, not yet written), `doc/dev-notes.md` (chronological design-decision diary, not a reference — history of *why*, not a description of *what is*), `tutorial/*.kurt` and `tutorial/plan.md` (hands-on lessons). `todo.md` tracks known-missing features and open design questions; `todo-claude.md` and `suggestions-claude.md` are a filtered/verified pass over that backlog plus independent implementation-improvement ideas — check these before assuming something is a bug rather than a documented gap.
+Docs worth reading before non-trivial language changes: `doc/kurt-doc.md` (language reference, describes current behavior only), `doc/kurt-soundness.md` (audit of what the inference engine's soundness actually rests on, rule by rule, with pointers to the regression tests in `proofs/soundness/` — read this before touching `eval_done`, `derive_expr`, `impl_elim`, or substitution/capture-avoidance), `doc/kurt-cookbook.md` (task-oriented recipes, one short checked example each), `doc/dev-notes.md` (chronological design-decision diary, not a reference — history of *why*, not a description of *what is*), `tutorial/*.kurt` and `tutorial/plan.md` (hands-on lessons). `todo.md` tracks known-missing features and open design questions; `codex-suggestions.md` is an independent review with detailed implementation briefs (its items are in `todo.md`); `todo-claude.md` and `suggestions-claude.md` are a filtered/verified pass over that backlog plus independent implementation-improvement ideas — check these before assuming something is a bug rather than a documented gap.
 
 ## Compute policy (shared node)
 

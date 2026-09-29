@@ -29,11 +29,18 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 before 0.9 (public):
 - DONE a targeted soundness review of what the kernel doesn't check independently: the block rules, `def`, `load`/exports, `calc`, the normal forms (`flat`, `sym`) -- four bug hunts, all found bugs fixed with regression tests (doc/kurt-soundness.md §8.17, 2026-09-29)
 - TODO what the soundness review left open: curried `(f x) y` and `f x y` are two different terms; a sum whose bound variable shadows an outer one (`sum x (0, n) (sum x (0, x) x)`) isn't derived by "sum-last"; the reasons of trivial steps name unrelated rules (`a = a` "by chain-trans-0-0(pow-identity, pow-identity)"); an error shows the internal bracket node as `()`; `chain R` in a block names a pseudo-file `<chain transitivity ...>`; a chain can't continue the line that opens a block (`assume a < b` / `    = c`) -- only an error now
-- TODO loading in a fresh context (see below): a library's proofs must not depend on what its loader loaded before
+- TODO loading in a fresh context (see below): a library's proofs must not depend on what its loader loaded before -- on top of the `ExportBundle`, with a cache by path and hashes (codex-suggestions.md, P0)
 - TODO public polish: README, version number, the internal files in the repo root, PyPI
-- TODO docs for the new features: `cert`, `.kurtc`, tuples, groups, operator variables in the tutorial; the cookbook is a stub
+- TODO docs for the new features: `cert`, `.kurtc`, tuples, groups, operator variables in the tutorial (the cookbook has 20 recipes now, by Codex, 2026-09-29)
+- TODO (codex-suggestions.md, P2) three small bugs: `parse` never prints `type check failed` (`keyword_token in ['parse']` compares a `Token`); a `def` line with several definitions logs the last one for each; REPL history is written but never read (`and False` in `main`)
+- TODO (codex-suggestions.md, P0) `merge_and_pop` merges by looping over `__dict__` with an exclusion list (which has the typo `mode_expr` for `mode_args`): a new field is exported by default -- replace by an explicit `ExportBundle` (compute, validate, apply), fail closed
+- TODO (codex-suggestions.md, P2) consistency pass before 0.9: line and test counts in CLAUDE.md and release-plan.md (better generated or dated), release-plan.md still says "the whole matcher is trusted" next to the kernel, set.kurt's opening comment promises function extensionality, the empty file `kurt` in the repo root, no `src/kurt/__main__.py` (`python -m kurt`), build and install sdist/wheel in CI
 
 before 1.0:
+- TODO (codex-suggestions.md, P0 for 1.0) reduce the kernel's trusted base: its own alpha-equivalence and binder reading (not `equal_expr`/`unpack_condition` of the search -- the review of 2026-09-29 found a misreading both shared), an immutable environment, a test that kernel code doesn't call search code, and say for `flat`/`sym`/`calc` whether they are checked steps or trusted semantics
+- TODO (codex-suggestions.md, P1) a per-run context instead of module globals (`strict_mode`, counters, `certificates_by_line`, ...) and a small API (`check_text`, `check_file`), with the CLI on top -- for the browser, editors, graders
+- TODO (codex-suggestions.md, P1) index the theory by top-level operator for the search, with benchmarks first; keep the order of the theory, so reasons don't change
+- TODO (codex-suggestions.md, P1) structured events (accepted, failed, block opened/closed, ...) and the text output as one renderer of them; JSON for graders; `why`/hints from certificates
 - TODO freeze the language (release-plan.md: minimal core, labels, `use` in nested sandboxes, ParseError vs. EvalError, the kernel's dependency rule)
 - TODO scalars vs. vectors (decides the structure of arith.kurt, see below)
 - TODO a semester of use with students
