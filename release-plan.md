@@ -6,12 +6,13 @@
 
 Already there:
 
-- one-file implementation (`src/kurt/kurt.py`, ~5600 lines), MIT license, installs with `pip`
+- one-file implementation (`src/kurt/kurt.py`), MIT license, installs with `pip`
 - CI green on Python 3.10, 3.12, 3.13 (it had been failing since e5a97db, fixed in 81f6ada)
-- 105 tests, about 92.5% line coverage (`scripts/line_coverage.py`)
+- on 2026-09-29: 161 tests, about 92% line coverage (`scripts/line_coverage.py`); the numbers
+  change with every commit, `python -m unittest` and the coverage script give the current ones
 - documentation: language reference (`doc/kurt-doc.md`), soundness audit (`doc/kurt-soundness.md`),
   46 tutorial lessons
-- theories: prop, logic, equality, set, arith, natural, analysis, modal
+- theories: prop, logic, equality, set, arith, natural, analysis, group, modal
 
 ## What stands between Kurt and 1.0
 
@@ -26,9 +27,11 @@ Already there:
 2. **Confidence in soundness.** The promise of a checker is "what Kurt accepts is correct". In
    September 2026 several soundness bugs were found and fixed (forall-elim proving any two things
    equal, a rule variable depending on a forall premise's variable, Russell's paradox in
-   set.kurt) -- that rate says the engine isn't settled. Reviewers will note that Kurt has no
-   small trusted kernel (LCF style): the whole matcher is trusted; `doc/kurt-soundness.md` is the
-   answer so far.
+   set.kurt) -- that rate says the engine isn't settled. Since then, every step the search
+   accepts is checked again by a kernel (`kernel_verify`) -- but not a small one yet: it still
+   trusts the parser, `unpack_condition`, `normalize_expr` (`flat`, `sym`, `calc`) and
+   `equal_expr`, which it shares with the search (`doc/kurt-soundness.md` §9 names them; making
+   the kernel independent of them is in todo.md, from codex-suggestions.md).
    - [ ] a period of adversarial testing, e.g. students get credit for breaking it
    - [x] a small checking kernel: certificates for each step, checked by `kernel_verify`, on in
      the test suite (`doc/kurt-soundness.md` §9)
@@ -40,7 +43,7 @@ Already there:
      for an education paper
 4. **Public polish.**
    - [ ] README: longer, current version, installation, a gallery of example proofs
-   - [ ] `doc/kurt-cookbook.md` is a stub
+   - [x] `doc/kurt-cookbook.md`: 20 recipes (by Codex, 2026-09-29)
    - [ ] sort out the internal files in the repo root: `CLAUDE.md`, `todo-claude.md`,
      `suggestions-claude.md`, `notes-on-*.md`, `lab-notes.md`, `llms.txt`, the empty file `kurt`
      (note: the git history contains everything)
@@ -80,7 +83,7 @@ checked.)
 
 | | first proof needs | logical foundation | proof style | implementation / what you trust |
 |---|---|---|---|---|
-| **Kurt** | `bool A, B`, `use`, one line per step; 43 keywords in total | untyped first-order logic, only "boolean or not"; rules are ordinary `use` lines | a sequence of claims, each checked automatically in one step | one Python file (~5600 lines), no dependencies; **all of it trusted** |
+| **Kurt** | `bool A, B`, `use`, one line per step; 43 keywords in total | untyped first-order logic, only "boolean or not"; rules are ordinary `use` lines | a sequence of claims, each checked automatically in one step | one Python file, no dependencies; a kernel checks each step, but shares the parser, normal forms and alpha-equivalence with the search |
 | **Metamath** | substitution rules, labels, very low-level steps | none built in: axioms plus substitution | every rewriting step spelled out | tiny checker (a few hundred lines) and **tiny trusted core**, but hard to read |
 | **Mizar** | a large library, its own vocabulary | Tarski–Grothendieck set theory, soft types | declarative, readable | large system; library and checker trusted |
 | **Isabelle/Isar** | HOL, types, Isar structure, many tools | higher-order logic | declarative (Isar) or tactics | very large; small LCF kernel |
@@ -102,9 +105,11 @@ Where Kurt is simpler:
 Where Kurt is *not* simpler (reviewers will say so):
 
 - **What you trust**: Metamath, HOL Light and Isabelle have small kernels that check everything
-  else; in Kurt the whole matcher is trusted (unification, `sub` matching, calc, chains) -- which
-  is why the soundness bugs of September 2026 mattered. Kurt's simplicity is on the user's side,
-  not yet on the side of trust.
+  else. Kurt's kernel checks every step of the search (unification, `sub` matching, calc,
+  chains) again, but it is not small yet: it shares the parser, the normal forms (`flat`, `sym`,
+  `calc`) and alpha-equivalence with the search, and the block rules and `load` are checked by
+  ordinary code (`doc/kurt-soundness.md` §9). Kurt's simplicity is on the user's side, not yet
+  fully on the side of trust.
 - **What happens inside a step is hard to predict**: Kurt searches for a single step itself,
   with second-order matching for `sub`. Convenient, but when a step fails it is hard to say why
   (the `calc off` workarounds, "forall-cond-def" after `let x ∈ A`).

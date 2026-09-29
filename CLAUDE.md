@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kurt is a proof language and interpreter: a small language for writing mathematical proofs in a form close to how humans write them, with automatic checking (designed for students to get immediate feedback, similar to automated testing while learning to program). The entire implementation — lexer, Pratt parser, type checker, and proof engine — lives in one file: `src/kurt/kurt.py` (~7000 lines).
+Kurt is a proof language and interpreter: a small language for writing mathematical proofs in a form close to how humans write them, with automatic checking (designed for students to get immediate feedback, similar to automated testing while learning to program). The entire implementation — lexer, Pratt parser, type checker, and proof engine — lives in one file: `src/kurt/kurt.py`.
 
 ## Commands
 
@@ -44,6 +44,7 @@ Run the interpreter directly:
     kurt -s path/to/proof.kurt  # strict, for grading
     kurt --no-kurtc path/to/proof.kurt  # don't write/use the `.kurtc` certificate files
     kurt --deps path/to/proof.kurt      # the tree of loaded files, with their certificates
+    python -m kurt path/to/proof.kurt   # the same as `kurt`
 
 A LaTeX document of a proof comes from a separate script, not from Kurt itself:
 

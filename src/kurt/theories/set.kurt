@@ -3,7 +3,7 @@
 ; covers: separation (`{$z ∈ $A | P($z)}`, the subset of `$A` of the elements with property P),
 ; extensionality, empty set, intersection, union, subset, power set, ordered pairs and tuples
 ; (`(a, b)`, `fst`, `snd`), Cartesian products (`A × B`), and mappings (`:`/`→`,
-; `f : A → B` for "f is a function from A to B", with function extensionality) -- see
+; `f : A → B` for "f is a function from A to B", without function extensionality) -- see
 ; proofs/mafi1/001-two-equal-sets.kurt for a real distributive-law proof and
 ; proofs/set-theory/ for more.
 ;

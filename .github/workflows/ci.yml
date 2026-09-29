@@ -28,3 +28,32 @@ jobs:
         run: |
           python scripts/build_standalone.py
           python dist/kurt.py modus-ponens.kurt
+
+  package:
+    # what users get from `pip install`: build the sdist and the wheel, install each into a clean
+    # environment, and check a proof outside the checkout (so nothing comes from `src/`)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the sdist and the wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Install each into a clean environment and check a proof
+        run: |
+          for artifact in dist/*.whl dist/*.tar.gz; do
+            echo "== $artifact"
+            rm -rf /tmp/env /tmp/check
+            python -m venv /tmp/env
+            /tmp/env/bin/pip install "$artifact"
+            mkdir /tmp/check
+            cp modus-ponens.kurt /tmp/check/
+            printf 'load natural, analysis, group\n0 ∈ Nat\n' > /tmp/check/theories.kurt
+            (cd /tmp/check && /tmp/env/bin/kurt modus-ponens.kurt && /tmp/env/bin/python -m kurt theories.kurt)
+          done

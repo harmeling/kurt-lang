@@ -1,6 +1,6 @@
 # kurt-lang
 
-The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `kurt.py` contains the whole implementation.  You can either call `./kurt.py` or `kurt` (after installation via `pip`).  Let's start proving:
+The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `src/kurt/kurt.py` contains the whole implementation.  You can either call `python3 src/kurt/kurt.py`, or `kurt` or `python -m kurt` (after installation via `pip`).  Let's start proving:
 
     ~/git/kurt-lang (main ✗) kurt
     This is Kurt, v0.1 (made by Stefan Harmeling, 2025), file 7131d6838ffe
