@@ -830,7 +830,10 @@ Opens a block that adds `EXPR` as a local axiom. Closing it derives
 "impl-intro": whatever you proved last inside the block becomes `EXPR
 implies <that>`, on the parent level. If the last thing derived inside the
 block was literally `false`, closing *additionally* derives `not EXPR` via
-"not-intro" (both formulas are added). `case` is handled identically to
+"not-intro" (both formulas are added). Inside the block, the free variables
+of `EXPR` are *fixed*: in `assume P $x`, `$x` is one arbitrary object, the
+same in every line of the block -- so `P $x` follows, but not `P $y`. Closing
+the block generalizes again: `P $x implies ...` holds for every `$x`. `case` is handled identically to
 `assume` (there is currently no extra checking specific to `case`, see
 `todo-claude.md`) — it's meant to be used as a sequence of `case`s covering
 a disjunction, each producing its own `EXPR implies <goal>`; actually

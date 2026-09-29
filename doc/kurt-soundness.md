@@ -1258,6 +1258,19 @@ triple is the pair `(a, (b, c))`, as in set theory, and set.kurt's "pair-eq" is 
 formulas (`use A, B, C`) and of arguments (`g(a, b, c)`) follow the right-nested commas.
 Regression: `proofs/soundness/tuples-are-nested-pairs.kurt`.
 
+### 8.15 Bug found and fixed: the variables of an assumption counted as "for all"
+
+An assumption was stored like any fact, so its free variables meant "for all": inside
+`assume P $x`, `P $y` followed, closing gave `P $x ⇒ P $y`, and then from `P c` anything like
+`P d` (the same with `assume %A`, which made every proposition true inside the block). This is
+old, older than the kernel -- and the kernel didn't catch it, since it shared the wrong reading:
+a wrong rule of the logic, not a wrong implementation, which search and kernel can't catch for
+each other. Now the free variables of an assumption are fixed in its block (`fixed_vars`,
+`is_var`): neither renamed nor instantiated, and variables again once the block is closed.
+`proofs/natural-deduction/contraposition.kurt` had relied on it (its `assume A` stood for every
+proposition, with a warning saying so); it now uses the excluded middle, as it should.
+Regression: `proofs/soundness/assumption-variables-are-fixed.kurt`.
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,

@@ -1,0 +1,31 @@
+; in `assume P $x`, the free variable `$x` is one (arbitrary) object for the whole block -- not
+; "for all x": otherwise `P $y` would follow inside, the block would give `P $x ⇒ P $y`, and
+; from `P c` anything like `P d` (doc/kurt-soundness.md §8.15). The same for a boolean `%A`.
+load prop
+bool P
+arity P 1
+const P, c, d
+
+show P $x implies (P $x ∨ P $y)
+proof
+    assume P $x
+        expect "ProofError"
+            P $y
+        P $x
+        P $x ∨ P $y
+qed
+expect "ProofError"
+    show P $x implies P $y
+    proof
+        assume P $x
+            P $y
+    qed
+expect "ProofError"
+    show %A implies %B
+    proof
+        assume %A
+            %B
+    qed
+use P c
+expect "ProofError"
+    P d

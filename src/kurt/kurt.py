@@ -754,6 +754,7 @@ class KnowledgeBase:
         self.mode_str: str          = mode[0]    # one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick', 'expect']
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
         self.pick_source: Optional[Formula] = None   # for a `pick` block: the existential fact it picks from
+        self.fixed_vars: set[str] = set()            # for an `assume`/`case` block: the free variables of the assumption (see `is_var`)
         self.pick_fact: Optional[Formula]   = None   # ... and the fact about the witness (for the kernel)
         self.libs: list[str]        = []         # the filenames of loaded libraries
         self.tmp: bool              = tmp        # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
@@ -951,7 +952,7 @@ class KnowledgeBase:
         exclude |= {"var"}   # variables are local to a file/block
         exclude |= {"tmp"}   # temporary flags are local to a file
         exclude |= {"is_load_boundary"}   # a per-level marker, never something to propagate upward
-        exclude |= {"pick_source", "pick_fact"}   # per-level, for a `pick` block
+        exclude |= {"pick_source", "pick_fact", "fixed_vars"}   # per-level, for `pick` and `assume` blocks
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
             if attr in exclude:
@@ -1108,8 +1109,15 @@ class KnowledgeBase:
         return s in self.sym     or (self.parent is not None and self.parent.is_sym(s))
 
 
+    def is_fixed_var(self, s: str) -> bool:
+        return s in self.fixed_vars or (self.parent is not None and self.parent.is_fixed_var(s))
+
     def is_var(self, s: str) -> bool:
-        # is_var checks whether a symbol is a variable (could be non-boolean or boolean)
+        # is_var checks whether a symbol is a variable (could be non-boolean or boolean) --
+        # except the free variables of an assumption in its block, which are fixed there: in
+        # `assume P $x`, `$x` is one (arbitrary) object, until the block closes (`P $x ⇒ ...`)
+        if self.is_fixed_var(s):
+            return False
         if s in self.const:
             assert s not in self.var
             return False
@@ -1411,6 +1419,14 @@ class KnowledgeBase:
                 token = next(ts)
                 token.value = f'{lbracket}$$${rbracket}'
                 return [token]
+            if lbracket == '(' and isinstance(ts.peek.value, str) and kb.is_operator(ts.peek.value):
+                # an operator alone in round brackets is the operator itself, as a term: `(+)`,
+                # e.g. `group(ℝ, (+), 0, (-))` -- while `(- x)` is still `- x`
+                op_token = next(ts)
+                if ts.peek.value == rbracket:
+                    next(ts)
+                    return op_token
+                ts.prepend(op_token)
             suspended = space_suspended[0]
             space_suspended[0] = False           # inside brackets, `f x` is application again
             try:
@@ -1786,16 +1802,18 @@ def expr_sexpr(expr: Expr, kb: KnowledgeBase) -> str:                      # cre
 
 def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # create raw input expression
     match expr:
+        case Token(label='SYMBOL', value=a) if isinstance(a, str) and kb.is_operator(a):
+            return f'({a})'                        # an operator as a term, e.g. in `group(G, (+), 0, (-))`
         case Token():
             return expr_sexpr(expr, kb)            # reuse implementation from expr_sexpr
         case [e0]:
             return expr_normal(e0, kb)
         case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_prefix(a):
-            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)})'
+            return f'({expr_sexpr(expr[0], kb)} {expr_normal(e1, kb)})'
         case [Token(label='SYMBOL', value=a), e1] if isinstance(a, str) and kb.is_postfix(a):
-            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)})'
+            return f'({expr_normal(e1, kb)} {expr_sexpr(expr[0], kb)})'
         case [Token(label='SYMBOL', value=a), e1, e2] if isinstance(a, str) and kb.is_infix(a):
-            return f'({expr_normal(e1, kb)} {expr_normal(expr[0], kb)} {expr_normal(e2, kb)})'
+            return f'({expr_normal(e1, kb)} {expr_sexpr(expr[0], kb)} {expr_normal(e2, kb)})'
         case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_bracket_placeholder(a):
             # split `a` into `left` + `$$$` + `right`
             parts = a.split('$$$')
@@ -1803,7 +1821,7 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
             left, right = parts
             return f'{left} {" ".join([expr_normal(e, kb) for e in tail])} {right}'
         case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_flat(a):
-            return f'({f" {expr_normal(expr[0], kb)} ".join([expr_normal(e, kb) for e in tail])})'
+            return f'({f" {expr_sexpr(expr[0], kb)} ".join([expr_normal(e, kb) for e in tail])})'
         case [e0, e1]:
             # a plain (arity-processed) function call, e.g. `f a` -- must be parenthesized just
             # like every other node shape above, not left bare: unlike an infix/prefix/postfix
@@ -1815,7 +1833,7 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
             # exact pair of parens back off again when the call is printed on its own.
             return f'({expr_normal(e0, kb)} {expr_normal(e1, kb)})'
         case [Token(label='SYMBOL', value=a), e1, e2]:
-            return f'({expr_normal(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
+            return f'({expr_sexpr(expr[0], kb)} {expr_normal(e1, kb)} {expr_normal(e2, kb)})'
         case [*tail]:
             return f'({" ".join([expr_normal(e, kb) for e in tail])})'
     assert False, f'BUG: unknown expression, got {expr_str(expr, kb)}'
@@ -2737,6 +2755,12 @@ def unpack_condition(expr: Expr, kb: KnowledgeBase) -> tuple[str, Optional[Expr]
     else:
         # distinct names: the variable may occur more than once, e.g. `$x > 0 ∧ $x < 1`
         new_consts = list(dict.fromkeys(extract_by_condition(expr, lambda s: is_new_symbol_or_existing_variable(s, kb), kb)))
+        if len(new_consts) > 1:
+            # several, e.g. `$a ∈ $G` in a rule: the one on the left of the relation is bound, as
+            # in the unbracketed `∀ $a ∈ $G ...` (see `bindop_nud`)
+            match expr:
+                case [Token(label='SYMBOL', value=rel), Token(label='SYMBOL', value=v), _] if is_relation(rel, kb) and v in new_consts:
+                    new_consts = [v]
         if len(new_consts) != 1:
             raise KurtException(f'EvalError: expected exactly one new symbol or existing, got {new_consts} in `{expr_str(expr, kb)}`')
         new_const = new_consts[0]
@@ -3432,7 +3456,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if len(args) != 1:
             raise KurtException(f'EvalError: `{keyword}` takes a single expression as argument')
         expr = args[0]
+        fixed = free_bound_vars(expr, kb)[0]   # fixed in the block, see `is_var`
         kb = kb.push_level('assume', args)  # open a new block
+        kb.fixed_vars = set(fixed)
         try:
             f = eval_use(kb, expr, input_line, label, filename, line, mainstream=False, keyword='use')  # use the expression as an assumption
             kb.theory_append(f, symbol_level_prev=True)
@@ -3625,8 +3651,8 @@ def bool_expr(expr: Expr, kb: KnowledgeBase, strict: bool=True) -> bool:
     # - at some places we are strict
     # - at other places (like eval_use) we are not strict, since we are adding a new formula
     match expr:
-        case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v) and kb.is_bool(v):
-            return True                    # boolean variables
+        case Token(label='SYMBOL', value=v) if isinstance(v, str) and (kb.is_var(v) or kb.is_fixed_var(v)) and kb.is_bool(v):
+            return True                    # boolean variables (also when fixed by an assumption)
         case Token(label='SYMBOL', value=v):
             assert isinstance(v, str)
             if strict or kb.is_used(v):
@@ -4557,6 +4583,16 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
         else:
             # branch on `pattern` for unification
             match pattern:
+
+                # an operator that is a variable, e.g. the `∘` of group.kurt: once it has a value,
+                # e.g. `+`, match with the rules of that operator (`flat`, `sym`)
+                case [Token(label='SYMBOL', value=op_p) as head_p, *args_p] if (isinstance(op_p, str) and kb.is_var(op_p)
+                        and isinstance(expr, list) and len(expr) > 0 and isinstance(expr[0], Token)
+                        and isinstance(expr[0].value, str) and (kb.is_flat(expr[0].value) or kb.is_sym(expr[0].value))):
+                    for s_head in unify_exprs_with_patterns([(expr[0], head_p)], s, kb):
+                        bound_head = s_head.walk(head_p)
+                        if bound_head is not head_p:
+                            yield from unify_exprs_with_patterns([(expr, [bound_head, *args_p])] + tail, s_head, kb)
 
                 # binding operator matching (rename bound variable before!)
                 case [Token(label='SYMBOL', value=op_p), cond_p, *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
