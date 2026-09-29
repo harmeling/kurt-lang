@@ -626,7 +626,7 @@ interactive shell — see §9's introduction.
 ### 8.1 What's hard-coded (needs no `load`)
 
 A pristine session starts with `minimal.kurt`'s worth of syntax (space,
-comma, `(` `)`, `implies`, `and`, the constant `true`, the substitution
+comma -- right-associative, so `(a, b, c)` is the pair `(a, (b, c))` --, `(` `)`, `implies`, `and`, the constant `true`, the substitution
 operator `sub` — `sub $x $a %A` is "`%A` with `$a` substituted for `$x`",
 only allowed in `use`/`def` to write axiom schemas like "forall-elim" or
 "equal-elim", and not nested (a rule about two variables is applied twice,
@@ -725,7 +725,7 @@ declaring their own prerequisites via their own `load` lines:
 | `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
 | `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
 | `logic.kurt` | forall-elim, exists-intro, and the rules for quantifiers with a condition (§4.4) (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
-| `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
+| `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers, induction | `set`, `arith` |
 | `analysis.kurt` | `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |

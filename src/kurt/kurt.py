@@ -287,6 +287,7 @@ REPLACEMENTS: dict[str, str] = {
     '\\circ':     '∘',     # function composition
     '\\mapsto':   '↦',     # maps to
     '\\to':       '→',     # mapping arrow
+    '\\times':    '×',     # Cartesian product
 
     # numbers
     '\\leq': '≤',          # less than or equal
@@ -1695,7 +1696,7 @@ def local_led(ts: PeekableGenerator, kb: KnowledgeBase, left: Expr, op_token: To
 
 initial_kb.lbp[LOCAL_SYMBOL] = string_lbp                  # `local` binds as loosely as a label itself
 initial_kb.led[LOCAL_SYMBOL] = local_led
-initial_kb.add_infix (COMMA_SYMBOL, 5, 5)                  # comma   is infix operator
+initial_kb.add_infix (COMMA_SYMBOL, 5, 4)                  # comma   is infix operator, right-associative: `(a, b, c)` is the pair `(a, (b, c))`
 initial_kb.add_infix (IMPL_SYMBOL, 13, 12)                 # implies is infix operator
 initial_kb.add_infix (AND_SYMBOL, 16, 16)                  # and     is infix operator
 space_lbp:    int = 90                                     # left  binding power: function application binds most tightly, `f x + y` is `(f x) + y`
@@ -1708,7 +1709,6 @@ initial_kb.add_bool  (AND_SYMBOL,  [0, 1, 2])              # and is bool with bo
 initial_kb.add_const (TRUE_SYMBOL)                         # true is const symbol
 initial_kb.add_const (IMPL_SYMBOL)                         # implies is const symbol
 initial_kb.add_const (AND_SYMBOL)                          # and is const symbol
-initial_kb.add_flat  (COMMA_SYMBOL)                        # comma op is flat
 initial_kb.add_flat  (AND_SYMBOL)                          # and is flat
 initial_kb.add_sym   (AND_SYMBOL)                          # and is symmetric
 initial_kb.add_arity (SUB_SYMBOL, 3)                       # sub takes three args
@@ -3525,9 +3525,10 @@ def letter_generator() -> Iterator[str]:
             yield ''.join(combo)
 
 def chop_off_comma(e: Expr) -> list[Expr]:
+    # the formulas of `use A, B, C`: the comma is right-associative, so this is `A, (B, C)`
     match e:
-        case [Token(label='SYMBOL', value=v), *tail] if v == COMMA_SYMBOL:
-            return tail
+        case [Token(label='SYMBOL', value=v), head, rest] if v == COMMA_SYMBOL:
+            return [head] + chop_off_comma(rest)
         case _:
             return [e]
 

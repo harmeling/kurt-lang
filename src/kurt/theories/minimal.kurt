@@ -4,7 +4,7 @@ false ; never load this theory, this file is just for reference
 
 ;; syntax
 brackets ( )                                 ; for grouping during parsing
-infix    ,    5  5                           ; for lists
+infix    ,    5  4                           ; for lists and tuples, right associative: `(a, b, c)` is `(a, (b, c))`
 infix    " " 90 90                           ; space for function applications, binds most tightly
 
 const true                                   ; declare constant symbol
@@ -12,7 +12,7 @@ bool  true                                   ; true has type bool
 infix implies 13 12                          ; logical implies, right associative (since 13>12)
 infix and     16 16                          ; and operator
 bool  implies 0 1 2, and 0 1 2               ; both take and give booleans
-flat  ",", and                               ; lists and conjunctions need no nesting
+flat  and                                    ; conjunctions need no nesting
 sym   and                                    ; `A and B` is the same as `B and A`
 alias ⊤ true
 alias ⇒ implies

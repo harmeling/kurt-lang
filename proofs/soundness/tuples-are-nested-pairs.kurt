@@ -1,0 +1,16 @@
+; with a flat comma, `(x, (y, z))`, `((x, y), z)` and `(x, y, z)` would all be the same, and
+; "pair-eq" would give `x = (x, y)` -- the comma is right-associative instead, so a triple is the
+; pair `(x, (y, z))`, and `((x, y), z)` is another one (doc/kurt-soundness.md §8.14)
+load set
+const x, y, z
+
+(x, y, z) = (x, (y, z))           ; the same expression
+expect "ProofError"
+    (x, (y, z)) = ((x, y), z)
+use (x, (y, z)) = (x, (y, z))
+expect "ProofError"
+    x = (x, y)
+; and a pair's components can't be swapped
+use (x, y) = (x, y)
+expect "ProofError"
+    (x, y) = (y, x)

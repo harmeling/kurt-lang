@@ -1,7 +1,8 @@
 ; set theory
 ;
 ; covers: separation (`{$z ∈ $A | P($z)}`, the subset of `$A` of the elements with property P),
-; extensionality, empty set, intersection, union, subset, power set, and mappings (`:`/`→`,
+; extensionality, empty set, intersection, union, subset, power set, ordered pairs and tuples
+; (`(a, b)`, `fst`, `snd`), Cartesian products (`A × B`), and mappings (`:`/`→`,
 ; `f : A → B` for "f is a function from A to B", with function extensionality) -- see
 ; proofs/mafi1/001-two-equal-sets.kurt for a real distributive-law proof and
 ; proofs/set-theory/ for more.
@@ -33,6 +34,7 @@ brackets [ ]             ; squared brackets
 ; `in`
 infix    → 30 30         ; for mappings
 alias    : in
+infix    × 45 45         ; Cartesian product
 
 ; we assume that all objects are sets
 
@@ -61,12 +63,26 @@ proof
     $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B
 qed
 
+; ordered pairs and tuples: `(a, b)`. The comma is right-associative, so the triple `(a, b, c)`
+; is the pair `(a, (b, c))` -- as in set theory, where n-tuples are built from pairs. So the
+; rules for pairs are also those for tuples: two triples are equal if their first components are,
+; and the pairs of their other components.
+use ($a, $b) = ($c, $d)  ≡  $a = $c ∧ $b = $d                      "pair-eq"
+const fst, snd
+arity fst 1
+arity snd 1
+use fst($a, $b) = $a                                              "fst"
+use snd($a, $b) = $b                                              "snd"
+
+; the Cartesian product: the pairs with components in `$A` and `$B`
+use ($a, $b) ∈ $A × $B  ≡  $a ∈ $A ∧ $b ∈ $B                      "product"
+use $p ∈ $A × $B  implies  $p = (fst $p, snd $p)                  "product-pairs"
+
 ; axioms for mappings
 ;
 ; a mapping is modelled as an opaque, applicable set object, not (as in ZF set theory) a set
-; of ordered pairs -- there are no pairs or Cartesian products in this file, so building the
-; full ZF machinery (pairs, products, single-valuedness) would be a much bigger, separate
-; undertaking. Application uses kurt's ordinary space-application (`$f $a`), and `A → B` is
+; of ordered pairs -- building the full ZF machinery (relations as sets of pairs,
+; single-valuedness) would be a much bigger, separate undertaking. Application uses kurt's ordinary space-application (`$f $a`), and `A → B` is
 ; the set of all objects that behave like an A→B mapping when applied.
 use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space"
 

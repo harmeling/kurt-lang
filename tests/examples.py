@@ -130,10 +130,10 @@ examples = [
     ("(a b) + (c d)",
      '[(SYMBOL "("), (SYMBOL "a"), (SYMBOL "b"), (SYMBOL ")"), (SYMBOL "+"), (SYMBOL "("), (SYMBOL "c"), (SYMBOL "d"), (SYMBOL ")"), (END "$$$")]',
      "(+ (a b) (c d))"),
-    # space binds stronger than comma
+    # space binds stronger than comma; the comma is right-associative, a triple is `(a, (b, c))`
     ("f (a, b c, d), e",
      '[(SYMBOL "f"), (SYMBOL "("), (SYMBOL "a"), (SYMBOL ","), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL ","), (SYMBOL "d"), (SYMBOL ")"), (SYMBOL ","), (SYMBOL "e"), (END "$$$")]',
-     "(f (, a (b c) d))"),
+     "(f (, a (, (b c) d)))"),
     # two expressions
     ("a * b c + d",
      '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "+"), (SYMBOL "d"), (END "$$$")]',

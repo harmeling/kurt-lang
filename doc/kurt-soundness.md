@@ -1248,6 +1248,16 @@ but returned the last one, so the continuation rows `a = b`, `< c`, `= d` claime
 instead of `a < d`. The claim then simply failed to derive (a false rejection, not a false
 proof). Regression: the end of `proofs/arithmetic/chains.kurt`.
 
+### 8.14 The comma is right-associative, not flat
+
+The comma used to be `flat`, so `(x, (y, z))`, `((x, y), z)` and `(x, y, z)` were one and the same
+expression. That's harmless for argument lists, but makes a theory of pairs unsound: the natural
+axiom `($a, $b) = ($c, $d) ⇔ $a = $c ∧ $b = $d` would give `x = (x, y)`, with `$a := x`,
+`$b := (y, z)`, `$c := (x, y)`, `$d := z`. Now the comma is right-associative (`infix , 5 4`): a
+triple is the pair `(a, (b, c))`, as in set theory, and set.kurt's "pair-eq" is sound. Lists of
+formulas (`use A, B, C`) and of arguments (`g(a, b, c)`) follow the right-nested commas.
+Regression: `proofs/soundness/tuples-are-nested-pairs.kurt`.
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,
