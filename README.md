@@ -10,7 +10,7 @@ The Kurt programming language is an artificial language to write proofs in a for
     ;[3] use A
     use A                                     ; 3 without proof
     ;[4] B
-    B                                         ; 4 by 3, 2
+    B                                         ; 4 by 2(3)
     ;[5] ^D
     Bye!
 
@@ -28,7 +28,7 @@ Then just check it in the commandline:
     This is Kurt, v0.1 (made by Stefan Harmeling, 2025), file 7131d6838ffe
     use A implies B                           ; 3 without proof
     use A                                     ; 4 without proof
-    B                                         ; 5 by 4, 3
+    B                                         ; 5 by 3(4)
     Proof checked
 
 The `file <hash>` in the banner is a fingerprint of the exact `kurt.py` bytes you're running (a

@@ -478,9 +478,17 @@ automatic — you must first derive `B` as its own line. See
 
 A claim that's structurally identical to the last thing already in the
 theory is logged as a restatement of it (`by 2`), without being added again.
-Modus ponens with an unlabelled implication is logged with its rule name
-(`by 14, 13, "impl-elim"`); a labelled implication's label names the rule
-instead (`by 10, "and-elim"`).
+Each checked line is logged with the short form of its certificate (§6.5):
+the rule, applied to the facts it was used with -- `by 13(14)` is the
+(unlabelled) implication of line 13 applied to the fact of line 14,
+`by equal-elim(11, 10)` the rule "equal-elim" applied to lines 11 and 10,
+`by 3` an instance of the fact of line 3, `by impl-intro(15-23)` the closing
+of the block of lines 15 to 23, `by and-intro(12a, 12b)` a conjunction
+checked conjunct by conjunct. If the line has a comment of its own, the
+comment stays on the line, and the reason goes on the next line:
+
+    B                                         ; modus ponens
+                                              ; 4 by 2(3)
 
 Labelling (§6.2) isn't specific to `use`/`def` — it's the same mechanism
 for *every* statement, keyworded or not, since they're all parsed through
@@ -566,7 +574,7 @@ Read-only introspection; changes nothing.
     cert 17, 18
     cert                ; those of the last line with a step
 
-The comment after a checked line, e.g. `by (9, 8), "forall-cond-elim"`, is a short form of the
+The comment after a checked line, e.g. `by forall-cond-elim(8, 9)`, is a short form of the
 line's *certificate*: what the kernel checks again, on its own, for each step (see
 `doc/kurt-soundness.md` §9). `cert` shows it in long form: the rule and how it is read (as a
 fact, or as premise ⇒ conclusion), the values of its variables, the fresh variables for `∀`s,
