@@ -5038,6 +5038,90 @@ def read_kurtc(fname: str) -> None:
     except (KeyError, ValueError, AttributeError, TypeError):
         replay_hints.pop(fname, None)
 
+def align(old: Expr, new: Expr, names: dict[str, str]) -> bool:
+    # whether `new` is `old` with its canonical names (`$$c3`) replaced by names, consistently --
+    # extends `names` by the replacements
+    if isinstance(old, Token):
+        if not isinstance(new, Token):
+            return False
+        if isinstance(old.value, str) and old.value[2:3] == 'c' and is_internal_name(old.value[:2] + old.value[3:]):
+            if not (isinstance(new.value, str) and new.label == 'SYMBOL'):
+                return False
+            return names.setdefault(old.value, new.value) == new.value
+        return old.label == new.label and old.value == new.value
+    if not isinstance(new, list) or len(old) != len(new):
+        return False
+    return all(align(o, n, names) for o, n in zip(old, new))
+
+def resolve_formula(j: dict, names: dict[str, str], kb: KnowledgeBase) -> Optional[Formula]:
+    # the formula of the theory that `j` (see `formula_to_json`) describes, extending `names`
+    stored = expr_from_json(j['expr'])
+    for f in kb.all_theory():
+        if f.filename != j['file'] or f.line != j['line'] or f.label != j['label']:
+            continue
+        found = dict(names)
+        if not align(stored, f.simplified_expr, found):
+            continue
+        names.update(found)
+        if j['direction'] is None:
+            return f
+        source = f.simplified_expr
+        assert isinstance(source, list) and len(source) == 3 and isinstance(source[0], Token)
+        L, R = (source[1], source[2]) if j['direction'] == 'lr' else (source[2], source[1])
+        clone = f.clone([source[0].clone(IMPL_SYMBOL), L, R], kb)
+        clone.direction_of = source
+        return clone
+    return None
+
+def rebuild_certificate(h: dict, names: dict[str, str], goal: Expr, fixed: frozenset[str], kb: KnowledgeBase) -> Optional[Certificate]:
+    # a stored certificate (see `certificate_to_json`) for the goal and facts as they are now
+    rule = resolve_formula(h['rule'], names, kb)
+    if rule is None:
+        return None
+    facts = [resolve_formula(j, names, kb) for j in h['facts']]
+    if any(f is None for f in facts):
+        return None
+    def name(c: str) -> str:
+        # a canonical name: its name now, or a fresh one (for the fresh variables of `∀`s, and
+        # for variables that only occur in values)
+        if c not in names:
+            names[c] = new_bool_var_name() if c.startswith('%') else new_var_name()
+        return names[c]
+    def rename(e: Expr) -> Expr:
+        if isinstance(e, Token):
+            if isinstance(e.value, str) and e.value[2:3] == 'c' and is_internal_name(e.value[:2] + e.value[3:]):
+                return Token('SYMBOL', name(e.value))
+            return e
+        return [rename(c) for c in e]
+    return Certificate('rule', goal, fixed, rule, h['form'], rule.simplified_expr,
+                       tuple(name(c) for c in h['premise_fresh']), tuple(name(c) for c in h['conclusion_fresh']),
+                       {name(c): rename(expr_from_json(v)) for c, v in h['values']},
+                       [f for f in facts if f is not None], [tuple(name(c) for c in fresh) for fresh in h['fact_fresh']])
+
+def replay_certificate(goal: Expr, fixed: frozenset[str], kb: KnowledgeBase) -> tuple[Optional[Certificate], bool]:
+    # a stored certificate of the current line for `goal`, accepted by the kernel -- and whether
+    # the line has stored certificates at all
+    key = current_line[0]
+    if key is None or key[0] not in replay_hints:
+        return None, False
+    hints = replay_hints[key[0]].get(key[1])
+    if not hints:
+        return None, False
+    for i, h in enumerate(hints):
+        try:
+            names: dict[str, str] = {}
+            if not align(expr_from_json(h['goal']), goal, names):
+                continue
+            cert = rebuild_certificate(h, names, goal, fixed, kb)
+            if cert is None or kernel_verify(cert, kb) is not None:
+                continue
+        except Exception:       # a damaged `.kurtc`: only a hint that doesn't work
+            continue
+        del hints[i]
+        certificates_by_line.setdefault(key, []).append((cert, None))
+        return cert, True
+    return None, True
+
 ############
 ## kernel ##
 ############
@@ -5571,17 +5655,22 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
     if kb.verbose:
         log(kb, '', f'  expression to prove: {expr_str(expr, kb)}', kb.level)
         log(kb, '', f'  formula used: {expr_str(proven_formula.expr, kb)}', kb.level)
+    reason = rule_reason(proven_formula, matched_formulas if premise is not None else None, filename, mainstream)
+    return reason, s_final    # bingo!  found an implication (and a substitution)
+
+def rule_reason(rule: Formula, facts: Optional[list[Formula]], filename: str, mainstream: bool) -> str:
+    # e.g. `by (3, 5), "equal-elim"` -- `facts` is `None` for a goal that is an instance of `rule`
     reason: str = f'by '
-    if premise is not None:
-        refs = ', '.join([formula_ref(ref, filename, mainstream) for ref in matched_formulas])
-        if len(matched_formulas) > 1:
+    if facts is not None:
+        refs = ', '.join([formula_ref(ref, filename, mainstream) for ref in facts])
+        if len(facts) > 1:
             reason += f'({refs}), '
         else:
             reason += f'{refs}, '
-    reason += f'{formula_ref(proven_formula, filename, mainstream)}'
-    if premise is not None and len(proven_formula.label) == 0:
+    reason += f'{formula_ref(rule, filename, mainstream)}'
+    if facts is not None and len(rule.label) == 0:
         reason += ', "impl-elim"'    # modus ponens with an unlabelled implication (a label names its own rule)
-    return reason, s_final    # bingo!  found an implication (and a substitution)
+    return reason
 
 def get_column(e: Expr) -> int:
     match e:
@@ -5650,12 +5739,27 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     # changes across the loop. See doc/kurt-soundness.md #6.
     expr_free_vars = free_bound_vars(expr, kb)[0]
 
-    # "impl-elim": iterate over the previously proven formulas that form the current theory.
-    # this part also handles restatements (as implication without a premise)
-    for proven_formula in kb.all_theory():
-        reason, s_matched = impl_elim(expr, expr_free_vars, proven_formula, filename, mainstream, s, kb)
-        if len(reason) > 0:
-            return [reason], s_matched
+    # a stored certificate for this goal (`.kurtc`), checked by the kernel, saves the search; if
+    # the line has certificates, but none for this goal (e.g. for a conjunction proven clause by
+    # clause), the search for it is only tried when nothing else works
+    replayed, has_hints = replay_certificate(expr, expr_free_vars, kb)
+    if replayed is not None:
+        assert replayed.rule is not None
+        return [rule_reason(replayed.rule, replayed.facts if replayed.form == 'impl' else None, filename, mainstream)], s
+
+    def search() -> Optional[tuple[list[str], State]]:
+        # "impl-elim": iterate over the previously proven formulas that form the current theory.
+        # this part also handles restatements (as implication without a premise)
+        for proven_formula in kb.all_theory():
+            reason, s_matched = impl_elim(expr, expr_free_vars, proven_formula, filename, mainstream, s, kb)
+            if len(reason) > 0:
+                return [reason], s_matched
+        return None
+
+    if not has_hints:
+        found = search()
+        if found is not None:
+            return found
 
     # if `expr` is a conjunction we can try to derive each of the subexpressions
     # make sure that, if it was a conjunction, then the (growing) substitution should apply to all clauses!
@@ -5663,10 +5767,24 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
         case [Token(label='SYMBOL', value=v), *clauses] if v==AND_SYMBOL:
             reasons: list[str] = []
             assert len(clauses) > 0
-            for clause in clauses:
-                more_reasons, s = derive_expr(clause, filename, mainstream, s, kb)  # this might raise an exception
-                reasons.extend(more_reasons)
-            return reasons, s
+            s_clauses = s
+            try:
+                for clause in clauses:
+                    more_reasons, s_clauses = derive_expr(clause, filename, mainstream, s_clauses, kb)  # this might raise an exception
+                    reasons.extend(more_reasons)
+                return reasons, s_clauses
+            except KurtException:
+                if not has_hints:
+                    raise
+                found = search()
+                if found is None:
+                    raise
+                return found
+
+    if has_hints:
+        found = search()
+        if found is not None:
+            return found
 
     # couldn't derive formula using any of the rules
     raise KurtException(f'ProofError: can not derive `{expr_str(expr, kb)}`', column=get_column(expr))

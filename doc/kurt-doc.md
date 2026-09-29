@@ -27,6 +27,7 @@ the source.
     kurt -p DIR path/to/proof.kurt   # also search DIR for `load`ed theories
     kurt -s path/to/proof.kurt       # strict, for grading (see below)
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
+    kurt --no-kurtc path/to/proof.kurt   # neither write nor use `.kurtc` files (see below)
 
 If no filename is given, Kurt starts the shell directly. If a filename is
 given without `-i`, Kurt checks the whole file, prints `Proof checked` (or,
@@ -46,6 +47,17 @@ given by the teacher). Those are the *trusted* theory files; `use` inside a
 `sandbox` or `expect` stays allowed, since their content is discarded. It
 is a command-line switch rather than a statement in the file, so that the
 file being graded can't switch it off.
+
+**Certificates of a file (`.kurtc`):** after a file checks completely (no error, no `todo`), Kurt
+writes `foo.kurtc` next to `foo.kurt` (if the directory is writable) -- the certificates of its
+claims (§6.5), in JSON, with the hash of the file and the files it loads. When `foo.kurt` is
+checked or loaded again, unchanged, each claim first tries its stored certificate: rebuilt with
+the facts as they are now, and checked by the kernel; only if that doesn't work, Kurt searches
+as usual. So the output is the same, it is just faster (for the proof files of this repository,
+up to five times). A `.kurtc` can't make Kurt accept anything the kernel doesn't check -- a wrong
+or outdated one only costs the time of the search -- so it is also used with `--strict`. Kurt
+only writes and uses `.kurtc` files when run as `kurt` (the command line or shell), not when used
+as a Python module.
 
 
 ## 2. Lexical structure

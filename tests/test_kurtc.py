@@ -59,5 +59,69 @@ class TestWriting(KurtcTestCase):
         self.assertEqual([Path(d['file']).name for d in content['depends']], ['lemma.kurt'])
 
 
+class TestReplay(KurtcTestCase):
+    def count_searches(self, path: Path) -> tuple[str, int]:
+        # the output, and how often the search (`impl_elim`) runs
+        calls = [0]
+        impl_elim = kurt.impl_elim
+        def counting(*args):
+            calls[0] += 1
+            return impl_elim(*args)
+        kurt.impl_elim = counting
+        try:
+            return self.run_file(path), calls[0]
+        finally:
+            kurt.impl_elim = impl_elim
+
+    def test_second_run_needs_no_search(self):
+        path = self.write('eq.kurt', 'load equality\nconst a, b, f\narity f 1\nuse a = b\nuse f a = a\nf b = a\nb = a\n')
+        out1, searches1 = self.count_searches(path)
+        out2, searches2 = self.count_searches(path)
+        self.assertEqual(out1, out2)
+        self.assertGreater(searches1, 0)
+        self.assertEqual(searches2, 0)
+
+    def test_changed_source_ignores_the_kurtc(self):
+        path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        self.run_file(path)
+        path.write_text('bool A, B\nuse A implies B\nuse A\nB\nB\n')
+        _, searches = self.count_searches(path)
+        self.assertGreater(searches, 0)
+
+    def test_forged_kurtc_proves_nothing(self):
+        # a `.kurtc` with the right hash, but a certificate for a false claim: `B` from `A`
+        good = self.write('good.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        self.run_file(good)
+        forged = json.loads(Path(str(good) + 'c').read_text())
+        bad = self.write('bad.kurt', 'bool A, B\nuse B implies A\nuse A\nB\n')     # `B` doesn't follow
+        forged['sha256'] = kurt.source_hash(str(bad))
+        forged['steps']['4'][0]['rule']['file'] = str(bad)
+        forged['steps']['4'][0]['facts'][0]['file'] = str(bad)
+        # the stored rule is exactly line 2 of `bad.kurt`, so it is found -- only the kernel can object
+        forged['steps']['4'][0]['rule']['expr'] = {'e': [['SYMBOL', 'implies'], ['SYMBOL', 'B'], ['SYMBOL', 'A']]}
+        Path(str(bad) + 'c').write_text(json.dumps(forged))
+        verdicts = []
+        verify = kurt.kernel_verify
+        def recording(cert, kb):
+            verdicts.append(verify(cert, kb))
+            return verdicts[-1]
+        kurt.kernel_verify = recording
+        try:
+            with self.assertRaises(kurt.KurtException) as e:
+                self.run_file(bad)
+        finally:
+            kurt.kernel_verify = verify
+        self.assertIn('can not derive', e.exception.msg)
+        self.assertTrue(any(v is not None and 'not the goal' in v for v in verdicts), verdicts)   # the kernel said no
+
+    def test_damaged_kurtc_is_ignored(self):
+        path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        self.run_file(path)
+        content = json.loads(Path(str(path) + 'c').read_text())
+        content['steps']['4'][0]['values'] = 'nonsense'
+        Path(str(path) + 'c').write_text(json.dumps(content))
+        self.assertIn('B                                         ; 4 by 3, 2', self.run_file(path))
+
+
 if __name__ == '__main__':
     unittest.main()

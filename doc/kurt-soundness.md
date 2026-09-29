@@ -1294,6 +1294,12 @@ Closing a block has a certificate too, checked with the block's level (`kernel_v
   last line;
 - and for each: no individual constant of the block occurs in the result.
 
+`.kurtc` files store the certificates of a checked file, to skip the search the next time: each
+stored certificate is rebuilt against the facts as they are then (its canonical names aligned
+with the current goal, rule and facts), and has to pass the kernel; otherwise the search runs.
+A forged `.kurtc` (`tests/test_kurtc.py`: the right hash, a certificate claiming `B` from `A` and
+`B ⇒ A`) is rejected by the kernel, and the claim then fails as it should.
+
 Open design question: when may a schema variable depend on a bound variable -- today by the criterion of
 §8.10; the alternatives are to declare it in the rule (like Isabelle's `?T i`) or Metamath's
 distinct-variable conditions.
