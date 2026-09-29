@@ -541,8 +541,8 @@ line's *certificate*: what the kernel checks again, on its own, for each step (s
 fact, or as premise ⇒ conclusion), the values of its variables, the fresh variables for `∀`s,
 the facts that match the premise -- or, for closing a block, the block and its last line. The
 kernel checks every step; should it ever reject one that the search found (a bug in Kurt), that
-is a `KernelError`, which stops the file and can't be caught by `expect`. The rule and the facts are shown with the internal names of their
-variables (`$$07`, `%%56`), which the values use. A line that failed has no certificate; a line
+is a `KernelError`, which stops the file and can't be caught by `expect`. Variables are shown with the names they were written with (`$a`, `%A`, `x`), numbered where
+several of them have the same name (`$x1`, `$x2`). A line that failed has no certificate; a line
 that closes blocks by dedenting also has the certificates of the closings.
 
 ## 7. Goal-directed proof: `show` / `proof` / `qed`

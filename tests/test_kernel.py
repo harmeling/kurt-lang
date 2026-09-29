@@ -242,6 +242,12 @@ class TestCertCommand(unittest.TestCase):
         self.assertIn('; premise:   `A` (line 3)', out)
         self.assertIn('; kernel:    checked', out)
 
+    def test_names_as_written(self):
+        out = self.output('load equality\nconst a, b, f\narity f 1\nuse a = b\nuse f a = a\nf b = a\ncert 6')
+        self.assertIn('; rule:      `(($a = $b) and (sub $x $a %A)) implies (sub $x $b %A)`', out)
+        self.assertIn('; values:    $a := `a`', out)
+        self.assertNotIn('$$', out.split('cert 6')[-1])     # no internal names
+
     def test_a_failed_line_has_no_certificate(self):
         out = self.output('load prop\nbool A, B\nuse A\nexpect "ProofError"\n    A ∧ B\ncert 5')
         self.assertIn('; line 5: no certificate', out)

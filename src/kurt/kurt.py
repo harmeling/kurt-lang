@@ -3869,21 +3869,30 @@ def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
         
     assert False, f'BUG: did not match expression `{expr_str(expr, kb)}` in `free_bound_vars`'
 
+# the name each internal variable stands for, e.g. `$$07` for the `$x` of a rule -- to show
+# certificates with the names as written (see `readable_names`)
+origin_names: dict[str, str] = {}
+
+def note_origin(new: str, origin: Optional[str]) -> str:
+    if origin is not None:
+        origin_names[new] = origin_names.get(origin, origin)
+    return new
+
 # new variable names just for internal use
-def new_var_name() -> str:
+def new_var_name(origin: Optional[str] = None) -> str:
     if not hasattr(new_var_name, "counter"):
         new_var_name.counter = 0            # static variable of the function
     new_var_name.counter += 1               # get a new number
     # use format like this: $$07
-    return f'$${new_var_name.counter:02d}'   # the `$$` ensures that it is not a kurt variable that the user can define
+    return note_origin(f'$${new_var_name.counter:02d}', origin)   # the `$$` ensures that it is not a kurt variable that the user can define
 
 # new boolean variable names just for internal use
-def new_bool_var_name() -> str:
+def new_bool_var_name(origin: Optional[str] = None) -> str:
     if not hasattr(new_bool_var_name, "counter"):
         new_bool_var_name.counter = 0             # static variable of the function
     new_bool_var_name.counter += 1                # get a new number
     # use format like this: %%07
-    return f'%%{new_bool_var_name.counter:02d}'   # the `%%` ensures that it is not a kurt variable that the user can define
+    return note_origin(f'%%{new_bool_var_name.counter:02d}', origin)   # the `%%` ensures that it is not a kurt variable that the user can define
 
 def replace_token_value(expr: Expr, old_value: str, new_token: Token) -> Expr:
     # pure structural replacement of every occurrence of a specific token value -- unlike
@@ -3924,7 +3933,7 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr
         assert isinstance(expr[1].value, str)
         bound_var = expr[1].value
         expr = expr[2]
-        free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
+        free_var = new_bool_var_name(bound_var) if kb.is_bool(bound_var) else new_var_name(bound_var)
         fresh_vars.append(free_var)
         s = State({bound_var: Token(label='SYMBOL', value=free_var)}, frozenset(), frozenset())
         expr = apply_subst(expr, s, kb)
@@ -3953,7 +3962,7 @@ def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr
         assert isinstance(premise[1].value, str)
         bound_var = premise[1].value
         premise = premise[2]
-        free_var = new_bool_var_name() if kb.is_bool(bound_var) else new_var_name()
+        free_var = new_bool_var_name(bound_var) if kb.is_bool(bound_var) else new_var_name(bound_var)
         fresh_vars.append(free_var)
         fresh_token = Token(label='SYMBOL', value=free_var)
         # a pure structural (non-capture-avoiding) rename, not `apply_subst`: `apply_subst`
@@ -4006,9 +4015,9 @@ def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: Optional[State] = None
                     # note that `bound_vars` do not have to be declared as variables in `kb`, since they are bound they must be variables
                     if kb.is_bool(var):
                         # a bound variable that is boolean must begin with `%`
-                        new_var = new_bool_var_name()
+                        new_var = new_bool_var_name(var)
                     else:
-                        new_var = new_var_name()
+                        new_var = new_var_name(var)
                 else:
                     raise KurtException(f'BUG: variable `{var}` is neither a variable nor a boolean variable, but appears in the expression `{expr_str(expr, kb)}`')
                 new_expr = Token(label='SYMBOL', value=new_var, column=expr.column, origin=expr.origin)
@@ -4658,11 +4667,11 @@ def fresh_like(name: str, avoid: set[str], kb: KnowledgeBase) -> str:
     # uses your generators; ensure kb treats them as variables.
     if kb.is_bool(name):
         while True:
-            cand = new_bool_var_name()
+            cand = new_bool_var_name(name)
             if cand not in avoid: return cand
     else:
         while True:
-            cand = new_var_name()
+            cand = new_var_name(name)
             if cand not in avoid: return cand
 
 def capture_avoiding_replace(A: Expr, x: str, t: Expr, s: State, kb: KnowledgeBase) -> Expr:
@@ -4825,13 +4834,68 @@ def formula_place(f: Formula, filename: str) -> str:
     place = f'line {f.line}' if f.filename == filename else f'{os.path.basename(f.filename)}:{f.line}'
     return place + (f' "{f.label}"' if f.label else '')
 
+def is_internal_name(v: Value) -> bool:
+    return isinstance(v, str) and (v.startswith('$$') or v.startswith('%%')) and v[2:].isdigit()
+
+def readable_names(exprs: list[Expr]) -> dict[str, str]:
+    # a name for each internal variable in `exprs`: the one it stands for (`origin_names`),
+    # numbered where several stand for the same one, and never a name that `exprs` already use
+    internal: list[str] = []
+    taken: set[str] = set()
+    def walk(e: Expr) -> None:
+        if isinstance(e, Token):
+            if is_internal_name(e.value):
+                if e.value not in internal:
+                    internal.append(str(e.value))
+            elif isinstance(e.value, str):
+                taken.add(e.value)
+        else:
+            for c in e:
+                walk(c)
+    for e in exprs:
+        walk(e)
+    def base(v: str) -> str:
+        b = origin_names.get(v, v)
+        return b if not is_internal_name(b) else ('%A' if v.startswith('%') else '$v')
+    counts: dict[str, int] = {}
+    for v in internal:
+        counts[base(v)] = counts.get(base(v), 0) + 1
+    names: dict[str, str] = {}
+    numbers: dict[str, int] = {}
+    for v in internal:
+        b = base(v)
+        name = b
+        if counts[b] > 1 or b in taken:
+            while True:
+                numbers[b] = numbers.get(b, 0) + 1
+                name = f'{b}{numbers[b]}'
+                if name not in taken:
+                    break
+        taken.add(name)
+        names[v] = name
+    return names
+
+def rename_for_display(e: Expr, names: dict[str, str]) -> Expr:
+    if isinstance(e, Token):
+        return Token('SYMBOL', names[e.value]) if isinstance(e.value, str) and e.value in names else e
+    return [rename_for_display(c, names) for c in e]
+
 def certificate_str(cert: Certificate, problem: Optional[str], kb: KnowledgeBase, filename: str) -> str:
-    # a certificate in long form, as comment lines
+    # a certificate in long form, as comment lines -- with the names of the variables as written
+    shown: list[Expr] = [cert.goal]
+    if cert.expr is not None:
+        shown.append(cert.expr)
+    shown += list(cert.values.values()) + [f.simplified_expr for f in cert.facts]
+    shown += [Token('SYMBOL', v) for v in list(cert.values) + list(cert.fixed) + list(cert.premise_fresh) + list(cert.conclusion_fresh)]
+    shown += [Token('SYMBOL', v) for names in cert.fact_fresh for v in names]
+    names = readable_names(shown)
+    def n(v: str) -> str:
+        return names.get(v, v)
     def e(x: Expr) -> str:
-        return f'`{expr_str(x, kb)}`'
+        return f'`{expr_str(rename_for_display(x, names), kb)}`'
     lines = [f'goal:      {e(cert.goal)}']
     if cert.fixed:
-        lines.append(f'           (with {", ".join(sorted(cert.fixed))} for anything)')
+        lines.append(f'           (with {", ".join(sorted(n(v) for v in cert.fixed))} for anything)')
     match cert.kind:
         case 'top':
             lines.append('by:        "top-intro"')
@@ -4863,15 +4927,15 @@ def certificate_str(cert: Certificate, problem: Optional[str], kb: KnowledgeBase
             else:
                 lines.append('read as:   premise ⇒ conclusion')
                 if cert.premise_fresh:
-                    lines.append(f'           the `∀` of the premise with the fresh {", ".join(cert.premise_fresh)}, which get no value')
+                    lines.append(f'           the `∀` of the premise with the fresh {", ".join(n(v) for v in cert.premise_fresh)}, which get no value')
                 if cert.conclusion_fresh:
-                    lines.append(f'           the `∀` of the conclusion with {", ".join(cert.conclusion_fresh)}')
-            for i, (v, value) in enumerate(sorted(cert.values.items())):
-                lines.append(f'{"values:" if i == 0 else "":11s}{v} := {e(value)}')
+                    lines.append(f'           the `∀` of the conclusion with {", ".join(n(v) for v in cert.conclusion_fresh)}')
+            for i, (v, value) in enumerate(sorted(cert.values.items(), key=lambda kv: n(kv[0]))):
+                lines.append(f'{"values:" if i == 0 else "":11s}{n(v)} := {e(value)}')
             for i, f in enumerate(cert.facts):
                 lines.append(f'{"premise:" if i == 0 else "":11s}{e(f.simplified_expr)} ({formula_place(f, filename)})')
-            for names in cert.fact_fresh:
-                lines.append(f'           a `∀` of the premise with the fresh {", ".join(names)}')
+            for fresh in cert.fact_fresh:
+                lines.append(f'           a `∀` of the premise with the fresh {", ".join(n(v) for v in fresh)}')
     lines.append('kernel:    checked' if problem is None else f'kernel:    REJECTED -- {problem}')
     return '\n'.join('; ' + line for line in lines)
 
@@ -4976,7 +5040,7 @@ def k_replace(A: Expr, x: str, t: Expr, kb: KnowledgeBase) -> Expr:
             if bv == x:
                 return A
             if bv in k_free(t, kb):
-                fresh = new_bool_var_name() if kb.is_bool(bv) else new_var_name()
+                fresh = new_bool_var_name(bv) if kb.is_bool(bv) else new_var_name(bv)
                 A = k_rename(A, bv, fresh)
                 assert isinstance(A, list)
             return [A[0], *(k_replace(c, x, t, kb) for c in A[1:])]
