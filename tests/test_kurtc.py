@@ -120,7 +120,7 @@ class TestReplay(KurtcTestCase):
         content = json.loads(Path(str(path) + 'c').read_text())
         content['steps']['4'][0]['values'] = 'nonsense'
         Path(str(path) + 'c').write_text(json.dumps(content))
-        self.assertIn('B                                         ; 4 by 3, 2', self.run_file(path))
+        self.assertIn('B                                         ; 4 by 2(3)', self.run_file(path))
 
 
 class TestDependencies(KurtcTestCase):

@@ -41,6 +41,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 import json        # for `.kurtc` files, the certificates of a file
+import contextlib  # contextlib.contextmanager, for `users_comment`
 import time        # the dates of files, for `--deps`
 from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional, get_args
@@ -2549,7 +2550,6 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             assumption = kb.mode_args[0]
             # impl-intro
             expr = [Token('SYMBOL', IMPL_SYMBOL), assumption, last_expr]
-            reason = f'by "impl-intro"'
         case 'let':
             # forall-intro
             assert len(kb.mode_args) > 0, f'BUG: mode_args for "fix" must have length > 0, got `{kb.mode_args}`'
@@ -2558,7 +2558,6 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
                 assert kb.parent is not None
                 if not is_bool_var_token(condition, kb.parent):
                     expr = [Token('SYMBOL', FORALL_SYMBOL), condition, expr]
-            reason = f'by "forall-intro"'
         case 'pick':
             # exists-elim
             assert len(kb.mode_args) > 0, f'BUG: mode_args for "pick" must have length > 0, got `{kb.mode_args}`'
@@ -2569,7 +2568,6 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             pick_not_allowed = set(filter(lambda s: not kb.is_vocabulary_symbol(s), kb.const))
             if contains(expr, pick_not_allowed, kb):
                 raise KurtException(f'ProofError: the line (its conclusion) of the `pick` block may not contain constant symbols from the current level, got `{expr_str(expr, kb)}`')
-            reason = f'by "exists-elim"'
         case 'proof':
             return eval_qed(kb, filename, line, mainstream)
         case 'root':
@@ -2608,10 +2606,11 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
     # the kernel checks the step, with the block's level (see `kernel_verify_block`)
     block = kb
     rule_name = {'assume': 'impl-intro', 'case': 'impl-intro', 'let': 'forall-intro', 'pick': 'exists-elim'}[mode_str]
-    record_certificate(Certificate(rule_name, expr, frozenset(), kb.theory[-1], block=block), block)
+    reason = record_certificate(Certificate(rule_name, expr, frozenset(), kb.theory[-1], block=block), block).short(filename, mainstream)
+    not_reason = ''
     if mode_str == 'assume' and isinstance(last_expr, Token) and last_expr.value == FALSE_SYMBOL:
         not_expr: Expr = [Token('SYMBOL', NOT_SYMBOL), kb.mode_args[0]]
-        record_certificate(Certificate('not-intro', not_expr, frozenset(), kb.theory[-1], block=block), block)
+        not_reason = record_certificate(Certificate('not-intro', not_expr, frozenset(), kb.theory[-1], block=block), block).short(filename, mainstream)
 
     # add a the new formula to the theory
     reason = decorate_reason(mainstream, reason, filename, str(line))
@@ -2627,7 +2626,7 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
                 case Token(label='SYMBOL', value=v) if v == FALSE_SYMBOL:
                     # not-intro, some extra formula!
                     expr: Expr = [Token('SYMBOL', NOT_SYMBOL), assumption]
-                    reason = f'by "not-intro"'
+                    reason = not_reason
                     reason = decorate_reason(mainstream, reason, filename, str(line))
                     f = Formula(kb, expr, '', str(line), filename, '', reason, keyword='')
                     kb.theory_append(f)                    # add a copy to the theory
@@ -2651,14 +2650,13 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     proven_f = kb.theory[-1]               # check the last formula
     proven_expr  = proven_f.simplified_expr         # what actually has been proven
     if proven_expr == todo_token:
-        reason = f'by a miracle'    # the `todo` line itself was already logged
+        reason = decorate_reason(mainstream, 'by todo', filename, str(line))
     else:
-        reason = ''
         # block all free variables of the planned expression, since they are universally quantified
         blocked_as_domain = frozenset(free_vars_only(planned_expr, kb))
         s = State({}, blocked_as_domain, frozenset())
-        _, _ = derive_expr(planned_expr, filename, mainstream, s, kb)  # this might raise ProofError exceptions
-        reason = decorate_reason(mainstream, reason, filename, str(line))
+        certs, _ = derive_expr(planned_expr, filename, mainstream, s, kb)  # this might raise ProofError exceptions
+        reason = decorate_reason(mainstream, ', '.join(c.short(filename, mainstream) for c in certs), filename, str(line))
     # carry the `show`'s own label/local marker forward -- a proved, named theorem must stay
     # exportable exactly like a labelled `use`/`def` axiom would be (see doc/kurt-doc.md's
     # `load` section); this used to be silently dropped (`label = ''` unconditionally) here
@@ -2667,7 +2665,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     kb.show.pop()                              # pop the last planned formula off the show stack, since it is proved now
     kb.theory_append(f)                        # add a copy to the current theory
     if mainstream:
-        log(kb, 'qed', '', kb.level)
+        log(kb, 'qed', reason, kb.level)
     return kb
 
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
@@ -3555,7 +3553,8 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
             if len(unknown) > 0 and strict_mode and not is_trusted_file(filename):
                 raise KurtException(f'EvalError: {", ".join(f"`{n}`" for n in unknown)} not declared -- with `--strict`, every symbol must be declared before its use (`const`, `var`, `bool`, ...)')
             try:
-                reasons, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
+                certs, _ = derive_expr(expr, filename, mainstream, State.empty(), kb)  # this might raise ProofError exceptions
+                reasons = [c.short(filename, mainstream) for c in certs]
             except KurtException as e:
                 if len(unknown) > 0:
                     e.msg += f' -- note: {", ".join(f"`{n}`" for n in unknown)} {"was" if len(unknown) == 1 else "were"} never declared or used before, a typo?'
@@ -3579,7 +3578,7 @@ def eval_expression(keyword_token: Optional[Token], expr_list: list[Expr], input
                     kb.theory_append(sub_f)                         # add sub to the knowledge base
                     if mainstream:
                         log(kb, sub_f.formula_str(kb), reason, kb.level)
-                reason = f'by {", ".join(line_strs)} "and-intro"'
+                reason = f'by and-intro({", ".join(line_strs)})'
             # a bare claim can be labelled too, exactly like `use`/`show` -- same mechanism,
             # since every statement (bare or keyworded) shares `check_expr_label`/`post_process`
             if len(label) > 0:
@@ -3706,12 +3705,40 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase) -> None:
 # or written as a kurt formula
 #   A and B and C implies D
 
+# the comment the user wrote on the line being evaluated: shown by the first output line with a
+# reason, whose reason then goes on the next line (see `log`)
+current_comment: list[Optional[str]] = [None]
+
+def comment_of(line: str) -> Optional[str]:
+    # what follows the first `;` outside of a string, if anything
+    in_string = False
+    for i, ch in enumerate(line):
+        if ch == '"':
+            in_string = not in_string
+        elif ch == ';' and not in_string:
+            rest = line[i+1:].strip()
+            return rest if rest else None
+    return None
+
+@contextlib.contextmanager
+def users_comment(line: str) -> Iterator[None]:
+    outer = current_comment[0]
+    current_comment[0] = comment_of(line)
+    try:
+        yield
+    finally:
+        current_comment[0] = outer
+
 def log(kb: KnowledgeBase, s: str, reason: str='', level: Optional[int]=None) -> None:
         if level is not None and level > 0 and kb.tmp:
             level = level - 1
         indent: str = '' if level is None else ' ' * (proof_indent * level)
         if len(reason) == 0:
             line = indent+s
+        elif current_comment[0] is not None:
+            # the user's comment stays on the line, the reason goes below it
+            line = f'{(indent+s):<{comment_indent}}; {current_comment[0]}\n{"":<{comment_indent}}; {reason}'
+            current_comment[0] = None
         else:
             line = f'{(indent+s):<{comment_indent}}; {reason}'
         print(line, file=sys.stdout)
@@ -4739,6 +4766,36 @@ class Certificate:
     fact_fresh: list[tuple[str, ...]] = field(default_factory=list)  # fresh names for `∀` parts of the premise, matched without their `∀`s
     block: Optional[KnowledgeBase] = None   # for closing a block ('impl-intro', 'not-intro', 'forall-intro', 'exists-elim'): its level
 
+    def short(self, filename: str, mainstream: bool) -> str:
+        # the reason Kurt prints for a step: the rule applied to the facts, e.g.
+        # `by equal-elim(11, 10)`, `by 2(3)` (the implication of line 2 with the fact of line 3),
+        # `by forall-intro(13-14)` (the lines of the block) -- `cert` shows the long form
+        def ref(f: Formula) -> str:
+            if f.label:
+                return f.label
+            return f.line if mainstream and f.filename == filename else f'{os.path.basename(f.filename)}:{f.line}'
+        match self.kind:
+            case 'rule':
+                assert self.rule is not None
+                if self.form == 'fact':
+                    return f'by {ref(self.rule)}'
+                return f'by {ref(self.rule)}({", ".join(ref(f) for f in self.facts)})'
+            case 'top':
+                return 'by top-intro'
+            case 'calc':
+                return 'by calc'
+            case 'calc-fact':
+                assert self.rule is not None
+                return f'by calc({ref(self.rule)})'
+            case 'todo':
+                return 'by todo'
+        assert self.block is not None and self.rule is not None
+        first = self.block.theory[0].line if self.block.theory else self.rule.line
+        lines = first if first == self.rule.line else f'{first}-{self.rule.line}'
+        if self.kind == 'exists-elim' and self.block.pick_source is not None:
+            return f'by exists-elim({ref(self.block.pick_source)}, {lines})'
+        return f'by {self.kind}({lines})'
+
 class KernelError(KurtException):
     # the kernel rejects a step that the search accepted: the two disagree, which is a bug in one
     # of them -- the step doesn't count. Its kind `KernelError` isn't one an `expect` can name, so
@@ -4750,7 +4807,7 @@ class KernelError(KurtException):
 certificates_by_line: dict[tuple[str, int], list[tuple[Certificate, Optional[str]]]] = {}
 current_line: list[Optional[tuple[str, int]]] = [None]      # the line being evaluated (see `scan_parse_check_eval`)
 
-def record_certificate(cert: Certificate, kb: KnowledgeBase) -> None:
+def record_certificate(cert: Certificate, kb: KnowledgeBase) -> Certificate:
     # the kernel checks every step; `cert` shows the certificates of a line
     try:
         problem = kernel_verify(cert, kb)
@@ -4761,6 +4818,7 @@ def record_certificate(cert: Certificate, kb: KnowledgeBase) -> None:
                           f'the search accepted it, so this is a bug in Kurt; please report it, with this file')
     if current_line[0] is not None:
         certificates_by_line.setdefault(current_line[0], []).append((cert, problem))
+    return cert
 
 def formula_place(f: Formula, filename: str) -> str:
     # where a formula comes from, e.g. `line 3` or `logic.kurt:22 "forall-elim"`
@@ -5540,7 +5598,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
 #    free vars in `conclusion` can be matched against anything in `expr`
 # 4. match `premises` against the theory (but allow substitutions in both directions)
 #    free vars in `premises` 
-def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formula, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[str, State]:
+def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formula, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[Optional[Certificate], State]:
 
     #debug(f'impl_elim: trying to prove `{expr_str(expr, kb)}` using `{expr_str(proven_formula.expr, kb)}`')
 
@@ -5578,15 +5636,15 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         # first attempt: LHS implies RHS
         LHSimpliesRHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), LHS, RHS], kb)
         LHSimpliesRHS.direction_of = formula_expr
-        reason, s_local = impl_elim(expr, expr_free_vars, LHSimpliesRHS, filename, mainstream, s, kb)
-        if len(reason) > 0:
-            return reason, s_local
+        cert, s_local = impl_elim(expr, expr_free_vars, LHSimpliesRHS, filename, mainstream, s, kb)
+        if cert is not None:
+            return cert, s_local
         # second attempt: RHS implies LHS
         RHSimpliesLHS = proven_formula.clone([op_token.clone(IMPL_SYMBOL), RHS, LHS], kb)
         RHSimpliesLHS.direction_of = formula_expr
-        reason, s_local = impl_elim(expr, expr_free_vars, RHSimpliesLHS, filename, mainstream, s, kb)
-        if len(reason) > 0:
-            return reason, s_local
+        cert, s_local = impl_elim(expr, expr_free_vars, RHSimpliesLHS, filename, mainstream, s, kb)
+        if cert is not None:
+            return cert, s_local
         # third attempt: LHS iff RHS directly -- block `expr`'s own free variables here too
         # (same reasoning as the case-1/2 blocking below, and the forall-elim fix, see
         # doc/kurt-soundness.md): without this, a goal like `a iff C` (`a` a free/schema
@@ -5602,10 +5660,9 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         s_blocked = State(s.subst, blocked_as_domain, s.blocked_as_range, s.eigen)
         s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s_blocked, kb))
         if s_final is not None:
-            record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'fact', formula_expr, values=resolved_values(s_final)), kb)
-            reason = f'by {formula_ref(proven_formula, filename, mainstream)}'
-            return reason, s_final
-        return '', State.empty()    # no luck this time
+            cert = record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'fact', formula_expr, values=resolved_values(s_final)), kb)
+            return cert, s_final
+        return None, State.empty()    # no luck this time
     else:                                 # case 2: "implication" with an empty premise (think of `true implies $A`)
         conclusion = formula_expr
 
@@ -5648,37 +5705,21 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
             premise = None
             s_final = _first_or_none(unify_exprs_with_patterns([(expr, formula_expr)], s, kb))
             if s_final is None:
-                return '', State.empty()    # no luck this time
+                return None, State.empty()    # no luck this time
         else:
-            return '', State.empty()     # no luck this time
+            return None, State.empty()     # no luck this time
     assert s_final is not None
     if premise is None:     # the goal is an instance of the formula
-        record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'fact', formula_expr, values=resolved_values(s_final)), kb)
+        cert = record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'fact', formula_expr, values=resolved_values(s_final)), kb)
     else:
-        record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'impl', formula_expr,
+        cert = record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'impl', formula_expr,
                                        premise_fresh_vars, conclusion_fresh_vars, resolved_values(s_final),
                                        list(matched_formulas), strips), kb)
 
-    # create meaningful `reason`
     if kb.verbose:
         log(kb, '', f'  expression to prove: {expr_str(expr, kb)}', kb.level)
         log(kb, '', f'  formula used: {expr_str(proven_formula.expr, kb)}', kb.level)
-    reason = rule_reason(proven_formula, matched_formulas if premise is not None else None, filename, mainstream)
-    return reason, s_final    # bingo!  found an implication (and a substitution)
-
-def rule_reason(rule: Formula, facts: Optional[list[Formula]], filename: str, mainstream: bool) -> str:
-    # e.g. `by (3, 5), "equal-elim"` -- `facts` is `None` for a goal that is an instance of `rule`
-    reason: str = f'by '
-    if facts is not None:
-        refs = ', '.join([formula_ref(ref, filename, mainstream) for ref in facts])
-        if len(facts) > 1:
-            reason += f'({refs}), '
-        else:
-            reason += f'{refs}, '
-    reason += f'{formula_ref(rule, filename, mainstream)}'
-    if facts is not None and len(rule.label) == 0:
-        reason += ', "impl-elim"'    # modus ponens with an unlabelled implication (a label names its own rule)
-    return reason
+    return cert, s_final    # bingo!  found an implication (and a substitution)
 
 def get_column(e: Expr) -> int:
     match e:
@@ -5710,14 +5751,14 @@ def numeric_comparison_holds(expr: Expr) -> bool:
                 return NUMERIC_COMPARISONS[op](a.value, b.value)
     return False
 
-def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[list[str], State]:
+def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[list[Certificate], State]:
+    # the certificates of the steps (one, or one per conjunct), see `Certificate.short` for the reasons
 
     # do we have a joker?  a bare `todo` right before admits the next step (only that one)
     if len(kb.theory) > 0:
         match kb.theory[-1].expr:
             case Token(label='TODO', value=''):
-                record_certificate(Certificate('todo', expr, frozenset()), kb)
-                return ['by a miracle (todo)'], s
+                return [record_certificate(Certificate('todo', expr, frozenset()), kb)], s
 
     # rename variables
     expr, _ = remove_outer_forall_quantifiers(expr, kb)
@@ -5725,20 +5766,17 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
 
     # "top-intro"
     if isinstance(expr, Token) and expr.label=='SYMBOL' and expr.value==TRUE_SYMBOL:
-        record_certificate(Certificate('top', expr, frozenset()), kb)
-        return ['by "top-intro"'], s
+        return [record_certificate(Certificate('top', expr, frozenset()), kb)], s
 
     # "calc": with `calc on`, a comparison of two literal numbers is checked by computing it,
     # and a fact that computes to `expr` (e.g. `x = (-5) * 5` for `x = -25`) gives `expr`
     if kb.calc:
         if numeric_comparison_holds(expr):
-            record_certificate(Certificate('calc', expr, frozenset()), kb)
-            return ['by calc'], s
+            return [record_certificate(Certificate('calc', expr, frozenset()), kb)], s
         calc_expr = calculate_normalized(expr, kb)
         for f in kb.all_theory():
             if equal_expr(calculate_normalized(f.expr, kb), calc_expr, kb):
-                record_certificate(Certificate('calc-fact', expr, frozenset(), f), kb)
-                return [f'by {formula_ref(f, filename, mainstream)}, calc'], s
+                return [record_certificate(Certificate('calc-fact', expr, frozenset(), f), kb)], s
 
     # computed once here since `expr` is fixed for the whole loop below -- `impl_elim` used to
     # recompute this itself on every single formula tried (and again on every one of its own
@@ -5752,16 +5790,15 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     # clause), the search for it is only tried when nothing else works
     replayed, has_hints = replay_certificate(expr, expr_free_vars, kb)
     if replayed is not None:
-        assert replayed.rule is not None
-        return [rule_reason(replayed.rule, replayed.facts if replayed.form == 'impl' else None, filename, mainstream)], s
+        return [replayed], s
 
-    def search() -> Optional[tuple[list[str], State]]:
+    def search() -> Optional[tuple[list[Certificate], State]]:
         # "impl-elim": iterate over the previously proven formulas that form the current theory.
         # this part also handles restatements (as implication without a premise)
         for proven_formula in kb.all_theory():
-            reason, s_matched = impl_elim(expr, expr_free_vars, proven_formula, filename, mainstream, s, kb)
-            if len(reason) > 0:
-                return [reason], s_matched
+            cert, s_matched = impl_elim(expr, expr_free_vars, proven_formula, filename, mainstream, s, kb)
+            if cert is not None:
+                return [cert], s_matched
         return None
 
     if not has_hints:
@@ -5773,7 +5810,7 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     # make sure that, if it was a conjunction, then the (growing) substitution should apply to all clauses!
     match expr:
         case [Token(label='SYMBOL', value=v), *clauses] if v==AND_SYMBOL:
-            reasons: list[str] = []
+            reasons: list[Certificate] = []
             assert len(clauses) > 0
             s_clauses = s
             try:
@@ -6001,7 +6038,8 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
         # now actually pop the levels
         while dedents > 0:
             if kb.mode_str == 'proof':
-                kb = eval_qed(kb, filename, line, mainstream)   # qed with a block, yield a formula
+                with users_comment(input_line if dedents == 1 else ''):
+                    kb = eval_qed(kb, filename, line, mainstream)   # qed with a block, yield a formula
             elif kb.mode_str in ['assume', 'let', 'pick']:
                 kb = eval_done(kb, filename, line, mainstream)  # done with a block, yield a formula
             else:
@@ -6016,7 +6054,8 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
 
         # evaluate the expression
         new_symbols.clear()
-        kb = eval_expression(keyword_token, expr_list, input_line, label, kb, line, filename, mainstream, local) # evaluation
+        with users_comment(input_line):
+            kb = eval_expression(keyword_token, expr_list, input_line, label, kb, line, filename, mainstream, local) # evaluation
         if len(new_symbols) > 0:
             names = ', '.join(f'`{n}`' for n in new_symbols)
             if strict_mode and not is_trusted_file(filename):

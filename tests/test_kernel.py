@@ -253,6 +253,32 @@ class TestCertCommand(unittest.TestCase):
         self.assertIn('; line 5: no certificate', out)
 
 
+class TestShortForm(unittest.TestCase):
+    # the reason printed for a step is the short form of its certificate: the rule applied to facts
+    def output(self, text):
+        return TestCertCommand.output(self, text)
+
+    def test_short_forms(self):
+        out = self.output('\n'.join(['load equality', 'bool A, B', 'const a, b, f', 'arity f 1',
+                                      'use A implies B', 'use A', 'B', 'use a = b', 'use f a = a', 'f b = a',
+                                      'A ∧ B', 'assume A', '    B', 'true']))
+        self.assertIn('; 7 by 5(6)', out)                    # the implication of line 5 with the fact of line 6
+        self.assertIn('; 10 by equal-elim(8, 9)', out)
+        out_and = self.output('bool A, B\nuse A\nuse B implies B\nuse B\nA ∧ B\n')
+        self.assertIn('; 5 by and-intro(5a, 5b)', out_and)
+        self.assertIn('; 14 by impl-intro(12-13)', out)
+        self.assertIn('; 14 by top-intro', out)
+
+    def test_comments_stay(self):
+        out = self.output('bool A, B\nuse A implies B   ; the rule\nuse A\nB   ; modus ponens\nA\n')
+        lines = out.splitlines()
+        i = next(i for i, line in enumerate(lines) if line.startswith('B '))
+        self.assertTrue(lines[i].endswith('; modus ponens'), lines[i])
+        self.assertEqual(lines[i + 1].strip(), '; 4 by 2(3)')
+        self.assertTrue(any(line.startswith('use A implies B') and line.endswith('; the rule') for line in lines))
+        self.assertTrue(any(line.startswith('A ') and line.endswith('; 5 by 3') for line in lines))    # no comment: as before
+
+
 class TestKernelErrorStops(unittest.TestCase):
     # a step the kernel rejects doesn't count, also inside `expect`
     def run_rejecting(self, text):
