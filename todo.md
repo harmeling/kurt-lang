@@ -24,6 +24,16 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 - TODO a loaded file is checked in the context of what was loaded before it: its proofs see (and could use) facts it doesn't load itself, and get slower with every theory around (group.kurt: 3 s alone, 8.5 s after `load arith`). Load a file in a fresh context instead (only what it loads itself), then add its exports?
 
+## open points from the discussion of 2026-09-29
+
+- TODO scalars vs. vectors: arith.kurt's laws hold for *everything* written with `+`, `*` -- so vectors can share `+` with numbers only if (a) arith's laws get the condition `$a ∈ R` (every arithmetic proof then needs membership facts: numerals automatically? `let x ∈ R`?), or (b) arith becomes an instance of a structure, like group.kurt: `field(R, (+), (*), 0, 1, (-), inv)`, and vectors `vector-space(V, R, ...)`. Try (b) with rings/fields first?
+- TODO the inner product: after scalars vs. vectors; `⟨ ⟩` can be declared per file (`brackets ⟨ ⟩`), proofs-not-yet/scalar-product.kurt (Cauchy-Schwarz) waits for it. Not done: `bra`/`ket` as words for `⟨ ⟩` (only the shell shortcuts `\langle`, `\rangle`)
+- TODO group.kurt with a `flat` operator: a pattern `$a ∘ $b` matches `x + y`, but not `x + y + z` (one term with three arguments) -- fine for `+`, whose associativity is built in, but proofs for `+` and for an abstract `∘` look slightly different
+- TODO `calc` is hard-coded in Python: the symbols `+ - * / ^` and `= ≠ < <= > >=` by their names (also when arith.kurt isn't loaded, or `+` means something else), numbers as Python `int`/`float`. Ideas: the theory binds its symbols to a few built-in operations (`calc + add, * mul, ...`, only in trusted theories); exact numbers (`fractions.Fraction`: `0.1 + 0.2 = 0.3`, `1 / 3`); see the discussion of 2026-09-29
+- TODO `calc` doesn't solve: `$b / 3` against `0` with `$b` unknown, or `1! = 1` from `1! = 1 * 0!` and `0! = 1` in one step (the search works backwards from the goal)
+- TODO printing: a comma list in custom brackets shows as `⟨ (a , b) ⟩`; a negative literal as `-8 ^ 0.5`, which reads as `-(8 ^ 0.5)`
+- TODO the kernel's rule for when a schema variable may depend on a bound variable: implicit as now, declared (Isabelle's `?T i`), or Metamath-style distinct-variable conditions (release-plan.md)
+
 ## NEXT
 
 - TODO solve the path puzzle, also check `load ../foo.kurt` whether it works

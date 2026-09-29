@@ -869,12 +869,24 @@ class KnowledgeBase:
                     if op == '-':
                         s = arg0.value - arg1.value
                     elif op == '/':
-                        if isinstance(arg0.value, int) and isinstance(arg1.value, int) and arg1.value != 0 and arg0.value % arg1.value == 0:
+                        if arg1.value == 0:
+                            return e                        # `1 / 0` is not computed
+                        if isinstance(arg0.value, int) and isinstance(arg1.value, int) and arg0.value % arg1.value == 0:
                             s = arg0.value // arg1.value    # stay an integer, e.g. `6 / 2` is `3`, not `3.0`
                         else:
                             s = arg0.value / arg1.value
                     elif op == '^':
-                        s = arg0.value ** arg1.value
+                        # not computed: `0 ^ -1`, a root of a negative number (complex), and results
+                        # too big to compute quickly
+                        base, exponent = arg0.value, arg1.value
+                        if (base == 0 and exponent < 0) or (base < 0 and not isinstance(exponent, int)) or abs(exponent) > 10000:
+                            return e
+                        try:
+                            s = base ** exponent
+                        except OverflowError:
+                            return e
+                        if isinstance(s, complex):
+                            return e
                     return Token(label='INT' if isinstance(s, int) else 'FLOAT', value=s)
                 else:
                     return e
