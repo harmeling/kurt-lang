@@ -24,6 +24,20 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 - TODO a loaded file is checked in the context of what was loaded before it: its proofs see (and could use) facts it doesn't load itself, and get slower with every theory around (group.kurt: 3 s alone, 8.5 s after `load arith`). Load a file in a fresh context instead (only what it loads itself), then add its exports?
 
+## on the way to 0.9 and 1.0 (2026-09-29, see release-plan.md)
+
+before 0.9 (public):
+- TODO a targeted soundness review of what the kernel doesn't check independently: the block rules, `def`, `load`/exports, `calc`, the normal forms (`flat`, `sym`) -- three old soundness bugs were found on 2026-09-29 alone (started 2026-09-29)
+- TODO loading in a fresh context (see below): a library's proofs must not depend on what its loader loaded before
+- TODO public polish: README, version number, the internal files in the repo root, PyPI
+- TODO docs for the new features: `cert`, `.kurtc`, tuples, groups, operator variables in the tutorial; the cookbook is a stub
+
+before 1.0:
+- TODO freeze the language (release-plan.md: minimal core, labels, `use` in nested sandboxes, ParseError vs. EvalError, the kernel's dependency rule)
+- TODO scalars vs. vectors (decides the structure of arith.kurt, see below)
+- TODO a semester of use with students
+- TODO exact vector operations for the calculator, shipped with Kurt (componentwise add, scalar multiplication, scalar product on tuples), instead of theories with their own calculators -- a calculator from a theory file would be trusted code from anywhere, and numpy is not exact
+
 ## open points from the discussion of 2026-09-29
 
 - TODO scalars vs. vectors: arith.kurt's laws hold for *everything* written with `+`, `*` -- so vectors can share `+` with numbers only if (a) arith's laws get the condition `$a ∈ R` (every arithmetic proof then needs membership facts: numerals automatically? `let x ∈ R`?), or (b) arith becomes an instance of a structure, like group.kurt: `field(R, (+), (*), 0, 1, (-), inv)`, and vectors `vector-space(V, R, ...)`. Try (b) with rings/fields first?
