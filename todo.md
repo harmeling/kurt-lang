@@ -13,7 +13,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 ## postponed from the tutorial discussion (2026-09-26)
 
-- TODO `save` as a replay of the accepted input lines instead of a flattened snapshot (keeps proofs checkable, also with `--strict`, keeps labels and open blocks); forbid `save` in files
+- DONE `save` as a replay of the accepted input lines instead of a flattened snapshot (2026-09-29; still allowed in files, it writes their lines so far)
 - TODO shell: pre-fill each input line with the current indentation (readline `set_startup_hook`), so that a backspace dedents
 - TODO `use` only *directly* in a `sandbox`/`expect`, not in a proof block nested inside them (two soundness tests need `use P $w` before the block instead)
 - TODO get rid of the `;;; ` markers: `expect` with an optional message prefix, and file-level errors (EOF, unclosed blocks, `break` at top level) via `expect` around a `load` of a helper file in a directory the test discovery skips

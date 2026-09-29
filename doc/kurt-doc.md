@@ -73,6 +73,11 @@ file and its `.kurtc`:
 "certified, but ... changed since" means: the certificates fit the file, but a file it loads has
 changed -- they are still tried (and checked by the kernel) the next time, and rewritten after it.
 
+**The `.kurt` file is the only source of truth.** Everything else is derived from it, can be
+deleted, and is never trusted: a `.kurtc` only holds hints, which the kernel checks each time;
+the reasons Kurt prints and `cert` only show a check that already happened; and `save` writes
+Kurt source again, not a snapshot of facts.
+
 
 ## 2. Lexical structure
 
@@ -756,31 +761,18 @@ Example:
                       ; main.kurt is concerned `Q` is just a fresh symbol with no axiom
                       ; behind it (§5), not literally an "unknown symbol" error
 
-#### `save`: the reverse of `load`
+#### `save`: keep a shell session as a file
 
     save "path/to/file.kurt"
 
-Writes the current, fully-built-up state — every syntax declaration and
-theory fact from every level below and including the current one (but
-*not* level 0, the pristine hard-coded core described in §8.1, since
-that's already present in any fresh session) — out to `path` as
-self-contained `.kurt` source, in a form that reconstructs the same state
-via a plain `load` (path is resolved relative to the current working
-directory, same as any other file write, not relative to the file being
-run). `save` is a flat snapshot, not a recording: every fact is re-emitted
-as a `use`/`def`/`todo` statement regardless of how it was originally
-obtained — including one proved via `show`/`proof`/`qed` — so
-reloading it never re-runs any proof search. Every fact is given a label,
-synthesizing one (`"save-1"`, `"save-2"`, ...) for any fact that didn't
-already have one, so nothing is silently dropped by `load`'s selective
-export (immediately above) if the saved file is later `load`ed from
-somewhere else rather than run directly. Only the theory and syntax are
-saved — a pending `show` goal or an open proof/`assume`/`let`/`pick` block
-is not; call `save` once everything is settled (`root`/`sandbox` level),
-not mid-proof. The packaged theories in use (`prop`, `equality`, ...) are
-written as `load` lines instead, and what they declare is left out — they
-can't be shadowed, so reloading them gives exactly the same content (and a
-saved `def` still finds its packaged `=`/`iff`).
+Writes the input lines that were accepted so far to `path` (relative to the current working
+directory): in the shell, the session without the lines that failed, and without the ones that
+only show something (`theory`, `cert`, `help`, a declaration without arguments, ...); in a file,
+its lines so far. The result is ordinary Kurt source, which proves its results again when it is
+checked, and gets its certificates in a `.kurtc` then (§1) -- nothing is taken over as an axiom.
+`save` needs all blocks closed and no pending `show`, since otherwise the saved file wouldn't
+load. `load` lines are kept as typed, so a saved file finds its theories as the session did
+(e.g. relative to the working directory).
 
 ## 9. Blocks and natural deduction
 

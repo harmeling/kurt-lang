@@ -1,75 +1,90 @@
+import builtins
 import copy
+import io
 import os
+import contextlib
 import tempfile
 import unittest
 
-import kurt
+import kurt.kurt as kurt
 
-# Regression test for the `save` keyword: flattens the current theory + syntax into
-# self-contained `.kurt` source that reloads via `load`, without needing to re-derive
-# anything (see save_state_str, and todo-claude.md's writeup). The interesting failure
-# mode isn't "save crashes" -- it's "save's *output* doesn't actually reload cleanly",
-# so this test always round-trips: save, then load the saved file into a fresh session
-# and check the result is proof-checkable and mentions the original facts.
+# `save` writes the input lines that were accepted -- the source itself, which proves its
+# results again when checked. In the shell, lines that failed are left out, and so are the ones
+# that only show something (`theory`, `cert`, ...). The saved file is always checked by loading it
+# into a fresh session.
+
+
+def load(path: str) -> kurt.KnowledgeBase:
+    kb = copy.deepcopy(kurt.initial_kb)
+    with contextlib.redirect_stdout(io.StringIO()):
+        return kurt.load_file(path, kb, mainstream=False)
+
+
+def shell(lines: list[str]) -> str:
+    # run `lines` as typed into the shell, and return what it printed to stderr (the errors)
+    feed = iter(lines)
+    def fake_input(prompt=''):
+        try:
+            return next(feed)
+        except StopIteration:
+            raise EOFError
+    old_input = builtins.input
+    builtins.input = fake_input
+    stdin = io.StringIO()
+    stdin.name = '<stdin>'
+    err = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            kurt.read_eval_loop(stdin, copy.deepcopy(kurt.initial_kb), mainstream=True)
+    finally:
+        builtins.input = old_input
+    return err.getvalue()
+
 
 class TestSaveCommand(unittest.TestCase):
-    def test_save_output_reloads_and_preserves_the_theory(self):
+    def test_save_in_a_file_writes_its_lines(self):
         with tempfile.TemporaryDirectory() as tmp:
-            source_path = os.path.join(tmp, 'source.kurt')
-            saved_path = os.path.join(tmp, 'saved.kurt')
-            with open(source_path, 'w') as fh:
-                fh.write(f'''load prop
-bool A, B
-use A implies B "mp"
-use A
+            source = os.path.join(tmp, 'source.kurt')
+            saved = os.path.join(tmp, 'saved.kurt')
+            with open(source, 'w') as fh:
+                fh.write(f'load prop\nbool A, B\nuse A implies B "mp"\nuse A\ntheory\n\nshow B\nproof\n    B\nqed\n\nsave "{saved}"\n')
+            load(source)
+            with open(saved) as fh:
+                content = fh.read()
+            body = [line for line in content.splitlines() if not line.startswith(';')]
+            self.assertEqual(body, ['', 'load prop', 'bool A, B', 'use A implies B "mp"', 'use A', '', 'show B', 'proof', '    B', 'qed', ''])
+            labels = {f.label for f in load(saved).theory}
+            self.assertIn('mp', labels)
 
-show B
-proof
-    B
-qed
-
-save "{saved_path}"
-''')
-            kb = copy.deepcopy(kurt.initial_kb)
-            kurt.load_file(source_path, kb, mainstream=False)
-            self.assertTrue(os.path.exists(saved_path), '`save` did not write its output file')
-
-            reloaded_kb = copy.deepcopy(kurt.initial_kb)
-            reloaded_kb = kurt.load_file(saved_path, reloaded_kb, mainstream=False)
-            labels = {f.label for f in reloaded_kb.theory}
-            self.assertIn('mp', labels, 'the saved file lost the labelled fact `mp`')
-            # `B` was proven (keyword '') in the original session, with no label -- `save` must
-            # still export it across the reload, which requires synthesizing a label for it
-            # (an unlabelled fact is otherwise dropped by ordinary `load` selective-export
-            # rules the moment the saved file is loaded from somewhere else, see
-            # save_state_str's own comment on this)
-            exprs = {kurt.expr_str(f.expr, reloaded_kb) for f in reloaded_kb.theory}
-            self.assertIn('B', exprs, 'the saved file lost the proven fact `B`')
-
-    def test_save_round_trips_operators_chains_and_function_application(self):
-        # exercises the trickier cases together: `chain` (which immediately synthesizes and
-        # `use`s formulas mentioning its operators, so `bool`/`infix` must be emitted before
-        # `chain` in save's own output -- see save_state_str's ordering comment), and a bare
-        # function application nested inside a tighter-binding infix operator (`f a ∈ B`,
-        # which used to round-trip as `f (a ∈ B)` before expr_normal's missing-parens bug for
-        # plain calls was fixed alongside this feature).
+    def test_save_in_the_shell_leaves_out_what_failed(self):
         with tempfile.TemporaryDirectory() as tmp:
-            source_path = os.path.join(tmp, 'source.kurt')
-            saved_path = os.path.join(tmp, 'saved.kurt')
-            with open(source_path, 'w') as fh:
-                fh.write(f'''load prop, equality, set
-const f, g
-var a
-save "{saved_path}"
-''')
-            kb = copy.deepcopy(kurt.initial_kb)
-            kurt.load_file(source_path, kb, mainstream=False)
-            self.assertTrue(os.path.exists(saved_path))
+            saved = os.path.join(tmp, 'session.kurt')
+            errors = shell(['load prop', 'bool A, B', 'use A implies B "mp"', 'B', 'use A', 'theory',
+                            'show B', 'proof', '    B', 'qed', f'save "{saved}"'])
+            self.assertIn('can not derive', errors)            # `B` before `use A` failed
+            with open(saved) as fh:
+                body = [line for line in fh.read().splitlines() if line and not line.startswith(';')]
+            self.assertEqual(body, ['load prop', 'bool A, B', 'use A implies B "mp"', 'use A', 'show B', 'proof', '    B', 'qed'])
+            load(saved)                                         # checks again, without errors
 
-            reloaded_kb = copy.deepcopy(kurt.initial_kb)
-            reloaded_kb = kurt.load_file(saved_path, reloaded_kb, mainstream=False)   # must not raise
-            labels = {f.label for f in reloaded_kb.theory}
-            self.assertIn('function-extensionality', labels)
+    def test_save_keeps_a_confirmed_expect(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            saved = os.path.join(tmp, 'session.kurt')
+            shell(['load prop', 'bool A', 'expect "ProofError"', '    A', 'use A', f'save "{saved}"'])
+            with open(saved) as fh:
+                body = [line for line in fh.read().splitlines() if line and not line.startswith(';')]
+            self.assertEqual(body, ['load prop', 'bool A', 'expect "ProofError"', '    A', 'use A'])
+            load(saved)
+
+    def test_save_needs_closed_blocks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            saved = os.path.join(tmp, 'session.kurt')
+            errors = shell(['load prop', 'bool A, B', 'show A implies A', f'save "{saved}"',
+                            'proof', '    assume A', f'        save "{saved}"'])
+            self.assertIn('pending `show`', errors)
+            self.assertIn('close the open blocks', errors)
+            self.assertFalse(os.path.exists(saved))
+
 
 if __name__ == '__main__':
     unittest.main()
