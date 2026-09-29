@@ -2499,8 +2499,8 @@ def parse_tokenstream(ts: PeekableGenerator, kb: KnowledgeBase) -> tuple[Optiona
         try:
             type_check_expression(expr, kb)                       # (some) type checking
         except KurtException as e:
-            if keyword_token in ['parse']:
-                print(f'type check failed', file=sys.stderr)
+            if keyword_token is not None and keyword_token.value == 'parse':
+                print(f'type check failed: {e.msg}', file=sys.stderr)   # `parse` shows it anyway
             else:
                 print(f'parsed as: {expr_str(expr, kb)}', file=sys.stderr)
                 raise e      # reraise it
@@ -3639,7 +3639,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     new_symbols.remove(lc)    # `def` is how it gets declared
                 if mainstream:
                     reason = f'{line} defining `{lc}`'
-                    log(kb, f'def {expr_str(expr, kb)}', reason, kb.level-1)  # log the new constant
+                    log(kb, f'def {expr_str(f.expr, kb)}', reason, kb.level-1)  # log the new constant
 
     elif keyword == 'todo':
         check_strict(keyword, filename)
@@ -6864,18 +6864,19 @@ def main() -> None:
     # readline history
     if readline:
         readline_history_file = os.path.expanduser('~/.kurt_history')         # should work on all platforms
-        if os.path.exists(readline_history_file) and False:
+        if os.path.exists(readline_history_file):
             try:
-                print(readline_history_file)
                 readline.read_history_file(readline_history_file)                 # restore history
-            except PermissionError:
-                # the file exists but is not readable if it consists only of the header
-                # this case happens with the following lines in the shell:
-                #     rm ~/.kurt_history
-                #     kurt       # quit it immediately with Ctrl-D
-                #     kurt       # start it again, now the file exists but is not readable
+            except OSError:
+                # e.g. a file with only the header is not readable (`rm ~/.kurt_history`, then
+                # start `kurt` and quit it immediately with Ctrl-D, then start it again)
                 pass
-        atexit.register(readline.write_history_file, readline_history_file)   # register for automatic saving
+        def write_history() -> None:
+            try:
+                readline.write_history_file(readline_history_file)
+            except OSError:
+                pass            # no history then, but no traceback at exit
+        atexit.register(write_history)   # register for automatic saving
 
     # verbosity?
     kb.verbose = args.verbose
