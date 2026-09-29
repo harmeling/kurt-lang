@@ -42,7 +42,7 @@ session don't affect the exit code either.
 
 **Strict mode (`-s`/`--strict`), for grading:** the checked file (and any
 file it loads that isn't trusted) may not contain `use`, `todo` or `chain`,
-and every symbol must be declared before its use (§3.2) — everything has to be proven from the theories that come with Kurt, or
+and every symbol must be declared before its use (§3.2), and `calc` may not bind symbols to the calculator — everything has to be proven from the theories that come with Kurt, or
 from the ones found in a `-p DIR` directory (e.g. an exercise's axioms, as
 given by the teacher). Those are the *trusted* theory files; `use` inside a
 `sandbox` or `expect` stays allowed, since their content is discarded. It
@@ -963,17 +963,31 @@ the `expect` block itself.
     format sexpr | normal | original   ; how formulas are printed: (and A B), or A and B, ...
     verbose on | off              ; print extra detail about *why* a match succeeded
     hint on | off                  ; reserved for future use — currently a no-op
-    calc on | off       ; auto-simplify `+`/`-`/`*`/`/`/`^` on int/float literals before checking
+    calc on | off       ; compute with numbers before checking
+    calc SYMBOL OPERATION, ...   ; bind symbols to the calculator, e.g. `calc + add`
 
 Each, called with no argument, reports its current setting instead of
-changing it. `calc on` simplifies `+`/`-`/`*`/`/`/`^` on numeric literals
-(e.g. `1 + 1 = 2` becomes `2 = 2` before checking, once `load equality` and
-`infix "+" ...` make `+`/`=` available at all) — no symbolic simplification,
-and no explicit handling of floating-point precision (e.g. `0.1 + 0.2 = 0.3`
-compares the raw Python float result, with no tolerance; an exact integer
-division like `6 / 2` stays the integer `3`). With `calc on`, a comparison of
-two numeric literals (`=`, `≠`, `<`, `<=`, `>`, `>=`, e.g. `3 <= 4`) is also
-proven directly "by calc", and a claim follows "by calc" from a fact that
+changing it.
+
+**What `calc` computes** is said by the theories: they bind their symbols to
+Kurt's built-in calculator, whose operations are `add`, `subtract`, `negate`,
+`multiply`, `divide`, `power` and the comparisons `eq`, `ne`, `lt`, `le`, `gt`,
+`ge`. arith.kurt does
+
+    calc + add, - subtract, - negate, * multiply, / divide, ^ power
+    calc = eq, ≠ ne, < lt, <= le, > gt, >= ge
+
+and a symbol that isn't bound is never computed. A binding is like an axiom
+(`1 + 1 = 2`, `2 + 1 = 3`, ...), so `--strict` rejects it outside the trusted
+theories, and the symbols of a trusted theory can't be bound anew. Numbers
+are exact: integers, decimals (`0.1` is exactly one tenth, so `0.1 + 0.2 =
+0.3` holds), and fractions, which stay fractions (`1 / 3 + 1 / 3` is `2 / 3`).
+What has no exact value isn't computed: `1 / 0`, `0 ^ -1`, `2 ^ 0.5`.
+`0 + x` and `1 * x` are `x`, `0 * x` is `0`.
+
+`calc on` then computes what you type (e.g. `1 + 1 = 2` becomes `2 = 2`
+before checking) — no symbolic simplification. A comparison of two numbers
+(e.g. `3 <= 4`) is proven directly "by calc", and a claim follows "by calc" from a fact that
 computes to the same thing (e.g. `x = -25` from `x = (-5) * 5`). Results of
 substitutions (`sub`, as in `induction` or `equal-elim`) are computed too:
 substituting `k + 1` into `$x + 1` gives `k + 2`, not `k + 1 + 1`. While

@@ -10,3 +10,23 @@ expect "ProofError"
     x = 0
 6 / 3 = 2
 2 ^ 10 = 1024
+
+; numbers are exact: decimals, and fractions that stay fractions
+0.1 + 0.2 = 0.3
+1 / 3 + 1 / 3 = 2 / 3
+1 / 3 < 0.34
+0.5 ^ 2 = 0.25
+expect "ProofError"
+    2 ^ 0.5 = 1.414             ; no exact value, not computed
+
+; `0 * x` is `0`, and `1 * x` is `x`
+const P
+arity P 1
+use P x
+expect "ProofError"
+    P (0 * x)
+P (1 * x)
+
+; the symbols of arith.kurt can't be bound anew
+expect "EvalError"
+    calc + multiply

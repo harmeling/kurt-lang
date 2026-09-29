@@ -32,6 +32,10 @@ chain   = >= >
 alias   ≤ <=
 alias   ≥ >=
 
+; `calc on` computes these with numbers, exactly (see doc/kurt-doc.md, `calc`)
+calc    + add, - subtract, - negate, * multiply, / divide, ^ power
+calc    = eq, ≠ ne, < lt, <= le, > gt, >= ge
+
 ;; rules
 use $a = $b  ⇒  $a + $c = $b + $c   "add-eq"
 use $a = $b  ⇒  $a - $c = $b - $c   "sub-eq"

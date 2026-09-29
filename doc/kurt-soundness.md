@@ -1271,6 +1271,18 @@ each other. Now the free variables of an assumption are fixed in its block (`fix
 proposition, with a warning saying so); it now uses the excluded middle, as it should.
 Regression: `proofs/soundness/assumption-variables-are-fixed.kurt`.
 
+### 8.16 `calc`: bound symbols, exact numbers, and a bug with `0 * x`
+
+`calc` used to compute `+ - * / ^` and compare with `= ≠ < <= > >=` by their names, whatever
+they meant in the file, with Python floats (`0.1 + 0.2 = 0.3` failed). And for `*` with a
+numeric part `0` it dropped the `0`, as for `+`: `0 * x` became `x`, so `P (0 * a)` followed from
+`P a`. It also crashed on `1 / 0`, and put complex numbers into formulas (`(0 - 8) ^ 0.5`). Now
+a theory binds its symbols to the built-in calculator (arith.kurt: `calc + add, ...`), which
+computes exactly (`int`, `Fraction`), and doesn't compute what has no exact value. The calculator
+is part of what the kernel trusts; a binding is like an axiom, so `--strict` rejects it outside
+the trusted theories, and the symbols of a trusted theory can't be bound anew.
+Regressions: `proofs/debug/calc-edge-cases.kurt`, `proofs/debug/calc-bindings.kurt`.
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,

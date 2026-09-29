@@ -6,7 +6,7 @@ import unittest
 import kurt.kurt as kurt   # the module itself, since `strict_mode` is a module-level setting
 
 
-# `--strict` (for grading): `use`, `todo` and `chain` are only allowed in trusted theory files,
+# `--strict` (for grading): `use`, `todo`, `chain` and `calc` bindings are only allowed in trusted theory files,
 # i.e. the theories that come with Kurt, or the ones found via `-p`
 class TestStrictMode(unittest.TestCase):
     def setUp(self):
@@ -24,7 +24,8 @@ class TestStrictMode(unittest.TestCase):
         kurt.load_file(path, copy.deepcopy(kurt.initial_kb), mainstream=False)
 
     def test_rejects_unproven_statements(self):
-        for source in ['bool A\nuse A\n', 'bool A\ntodo A\n', 'infix lt 20 20\nbool lt 0\nchain lt\n']:
+        for source in ['bool A\nuse A\n', 'bool A\ntodo A\n', 'infix lt 20 20\nbool lt 0\nchain lt\n',
+                       'infix plus 60 60\ncalc plus add\n']:      # a `calc` binding is like an axiom
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
                 with self.assertRaises(kurt.KurtException):
                     self.check(source, tmp)

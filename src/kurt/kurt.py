@@ -46,6 +46,7 @@ import time        # the dates of files, for `--deps`
 from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional, get_args
 from pathlib import Path
+from fractions import Fraction   # exact numbers for `calc`: `0.1` is 1/10
 from importlib import resources
 
 try:
@@ -114,13 +115,16 @@ IFF_SYMBOL    = 'iff'        # equivalence
 SYM_KEEP_ORDER = [EQUAL_SYMBOL, IFF_SYMBOL]
 
 # comparisons of two literal numbers that `calc on` evaluates to `true`/`false`
-NUMERIC_COMPARISONS = {
-    '=':  lambda a, b: a == b,
-    '≠':  lambda a, b: a != b,
-    '<':  lambda a, b: a < b,
-    '<=': lambda a, b: a <= b,
-    '>':  lambda a, b: a > b,
-    '>=': lambda a, b: a >= b,
+# the built-in calculator of `calc`: a theory binds its symbols to these, e.g. arith.kurt's
+# `calc + add, * multiply, ...` -- only bound symbols are computed (see `calculate`)
+CALCULATOR_OPERATIONS = ('add', 'subtract', 'negate', 'multiply', 'divide', 'power')
+CALCULATOR_RELATIONS: dict[str, Callable[[Fraction, Fraction], bool]] = {
+    'eq': lambda a, b: a == b,
+    'ne': lambda a, b: a != b,
+    'lt': lambda a, b: a < b,
+    'le': lambda a, b: a <= b,
+    'gt': lambda a, b: a > b,
+    'ge': lambda a, b: a >= b,
 }
 
 # `_EMBEDDED_THEORIES` is populated (from `theories/*.kurt`) only in the generated single-file
@@ -386,7 +390,7 @@ class KurtException(Exception):
 
 # types
 Label:  TypeAlias = Literal['SYMBOL', 'INT', 'FLOAT', 'STRING', 'END', 'TODO']
-Value:  TypeAlias = str | int | float
+Value:  TypeAlias = str | int | Fraction      # a number is an `int`, or an exact `Fraction` (a decimal like `0.1`)
 Format: TypeAlias = Literal['sexpr', 'normal', 'original']
 format_options: list[Format] = list(get_args(Format))  # sexpr: (+ 1 (* 3 4)), normal: (1 + (3 * 4))
 
@@ -738,6 +742,103 @@ def is_numeric(e: Expr) -> bool:
         case _:
             return False
 
+def number_str(v: Value) -> str:
+    # an exact decimal, e.g. `0.25` for 1/4 (the numbers kept as a `Fraction` token are decimals)
+    if not isinstance(v, Fraction):
+        return str(v)
+    if v.denominator == 1:
+        return str(v.numerator)
+    digits = 0
+    while (v * 10 ** digits).denominator != 1:
+        digits += 1
+    scaled = abs(v.numerator * 10 ** digits // v.denominator)
+    text = str(scaled).rjust(digits + 1, '0')
+    return ('-' if v < 0 else '') + text[:-digits] + '.' + text[-digits:]
+
+def is_decimal(v: Fraction) -> bool:
+    # whether `v` has a finite decimal expansion (its denominator has only the factors 2 and 5)
+    d = v.denominator
+    for p in (2, 5):
+        while d % p == 0:
+            d //= p
+    return d == 1
+
+def number_expr(v: int | Fraction, kb: 'KnowledgeBase') -> Optional[Expr]:
+    # a number as an expression: an integer, a decimal, or a fraction `1 / 3` with the symbol
+    # bound to `divide` (`None` if there is none)
+    if isinstance(v, int) or v.denominator == 1:
+        return Token(label='INT', value=int(v))
+    if is_decimal(v):
+        return Token(label='FLOAT', value=v)
+    div = kb.calc_symbol('divide')
+    if div is None:
+        return None
+    return [Token(label='SYMBOL', value=div), Token(label='INT', value=v.numerator), Token(label='INT', value=v.denominator)]
+
+def number_value(e: Expr, kb: 'KnowledgeBase') -> Optional[int | Fraction]:
+    # the value of a number: an integer, a decimal, or a fraction `1 / 3` (see `number_expr`)
+    if is_numeric(e):
+        assert isinstance(e, Token) and not isinstance(e.value, str)
+        return e.value
+    match e:
+        case [Token(label='SYMBOL', value=op), Token(label='INT', value=a), Token(label='INT', value=b)] \
+                if isinstance(op, str) and 'divide' in kb.get_calc_ops(op) and isinstance(a, int) and isinstance(b, int) and b != 0:
+            return Fraction(a, b)
+    return None
+
+def calculate(e: Expr, kb: 'KnowledgeBase') -> Expr:
+    # compute the operations on numbers whose symbols are bound to the calculator (`calc`), exactly
+    if isinstance(e, Token):
+        return e
+    assert isinstance(e, list) and len(e) > 0, f'BUG: unexpected expression `{e}`'
+    e = [calculate(sub_e, kb) for sub_e in e]         # the parts first
+    match e:
+        case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and args:
+            ops = kb.get_calc_ops(op)
+            if not ops:
+                return e
+            values = [number_value(a, kb) for a in args]
+            numbers = [v for v in values if v is not None]
+            others = [a for a, v in zip(args, values) if v is None]
+            if ('add' in ops or 'multiply' in ops) and len(args) >= 2 or (len(args) >= 1 and kb.is_flat(op) and ('add' in ops or 'multiply' in ops)):
+                if not numbers:
+                    return e
+                if 'add' in ops:
+                    total: Fraction = sum((Fraction(n) for n in numbers), Fraction(0))
+                    if total == 0 and others:           # `0 + x` is `x`
+                        return others[0] if len(others) == 1 else [e[0], *others]
+                else:
+                    total = Fraction(1)
+                    for n in numbers:
+                        total *= n
+                    if total == 0:                      # `0 * x` is `0` ("mul-zero")
+                        return Token(label='INT', value=0)
+                    if total == 1 and others:           # `1 * x` is `x`
+                        return others[0] if len(others) == 1 else [e[0], *others]
+                if len(numbers) == 1 and others:
+                    return e                            # nothing to compute
+                number = number_expr(total, kb)
+                if number is None:
+                    return e
+                return number if not others else [e[0], number, *others]
+            if len(args) == 1 and 'negate' in ops and numbers:
+                return number_expr(-Fraction(numbers[0]), kb) or e
+            if len(args) == 2 and len(numbers) == 2:
+                a, b = Fraction(numbers[0]), Fraction(numbers[1])
+                if 'subtract' in ops:
+                    return number_expr(a - b, kb) or e
+                if 'divide' in ops:
+                    if b == 0:
+                        return e                        # `1 / 0` is not computed
+                    return number_expr(a / b, kb) or e
+                if 'power' in ops:
+                    # only integer exponents, not too big: `2 ^ 0.5` has no exact value, and
+                    # `0 ^ -1` none at all
+                    if b.denominator != 1 or abs(b) > 10000 or (a == 0 and b < 0):
+                        return e
+                    return number_expr(a ** int(b), kb) or e
+    return e
+
 # hierarchical knowledge base
 # the level is increased inside blocks and files
 # dropping a level drops also all local definitions
@@ -803,6 +904,8 @@ class KnowledgeBase:
         self.format:  Format = format_options[1] if parent is None else parent.format  # how formulas look in the shell
         self.verbose: bool   = False if parent is None else parent.verbose             # show extra information or not
         self.calc:    bool   = False if parent is None else parent.calc                # whether to perform calculations inside expressions
+        self.calc_ops: dict[str, list[str]] = {}                                      # symbol -> the calculator's operations it is bound to (`calc + add`)
+        self.all_calc_ops: dict[str, list[str]] = {} if parent is None else parent.all_calc_ops   # ... of this and the levels above (never changed in place)
         self.hint:    bool   = False if parent is None else parent.hint                # whether to show hints for next input
 
     def check_all_shown_proved(self):
@@ -812,86 +915,26 @@ class KnowledgeBase:
                 s += f'    {f.formula_str(self):<{comment_indent-4}}; {os.path.basename(f.filename)}:{f.line}'
             raise KurtException(f'{s}\n\nEvalError: not all promised formulas were proven.')
 
+    def get_calc_ops(self, symbol: str) -> list[str]:
+        # the calculator's operations `symbol` is bound to (`calc`), in this level or above
+        return self.all_calc_ops.get(symbol, [])
+
+    def calc_symbol(self, operation: str) -> Optional[str]:
+        # the symbol bound to `operation`, e.g. `/` for `divide`
+        for symbol, ops in self.all_calc_ops.items():
+            if operation in ops:
+                return symbol
+        return None
+
+    def bind_calc(self, symbol: str, operation: str) -> None:
+        ops = self.calc_ops.setdefault(symbol, [])
+        if operation not in ops:
+            ops.append(operation)
+        self.all_calc_ops = {**self.all_calc_ops, symbol: list(ops)}
+
     def calculate(self, e: Expr) -> Expr:
         """If e is a calculation expression, perform the calculation and return the simplified expression."""
-        if isinstance(e, Token):
-            return e
-        assert isinstance(e, list) and len(e) > 0, f'BUG: unexpected expression `{e}`'
-        # call recursively on all sub-expressions first
-        e = [self.calculate(sub_e) for sub_e in e]
-        # do the calculation
-        match e:
-            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) >= 1 and op in ['+', '*']:
-                remaining_args = []
-                s = None
-                for arg in args:
-                    if is_numeric(arg):
-                        assert isinstance(arg, Token) and (arg.label == 'INT' or arg.label == 'FLOAT') and isinstance(arg.value, (int, float))
-                        if op == '+':
-                            s = arg.value if s is None else s + arg.value
-                        else:  # op == '*'
-                            s = arg.value if s is None else s * arg.value
-                    else:
-                        remaining_args.append(arg)
-                # prepare the result
-                if s is None:
-                    return e   # no numeric argument found, return original expression
-                if isinstance(s, int):
-                    s_label = 'INT'
-                elif isinstance(s, float):
-                    s_label = 'FLOAT'
-                else:
-                    assert False, f'BUG: unexpected numeric type {type(s)}'
-                s_token = Token(label=s_label, value=s)
-                if len(remaining_args) == 0:
-                    return s_token
-                elif (s == 0  or  s == 0.0):
-                    if len(remaining_args) == 1:
-                        return remaining_args[0]
-                    else:
-                        return [Token(label='SYMBOL', value=op), *remaining_args]
-                else:
-                    return [Token(label='SYMBOL', value=op), s_token, *remaining_args]
-            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) == 1 and op in ['-']:
-                if is_numeric(args[0]):
-                    arg0 = args[0]
-                    assert isinstance(arg0, Token) and (arg0.label == 'INT' or arg0.label == 'FLOAT') and isinstance(arg0.value, (int, float))
-                    s = -arg0.value
-                    return Token(label=arg0.label, value=s)
-                else:
-                    return e
-            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and len(args) == 2 and op in ['-', '/', '^']:
-                if is_numeric(args[0]) and is_numeric(args[1]):
-                    arg0 = args[0]
-                    arg1 = args[1]
-                    assert isinstance(arg0, Token) and (arg0.label == 'INT' or arg0.label == 'FLOAT') and isinstance(arg0.value, (int, float))
-                    assert isinstance(arg1, Token) and (arg1.label == 'INT' or arg1.label == 'FLOAT') and isinstance(arg1.value, (int, float))
-                    if op == '-':
-                        s = arg0.value - arg1.value
-                    elif op == '/':
-                        if arg1.value == 0:
-                            return e                        # `1 / 0` is not computed
-                        if isinstance(arg0.value, int) and isinstance(arg1.value, int) and arg0.value % arg1.value == 0:
-                            s = arg0.value // arg1.value    # stay an integer, e.g. `6 / 2` is `3`, not `3.0`
-                        else:
-                            s = arg0.value / arg1.value
-                    elif op == '^':
-                        # not computed: `0 ^ -1`, a root of a negative number (complex), and results
-                        # too big to compute quickly
-                        base, exponent = arg0.value, arg1.value
-                        if (base == 0 and exponent < 0) or (base < 0 and not isinstance(exponent, int)) or abs(exponent) > 10000:
-                            return e
-                        try:
-                            s = base ** exponent
-                        except OverflowError:
-                            return e
-                        if isinstance(s, complex):
-                            return e
-                    return Token(label='INT' if isinstance(s, int) else 'FLOAT', value=s)
-                else:
-                    return e
-            case _:
-                return e
+        return calculate(e, self)
 
     def push_level(self, mode_str: str, mode_expr_list: list[Expr]) -> KnowledgeBase:
         return KnowledgeBase(parent=self, mode=(mode_str, mode_expr_list), tmp=self.tmp)
@@ -950,7 +993,7 @@ class KnowledgeBase:
         self.theory = exported
         symbol_keyed_attrs = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop',
                                'flat', 'sym', 'alias', 'used', 'lbp', 'rbp', 'nud',
-                               'led', 'const', 'bool')
+                               'led', 'const', 'bool', 'calc_ops')
         for attr in symbol_keyed_attrs:
             value = getattr(self, attr)
             if isinstance(value, dict):
@@ -966,6 +1009,7 @@ class KnowledgeBase:
         exclude |= {"tmp"}   # temporary flags are local to a file
         exclude |= {"is_load_boundary"}   # a per-level marker, never something to propagate upward
         exclude |= {"pick_source", "pick_fact", "fixed_vars", "all_fixed_vars"}   # per-level, for `pick` and `assume` blocks
+        exclude |= {"all_calc_ops"}              # recomputed below
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
             if attr in exclude:
@@ -980,6 +1024,9 @@ class KnowledgeBase:
                     assert False, f'BUG: cannot merge attribute {attr}, got type {type(parent_attr)}'
             else:
                 setattr(self.parent, attr, child_attr)
+        # the exported bindings of `calc` are the parent's now too
+        if self.calc_ops:
+            self.parent.all_calc_ops = {**self.parent.all_calc_ops, **{sym: list(ops) for sym, ops in self.calc_ops.items()}}
 
         # return the parent
         return self.pop_level()
@@ -1076,7 +1123,7 @@ class KnowledgeBase:
         elif label == 'INT':
             return f'; `{str(value)}` is an integer'
         elif label == 'FLOAT':
-            return f'; `{str(value)}` is a float'
+            return f'; `{number_str(value)}` is a decimal number'
         elif label == 'STRING':
             return f'; "{value}" is a string'
         else:
@@ -1803,7 +1850,7 @@ def expr_sexpr(expr: Expr, kb: KnowledgeBase) -> str:                      # cre
             return f'"{v}"'       # quotation marks
         case Token(value=v, origin=origin):
             if origin is None:
-                return str(v)
+                return number_str(v) if isinstance(v, Fraction) else str(v)
             else:
                 return str(origin)
         case [Token(label='SYMBOL', value=a), *tail] if isinstance(a, str) and kb.is_bracket_placeholder(a):
@@ -2025,7 +2072,7 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
         elif label == 'INT':
             yield Token(label, int(value), column)
         elif label == 'FLOAT':
-            yield Token(label, float(value), column)
+            yield Token(label, Fraction(value), column)      # exact: `0.1` is 1/10
         elif label == 'STRING':
             assert isinstance(value, str)
             yield Token(label, value[1:-1], column)
@@ -2959,7 +3006,29 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
     elif keyword == 'verbose':
         eval_global_toggle(keyword, args, kb)
     elif keyword == 'calc':
-        eval_global_toggle(keyword, args, kb)
+        match args:
+            case [] | [[Token(label='SYMBOL', value='on' | 'off')]]:
+                eval_global_toggle(keyword, args, kb)
+            case _:
+                # `calc + add, - subtract, ...`: bind symbols to the calculator -- like axioms (`1 + 1 = 2`,
+                # ...), so not with `--strict` outside the trusted theories, and not for the
+                # symbols of a trusted theory
+                check_strict(keyword, filename)
+                bindings: list[tuple[str, str]] = []
+                for arg in args:
+                    match arg:
+                        case [Token(label='SYMBOL', value=symbol), Token(label='SYMBOL', value=operation)] if isinstance(symbol, str) and isinstance(operation, str):
+                            if operation not in CALCULATOR_OPERATIONS and operation not in CALCULATOR_RELATIONS:
+                                raise KurtException(f'EvalError: `{operation}` is not an operation of the calculator, one of {", ".join(CALCULATOR_OPERATIONS + tuple(CALCULATOR_RELATIONS))}', keyword_token.column)
+                            bindings.append((symbol, operation))
+                        case _:
+                            msg = create_usage(keyword, [[], ['on'], ['off'], ['SYMBOL', 'OPERATION']])
+                            raise KurtException(f'ParseError: wrong arguments, possible is:\n{msg}', keyword_token.column)
+                check_not_frozen([symbol for symbol, _ in bindings], keyword, filename, kb)
+                for symbol, operation in bindings:
+                    kb.bind_calc(symbol, operation)
+                    if mainstream:
+                        log(kb, f'calc {symbol} {operation}', f'computed by the calculator', kb.level)
     elif keyword == 'load':
         if len(args) == 0:
             log(kb, kb.loaded_files_str().strip())
@@ -4531,31 +4600,31 @@ def is_bool_var_token(e:Expr, kb) -> bool:
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
 # `two_sided` means that variables in the exprs can also be assigned
-CALC_OPS = ('+', '-', '*', '/', '^')
-
-def has_computation(e: Expr) -> bool:
-    # whether `calc` has something to compute in `e`: an arithmetic operation with two numbers
-    # (or a `-` of a number) -- a quick test before computing
+def has_computation(e: Expr, kb: 'KnowledgeBase') -> bool:
+    # whether `calc` has something to compute in `e`: an operation of the calculator with two
+    # numbers (or with one, like `- 3`) -- a quick test before computing
     if isinstance(e, Token):
         return False
-    if e and isinstance(e[0], Token) and e[0].value in CALC_OPS:
-        numbers = sum(1 for a in e[1:] if is_numeric(a))
-        if numbers >= 2 or (numbers == 1 and len(e) == 2):
-            return True
-    return any(has_computation(c) for c in e[1:])
+    ops = kb.get_calc_ops(e[0].value) if e and isinstance(e[0], Token) and isinstance(e[0].value, str) else []
+    if ops:
+        values = [v for v in (number_value(a, kb) for a in e[1:]) if v is not None]
+        if len(values) >= 2 or (len(values) == 1 and len(e) == 2):
+            return True         # (not `0 + x` or `1 * x`: rules like "add-identity" are full of those)
+    return any(has_computation(c, kb) for c in e[1:])
 
 def computes_to(pattern: Expr, expr: Expr, s: State, kb: KnowledgeBase) -> bool:
     # with `calc on`: whether `pattern`, an arithmetic expression whose variables all have values
     # in `s`, computes to `expr` (a step the kernel checks again, see `k_instance`)
-    if not (kb.calc and isinstance(pattern, list) and pattern and isinstance(pattern[0], Token) and pattern[0].value in CALC_OPS):
+    if not (kb.calc and isinstance(pattern, list) and pattern and isinstance(pattern[0], Token) and isinstance(pattern[0].value, str)
+            and any(op in CALCULATOR_OPERATIONS for op in kb.get_calc_ops(pattern[0].value))):   # operations, not comparisons
         return False
     if is_var_token(expr, kb):
         return False        # a variable is matched by binding it, not by computing
     instance = apply_subst(pattern, s, kb)
-    if not has_computation(instance) or contains_unbound_var(instance, s, kb):
+    if not has_computation(instance, kb) or contains_unbound_var(instance, s, kb):
         return False
     computed = calculate_normalized(instance, kb)
-    return not equal_expr(computed, instance, kb) and equal_expr(computed, calculate_normalized(expr, kb), kb)
+    return not equal_expr(computed, instance, kb) and equal_expr(computed, expr, kb)   # (`expr` is computed already, as typed or stored)
 
 def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State, kb: KnowledgeBase) -> Iterator[State]:
 
@@ -5064,6 +5133,8 @@ def expr_to_json(e: Expr, names: dict[str, str]) -> object:
         if is_internal_name(v):
             assert isinstance(v, str)
             v = names.setdefault(v, f'{v[:2]}c{len(names)}')
+        if isinstance(v, Fraction):
+            return [e.label, {'fraction': str(v)}]
         return [e.label, v]
     return {'e': [expr_to_json(c, names) for c in e]}
 
@@ -5071,6 +5142,8 @@ def expr_from_json(j: object) -> Expr:
     if isinstance(j, dict):
         return [expr_from_json(c) for c in j['e']]
     assert isinstance(j, list) and len(j) == 2
+    if isinstance(j[1], dict):
+        return Token(j[0], Fraction(j[1]['fraction']))
     return Token(j[0], j[1])
 
 def formula_to_json(f: Formula, names: dict[str, str]) -> dict:
@@ -5539,7 +5612,7 @@ def kernel_verify(cert: Certificate, kb: KnowledgeBase) -> Optional[str]:
             case 'top':
                 return None if isinstance(cert.goal, Token) and cert.goal.value == TRUE_SYMBOL else 'not `true`'
             case 'calc':
-                return None if numeric_comparison_holds(cert.goal) else 'the comparison does not hold'
+                return None if numeric_comparison_holds(cert.goal, kb) else 'the comparison does not hold'
             case 'calc-fact':
                 assert cert.rule is not None
                 if not k_known(cert.rule, kb):
@@ -5846,13 +5919,16 @@ def normalize_expr(expr: Expr, kb: KnowledgeBase) -> Expr:
         return calculate_normalized(expr, kb)
     return symmetrize_all(flatten_all(expr, kb), kb)
 
-def numeric_comparison_holds(expr: Expr) -> bool:
-    # e.g. `3 <= 4` holds, while `2 = 3` and `x < 4` do not
+def numeric_comparison_holds(expr: Expr, kb: 'KnowledgeBase') -> bool:
+    # e.g. `3 <= 4` holds, while `2 = 3` and `x < 4` do not -- for a relation bound to the calculator
     match expr:
-        case [Token(label='SYMBOL', value=op), Token() as a, Token() as b] if op in NUMERIC_COMPARISONS:
-            if is_numeric(a) and is_numeric(b):
-                assert isinstance(a.value, (int, float)) and isinstance(b.value, (int, float))
-                return NUMERIC_COMPARISONS[op](a.value, b.value)
+        case [Token(label='SYMBOL', value=op), a, b] if isinstance(op, str):
+            va, vb = number_value(a, kb), number_value(b, kb)
+            if va is None or vb is None:
+                return False
+            for relation in kb.get_calc_ops(op):
+                if relation in CALCULATOR_RELATIONS:
+                    return CALCULATOR_RELATIONS[relation](Fraction(va), Fraction(vb))
     return False
 
 def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: KnowledgeBase) -> tuple[list[Certificate], State]:
@@ -5875,7 +5951,7 @@ def derive_expr(expr: Expr, filename: str, mainstream: bool, s: State, kb: Knowl
     # "calc": with `calc on`, a comparison of two literal numbers is checked by computing it,
     # and a fact that computes to `expr` (e.g. `x = (-5) * 5` for `x = -25`) gives `expr`
     if kb.calc:
-        if numeric_comparison_holds(expr):
+        if numeric_comparison_holds(expr, kb):
             return [record_certificate(Certificate('calc', expr, frozenset()), kb)], s
         calc_expr = calculate_normalized(expr, kb)
         for f in kb.all_theory():
