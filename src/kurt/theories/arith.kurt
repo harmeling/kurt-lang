@@ -16,8 +16,8 @@ infix   +  60 60           ; binary plus
 infix   -  60 60           ; binary minus
 infix   *  70 70           ; binary times
 infix   /  70 70           ; binary divide
-infix   ^  75 75           ; power
-prefix  -     80           ; unary minus
+infix   ^  75 74           ; power, right associative: `2 ^ 3 ^ 2` is `2 ^ (3 ^ 2)`
+prefix  -     72           ; unary minus, weaker than `^`: `- 2 ^ 2` is `- (2 ^ 2)`
 postfix !  82              ; factorial
 infix   <  20 20           ; less than
 infix   >  20 20           ; greater than
@@ -64,8 +64,10 @@ use $a - 0 = $a          "sub-identity"
 ; guarded by `$a ≠ 0` below instead of being a blanket axiom.
 use $a ^ 1 = $a                          "pow-identity"
 use $a ≠ 0  ⇒  $a ^ 0 = 1                "pow-zero"
-use $a ^ $b * $a ^ $c = $a ^ ($b + $c)   "pow-add"
-use ($a ^ $b) ^ $c = $a ^ ($b * $c)      "pow-mul"
+; the other laws only for a positive base: `((-1) ^ 2) ^ (1 / 2)` is `1`, but `(-1) ^ 1` is `-1`,
+; and `0 ^ 1 * 0 ^ (-1)` would be `0 ^ 0`
+use $a > 0  ⇒  $a ^ $b * $a ^ $c = $a ^ ($b + $c)   "pow-add"
+use $a > 0  ⇒  ($a ^ $b) ^ $c = $a ^ ($b * $c)      "pow-mul"
 
 ;; order rules: <
 use $a < $b  ⇒  $a + $c < $b + $c   "lt-add"

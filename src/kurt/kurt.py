@@ -117,6 +117,10 @@ SYM_KEEP_ORDER = [EQUAL_SYMBOL, IFF_SYMBOL]
 # comparisons of two literal numbers that `calc on` evaluates to `true`/`false`
 # the built-in calculator of `calc`: a theory binds its symbols to these, e.g. arith.kurt's
 # `calc + add, * multiply, ...` -- only bound symbols are computed (see `calculate`)
+# the largest numbers `calc` computes and the lexer reads (in digits): Python turns no bigger integer
+# into a string, and powers of such numbers would take forever
+MAX_NUMBER_DIGITS = 1000
+MAX_NUMBER_BITS = int(MAX_NUMBER_DIGITS * 3.32)
 CALCULATOR_OPERATIONS = ('add', 'subtract', 'negate', 'multiply', 'divide', 'power')
 CALCULATOR_RELATIONS: dict[str, Callable[[Fraction, Fraction], bool]] = {
     'eq': lambda a, b: a == b,
@@ -766,7 +770,10 @@ def is_decimal(v: Fraction) -> bool:
 
 def number_expr(v: int | Fraction, kb: 'KnowledgeBase') -> Optional[Expr]:
     # a number as an expression: an integer, a decimal, or a fraction `1 / 3` with the symbol
-    # bound to `divide` (`None` if there is none)
+    # bound to `divide` (`None` if there is none, or if the number is too big, see `MAX_NUMBER_BITS`)
+    v = Fraction(v)
+    if v.numerator.bit_length() > MAX_NUMBER_BITS or v.denominator.bit_length() > MAX_NUMBER_BITS:
+        return None
     if isinstance(v, int) or v.denominator == 1:
         return Token(label='INT', value=int(v))
     if is_decimal(v):
@@ -834,9 +841,12 @@ def calculate(e: Expr, kb: 'KnowledgeBase') -> Expr:
                     return number_expr(a / b, kb) or e
                 if 'power' in ops:
                     # only integer exponents, not too big: `2 ^ 0.5` has no exact value, and
-                    # `0 ^ -1` none at all
-                    if b.denominator != 1 or abs(b) > 10000 or (a == 0 and b < 0):
+                    # `0 ^ -1` and `0 ^ 0` none at all (arith.kurt leaves `0 ^ 0` open)
+                    if b.denominator != 1 or (a == 0 and b <= 0):
                         return e
+                    size = max(a.numerator.bit_length(), a.denominator.bit_length())
+                    if size > 1 and (size - 1) * abs(b) > MAX_NUMBER_BITS:
+                        return e                        # the result would be too big
                     return number_expr(a ** int(b), kb) or e
     return e
 
@@ -2076,10 +2086,14 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
                 origin = value             # store for string generation
                 value  = alias
             yield Token(label, value, column, origin)
-        elif label == 'INT':
-            yield Token(label, int(value), column)
-        elif label == 'FLOAT':
-            yield Token(label, Fraction(value), column)      # exact: `0.1` is 1/10
+        elif label in ('INT', 'FLOAT'):
+            assert isinstance(value, str)
+            if len(value) > MAX_NUMBER_DIGITS:
+                raise KurtException(f'SyntaxError: a number with more than {MAX_NUMBER_DIGITS} digits', column)
+            if label == 'INT':
+                yield Token(label, int(value), column)
+            else:
+                yield Token(label, Fraction(value), column)  # exact: `0.1` is 1/10
         elif label == 'STRING':
             assert isinstance(value, str)
             yield Token(label, value[1:-1], column)

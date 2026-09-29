@@ -13,6 +13,7 @@ load arith
 const x
 use 2^x + 8^x = 130            "given"
 use 8 = 2^3                    "eight"   ; a numeric fact, stated since `calc on` would store it as `8 = 8`
+use 2 > 0                      "two-pos" ; for "pow-mul", which needs a positive base
 
 ; substitute y = 2^x
 2^x + (2^3)^x = 130

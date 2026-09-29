@@ -222,12 +222,12 @@ means throughout `CLAUDE.md`.
 
 Each accepts a comma-separated list to declare several operators in one
 line (e.g. `infix "+" 20 20, "-" 20 20`). Binding powers control precedence
-and associativity: for `infix`, `lbp < rbp` makes the operator *right*-
-associative (as `implies` is: `infix implies 13 12` — note `13 > 12`, i.e.
-*left*-binding-power greater, giving right-associativity: `A implies B
-implies C` parses as `A implies (B implies C)`); `lbp == rbp` (as with `+`
-above) makes repeated uses ambiguous unless the operator is also declared
-`flat` (§4.5). Declaring the same symbol both `infix` and `prefix` is
+and associativity: for `infix`, `lbp > rbp` makes the operator *right*-
+associative (as `implies` is: `infix implies 13 12`, so `A implies B
+implies C` parses as `A implies (B implies C)`; and arith.kurt's `infix ^
+75 74`, so `2 ^ 3 ^ 2` is `2 ^ 9`); `lbp == rbp` (as with `+` above) makes
+it left-associative (`a - b - c` is `(a - b) - c`), and a `flat` operator
+(§4.5) collects all its arguments anyway. Declaring the same symbol both `infix` and `prefix` is
 allowed (useful for something like unary/binary `-`); declaring it as more
 than one of `infix`/`prefix`/`postfix`/a bracket otherwise is an error.
 

@@ -1320,6 +1320,13 @@ packaged theories. What they found, and what was fixed (each with its regression
   the kernel gives values only to variables and reads only an `iff` in one direction, and the
   replay aligns only canonical names and resolves `direction` only on an `iff`.
   (`tests/test_kurtc.py`, `TestForgedCertificates`)
+- Powers: `calc` computed `0 ^ 0` to `1` (arith.kurt leaves it open), and "pow-add"/"pow-mul"
+  held for every base (`((-1) ^ 2) ^ (1 / 2) = (-1) ^ 1` gave `1 = -1`); now they need `$a > 0`
+  and `0 ^ 0` stays as it is. Big numbers crashed Kurt (Python prints no integer with more than
+  4300 digits) or hung it (`(3 ^ 10000) ^ 10000`): `calc` computes no result with more than 1000
+  digits, and a longer literal is a `SyntaxError`. Not a soundness bug, but a misreading: `^` was
+  left-associative and weaker than the prefix `-` (`- 2 ^ 2` was `4`); now `infix ^ 75 74` and
+  `prefix - 72`. (`powers-and-big-numbers.kurt`)
 
 ## 9. The kernel: every step is checked again
 
