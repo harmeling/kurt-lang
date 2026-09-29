@@ -1002,6 +1002,11 @@ class KnowledgeBase:
         if leaked:
             raise KurtException(f'EvalError: symbol(s) {sorted(leaked)} are defined `local` but required by an exported fact -- export their `def` too, or keep them out of exported facts')
 
+        # a loaded constant can't be a variable of the loading file (`var y`, then `load` a file with `const y`)
+        clash = sorted(sym for sym in exported_symbols if sym in self.const and self.parent is not None and self.parent.is_var(sym) and sym[0] not in '$%')
+        if clash:
+            raise KurtException(f'EvalError: {", ".join(f"`{c}`" for c in clash)} is a constant of the loaded file, but a variable here -- load the file before `var`, or rename the variable')
+
         self.theory = exported
         symbol_keyed_attrs = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop',
                                'flat', 'sym', 'alias', 'used', 'lbp', 'rbp', 'nud',
@@ -2360,6 +2365,10 @@ def process_arity(expr: Expr, kb: KnowledgeBase) -> Expr:
     match expr:
         case Token():
             return expr
+        case [Token(label='SYMBOL', value=v), Token(label='SYMBOL', value=head) as head_token, *_] if v==SPACE_SYMBOL \
+                and isinstance(head, str) and kb.is_operator(head) and not kb.is_var(head):
+            # `(implies)` is the operator as a term (e.g. an argument of `group`), not a function
+            raise KurtException(f'ParseError: the operator `({head})` in parentheses is a term, it can not be applied to arguments -- write it as an operator, like `A {head} B`', head_token.column)
         case [Token(label='SYMBOL', value=v), *tail] if v==SPACE_SYMBOL:
             expr, tail = group_by_arity(tail, kb)
             # `f()` for arity-0 `f` means exactly `f` -- drop a leading empty-parens marker
@@ -2378,6 +2387,9 @@ def remove_round_brackets(expr: Expr, kb: KnowledgeBase) -> Expr:
     match expr:
         case Token():
             return expr
+        case [Token(label='SYMBOL', value='($$$)') as t]:
+            # (`f()` for an arity-0 `f` is already `f`, see `process_arity`)
+            raise KurtException(f'ParseError: empty parentheses `()` stand for nothing here', t.column)
         case [Token(label='SYMBOL', value='($$$)'), sub_expr]:
             return remove_round_brackets(sub_expr, kb)
         case [*list_expr]:
@@ -3699,6 +3711,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         msg = 'EvalError: `pick` takes a new constant, keyword `with` and a formula , e.g. `pick x with F(x)`'
         if len(args) == 0:
             raise KurtException(msg)
+        if len(args) > 1:
+            # each `pick` opens a block of its own, but the next line can only indent once
+            raise KurtException('EvalError: one `pick` per line -- write the next `pick` inside the block of the first')
         for expr in args:
             # unlike `let`/`assume`/`case`, `eval_pick` pushes its own level *internally*,
             # only after checking that a matching existential exists -- so it can raise
@@ -3750,6 +3765,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if mainstream:
             reason = f'{line} open local scope with new constant `{new_const}`'
             log(kb, f'{keyword} {new_const} with {expr_str(fact, kb)}', reason, kb.level-1)  # log the new constants
+    elif keyword == LOCAL_SYMBOL:
+        raise KurtException(f'SyntaxError: `{LOCAL_SYMBOL}` marks a label and comes after the formula, e.g. `use A implies A {LOCAL_SYMBOL} "a"`')
     else:
         assert False, f'BUG: unknown keyword, got `{keyword}`'
 
@@ -6181,10 +6198,34 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     outer = current_line[0]
     current_line[0] = key
     certificates_by_line.pop(key, None)
+    # the indentation and chain state before the line: a line that fails (or needs more input)
+    # leaves it as it was -- unless it closed blocks before failing, then it matches those
+    saved = LexerState(lexer_state.initial_LHS, list(lexer_state.chained_ops), list(lexer_state.indent_stack),
+                       lexer_state.indent_requester, lexer_state.line, lexer_state.col)
+    def restore() -> None:
+        lexer_state.initial_LHS, lexer_state.chained_ops = saved.initial_LHS, saved.chained_ops
+        lexer_state.indent_stack, lexer_state.indent_requester = saved.indent_stack, saved.indent_requester
     try:
         return scan_parse_check_eval_line(input_line, lexer_state, kb, line, filename, mainstream)
-    except KurtException:
+    except StopIteration:
+        restore()
+        raise
+    except RecursionError:
         certificates_by_line.pop(key, None)
+        restore()
+        raise KurtException(f'EvalError: the expression is nested too deeply (Python\'s recursion limit) -- split it up, e.g. with `def`') from None
+    except KurtException as e:
+        certificates_by_line.pop(key, None)
+        restore()
+        indent = count_leading_spaces(input_line)
+        if saved.indent_requester and indent > saved.indent_stack[-1]:
+            # the failed line was the first of a block: the block is open, with this indentation
+            lexer_state.indent_stack = saved.indent_stack + [indent]
+            lexer_state.indent_requester = ''
+        if e.kb_after is not None:
+            # the blocks closed by the line stay closed, and so does their indentation (and a chain)
+            del lexer_state.indent_stack[open_block_depth(e.kb_after) + 1:]
+            lexer_state.initial_LHS, lexer_state.chained_ops, lexer_state.indent_requester = None, [], ''
         raise
     finally:
         current_line[0] = outer
@@ -6256,13 +6297,18 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
                         raise KurtException(f'ParseError: expected indentation to start the chain at line {line} in {filename}')
                     if len(ops) > 1  and  (indents != 0 or dedents != 0):
                         raise KurtException(f'ParseError: unexpected indentation change in continued chain at line {line} in {filename}')
-                    ops.append(first_token)               # add to the chain so far
+                    ops = ops + [first_token]             # add to the chain so far (a copy, see `scan_parse_check_eval`)
                     resulting_op: Optional[Token] = kb.get_chain_op(ops)
                     if resulting_op is not None:
                         chained = True
                         ts.prepend(LHS_token)             # add dummy token to the front
                     else:
                         raise KurtException(f'ParseError: invalid chain of operators `{ops}` at line {line} in {filename}')
+
+    if not chained and len(ops) > 1 and indents == 0 and dedents == 0 and leading_spaces > 0 and lexer_state.indent_stack[-1] == leading_spaces \
+            and len(lexer_state.indent_stack) > open_block_depth(kb) + 1:
+        # the indentation is the chain's, not a block's: this line must continue the chain
+        raise KurtException(f'ParseError: a line indented like the chain above must continue it (start with an operator), at line {line} in {filename}')
 
     if indents == 1 and not requested and not chained:
         # indented after a line that could start a chain, but not continuing it
@@ -6307,14 +6353,14 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
         assert isinstance(expr_list, list)
         if len(expr_list) != 1:
             raise KurtException(f'ParseError: expected exactly continued chain, not several comma-separated ones')
-        assert isinstance(expr_list[0], list)
-        assert len(expr_list[0]) == 3 and expr_list[0][1] == LHS_token, f'ParseError: expected exactly continued chain, not {expr_list}'
+        if not (isinstance(expr_list[0], list) and len(expr_list[0]) == 3 and expr_list[0][1] == LHS_token):
+            raise KurtException(f'ParseError: a line continuing a chain is one operator and its right-hand side, like `  < b` -- put anything more in parentheses: `  < (b = c)`')
         assert resulting_op is not None       # otherwise we wouldn't be in `chained` mode
         expr_list[0][0] = resulting_op        # replace the infix operator
         assert lhs is not None
         expr_list[0][1] = deepcopy_expr(lhs)  # replace the dummy token
     else:
-        if len(expr_list) == 1 and kb.starts_a_chain(expr_list[0]):
+        if len(expr_list) == 1 and kb.starts_a_chain(expr_list[0]) and keyword not in keywords_opening_blocks:
             # case 2: start new chain
             assert isinstance(expr_list[0], list)
             assert len(expr_list[0]) == 3
@@ -6543,11 +6589,14 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
     skip_deeper_than: Optional[int] = None   # skip the rest of an `expect` block after its error
     accepted_lines[input_stream.name] = []   # the accepted lines, for `save`
     pending: list[str] = []                  # the lines of the statement being read
+    replay: Optional[str] = None             # a line to evaluate again (after an `expect` closed)
     if not is_file and readline:
         readline.parse_and_bind("tab: complete")    # enable tab completion
     while True:
         try:
-            if not is_file:
+            if replay is not None:
+                new_line, replay = replay, None
+            elif not is_file:
                 # indentation is significant here exactly like in a file (see `scan_parse_check_eval`):
                 # type or paste real leading spaces yourself to open/continue/close a block by
                 # dedenting, the same way you would in a file. `qed`/`break` remain as explicit,
@@ -6635,18 +6684,12 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                         else:
                             # the line is already outside the block, it only failed while closing
                             # the blocks inside it -- so it still has to be evaluated
+                            # (again through the loop, so that its own errors are handled as usual)
                             input_line = ''
                             continued = False
                             accept_statement(input_stream.name, pending[:-1])
-                            pending = [new_line]
-                            try:
-                                kb, lexer_state = scan_parse_check_eval(new_line, lexer_state, kb, line, input_stream.name, mainstream)
-                                accept_statement(input_stream.name, pending)
-                                pending = []
-                            except StopIteration:
-                                input_line = new_line + ' '
-                                continued = True
-                            line += 1
+                            pending = []
+                            replay = new_line
                         continue
                     elif not e.msg.lstrip().startswith('ExpectationError'):
                         e.msg = f'expect "{expected_kind}" expected a `{expected_kind}`, got a different error instead:\n{e.msg}'

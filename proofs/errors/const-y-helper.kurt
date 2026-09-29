@@ -1,0 +1,5 @@
+; for no-crashes.kurt: a file that exports a constant `y`
+bool P
+arity P 1
+const y
+use P y   "P-y"

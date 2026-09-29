@@ -1327,6 +1327,16 @@ packaged theories. What they found, and what was fixed (each with its regression
   digits, and a longer literal is a `SyntaxError`. Not a soundness bug, but a misreading: `^` was
   left-associative and weaker than the prefix `-` (`- 2 ^ 2` was `4`); now `infix ^ 75 74` and
   `prefix - 72`. (`powers-and-big-numbers.kurt`)
+- Crashes (a Python traceback instead of an error; not unsound, but a student can't tell): a chain
+  continuation with more after it (`  < b = c`), a line at a chain's indentation that didn't
+  continue it (the next dedent then closed one block too many -- also a chain continuing a
+  block-opening line), several `pick`s on one line, `local` at the start of a line, an operator
+  in parentheses applied to arguments (`(implies) A`; `(implies) A B C` ignored `C`), `()` alone,
+  nesting beyond Python's recursion limit, a loaded constant that is a `var` in the loading file.
+  In the shell, a failing line now leaves the indentation and chain state as before the line
+  (except for the blocks it closed, and the block whose first line it was), and a line evaluated
+  again after an `expect` closed can fail without killing the shell.
+  (`proofs/errors/no-crashes.kurt`, `tests/test_shell_errors.py`)
 
 ## 9. The kernel: every step is checked again
 
