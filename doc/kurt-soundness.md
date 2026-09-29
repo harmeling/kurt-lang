@@ -1314,6 +1314,12 @@ packaged theories. What they found, and what was fixed (each with its regression
   `empty-expect-is-not-confirmed.kurt`, `load-not-in-proof-blocks.kurt`)
 - set.kurt's "function-extensionality" was false for mappings as opaque objects (every object is
   in `∅ → B`, so `0 = 1`); removed. (`no-function-extensionality.kurt`)
+- `.kurtc` forgeries (a file with the right hash, but made-up certificates): a value could be given
+  to a *constant* of a rule (`not ($x ∈ ∅)` with `∅ := Nat`), and `direction` let the kernel read
+  any rule backwards, not only an `iff` (`false ⇒ %A` as `%A ⇒ false`). Both proved `0 = 1`. Now
+  the kernel gives values only to variables and reads only an `iff` in one direction, and the
+  replay aligns only canonical names and resolves `direction` only on an `iff`.
+  (`tests/test_kurtc.py`, `TestForgedCertificates`)
 
 ## 9. The kernel: every step is checked again
 

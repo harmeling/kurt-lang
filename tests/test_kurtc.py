@@ -1,4 +1,5 @@
 import copy
+import dataclasses
 import io
 import json
 import contextlib
@@ -139,6 +140,80 @@ class TestDependencies(KurtcTestCase):
         tree = kurt.dependencies_str(str(main)).splitlines()
         self.assertIn('certified, but a.kurt changed since', tree[0])
         self.assertIn('out of date: the file changed since', tree[1])
+
+
+def theory_line(theory: str, label: str) -> tuple[str, str]:
+    # the file (as Kurt names it) and the line of the formula with `label` in a packaged theory
+    path = kurt.resolve_load(theory, __file__)
+    with open(path) as fh:
+        for n, text in enumerate(fh, start=1):
+            if f'"{label}"' in text:
+                return path, str(n)
+    raise AssertionError(f'no "{label}" in {theory}')
+
+
+class TestForgedCertificates(KurtcTestCase):
+    # the forgeries found in the soundness review of 2026-09-29: each one used to prove `0 = 1`
+    # with the right hash -- now the line they are for is simply not derivable
+    def forge(self, path: Path, line: str, step: dict) -> None:
+        content = {'kurtc': kurt.KURTC_VERSION, 'kurt': 'forged', 'source': path.name,
+                   'sha256': kurt.source_hash(str(path)), 'depends': [], 'steps': {line: [step]}}
+        Path(str(path) + 'c').write_text(json.dumps(content))
+
+    def test_no_value_for_a_constant(self):
+        # "empty-set" `not ($x ∈ ∅)` with `∅ := Nat` would give `not (0 ∈ Nat)`
+        path = self.write('b.kurt', 'load natural\nnot (0 ∈ Nat)\n')
+        file, line = theory_line('set', 'empty-set')
+        S = lambda v: ['SYMBOL', v]
+        E = lambda *c: {'e': list(c)}
+        self.forge(path, '2', {'goal': E(S('not'), E(S('in'), ['INT', 0], S('Nat'))),
+                               'rule': {'file': file, 'line': line, 'label': 'empty-set', 'direction': None,
+                                        'expr': E(S('not'), E(S('in'), S('$$c0'), S('$$c1')))},
+                               'form': 'fact', 'facts': [], 'premise_fresh': [], 'conclusion_fresh': [], 'fact_fresh': [],
+                               'values': [['$$c0', ['INT', 0]], ['$$c1', S('Nat')]]})
+        with self.assertRaises(kurt.KurtException) as e:
+            self.run_file(path)
+        self.assertIn('can not derive', e.exception.msg)
+
+    def test_direction_only_of_an_iff(self):
+        # "bottom-elim" `false ⇒ %A` read backwards would give `false` from any fact
+        path = self.write('h.kurt', 'load arith\nfalse\n')
+        file, line = theory_line('prop', 'bottom-elim')
+        fact_file, fact_line = theory_line('arith', 'factorial-base')
+        S = lambda v: ['SYMBOL', v]
+        E = lambda *c: {'e': list(c)}
+        fact = E(S('='), E(S('!'), ['INT', 0]), ['INT', 1])
+        self.forge(path, '2', {'goal': S('false'),
+                               'rule': {'file': file, 'line': line, 'label': 'bottom-elim', 'direction': 'rl',
+                                        'expr': E(S('implies'), S('false'), S('%%c0'))},
+                               'form': 'impl', 'facts': [{'file': fact_file, 'line': fact_line, 'label': 'factorial-base',
+                                                          'direction': None, 'expr': fact}],
+                               'premise_fresh': [], 'conclusion_fresh': [], 'fact_fresh': [],
+                               'values': [['%%c0', fact]]})
+        with self.assertRaises(kurt.KurtException) as e:
+            self.run_file(path)
+        self.assertIn('can not derive', e.exception.msg)
+
+    def test_kernel_rejects_them_directly(self):
+        # also without the checks of the replay: the kernel itself
+        verdicts = {}
+        verify = kurt.kernel_verify
+        def recording(cert, kb):
+            if cert.kind == 'rule' and cert.form == 'fact' and not verdicts:
+                values = {**cert.values, 'Nat': kurt.Token('SYMBOL', 'c')}
+                verdicts['constant'] = verify(dataclasses.replace(cert, values=values), kb)
+                clone = cert.rule.clone(['implies', cert.expr, cert.expr], kb)
+                clone.direction_of = cert.rule.simplified_expr         # not an `iff`
+                clone.simplified_expr = [kurt.Token('SYMBOL', 'implies'), cert.expr, cert.expr]
+                verdicts['direction'] = verify(dataclasses.replace(cert, rule=clone, expr=clone.simplified_expr), kb)
+            return verify(cert, kb)
+        kurt.kernel_verify = recording
+        try:
+            self.run_file(self.write('k.kurt', 'load natural\n0 ∈ Nat\n'))
+        finally:
+            kurt.kernel_verify = verify
+        self.assertIn('only variables get values', verdicts['constant'])
+        self.assertIn('not in the theory', verdicts['direction'])
 
 
 if __name__ == '__main__':

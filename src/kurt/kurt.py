@@ -5401,8 +5401,8 @@ def align(old: Expr, new: Expr, names: dict[str, str]) -> bool:
         if not isinstance(new, Token):
             return False
         if isinstance(old.value, str) and old.value[2:3] == 'c' and is_internal_name(old.value[:2] + old.value[3:]):
-            if not (isinstance(new.value, str) and new.label == 'SYMBOL'):
-                return False
+            if not (isinstance(new.value, str) and new.label == 'SYMBOL' and is_internal_name(new.value)):
+                return False        # a canonical name stands for an internal variable, never a constant
             return names.setdefault(old.value, new.value) == new.value
         return old.label == new.label and old.value == new.value
     if not isinstance(new, list) or len(old) != len(new):
@@ -5422,6 +5422,8 @@ def resolve_formula(j: dict, names: dict[str, str], kb: KnowledgeBase) -> Option
         if j['direction'] is None:
             return f
         source = f.simplified_expr
+        if not is_iff(source):
+            return None             # only an `iff` has two directions
         assert isinstance(source, list) and len(source) == 3 and isinstance(source[0], Token)
         L, R = (source[1], source[2]) if j['direction'] == 'lr' else (source[2], source[1])
         clone = f.clone([source[0].clone(IMPL_SYMBOL), L, R], kb)
@@ -5630,7 +5632,7 @@ def k_known(f: Formula, kb: KnowledgeBase) -> bool:
     for g in kb.all_theory():
         if g is f:
             return True
-        if f.direction_of is not None and g.id == f.id and g.simplified_expr is f.direction_of:
+        if f.direction_of is not None and g.id == f.id and g.simplified_expr is f.direction_of and is_iff(f.direction_of):
             L, R = f.direction_of[1], f.direction_of[2]      # type: ignore[index]
             e = f.simplified_expr
             return is_implication(e) and ((e[1] is L and e[2] is R) or (e[1] is R and e[2] is L))  # type: ignore[index]
@@ -5747,6 +5749,9 @@ def kernel_verify(cert: Certificate, kb: KnowledgeBase) -> Optional[str]:
             return 'a fact is not in the theory'
         if set(cert.values) & cert.fixed:
             return f'the variables {sorted(set(cert.values) & cert.fixed)} of the goal got a value'
+        not_variables = sorted(v for v in cert.values if not kb.is_var(v))
+        if not_variables:
+            return f'only variables get values, not {", ".join(f"`{v}`" for v in not_variables)}'
         deps = k_dependencies(cert.expr, kb)
         if cert.form == 'fact':
             if cert.premise_fresh or cert.conclusion_fresh or cert.facts:
