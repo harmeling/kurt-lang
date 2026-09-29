@@ -851,6 +851,106 @@ def calculate(e: Expr, kb: 'KnowledgeBase') -> Expr:
                     return number_expr(a ** int(b), kb) or e
     return e
 
+# what a loaded file passes on to the file that loads it (see `KnowledgeBase.merge_and_pop`):
+# exactly the fields below -- a field of `KnowledgeBase` that isn't here stays in the file, so a
+# new one is local unless it is added here (codex-suggestions.md, 2026-09-29)
+#
+# SELECTIVE EXPORT: only labelled, non-`local` facts -- and whatever symbol declarations they
+# actually need -- travel to the parent (see doc/kurt-doc.md's `load` section,
+# doc/kurt-soundness.md #7). An unlabelled or `local`-labelled fact stays entirely inside the
+# file; a symbol only ever mentioned by such facts is invisible from outside too.
+@dataclass
+class ExportBundle:
+    theory: list['Formula']                  # the exported facts, in their order
+    symbols: set[str]                        # the symbols they need (and their aliases, brackets)
+    infix: dict[str, tuple[int, int]]
+    postfix: dict[str, int]
+    prefix: dict[str, int]
+    brackets: dict[str, str]
+    arity: dict[str, int]
+    bindop: set[str]
+    flat: set[str]
+    sym: set[str]
+    alias: dict[str, str]
+    used: set[str]
+    lbp: dict[str, int]
+    rbp: dict[str, int]
+    nud: dict[str, 'Nud']
+    led: dict[str, 'Led']
+    const: set[str]
+    bool: dict[str, list[int]]
+    calc_ops: dict[str, list[str]]
+    chain: list[list[str]]
+    frozen: set[str]                         # the symbols a trusted theory declared (`is_trusted_file`)
+    libs: list[str]                          # the files it loaded
+
+# the fields of `ExportBundle` that are symbol-keyed attributes of `KnowledgeBase`, of this level only
+EXPORTED_SYMBOL_ATTRS = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop', 'flat', 'sym', 'alias',
+                         'used', 'lbp', 'rbp', 'nud', 'led', 'const', 'bool', 'calc_ops', 'frozen')
+
+def exported_formulas_and_symbols(child: 'KnowledgeBase') -> tuple[list['Formula'], set[str]]:
+    exported = [f for f in child.theory if f.is_exported()]
+    symbols: set[str] = set()
+    for f in exported:
+        symbols |= free_symbols(f.expr, child)
+    # custom brackets are special: what actually shows up in a parsed expression is the synthetic
+    # combined token (`{lbracket}$$${rbracket}`), but the pair's own const/nud/lbp entries are
+    # keyed by the raw bracket characters -- pull those in too once the pair is needed
+    for rbracket, lbracket in child.brackets.items():
+        if f'{lbracket}$$${rbracket}' in symbols:
+            symbols |= {lbracket, rbracket}
+    # aliases are pure syntax sugar for an existing symbol -- axioms are written with the
+    # canonical name (e.g. `not`), so an alias (`¬`) never itself "occurs" in a formula: pull in
+    # any alias whose target is exported, to a fixed point in case aliases chain
+    changed = True
+    while changed:
+        changed = False
+        for alias_name, target in child.alias.items():
+            if target in symbols and alias_name not in symbols:
+                symbols.add(alias_name)
+                changed = True
+    return exported, symbols
+
+def compute_exports(child: 'KnowledgeBase') -> ExportBundle:
+    # what `child` (the level of a loaded file) exports -- copies, nothing shared with `child`
+    exported, symbols = exported_formulas_and_symbols(child)
+    def select(attr: str):
+        value = getattr(child, attr)
+        if isinstance(value, dict):
+            return {k: (list(v) if isinstance(v, list) else v) for k, v in value.items() if k in symbols}
+        assert isinstance(value, set), f'BUG: unexpected type for {attr}: {type(value)}'
+        return {s for s in value if s in symbols}
+    return ExportBundle(theory=list(exported), symbols=set(symbols),
+                        **{attr: select(attr) for attr in EXPORTED_SYMBOL_ATTRS},
+                        chain=[list(c) for c in child.chain if all(op in symbols for op in c)],
+                        libs=list(child.libs))
+
+def validate_exports(bundle: ExportBundle, child: 'KnowledgeBase', parent: 'KnowledgeBase', own_file: Optional[str]) -> None:
+    # an exported fact of the file itself must not need a `local` definition -- exporting a fact
+    # without what its symbol means would smuggle out what the author marked private
+    local_def_symbols = {f.def_symbol for f in child.theory if f.def_symbol is not None and not f.is_exported()}
+    own_symbols: set[str] = set()
+    for f in bundle.theory:
+        if own_file is None or f.filename == own_file:
+            own_symbols |= free_symbols(f.expr, child)
+    leaked = local_def_symbols & own_symbols
+    if leaked:
+        raise KurtException(f'EvalError: symbol(s) {sorted(leaked)} are defined `local` but required by an exported fact -- export their `def` too, or keep them out of exported facts')
+    # a loaded constant can't be a variable of the loading file (`var y`, then `load` a file with `const y`)
+    clash = sorted(sym for sym in bundle.symbols if sym in bundle.const and parent.is_var(sym) and sym[0] not in '$%')
+    if clash:
+        raise KurtException(f'EvalError: {", ".join(f"`{c}`" for c in clash)} is a constant of the loaded file, but a variable here -- load the file before `var`, or rename the variable')
+
+def apply_exports(parent: 'KnowledgeBase', bundle: ExportBundle) -> None:
+    # add the exports to `parent`, the level that loaded the file
+    parent.theory.extend(bundle.theory)
+    for attr in EXPORTED_SYMBOL_ATTRS:
+        getattr(parent, attr).update(getattr(bundle, attr))
+    parent.chain.extend(bundle.chain)
+    parent.libs.extend(bundle.libs)
+    if bundle.calc_ops:
+        parent.all_calc_ops = {**parent.all_calc_ops, **{sym: list(ops) for sym, ops in bundle.calc_ops.items()}}
+
 # hierarchical knowledge base
 # the level is increased inside blocks and files
 # dropping a level drops also all local definitions
@@ -967,97 +1067,15 @@ class KnowledgeBase:
         return parent
 
     def merge_and_pop(self, own_file: Optional[str] = None) -> KnowledgeBase:
-        # (`own_file`: the file whose level this is -- a fact it only passes on from a file it
-        # loaded can't depend on its `local` definitions)
-        assert self.parent is not None, f'BUG: cannot merge and pop the top level'
-        # there shouldn't be any promised formulas in self
+        # the end of a loaded file: pass on its exports (only those, see `ExportBundle`) to the
+        # level that loaded it (`own_file`: the file whose level this is -- a fact it only passes
+        # on from a file it loaded can't depend on its `local` definitions)
+        assert self.parent is not None, f'BUG: cannot merge and pop a level without a parent'
         if len(self.show) > 0:
             raise KurtException(f'EvalError: cannot merge and pop a level with promised formulas, got {len(self.show)} formulas.')
-
-        # SELECTIVE EXPORT: only labelled, non-`local` facts -- and whatever symbol
-        # declarations they actually need -- travel to the parent (see doc/kurt-doc.md's
-        # `load` section, doc/kurt-soundness.md #7). An unlabelled or `local`-labelled fact
-        # stays entirely inside this file; a symbol only ever mentioned by such facts is
-        # invisible from outside too, with no separate annotation needed.
-        exported = [f for f in self.theory if f.is_exported()]
-        local_def_symbols = {f.def_symbol for f in self.theory if f.def_symbol is not None and not f.is_exported()}
-
-        exported_symbols: set[str] = set()
-        for f in exported:
-            exported_symbols |= free_symbols(f.expr, self)
-
-        # custom brackets are special: what actually shows up in a parsed expression is the
-        # synthetic combined token (`{lbracket}$$${rbracket}`), but the pair's own const/nud/
-        # lbp entries are keyed by the raw bracket characters -- pull those in too once the
-        # pair is confirmed needed
-        for rbracket, lbracket in self.brackets.items():
-            if f'{lbracket}$$${rbracket}' in exported_symbols:
-                exported_symbols |= {lbracket, rbracket}
-
-        # aliases are pure syntax sugar for an existing symbol -- axioms are written with the
-        # canonical name (e.g. `not`), so an alias (`¬`) never itself "occurs" in a formula.
-        # Pull in any alias whose target is already exported; iterate to a fixed point in
-        # case aliases chain.
-        changed = True
-        while changed:
-            changed = False
-            for alias_name, target in self.alias.items():
-                if target in exported_symbols and alias_name not in exported_symbols:
-                    exported_symbols.add(alias_name)
-                    changed = True
-
-        own_symbols: set[str] = set()
-        for f in exported:
-            if own_file is None or f.filename == own_file:
-                own_symbols |= free_symbols(f.expr, self)
-        leaked = local_def_symbols & own_symbols
-        if leaked:
-            raise KurtException(f'EvalError: symbol(s) {sorted(leaked)} are defined `local` but required by an exported fact -- export their `def` too, or keep them out of exported facts')
-
-        # a loaded constant can't be a variable of the loading file (`var y`, then `load` a file with `const y`)
-        clash = sorted(sym for sym in exported_symbols if sym in self.const and self.parent is not None and self.parent.is_var(sym) and sym[0] not in '$%')
-        if clash:
-            raise KurtException(f'EvalError: {", ".join(f"`{c}`" for c in clash)} is a constant of the loaded file, but a variable here -- load the file before `var`, or rename the variable')
-
-        self.theory = exported
-        symbol_keyed_attrs = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop',
-                               'flat', 'sym', 'alias', 'used', 'lbp', 'rbp', 'nud',
-                               'led', 'const', 'bool', 'calc_ops')
-        for attr in symbol_keyed_attrs:
-            value = getattr(self, attr)
-            if isinstance(value, dict):
-                setattr(self, attr, {k: v for k, v in value.items() if k in exported_symbols})
-            else:
-                assert isinstance(value, set), f'BUG: unexpected type for {attr}: {type(value)}'
-                setattr(self, attr, {s for s in value if s in exported_symbols})
-        self.chain = [c for c in self.chain if all(op in exported_symbols for op in c)]
-
-        # merge all attributes except the excluded ones into the parent
-        exclude = {"parent", "_todos", "level", "mode_str", "mode_expr", "format", "verbose", "show", "calc", "indent", "hint"}
-        exclude |= {"var"}   # variables are local to a file/block
-        exclude |= {"tmp"}   # temporary flags are local to a file
-        exclude |= {"is_load_boundary"}   # a per-level marker, never something to propagate upward
-        exclude |= {"pick_source", "pick_fact", "fixed_vars", "all_fixed_vars", "let_names"}   # per-level, for `pick`, `assume`, `let` blocks
-        exclude |= {"all_calc_ops"}              # recomputed below
-        # only constants and the theory are merged upwards
-        for attr, child_attr in self.__dict__.items():
-            if attr in exclude:
-                continue
-            if hasattr(self.parent, attr):
-                parent_attr = getattr(self.parent, attr)
-                if hasattr(parent_attr, 'update'):
-                    parent_attr.update(child_attr)
-                elif hasattr(parent_attr, 'extend'):
-                    parent_attr.extend(child_attr)
-                else:
-                    assert False, f'BUG: cannot merge attribute {attr}, got type {type(parent_attr)}'
-            else:
-                setattr(self.parent, attr, child_attr)
-        # the exported bindings of `calc` are the parent's now too
-        if self.calc_ops:
-            self.parent.all_calc_ops = {**self.parent.all_calc_ops, **{sym: list(ops) for sym, ops in self.calc_ops.items()}}
-
-        # return the parent
+        bundle = compute_exports(self)
+        validate_exports(bundle, self, self.parent, own_file)
+        apply_exports(self.parent, bundle)
         return self.pop_level()
 
     def nice_mode_str(self) -> str:

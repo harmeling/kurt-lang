@@ -33,7 +33,7 @@ before 0.9 (public):
 - TODO public polish: README, version number, the internal files in the repo root, PyPI
 - TODO docs for the new features: `cert`, `.kurtc`, tuples, groups, operator variables in the tutorial (the cookbook has 20 recipes now, by Codex, 2026-09-29)
 - DONE (codex-suggestions.md, P2, 2026-09-29) three small bugs: `parse` never prints `type check failed` (`keyword_token in ['parse']` compares a `Token`); a `def` line with several definitions logs the last one for each; REPL history is written but never read (`and False` in `main`)
-- TODO (codex-suggestions.md, P0) `merge_and_pop` merges by looping over `__dict__` with an exclusion list (which has the typo `mode_expr` for `mode_args`): a new field is exported by default -- replace by an explicit `ExportBundle` (compute, validate, apply), fail closed
+- DONE (2026-09-29) (codex-suggestions.md, P0) `merge_and_pop` merges by looping over `__dict__` with an exclusion list (which has the typo `mode_expr` for `mode_args`): a new field is exported by default -- replace by an explicit `ExportBundle` (compute, validate, apply), fail closed
 - TODO (codex-suggestions.md, P2) consistency pass before 0.9: line and test counts in CLAUDE.md and release-plan.md (better generated or dated), release-plan.md still says "the whole matcher is trusted" next to the kernel, set.kurt's opening comment promises function extensionality, the empty file `kurt` in the repo root, no `src/kurt/__main__.py` (`python -m kurt`), build and install sdist/wheel in CI
 
 before 1.0:
