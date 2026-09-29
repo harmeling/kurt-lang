@@ -244,9 +244,9 @@ disappearing grouping** — `(A)` really is just `A`. Any *other* bracket
 pair you declare yourself stays around as a genuine operator: `[A]` parses
 to a real term whose operator is an internal name combining `[` and `]`
 (rendered as `[]` if you `parse`/`format sexpr` it), not to `A`. Custom brackets
-are meant to carry their own meaning (e.g. `|x|` for absolute value, `⟨a,
-b⟩` for pairing) via `arity`/`bool`/`use` axioms about the resulting
-operator, not as alternative parentheses. `brackets` takes exactly the two
+are meant to carry their own meaning (e.g. `⟨a, b⟩` for a scalar product,
+`brackets ⟨ ⟩`; in the shell `\langle`, `\rangle`) via `arity`/`bool`/`use`
+axioms about the resulting operator, not as alternative parentheses. `brackets` takes exactly the two
 symbols — there is no separate binding-power argument.
 
 ### 4.3 `arity`

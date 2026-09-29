@@ -288,6 +288,8 @@ REPLACEMENTS: dict[str, str] = {
     '\\mapsto':   '↦',     # maps to
     '\\to':       '→',     # mapping arrow
     '\\times':    '×',     # Cartesian product
+    '\\langle':   '⟨',     # angle brackets, e.g. for a scalar product `⟨a, b⟩`
+    '\\rangle':   '⟩',
 
     # numbers
     '\\leq': '≤',          # less than or equal
