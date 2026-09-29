@@ -1,6 +1,6 @@
 ; the theorems of group.kurt hold for every group: here for the numbers with `+`, and for an
 ; abstract group `G` with the operation `∘`
-load arith, group
+load group, arith       ; group first: its proofs are checked without arith's rules around
 
 ; the numbers (a set `R` of them) with `+`, `0` and `-`
 const R, x, y

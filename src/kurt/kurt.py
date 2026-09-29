@@ -755,6 +755,7 @@ class KnowledgeBase:
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
         self.pick_source: Optional[Formula] = None   # for a `pick` block: the existential fact it picks from
         self.fixed_vars: set[str] = set()            # for an `assume`/`case` block: the free variables of the assumption (see `is_var`)
+        self.all_fixed_vars: frozenset[str] = frozenset() if parent is None else parent.all_fixed_vars   # ... of this and the enclosing blocks
         self.pick_fact: Optional[Formula]   = None   # ... and the fact about the witness (for the kernel)
         self.libs: list[str]        = []         # the filenames of loaded libraries
         self.tmp: bool              = tmp        # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
@@ -952,7 +953,7 @@ class KnowledgeBase:
         exclude |= {"var"}   # variables are local to a file/block
         exclude |= {"tmp"}   # temporary flags are local to a file
         exclude |= {"is_load_boundary"}   # a per-level marker, never something to propagate upward
-        exclude |= {"pick_source", "pick_fact", "fixed_vars"}   # per-level, for `pick` and `assume` blocks
+        exclude |= {"pick_source", "pick_fact", "fixed_vars", "all_fixed_vars"}   # per-level, for `pick` and `assume` blocks
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
             if attr in exclude:
@@ -1110,7 +1111,7 @@ class KnowledgeBase:
 
 
     def is_fixed_var(self, s: str) -> bool:
-        return s in self.fixed_vars or (self.parent is not None and self.parent.is_fixed_var(s))
+        return s in self.all_fixed_vars
 
     def is_var(self, s: str) -> bool:
         # is_var checks whether a symbol is a variable (could be non-boolean or boolean) --
@@ -3459,6 +3460,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         fixed = free_bound_vars(expr, kb)[0]   # fixed in the block, see `is_var`
         kb = kb.push_level('assume', args)  # open a new block
         kb.fixed_vars = set(fixed)
+        kb.all_fixed_vars = kb.all_fixed_vars | fixed
         try:
             f = eval_use(kb, expr, input_line, label, filename, line, mainstream=False, keyword='use')  # use the expression as an assumption
             kb.theory_append(f, symbol_level_prev=True)
@@ -4519,6 +4521,17 @@ def is_bool_var_token(e:Expr, kb) -> bool:
 # `two_sided` means that variables in the exprs can also be assigned
 CALC_OPS = ('+', '-', '*', '/', '^')
 
+def has_computation(e: Expr) -> bool:
+    # whether `calc` has something to compute in `e`: an arithmetic operation with two numbers
+    # (or a `-` of a number) -- a quick test before computing
+    if isinstance(e, Token):
+        return False
+    if e and isinstance(e[0], Token) and e[0].value in CALC_OPS:
+        numbers = sum(1 for a in e[1:] if is_numeric(a))
+        if numbers >= 2 or (numbers == 1 and len(e) == 2):
+            return True
+    return any(has_computation(c) for c in e[1:])
+
 def computes_to(pattern: Expr, expr: Expr, s: State, kb: KnowledgeBase) -> bool:
     # with `calc on`: whether `pattern`, an arithmetic expression whose variables all have values
     # in `s`, computes to `expr` (a step the kernel checks again, see `k_instance`)
@@ -4527,7 +4540,7 @@ def computes_to(pattern: Expr, expr: Expr, s: State, kb: KnowledgeBase) -> bool:
     if is_var_token(expr, kb):
         return False        # a variable is matched by binding it, not by computing
     instance = apply_subst(pattern, s, kb)
-    if contains_unbound_var(instance, s, kb):
+    if not has_computation(instance) or contains_unbound_var(instance, s, kb):
         return False
     computed = calculate_normalized(instance, kb)
     return not equal_expr(computed, instance, kb) and equal_expr(computed, calculate_normalized(expr, kb), kb)

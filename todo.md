@@ -22,6 +22,8 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO quantifiers only with `load logic`: `forall`/`exists` syntax and the blocks `let`/`pick` become available only then (smaller core for propositional/modal courses); the engine's by-name handling of `forall` (e.g. stripping outer quantifiers of facts) must then depend on it being declared
 - TODO modal necessitation ("from a theorem A infer □A") can't be written: `use %p ⇒ □%p` would be unsound. A small `rule %p / □%p "nec"` for rules that only apply to theorems (facts proven with no assumption open) would do
 
+- TODO a loaded file is checked in the context of what was loaded before it: its proofs see (and could use) facts it doesn't load itself, and get slower with every theory around (group.kurt: 3 s alone, 8.5 s after `load arith`). Load a file in a fresh context instead (only what it loads itself), then add its exports?
+
 ## NEXT
 
 - TODO solve the path puzzle, also check `load ../foo.kurt` whether it works
