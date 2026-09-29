@@ -8,7 +8,7 @@ import pathlib
 import contextlib
 import importlib.resources as res
 
-from tests.utils import PROJECT_ROOT, kernel_checking
+from tests.utils import PROJECT_ROOT
 proofs_root = PROJECT_ROOT / "proofs"
 theories_root = res.files("kurt.theories")
 
@@ -71,8 +71,8 @@ class TestProving(unittest.TestCase):
                 true_last_line = file_last_line(path)
                 out_buf, err_buf = io.StringIO(), io.StringIO()
                 try:
-                    # with the kernel checking every step (a `KernelError` is not caught here)
-                    with kernel_checking(), contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                    # (the kernel checks every step, and a `KernelError` makes the test fail)
+                    with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
                         _ = kurt.load_file(str(path), kb, mainstream=True)   # as when running the file, so the output is produced too
                         print("Proof checked.")
                     actual_last_line = str_last_line(out_buf.getvalue())

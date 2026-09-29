@@ -539,8 +539,9 @@ The comment after a checked line, e.g. `by (9, 8), "forall-cond-elim"`, is a sho
 line's *certificate*: what the kernel checks again, on its own, for each step (see
 `doc/kurt-soundness.md` §9). `cert` shows it in long form: the rule and how it is read (as a
 fact, or as premise ⇒ conclusion), the values of its variables, the fresh variables for `∀`s,
-the facts that match the premise -- or, for closing a block, the block and its last line -- and
-the kernel's verdict. The rule and the facts are shown with the internal names of their
+the facts that match the premise -- or, for closing a block, the block and its last line. The
+kernel checks every step; should it ever reject one that the search found (a bug in Kurt), that
+is a `KernelError`, which stops the file and can't be caught by `expect`. The rule and the facts are shown with the internal names of their
 variables (`$$07`, `%%56`), which the values use. A line that failed has no certificate; a line
 that closes blocks by dedenting also has the certificates of the closings.
 

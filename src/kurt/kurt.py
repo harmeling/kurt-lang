@@ -4782,8 +4782,6 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
 # kernel below, which checks the step again on its own -- by substituting the values into the
 # rule, and comparing the result with the goal and the facts, without any search.
 
-kernel_check: bool = False      # check every step with the kernel (the test suite switches it on)
-
 @dataclass
 class Certificate:
     kind: str                           # 'rule', or 'top', 'calc', 'calc-fact', 'todo', or a block rule (see `block`)
@@ -4799,32 +4797,28 @@ class Certificate:
     fact_fresh: list[tuple[str, ...]] = field(default_factory=list)  # fresh names for `∀` parts of the premise, matched without their `∀`s
     block: Optional[KnowledgeBase] = None   # for closing a block ('impl-intro', 'not-intro', 'forall-intro', 'exists-elim'): its level
 
-certificates: list[Certificate] = []
-
-class KernelError(Exception):
-    # the kernel rejects a step that the search accepted -- a bug in one of the two; not a
-    # `KurtException`, so that no `expect` (or `try`) in the search can swallow it
-    pass
+class KernelError(KurtException):
+    # the kernel rejects a step that the search accepted: the two disagree, which is a bug in one
+    # of them -- the step doesn't count. Its kind `KernelError` isn't one an `expect` can name, so
+    # it always stops a file (in the shell, only the line fails).
+    def __init__(self, msg: str) -> None:
+        super().__init__(msg, kind='KernelError')
 
 # the certificates of each line (file name, line number), with the kernel's verdict -- for `cert`
 certificates_by_line: dict[tuple[str, int], list[tuple[Certificate, Optional[str]]]] = {}
 current_line: list[Optional[tuple[str, int]]] = [None]      # the line being evaluated (see `scan_parse_check_eval`)
 
 def record_certificate(cert: Certificate, kb: KnowledgeBase) -> None:
-    # the kernel checks every step; only with `kernel_check` (the test suite) a rejected step is
-    # an error, otherwise `cert` shows the verdict
+    # the kernel checks every step; `cert` shows the certificates of a line
     try:
         problem = kernel_verify(cert, kb)
-    except Exception as e:
-        if kernel_check:
-            raise
+    except Exception as e:      # a crash of the kernel counts as a rejection
         problem = f'the kernel failed: {type(e).__name__}: {e}'
+    if problem is not None:
+        raise KernelError(f'KernelError: the kernel rejects the step to `{expr_str(cert.goal, kb)}`: {problem} -- '
+                          f'the search accepted it, so this is a bug in Kurt; please report it, with this file')
     if current_line[0] is not None:
         certificates_by_line.setdefault(current_line[0], []).append((cert, problem))
-    if kernel_check:
-        certificates.append(cert)
-        if problem is not None:
-            raise KernelError(f'KernelError: the kernel rejects the step to `{expr_str(cert.goal, kb)}`: {problem}')
 
 def formula_place(f: Formula, filename: str) -> str:
     # where a formula comes from, e.g. `line 3` or `logic.kurt:22 "forall-elim"`

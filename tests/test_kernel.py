@@ -10,20 +10,16 @@ from tests.utils import PROJECT_ROOT
 
 
 def run_with_certificates(text: str, name: str = 'kernel-test.kurt') -> list[kurt.Certificate]:
-    # run `text` as a file with `kernel_check` on, and return the certificates of its steps
+    # run `text` as a file, and return the certificates of its steps, in the order of the lines
     path = PROJECT_ROOT / 'tests' / name
     path.write_text(text)
-    old = kurt.kernel_check
-    kurt.kernel_check = True
-    kurt.certificates.clear()
     try:
         kb = copy.deepcopy(kurt.initial_kb)
         with contextlib.redirect_stdout(io.StringIO()):
             kurt.load_file(str(path), kb)
-        return list(kurt.certificates)
+        mine = sorted((line, certs) for (f, line), certs in kurt.certificates_by_line.items() if f == str(path))
+        return [cert for _, certs in mine for cert, _ in certs]
     finally:
-        kurt.kernel_check = old
-        kurt.certificates.clear()
         path.unlink()
 
 
@@ -57,7 +53,7 @@ class TestCertificates(unittest.TestCase):
 
 
 def check_during_run(text: str, variants) -> list[tuple[kurt.Certificate, dict]]:
-    # run `text` with `kernel_check` on; for each certificate, `variants(cert, kb)` gives changed
+    # run `text`; for each certificate, `variants(cert, kb)` gives changed
     # certificates by name, which are checked right away (the knowledge base changes later on) --
     # returns each certificate with the kernel's verdict on it (`'as is'`) and on its variants
     seen = []
@@ -249,6 +245,28 @@ class TestCertCommand(unittest.TestCase):
     def test_a_failed_line_has_no_certificate(self):
         out = self.output('load prop\nbool A, B\nuse A\nexpect "ProofError"\n    A ∧ B\ncert 5')
         self.assertIn('; line 5: no certificate', out)
+
+
+class TestKernelErrorStops(unittest.TestCase):
+    # a step the kernel rejects doesn't count, also inside `expect`
+    def run_rejecting(self, text):
+        verify = kurt.kernel_verify
+        kurt.kernel_verify = lambda cert, kb: 'rejected for the test'
+        try:
+            run_with_certificates(text)
+        finally:
+            kurt.kernel_verify = verify
+
+    def test_kernel_error_stops_the_file(self):
+        with self.assertRaises(kurt.KernelError) as e:
+            self.run_rejecting('bool A\nuse A\nA ∧ A')
+        self.assertIn('rejected for the test', e.exception.msg)
+        self.assertEqual(e.exception.kind, 'KernelError')
+
+    def test_expect_does_not_catch_it(self):
+        with self.assertRaises(kurt.KurtException) as e:
+            self.run_rejecting('bool A\nuse A\nexpect "ProofError"\n    A ∧ A')
+        self.assertIn('KernelError', e.exception.msg)
 
 
 if __name__ == '__main__':

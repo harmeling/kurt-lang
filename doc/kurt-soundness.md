@@ -1274,9 +1274,11 @@ binds), `normalize_expr` (`flat`, `sym`, `calc`), and `equal_expr` (renaming of 
 for the kernel, `=` and `iff` compare in either order, since they are `sym` but keep their order
 for `def`). Also `top-intro`, `calc` steps, and `todo` have certificates.
 
-In the test suite, every step of every proof file, theory and tutorial lesson is checked by the
-kernel (`tests/utils.py: kernel_checking`); a rejected step raises `KernelError`, which no
-`expect` can catch. `tests/test_kernel.py` changes real certificates (no facts, another goal, a
+The kernel checks every step, always. A step it rejects doesn't count: `KernelError` stops a file
+(in the shell, only that line fails), and no `expect` can catch it. A rejection means that the
+search and the kernel disagree -- a bug in one of them (so far, both disagreements found were the
+kernel's: `=`/`iff` in either order, and a fact covering several flat conjuncts). So every step of
+every proof file, theory and tutorial lesson in the test suite is checked by the kernel too. `tests/test_kernel.py` changes real certificates (no facts, another goal, a
 rule not in the theory, a value for a goal variable, a value depending on a fresh variable, a
 capture; for blocks: another result, no `∀`, not the last line, a witness that escapes) and
 checks that the kernel rejects each one.
