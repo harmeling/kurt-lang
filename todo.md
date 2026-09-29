@@ -40,6 +40,9 @@ before 1.0:
 
 ## open points from the discussion of 2026-09-29
 
+- TODO a `todo` inside an `expect` or `sandbox` still counts as an open `todo` of the file, although the block is discarded
+- TODO `unpack_condition` reads a condition's bound variable from which symbols are constants, not from the enclosing binders -- a guard in `eval_done` catches where that changes when a block closes; better: read it with the enclosing binders, or store the bound variable with the condition
+
 - TODO mappings as sets of pairs (with their domain), so that function extensionality holds -- removed from set.kurt on 2026-09-29, since it was false for mappings as opaque objects (every object is in `∅ → B`, which gave `0 = 1`)
 
 - TODO scalars vs. vectors: arith.kurt's laws hold for *everything* written with `+`, `*` -- so vectors can share `+` with numbers only if (a) arith's laws get the condition `$a ∈ R` (every arithmetic proof then needs membership facts: numerals automatically? `let x ∈ R`?), or (b) arith becomes an instance of a structure, like group.kurt: `field(R, (+), (*), 0, 1, (-), inv)`, and vectors `vector-space(V, R, ...)`. Try (b) with rings/fields first?

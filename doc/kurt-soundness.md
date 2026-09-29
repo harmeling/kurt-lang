@@ -1300,6 +1300,18 @@ packaged theories. What they found, and what was fixed (each with its regression
 - set.kurt's "separation" didn't bind its variable: `{ y ∈ Nat | y = y }` gave `(0 + 1) = y`.
   Now `|` is a binder (an infix operator can be one), and separation abstracts every occurrence.
   (`separation-binds-its-variable.kurt`)
+- The block rules: `let`/`pick` could take a variable that an enclosing assumption fixed (which
+  then became "for all"); the free variables of a `let` condition counted as "for all" in the
+  block (the bug of §8.15, for `let`); the witness of a `pick` could leave the block if it was a
+  "vocabulary" symbol (`bool`, `arity`); a condition could bind another variable once its block
+  was closed (`let (0 < a)` / `let (a < x)`: outside, `a < x` binds `a`); `load` in a proof
+  block got around the ban on `use`. Fixed, each also in the kernel's block check; a guard
+  compares the variables bound in a block's result inside and outside the block. Also: an empty
+  `expect` counted as confirmed (by the error "no proof step"), an empty `sandbox` was rejected, a
+  bare `todo` as a block's last line gave broken formulas, and a line that closed blocks by
+  dedenting and then failed left `read_eval_loop` in a closed block (so `expect` missed the
+  error, and the shell continued inside the closed block). (`block-rules.kurt`,
+  `empty-expect-is-not-confirmed.kurt`, `load-not-in-proof-blocks.kurt`)
 - set.kurt's "function-extensionality" was false for mappings as opaque objects (every object is
   in `∅ → B`, so `0 = 1`); removed. (`no-function-extensionality.kurt`)
 

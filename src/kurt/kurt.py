@@ -379,6 +379,7 @@ class KurtException(Exception):
         self.line:     Optional[int] = line
         self.filename: Optional[str] = filename
         self.kind:     Optional[str] = kind if kind is not None else self._extract_kind(msg)
+        self.kb_after: Optional['KnowledgeBase'] = None     # the level reached, if blocks were closed before the error
 
     @staticmethod
     def _extract_kind(msg: str) -> Optional[str]:
@@ -856,6 +857,7 @@ class KnowledgeBase:
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
         self.pick_source: Optional[Formula] = None   # for a `pick` block: the existential fact it picks from
         self.fixed_vars: set[str] = set()            # for an `assume`/`case` block: the free variables of the assumption (see `is_var`)
+        self.let_names: list[str] = []               # for a `let` block: its new constants, in order
         self.all_fixed_vars: frozenset[str] = frozenset() if parent is None else parent.all_fixed_vars   # ... of this and the enclosing blocks
         self.pick_fact: Optional[Formula]   = None   # ... and the fact about the witness (for the kernel)
         self.libs: list[str]        = []         # the filenames of loaded libraries
@@ -1008,7 +1010,7 @@ class KnowledgeBase:
         exclude |= {"var"}   # variables are local to a file/block
         exclude |= {"tmp"}   # temporary flags are local to a file
         exclude |= {"is_load_boundary"}   # a per-level marker, never something to propagate upward
-        exclude |= {"pick_source", "pick_fact", "fixed_vars", "all_fixed_vars"}   # per-level, for `pick` and `assume` blocks
+        exclude |= {"pick_source", "pick_fact", "fixed_vars", "all_fixed_vars", "let_names"}   # per-level, for `pick`, `assume`, `let` blocks
         exclude |= {"all_calc_ops"}              # recomputed below
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
@@ -2677,8 +2679,23 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
 
     # try to construct `expr` depending on the mode of the current level
     # these calls might generate exceptions
+    if kb.mode_str == 'sandbox':
+        # nothing to derive -- a `sandbox` is scratch space, dedenting out of it (like `break`
+        # would) just discards everything inside it, no formula is added anywhere
+        kb = kb.pop_level()
+        if mainstream:
+            log(kb, 'sandbox', f'{line} closed, its content is discarded', kb.level)
+        return kb
+    if kb.mode_str == 'expect':
+        assert len(kb.mode_args) == 1 and isinstance(kb.mode_args[0], Token)
+        expected_kind = kb.mode_args[0].value
+        # deliberately not one of `KurtException.KNOWN_KINDS`, so this can never be
+        # mistaken by `read_eval_loop` for the very error it says didn't happen
+        raise KurtException(f'ExpectationError: this `expect "{expected_kind}"` block finished without raising a `{expected_kind}`')
     if len(kb.theory) == 0:
         raise KurtException(f'ProofError: no formula has been proven, this block can only be closed after a successful proof step')
+    if kb.theory[-1].expr == todo_token:
+        raise KurtException(f'ProofError: a bare `todo` admits the next step, it can\'t be the last line of a block -- write `todo FORMULA`')
     last_expr = kb.theory[-1].expr
     mode_str = kb.mode_str
     match mode_str:
@@ -2702,26 +2719,14 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
             # check that `expr` does not contain any *individual* constants from the current
             # level (the witness itself, or any bystander `const` declared alongside it) --
             # vocabulary symbols first used here are fine, see `is_vocabulary_symbol`
-            pick_not_allowed = set(filter(lambda s: not kb.is_vocabulary_symbol(s), kb.const))
+            witness = kb.mode_args[0].value if isinstance(kb.mode_args[0], Token) else None
+            pick_not_allowed = set(filter(lambda s: not kb.is_vocabulary_symbol(s), kb.const)) | ({witness} if isinstance(witness, str) else set())
             if contains(expr, pick_not_allowed, kb):
                 raise KurtException(f'ProofError: the line (its conclusion) of the `pick` block may not contain constant symbols from the current level, got `{expr_str(expr, kb)}`')
         case 'proof':
             return eval_qed(kb, filename, line, mainstream)
         case 'root':
             raise KurtException(f'ProofError: no block to close, already at the top level')
-        case 'sandbox':
-            # nothing to derive -- a `sandbox` is scratch space, dedenting out of it (like `break`
-            # would) just discards everything inside it, no formula is added anywhere
-            kb = kb.pop_level()
-            if mainstream:
-                log(kb, 'sandbox', f'{line} closed, its content is discarded', kb.level)
-            return kb
-        case 'expect':
-            assert len(kb.mode_args) == 1 and isinstance(kb.mode_args[0], Token)
-            expected_kind = kb.mode_args[0].value
-            # deliberately not one of `KurtException.KNOWN_KINDS`, so this can never be
-            # mistaken by `read_eval_loop` for the very error it says didn't happen
-            raise KurtException(f'ExpectationError: this `expect "{expected_kind}"` block finished without raising a `{expected_kind}`')
 
     # the constants on the current level are not allowed, however, the variables of the previous
     # level are allowed (see `de-morgan.kurt`), and neither are vocabulary symbols that were only
@@ -2739,6 +2744,12 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
     not_allowed = set(filter(lambda s: not kb_parent.is_var(s) and not kb.is_vocabulary_symbol(s), kb.const))
     if contains(expr, not_allowed, kb_parent):
         raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of the previous one, got `{expr_str(expr, kb_parent)}`, not allowed are {not_allowed}')
+
+    # every binder of the result must bind the same variable outside the block as inside (the
+    # bound variable of a condition like `a < x` depends on which symbols are constants)
+    reading_problem = binder_reading_changes(kb, expr, last_expr)
+    if reading_problem is not None:
+        raise KurtException(f'ProofError: {reading_problem}')
 
     # the kernel checks the step, with the block's level (see `kernel_verify_block`)
     block = kb
@@ -2771,6 +2782,45 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
                         log(kb, f.formula_str(kb), reason, kb.level)
 
     return kb
+
+def binder_reading(e: Expr, kb: KnowledgeBase) -> Optional[list[str]]:
+    # the variables bound by the binders of `e`, in order, as read with `kb` -- `None` if a
+    # condition can't be read
+    match e:
+        case Token():
+            return []
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            try:
+                bv, _ = unpack_condition(cond, kb)
+            except KurtException:
+                return None
+            parts = [binder_reading(c, kb) for c in [cond, *body]]
+            return None if any(p is None for p in parts) else [bv] + [v for p in parts for v in p]   # type: ignore[union-attr]
+        case [*children]:
+            parts = [binder_reading(c, kb) for c in children]
+            return None if any(p is None for p in parts) else [v for p in parts for v in p]   # type: ignore[union-attr]
+    return None
+
+def binder_reading_changes(block: KnowledgeBase, result: Expr, last: Expr) -> Optional[str]:
+    # whether the result of closing `block` reads differently at the parent than its last line
+    # did inside the block -- e.g. `let (0 < a)` / `let (a < x)` gives `∀ (0 < a) ∀ (a < x) ...`,
+    # where outside, `a` is no constant any more, and `a < x` would bind `a`
+    assert block.parent is not None
+    parent = block.parent
+    inside = binder_reading(last, block)
+    outside = binder_reading(result, parent)
+    if inside is None or outside is None:
+        return None     # can't be read at all -- the other checks report that
+    if block.mode_str == 'let':
+        prefix = [name for c, name in zip(block.mode_args, block.let_names) if not is_bool_var_token(c, parent)]
+    elif block.mode_str in ('assume', 'case'):
+        prefix = binder_reading(block.mode_args[0], parent) or []
+    else:
+        prefix = []
+    if outside != prefix + inside:
+        return (f'a condition in `{expr_str(result, parent)}` would bind another variable outside the block '
+                f'-- write the bound variable on the left of the relation (e.g. `x > a` for `a < x`), or use `∀ x (... ⇒ ...)`')
+    return None
 
 def _first_or_none(xs: Iterator[State]) -> Optional[State]:
     return next(iter(xs), None)
@@ -2806,7 +2856,9 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> K
     return kb
 
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
-    return kb.is_var(s) or not kb.is_const(s)
+    # a variable, or a symbol without any declaration (a predicate declared with `bool`/`arity`
+    # but not used yet is not a new symbol)
+    return kb.is_var(s) or not (kb.is_const(s) or kb.is_operator(s) or kb.is_arity_set(s) or len(kb.bool_sig(s)) > 0 or kb.is_bindop(s))
 
 def extract_by_condition(e: Expr, c: Callable[[str], bool], kb: KnowledgeBase, bound_vars: frozenset[str] = frozenset()) -> list[str]:
     # bound-variable-aware: a symbol only bound by an enclosing binder (e.g. the `x` in
@@ -2868,8 +2920,17 @@ def unpack_condition(expr: Expr, kb: KnowledgeBase) -> tuple[str, Optional[Expr]
 # `x` can not be an existing constant
 def eval_let(kb: KnowledgeBase, expr: Expr, input_line: str, filename: str, line: int, mainstream: bool) -> KnowledgeBase:
     new_const, condition = unpack_condition(expr, kb)
+    if kb.is_fixed_var(new_const):
+        # `assume P $x` / `let $x` would turn the fixed `$x` of the assumption into "for all x"
+        raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `let` needs a new name')
     kb.add_const(new_const)          # add the new constant to the knowledgebase
+    kb.let_names.append(new_const)
     if condition is not None:
+        # the other free variables of the condition are fixed in the block, as for `assume`: in
+        # `let x < $y`, `$y` is one arbitrary object, not "for all y"
+        fixed = free_bound_vars(condition, kb)[0] - {new_const}
+        kb.fixed_vars |= fixed
+        kb.all_fixed_vars = kb.all_fixed_vars | fixed
         f = eval_use(kb, expr, input_line, 'let', filename, line, keyword='use', mainstream=False)  # use the expression as an assumption
         kb.theory_append(f)
     return kb
@@ -3070,6 +3131,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if len(args) == 0:
             log(kb, kb.loaded_files_str().strip())
         else:
+            proof_block = block_forbidding_use(kb)
+            if proof_block is not None:
+                # like `use`: the loaded axioms would look proven inside the block
+                raise KurtException(f'EvalError: `load` is not allowed inside `{proof_block}` -- load before the proof', keyword_token.column)
             for arg in args:
                 assert isinstance(arg, list) and len(arg) == 1, f'BUG: `load` expects [[fname1], [fname2]]'
                 match arg[0]:
@@ -3659,6 +3724,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                             raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{expr_str(new_const_expr, kb)}`', get_column(new_const_expr))
                         if kb.is_const(new_const):
                             raise KurtException(f'EvalError: `pick` requires a new constant or existing variable, got already-declared constant `{new_const}`')
+                        if kb.is_fixed_var(new_const):
+                            raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `pick` needs a new name')
                         kb, fact = eval_pick(kb, new_const_expr, fact_expr, input_line, filename, line, mainstream)
                     case _:
                         raise KurtException(msg)
@@ -5592,12 +5659,21 @@ def kernel_verify_block(cert: Certificate) -> Optional[str]:
     if not block.theory or block.theory[-1] is not last:
         return 'the last line is not the last line of the block'
     def new_in_block(c: str) -> bool:
-        # a constant made by the block (`let`/`pick`), unknown outside of it -- or a variable
+        # a constant made by the block (`let`/`pick`), unknown outside of it -- or a variable, but
+        # not one fixed by an enclosing assumption
+        if parent.is_fixed_var(c):
+            return False
         return parent.is_var(c) or (c in block.const and not parent.is_const(c) and not parent.is_used(c))
+    witness = block.mode_args[0].value if block.mode_str == 'pick' and block.mode_args and isinstance(block.mode_args[0], Token) else None
     def no_escape(e: Expr) -> Optional[str]:
-        # an individual constant of the block must not occur in what the block gives
-        leaked = {c for c in k_constants(e, parent) if c in block.const and not parent.is_var(c) and not block.is_vocabulary_symbol(c)}
-        return f'the constants {sorted(leaked)} of the block occur in `{expr_str(e, parent)}`' if leaked else None
+        # an individual constant of the block must not occur in what the block gives -- and the
+        # witness of a `pick` never, even if it is also a "vocabulary" symbol (`bool`, `arity`)
+        leaked = {c for c in k_constants(e, parent) if c in block.const and not parent.is_var(c)
+                  and (not block.is_vocabulary_symbol(c) or c == witness)}
+        if leaked:
+            return f'the constants {sorted(leaked)} of the block occur in `{expr_str(e, parent)}`'
+        reading = binder_reading_changes(block, e, last.expr)
+        return reading
     match cert.kind:
         case 'impl-intro' | 'not-intro':
             if block.mode_str not in ('assume', 'case') or len(block.mode_args) != 1:
@@ -6262,21 +6338,27 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
             kb_check = kb_check.parent   # don't pop yet, just check
             dedents_check -= 1
         # now actually pop the levels
-        while dedents > 0:
-            if kb.mode_str == 'proof':
-                with users_comment(input_line if dedents == 1 else ''):
-                    kb = eval_qed(kb, filename, line, mainstream)   # qed with a block, yield a formula
-            elif kb.mode_str in ['assume', 'let', 'pick']:
-                kb = eval_done(kb, filename, line, mainstream)  # done with a block, yield a formula
-            else:
-                assert False, f'BUG: `qed` closed a non-proof/assume/let/pick block'
-            dedents -= 1
+        try:
+            while dedents > 0:
+                if kb.mode_str == 'proof':
+                    with users_comment(input_line if dedents == 1 else ''):
+                        kb = eval_qed(kb, filename, line, mainstream)   # qed with a block, yield a formula
+                else:
+                    kb = eval_done(kb, filename, line, mainstream)  # done with a block, yield a formula (or an `expect`'s check)
+                dedents -= 1
+        except KurtException as e:
+            e.kb_after = e.kb_after or kb
+            raise
     else:
         # process the DEDENTs -- this is how every block ordinarily closes, `proof` included
         # (`eval_done` itself dispatches to `eval_qed` for a `proof`-mode level)
-        while dedents > 0:
-            kb = eval_done(kb, filename, line, mainstream)   # closes one level: yields a formula, or discards (for `sandbox`)
-            dedents -= 1
+        try:
+            while dedents > 0:
+                kb = eval_done(kb, filename, line, mainstream)   # closes one level: yields a formula, or discards (for `sandbox`)
+                dedents -= 1
+        except KurtException as e:
+            e.kb_after = e.kb_after or kb    # the blocks closed so far are closed (see `read_eval_loop`)
+            raise
 
         # evaluate the expression
         new_symbols.clear()
@@ -6499,6 +6581,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                 line += 1
                 continue
             except KurtException as e:
+                if e.kb_after is not None:
+                    kb = e.kb_after          # the blocks closed by the line before its error stay closed
                 expect_kb = enclosing_expect(kb)
                 if expect_kb is not None:
                     assert len(expect_kb.mode_args) == 1 and isinstance(expect_kb.mode_args[0], Token)

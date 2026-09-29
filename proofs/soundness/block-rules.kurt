@@ -1,0 +1,58 @@
+; the rules of the blocks, from the soundness review of 2026-09-29 (§8.17) -- each of these
+; used to give `false`, `P d` from `P c`, or `a = b`
+load arith, logic
+bool P, Q
+arity P 1
+arity Q 1
+const P, Q, a, b, c, d
+use P c
+
+; `let`/`pick` can't take a variable that an assumption fixed: it would become "for all"
+expect "EvalError"
+    assume P $x
+        let $x
+            P $x
+use ∃ $y ($y = d)
+expect "EvalError"
+    assume P $x
+        pick $x with $x = d
+            P $x
+
+; the other variables of a `let` condition are fixed in its block, as for `assume`
+expect "ProofError"
+    let x = $y
+        x = a
+expect "ProofError"
+    let x < $y
+        x < 0
+
+; the witness of a `pick` never leaves the block, even if it is a "vocabulary" symbol
+arity w 1
+expect "ProofError"
+    let x
+        x = x
+        ∃ $y ($y = x)
+        pick w with w = x
+            w = x
+expect "ProofError"
+    let x
+        ∃ %X (%X iff P x)
+        pick D with D iff P x
+            D iff P x
+
+; a condition must bind the same variable outside its block: here `a < x` would bind `a`
+var x
+expect "ProofError"
+    let (0 < e)
+        let (e < x)
+            0 < x
+
+; a bare `todo` is not the last line of a block
+expect "ProofError"
+    assume Q c
+        todo
+
+; an empty `sandbox` just closes
+sandbox
+    bool R
+true

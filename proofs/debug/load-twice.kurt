@@ -1,11 +1,10 @@
-show true
-proof
+; a theory loaded in a `sandbox` is gone with it, and can be loaded again afterwards (in a proof
+; block, `load` is not allowed: the loaded axioms would look proven there, like `use`)
+sandbox
     load modal
     true
     trail
-qed               ; remove the stuff loaded from "model"
-show true
-proof
+sandbox
     load modal    ; should be alright
     true
-qed
+true
