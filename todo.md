@@ -17,7 +17,7 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO shell: pre-fill each input line with the current indentation (readline `set_startup_hook`), so that a backspace dedents
 - TODO `use` only *directly* in a `sandbox`/`expect`, not in a proof block nested inside them (two soundness tests need `use P $w` before the block instead)
 - TODO get rid of the `;;; ` markers: `expect` with an optional message prefix, and file-level errors (EOF, unclosed blocks, `break` at top level) via `expect` around a `load` of a helper file in a directory the test discovery skips
-- TODO `f(a,b)` for a function of arity 2: currently `f` applied to *one* argument, the comma list `(a,b)` ("not enough arguments"); spread a comma list of n elements over a function of arity n, so that `f(a,b)` means `f a b` (postponed 2026-09-27)
+- DONE `f(a,b)` for a function of arity 2 means `f a b` (2026-09-29), where the function wouldn't get enough arguments otherwise
 - TODO minimal core: remove the name-based special cases (`iff`, `not`/`false`, `=`/`iff` for `def`) so that `minimal.kurt` really is the core -- the core is first-order natural deduction (`implies`, `and`, `forall`, `sub`, bool vs. non-bool), not a logic-neutral framework
 - TODO quantifiers only with `load logic`: `forall`/`exists` syntax and the blocks `let`/`pick` become available only then (smaller core for propositional/modal courses); the engine's by-name handling of `forall` (e.g. stripping outer quantifiers of facts) must then depend on it being declared
 - TODO modal necessitation ("from a theorem A infer □A") can't be written: `use %p ⇒ □%p` would be unsound. A small `rule %p / □%p "nec"` for rules that only apply to theorems (facts proven with no assumption open) would do
@@ -27,7 +27,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO solve the path puzzle, also check `load ../foo.kurt` whether it works
 - TODO add `(%A iff top) implies A` to `prop.kurt` and check some mafi1 example
 - TODO allow `let x with F(x)`, or `let F(x)`, or `let x>0`, merge `pick` and `let` to use `unpack_condition`
-- TODO why not `f()` ???  what is it?  it should be parsed `(f)` instead of just `f`
 - TODO automatically iterate over all implications, in particular convert `≡` into two implications
 - TODO why (not x in emptyset) not working?
 
@@ -86,7 +85,6 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 
 - TODO macros: `macro ($A // $x=$a) (sub $x $a $A)` expands during parsing
 - TODO run profiling
-- TODO what is the difference between `arity f 1` and `prefix f 1`?  
 - TODO other ideas for speedup:
   1. Add memoization or caching to deepcopy_expr() if there are repeated shared subtrees.
   2. Use a tree fingerprint or identity system to detect when actual cloning is needed.

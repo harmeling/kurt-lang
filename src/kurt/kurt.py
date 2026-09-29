@@ -2212,12 +2212,32 @@ def is_empty_bracket_node(e: Expr, kb: KnowledgeBase) -> bool:
     return (isinstance(e, list) and len(e) == 1 and isinstance(e[0], Token)
             and isinstance(e[0].value, str) and kb.is_bracket_placeholder(e[0].value))
 
+def spread_arguments(op: str, arity: int, tail: list[Expr], kb: KnowledgeBase) -> Optional[list[Expr]]:
+    # `g(a, b)` for a `g` of arity 2 means `g a b`: a comma list in round brackets gives the
+    # arguments -- but only where `g` wouldn't get enough arguments otherwise, so `g (a, b) c`
+    # stays `g` applied to the pair `(a, b)` and to `c`; binders (`sum`, ...) take their arguments
+    # as they are
+    if arity < 2 or kb.is_bindop(op) or len(tail) >= arity:
+        return None
+    match tail[0]:
+        case [Token(label='SYMBOL', value='($$$)'), [Token(label='SYMBOL', value=c), *_] as inner] if c == COMMA_SYMBOL:
+            args = flatten_op(COMMA_SYMBOL, inner, kb)
+            assert isinstance(args, list)
+            args = args[1:]
+            if len(args) != arity:
+                raise KurtException(f'EvalError: `{op}` takes {arity} arguments, got {len(args)} in `({", ".join(expr_str(a, kb) for a in args)})`')
+            return args
+    return None
+
 def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
     # input: `expr` which is a list of functions and arguments
     # output: `e` which is properly group and the `tail` which is the rest of non-eaten arguments
     match expr:
         case [Token(label='SYMBOL', value=op), *tail] if isinstance(op, str) and ((arity:=kb.get_arity(op)) > 0):
             e: Expr = [expr[0]]                                       # the new expression
+            spread = spread_arguments(op, arity, tail, kb)
+            if spread is not None:
+                return [expr[0], *spread], tail[1:]
             for i in range(1, arity+1):
                 if len(tail) == 0:
                     raise KurtException(f'EvalError: not enough arguments for `{op}`')

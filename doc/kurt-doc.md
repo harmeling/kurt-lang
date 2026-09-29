@@ -261,6 +261,15 @@ cannot set an `arity` on a symbol that's already `infix`/`prefix`/`postfix`
 or a bracket (their arities — 2, 1, 1 — are implicit and fixed), and you
 cannot re-set an arity once declared.
 
+Round brackets only group, so `f(x)` is `f x`, and `f(x) = x * x` reads as
+usual. A comma list in round brackets gives the arguments of a function of
+arity 2 or more: `g(a, b)` is `g a b`, and `g(f(a), b)` is `g (f a) b` -- but
+only where the function wouldn't get enough arguments otherwise, so
+`g (a, b) c` is `g` applied to the pair `(a, b)` and to `c`. For a function
+of arity 1, `f(a, b)` is `f` applied to the pair `(a, b)` (see set.kurt's
+tuples). A comma list of the wrong length, `g(a, b, c)`, is an error.
+Binders (`sum`, `∀`, ...) take their arguments as written.
+
 Empty brackets (`()`, `{}`, ...) are allowed and parse to nothing; the only
 place this is meaningful is directly after an arity-0 symbol, where `f()`
 then parses to *exactly* `f` — the same expression as writing `f` alone,
