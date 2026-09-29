@@ -270,6 +270,13 @@ of arity 1, `f(a, b)` is `f` applied to the pair `(a, b)` (see set.kurt's
 tuples). A comma list of the wrong length, `g(a, b, c)`, is an error.
 Binders (`sum`, `∀`, ...) take their arguments as written.
 
+An operator alone in round brackets is the operator itself, as a term:
+`group(G, (∘), e, inv)`, `group(R, (+), 0, (-))`; `(- x)` is still `- x`. An
+operator can also be a variable -- `var ∘` and `infix ∘ 70 70` -- then
+`$a ∘ $b` in a rule matches `x + y` as well as `a ∘ b` (by the rules of the
+operator it stands for, e.g. `flat`, `sym`), just like `$f $a` matches `g x`.
+See `group.kurt`.
+
 Empty brackets (`()`, `{}`, ...) are allowed and parse to nothing; the only
 place this is meaningful is directly after an arity-0 symbol, where `f()`
 then parses to *exactly* `f` — the same expression as writing `f` alone,
@@ -728,6 +735,7 @@ declaring their own prerequisites via their own `load` lines:
 | `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings (`→`, function-space membership, function-extensionality) | `equality`, `logic` |
 | `arith.kurt` | arithmetic | `equality` |
 | `natural.kurt` | natural numbers, induction | `set`, `arith` |
+| `group.kurt` | groups: `group(G, (∘), e, inv)` defined by `closed`, `associative`, `identity`, `inverse`; rules for single steps ("group-associative", "group-right-inverse", ...); theorems: the identity and the inverse are unique, `inv (inv a) = a`. `∘` is an operator variable, so it all holds for any group, e.g. `group(R, (+), 0, (-))` | `set` |
 | `analysis.kurt` | `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |
 | `modal.kurt` | modal logic (`□`, `◇`) | `prop` |
 

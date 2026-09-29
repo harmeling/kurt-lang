@@ -89,7 +89,7 @@ Key data structures:
 
 Loading and modularity:
 
-- `load_file` resolves `load "foo.kurt"` against `theory_path` (cwd first, then the packaged `kurt.theories` resources) — this is how `.kurt` files pull in reusable theories (see `src/kurt/theories/*.kurt`: `minimal.kurt`, `prop.kurt`, `logic.kurt`, `equality.kurt`, `arith.kurt`, `set.kurt`, `natural.kurt`, `analysis.kurt`, `modal.kurt`).
+- `load_file` resolves `load "foo.kurt"` against `theory_path` (cwd first, then the packaged `kurt.theories` resources) — this is how `.kurt` files pull in reusable theories (see `src/kurt/theories/*.kurt`: `minimal.kurt`, `prop.kurt`, `logic.kurt`, `equality.kurt`, `arith.kurt`, `set.kurt`, `natural.kurt`, `analysis.kurt`, `group.kurt`, `modal.kurt`).
 - `merge_and_pop` (called once, at the end of `load_file`) implements *selective export*: only a `use`/`def`/proved-theorem fact carrying a label that isn't marked `local` (`EXPR local "label"`, see `local_led`) is exported to the loading file, along with whatever symbols (`free_symbols`) that fact actually needs — an unlabelled fact, or a symbol only ever used in local facts, stays invisible outside the file that wrote it. See `doc/kurt-doc.md`'s `load` section and `doc/kurt-soundness.md` §7.
 - `initial_kb` (module-level) is the pristine starting `KnowledgeBase`; tests `copy.deepcopy` it per test case to avoid cross-test contamination.
 - `mainstream` (a bool threaded through most eval functions) distinguishes output that should be printed/logged from output produced while silently loading dependencies.
