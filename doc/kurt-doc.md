@@ -965,11 +965,13 @@ two numeric literals (`=`, `≠`, `<`, `<=`, `>`, `>=`, e.g. `3 <= 4`) is also
 proven directly "by calc", and a claim follows "by calc" from a fact that
 computes to the same thing (e.g. `x = -25` from `x = (-5) * 5`). Results of
 substitutions (`sub`, as in `induction` or `equal-elim`) are computed too:
-substituting `k + 1` into `$x + 1` gives `k + 2`, not `k + 1 + 1`. What
-`calc` does not do is compute while *matching* an axiom's pattern: `$n! = $n
-* ($n-1)!` at `$n=1` needs `(1-1)!` to match `0!`, which it doesn't — see
-`proofs/arithmetic/factorial-recursion.kurt` for the workaround (derive the
-literal equality, like `1-1=0`, as its own fact). Since `calc` also
+substituting `k + 1` into `$x + 1` gives `k + 2`, not `k + 1 + 1`. While
+matching a rule, a part of it is computed as soon as its variables have
+values: with `$n := 3`, the `($n - 1)!` of "factorial-step" matches `2!`, and
+after `def f($x) = $x * $x`, `f(3) = 9` follows in one step. But `calc` doesn't
+*solve*: the `$b / $c` of "gt-div-pos" doesn't match `0` while `$b` is still
+unknown -- state such steps as their own lines, or use a rule that fits
+(like "div-pos"). Since `calc` also
 simplifies what you type, a fact like `8 = 2^3` can't be stated with `calc
 on` (it would become `8 = 8`); switch it on only where you need it, as in
 `proofs/arithmetic/solve-math-equation.kurt` — it is a single global toggle,

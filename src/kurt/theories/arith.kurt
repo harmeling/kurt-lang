@@ -5,11 +5,10 @@
 ; factorial (recursively defined via "factorial-step", not just the base case) -- see
 ; proofs/arithmetic/ for worked examples of all of this.
 ;
-; known gap: `calc on` computes what you type and the results of substitutions, but not while
-; matching an axiom's pattern -- so chaining a recursive fact like "factorial-step" across
-; concrete numbers needs each intermediate literal-arithmetic equality (e.g. `3 - 1 = 2`)
-; stated explicitly, since `($n - 1)!` doesn't match `2!`. See
-; proofs/arithmetic/factorial-recursion.kurt for the pattern.
+; `calc on` computes what you type, the results of substitutions, and a part of a rule as soon as
+; its variables have values (`($n - 1)!` with `$n := 3` matches `2!`, see
+; proofs/arithmetic/factorial-with-calc.kurt) -- but it doesn't solve: `$b / 3` doesn't match
+; `0` while `$b` is unknown.
 load equality
 
 ;; syntax

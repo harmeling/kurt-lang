@@ -4489,6 +4489,21 @@ def is_bool_var_token(e:Expr, kb) -> bool:
 # `exprs_patterns`:   [(e1, p1), (e2, p2), ...] = zip([e1, e2, ...], [p1, p2, ...])
 # this list is necessary for the `[*_]` case, i.e., for matching two lists
 # `two_sided` means that variables in the exprs can also be assigned
+CALC_OPS = ('+', '-', '*', '/', '^')
+
+def computes_to(pattern: Expr, expr: Expr, s: State, kb: KnowledgeBase) -> bool:
+    # with `calc on`: whether `pattern`, an arithmetic expression whose variables all have values
+    # in `s`, computes to `expr` (a step the kernel checks again, see `k_instance`)
+    if not (kb.calc and isinstance(pattern, list) and pattern and isinstance(pattern[0], Token) and pattern[0].value in CALC_OPS):
+        return False
+    if is_var_token(expr, kb):
+        return False        # a variable is matched by binding it, not by computing
+    instance = apply_subst(pattern, s, kb)
+    if contains_unbound_var(instance, s, kb):
+        return False
+    computed = calculate_normalized(instance, kb)
+    return not equal_expr(computed, instance, kb) and equal_expr(computed, calculate_normalized(expr, kb), kb)
+
 def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State, kb: KnowledgeBase) -> Iterator[State]:
 
     if len(exprs_patterns) == 0:
@@ -4503,6 +4518,11 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
 
         if equal_expr(expr, pattern, kb):
             # equal, just continue with the `tail`
+            yield from unify_exprs_with_patterns(tail, s, kb)
+
+        elif computes_to(pattern, expr, s, kb):
+            # `calc on`: an arithmetic part of the rule, whose variables all have values by now,
+            # computes to `expr`, e.g. `$x * $x` with `$x := 3` matches `9`
             yield from unify_exprs_with_patterns(tail, s, kb)
 
         elif is_var_token(pattern, kb) or is_var_token(expr, kb):

@@ -10,14 +10,8 @@ proof
         let y
             assume 0 < abs(y - 2) ∧ abs(y - 2) < e / 3
                 abs(y - 2) < e / 3
-                ; `calc` doesn't compute while matching a rule, so these two steps are
-                ; written down before computing `7 - 1` and `2 * 3`
-                calc off
-                (3 * y + 1) - 7 = 3 * y - (7 - 1)                   ; by add-sub
-                (y - 2) * 3 = y * 3 - 2 * 3                         ; by distrib-sub
-                calc on
-                (3 * y + 1) - 7 = 3 * y - 6
-                (y - 2) * 3 = 3 * y - 6
+                (3 * y + 1) - 7 = 3 * y - 6                         ; by add-sub, computing `7 - 1`
+                (y - 2) * 3 = 3 * y - 6                             ; by distrib-sub, computing `2 * 3`
                 (3 * y + 1) - 7 = (y - 2) * 3
                 abs(y - 2) * 3 < (e / 3) * 3                        ; by lt-mul-pos
                 3 ≠ 0
