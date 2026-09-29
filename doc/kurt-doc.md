@@ -318,7 +318,9 @@ extends over infix operators (`∀ $x ∈ A ∪ B ...`) but stops at the first
 function application, which is where the body starts. In parentheses, any
 condition works, `∀ ($x > 0 ∧ $x < 1) (P $x)`, as long as it contains
 exactly one variable (a `$`-variable or one declared `var`), which is the
-one being bound — it may occur more than once.
+one being bound — it may occur more than once. A relation may contain
+more variables; then, as without parentheses, the one on its left is bound:
+`∀ ($a ∈ $G) ...` in a rule binds `$a`, and `∀ ($x < $y) ...` binds `$x`.
 
 A condition is part of the formula: `∀ $x > 0 P $x` is not the same
 formula as `∀ $x ($x > 0 ⇒ P $x)`, and the engine doesn't treat it as an

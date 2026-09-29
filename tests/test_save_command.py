@@ -85,6 +85,40 @@ class TestSaveCommand(unittest.TestCase):
             self.assertIn('close the open blocks', errors)
             self.assertFalse(os.path.exists(saved))
 
+    def test_save_writes_only_kurt_files(self):
+        # (found in the soundness review of 2026-09-29: `save` could overwrite any file)
+        with tempfile.TemporaryDirectory() as tmp:
+            victim = os.path.join(tmp, 'victim.txt')
+            with open(victim, 'w') as fh:
+                fh.write('precious')
+            errors = shell(['load prop', f'save "{victim}"', 'save "prop.kurt"'])
+            self.assertIn('must end with `.kurt`', errors)
+            self.assertIn('is the name of a theory that comes with Kurt', errors)
+            with open(victim) as fh:
+                self.assertEqual(fh.read(), 'precious')
+            self.assertFalse(os.path.exists('prop.kurt'))
+
+    def test_no_save_with_strict_or_in_a_loaded_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            saved = os.path.join(tmp, 'saved.kurt')
+            old = kurt.strict_mode
+            kurt.strict_mode = True
+            try:
+                errors = shell(['load prop', f'save "{saved}"'])
+            finally:
+                kurt.strict_mode = old
+            self.assertIn('no `save` with `--strict`', errors)
+            helper = os.path.join(tmp, 'helper.kurt')
+            with open(helper, 'w') as fh:
+                fh.write(f'bool A\nsave "{saved}"\n')
+            main = os.path.join(tmp, 'main.kurt')
+            with open(main, 'w') as fh:
+                fh.write(f'load "{helper}"\n')
+            with self.assertRaises(kurt.KurtException) as e:
+                load(main)
+            self.assertIn('not in a loaded one', e.exception.msg)
+            self.assertFalse(os.path.exists(saved))
+
 
 if __name__ == '__main__':
     unittest.main()

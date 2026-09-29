@@ -29,7 +29,6 @@ bool     ⊂ 0
 bool     ∈ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
-brackets [ ]             ; squared brackets
 ; `A → B` is the *set* of all mappings from A to B; `f : A → B` reads as `f ∈ (A → B)` --
 ; "f is a member of the set of A→B mappings" -- exactly like `∈` is already just an alias of
 ; `in`

@@ -16,7 +16,7 @@ import kurt
 # each shipped theory's own source text and asserts each one survived that file's `load`, so
 # a future edit can't reintroduce this silently.
 
-THEORIES = ['prop', 'equality', 'logic', 'set', 'arith', 'natural', 'modal']
+THEORIES = ['prop', 'equality', 'logic', 'set', 'arith', 'natural', 'modal', 'analysis', 'group']
 
 # genuinely, deliberately unaxiomatized syntax -- `:` is only ever used as an alias for `in`
 # (see set.kurt's `alias : in`), never as its own standalone operator, so it never appears as
@@ -32,7 +32,7 @@ def declared_operators(theory: str) -> set[str]:
     declared = set()
     for line in text.splitlines():
         line = line.split(';', 1)[0].strip()   # drop comments
-        for kw in ('infix', 'prefix', 'postfix'):
+        for kw in ('infix', 'prefix', 'postfix', 'brackets'):
             if line.startswith(kw + ' '):
                 rest = line[len(kw):]
                 for tok in re.split(r'[,\s]+', rest.strip()):
@@ -49,7 +49,7 @@ class TestTheorySyntaxSurvivesLoad(unittest.TestCase):
                 exempt = KNOWN_UNAXIOMATIZED.get(theory, set())
                 for op in declared_operators(theory) - exempt:
                     self.assertTrue(
-                        kb.is_infix(op) or kb.is_prefix(op) or kb.is_postfix(op),
+                        kb.is_infix(op) or kb.is_prefix(op) or kb.is_postfix(op) or kb.is_bracket(op),
                         f"`{op}` is declared as syntax in {theory}.kurt but doesn't survive "
                         f"`load {theory}` -- no exported fact in the file mentions it, so its "
                         f"syntax is silently dropped (see doc/kurt-soundness.md #7)."

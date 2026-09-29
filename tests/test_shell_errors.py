@@ -70,5 +70,14 @@ class TestShellErrors(unittest.TestCase):
         self.assertIn('root', out.splitlines()[-3])
 
 
+class TestLatexShortcuts(unittest.TestCase):
+    def test_only_whole_commands(self):
+        # `\b` is the box of modal.kurt, but `\bot` was replaced by `□ot`
+        self.assertEqual(kurt.replace_latex_syntax(r'\b A'), '□ A')
+        self.assertEqual(kurt.replace_latex_syntax(r'\cap\cup'), '∩∪')
+        for command in (r'\bot', r'\div', r'\bigcup'):
+            self.assertEqual(kurt.replace_latex_syntax(command), command)
+
+
 if __name__ == '__main__':
     unittest.main()

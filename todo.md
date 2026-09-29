@@ -27,7 +27,8 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 ## on the way to 0.9 and 1.0 (2026-09-29, see release-plan.md)
 
 before 0.9 (public):
-- TODO a targeted soundness review of what the kernel doesn't check independently: the block rules, `def`, `load`/exports, `calc`, the normal forms (`flat`, `sym`) -- three old soundness bugs were found on 2026-09-29 alone (started 2026-09-29)
+- DONE a targeted soundness review of what the kernel doesn't check independently: the block rules, `def`, `load`/exports, `calc`, the normal forms (`flat`, `sym`) -- four bug hunts, all found bugs fixed with regression tests (doc/kurt-soundness.md §8.17, 2026-09-29)
+- TODO what the soundness review left open: curried `(f x) y` and `f x y` are two different terms; a sum whose bound variable shadows an outer one (`sum x (0, n) (sum x (0, x) x)`) isn't derived by "sum-last"; the reasons of trivial steps name unrelated rules (`a = a` "by chain-trans-0-0(pow-identity, pow-identity)"); an error shows the internal bracket node as `()`; `chain R` in a block names a pseudo-file `<chain transitivity ...>`; a chain can't continue the line that opens a block (`assume a < b` / `    = c`) -- only an error now
 - TODO loading in a fresh context (see below): a library's proofs must not depend on what its loader loaded before
 - TODO public polish: README, version number, the internal files in the repo root, PyPI
 - TODO docs for the new features: `cert`, `.kurtc`, tuples, groups, operator variables in the tutorial; the cookbook is a stub

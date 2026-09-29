@@ -1346,6 +1346,18 @@ packaged theories. What they found, and what was fixed (each with its regression
   match, `BinderMisread`); an operator variable matched a binder like `max`; and a bound
   variable of the goal was proposed as the value to substitute (`subterm_candidates`).
   (`search-bugs-the-kernel-caught.kurt`)
+- Minor: the symbols of a trusted theory could be declared anew (`bool Nat`, `infix Nat 50 50`,
+  after which `0 ∈ Nat` didn't parse) -- now `check_not_frozen` for every declaration; `save`
+  could overwrite any file, also with `--strict` and from a loaded file -- now only `.kurt` files,
+  not named like a theory of Kurt, and neither with `--strict` nor in a loaded file; a `local`
+  `def` counted as "required by an exported fact" for facts the file only passed on from a
+  loaded one; `alias Q $x` and alias cycles; a symbol bound to two operations of the calculator;
+  `1.0` was not the number `1`; negative numbers printed as `P -1` (read back as `P - 1`);
+  set.kurt's `brackets [ ]` never survived `load set` (removed, and the survives-`load` test
+  covers brackets now); the shell's `\bot` became `□ot`; a byte order mark was a scanning
+  error. (`theory-symbols-are-frozen.kurt`, `review-small-fixes.kurt`,
+  `def-in-the-main-file-of-a-loaded-operator.kurt`, `tests/test_save_command.py`,
+  `tests/test_theory_syntax_survives_load.py`, `tests/test_shell_errors.py`)
 
 ## 9. The kernel: every step is checked again
 

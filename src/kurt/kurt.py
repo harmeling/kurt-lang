@@ -360,8 +360,9 @@ REPLACEMENTS: dict[str, str] = {
 # for the scanner
 SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(REPLACEMENTS.values()))))
 
-# match any known command inside the string (even if joined to other text)
-COMMAND_RE = re.compile('|'.join(re.escape(k) for k in sorted(REPLACEMENTS, key=len, reverse=True)))
+# match any known command inside the string (even if joined to other text, like `\cap\cup`) --
+# but only a whole command: `\b` is `□`, but `\bot` is not `□ot`
+COMMAND_RE = re.compile('(?:' + '|'.join(re.escape(k) for k in sorted(REPLACEMENTS, key=len, reverse=True)) + ')(?![A-Za-z])')
 
 def replace_latex_syntax(line: str) -> str:
     def command_replacer(match: re.Match) -> str:
@@ -939,6 +940,11 @@ class KnowledgeBase:
         return None
 
     def bind_calc(self, symbol: str, operation: str) -> None:
+        # one operation per symbol -- and a unary one, `negate`, besides (like `-`); `calc q power,
+        # q add` silently computed `add` (found in the soundness review of 2026-09-29)
+        others = [op for op in self.get_calc_ops(symbol) if op != operation and (op == 'negate') == (operation == 'negate')]
+        if others:
+            raise KurtException(f'EvalError: `{symbol}` is bound to `{others[0]}` already, it can not also mean `{operation}`')
         ops = self.calc_ops.setdefault(symbol, [])
         if operation not in ops:
             ops.append(operation)
@@ -960,7 +966,9 @@ class KnowledgeBase:
         self.parent = None        # detaching it might help the garbage collector
         return parent
 
-    def merge_and_pop(self) -> KnowledgeBase:
+    def merge_and_pop(self, own_file: Optional[str] = None) -> KnowledgeBase:
+        # (`own_file`: the file whose level this is -- a fact it only passes on from a file it
+        # loaded can't depend on its `local` definitions)
         assert self.parent is not None, f'BUG: cannot merge and pop the top level'
         # there shouldn't be any promised formulas in self
         if len(self.show) > 0:
@@ -998,7 +1006,11 @@ class KnowledgeBase:
                     exported_symbols.add(alias_name)
                     changed = True
 
-        leaked = local_def_symbols & exported_symbols
+        own_symbols: set[str] = set()
+        for f in exported:
+            if own_file is None or f.filename == own_file:
+                own_symbols |= free_symbols(f.expr, self)
+        leaked = local_def_symbols & own_symbols
         if leaked:
             raise KurtException(f'EvalError: symbol(s) {sorted(leaked)} are defined `local` but required by an exported fact -- export their `def` too, or keep them out of exported facts')
 
@@ -1550,6 +1562,12 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{s}` is already a variable or starts with `$` or `%`')
         if self.is_const(s):
             raise KurtException(f'EvalError: symbol `{s}` is already a constant')
+        # (found in the soundness review of 2026-09-29: `alias Q $x`, and cycles `alias q r`, `alias r q`)
+        if self.is_var(t) or self.is_fixed_var(t):
+            raise KurtException(f'EvalError: an alias is another name for a symbol, not for the variable `{t}`')
+        t = self.get_alias(t) or t    # another name for an alias is one for its symbol
+        if t == s:
+            raise KurtException(f'EvalError: `alias {s}` would make `{s}` another name for itself')
         self.alias[s] = t         # add a key `s` with value `t`
 
     def add_bool(self, s: str, v: list[int]) -> None:
@@ -1886,6 +1904,8 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
     match expr:
         case Token(label='SYMBOL', value=a) if isinstance(a, str) and kb.is_operator(a):
             return f'({a})'                        # an operator as a term, e.g. in `group(G, (+), 0, (-))`
+        case Token(label='INT' | 'FLOAT', value=v) if not isinstance(v, str) and v < 0:
+            return f'({expr_sexpr(expr, kb)})'     # `P (-1)`, not `P -1`, which reads as `P - 1`
         case Token():
             return expr_sexpr(expr, kb)            # reuse implementation from expr_sexpr
         case [e0]:
@@ -2095,10 +2115,11 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
             assert isinstance(value, str)
             if len(value) > MAX_NUMBER_DIGITS:
                 raise KurtException(f'SyntaxError: a number with more than {MAX_NUMBER_DIGITS} digits', column)
-            if label == 'INT':
-                yield Token(label, int(value), column)
+            number = Fraction(value)                         # exact: `0.1` is 1/10
+            if number.denominator == 1:
+                yield Token('INT', int(number), column)      # `1.0` is the number `1`
             else:
-                yield Token(label, Fraction(value), column)  # exact: `0.1` is 1/10
+                yield Token(label, number, column)
         elif label == 'STRING':
             assert isinstance(value, str)
             yield Token(label, value[1:-1], column)
@@ -2351,7 +2372,8 @@ def group_by_arity(expr: Expr, kb: KnowledgeBase) -> tuple[Expr, list[Expr]]:
                 tail: list[Expr]
                 ei, tail = group_by_arity(tail, kb)             # let the next one eat as many expr as it needs
                 if is_empty_bracket_node(ei, kb):
-                    raise KurtException(f'EvalError: empty parentheses `()` cannot supply an argument for `{op}`, which needs {arity} argument(s)')
+                    empty = str(ei[0].value).replace('$$$', '') if isinstance(ei, list) and isinstance(ei[0], Token) else '()'
+                    raise KurtException(f'EvalError: empty brackets `{empty}` cannot supply an argument for `{op}`, which needs {arity} argument(s)')
                 e.append(ei)
             return e, tail
         case [head, *tail]:        # list with operator that doesn't have an arity > 0
@@ -3122,6 +3144,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
     assert isinstance(keyword, str)
     assert isinstance(args, list)
 
+    if keyword in ('infix', 'prefix', 'postfix', 'bool', 'arity', 'bindop', 'brackets', 'alias'):
+        # a declaration changes how a symbol is read: not for the symbols of a theory of Kurt
+        # (`infix Nat 50 50`, `bool Nat`, found in the soundness review of 2026-09-29)
+        declared = [t.value for a in args for t in (a if isinstance(a, list) else [a])[:2 if keyword == 'brackets' else 1]
+                    if isinstance(t, Token) and isinstance(t.value, str)]
+        check_not_frozen(declared, keyword, filename, kb)
+
     # GENERAL STUFF
     if keyword == 'help':
         for k in keywords.keys(): log(kb, f'  {k:<12} {keywords[k]}')
@@ -3188,6 +3217,16 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         match arg[0]:
             case Token(label='STRING', value=fname):
                 assert isinstance(fname, str)
+                # `save` writes a Kurt file of the checked one or the shell, nothing else (found in
+                # the soundness review of 2026-09-29: it could overwrite any file, also when grading)
+                if strict_mode:
+                    raise KurtException(f'EvalError: no `save` with `--strict`', keyword_token.column)
+                if len(_loading_in_progress) > 1:
+                    raise KurtException(f'EvalError: `save` only in the file that is checked (or the shell), not in a loaded one', keyword_token.column)
+                if not fname.endswith('.kurt'):
+                    raise KurtException(f'EvalError: `save` writes a Kurt file, its name must end with `.kurt`, e.g. `save "state.kurt"`', arg[0].column)
+                if packaged_theory_file(os.path.basename(fname)) is not None:
+                    raise KurtException(f'EvalError: `{os.path.basename(fname)}` is the name of a theory that comes with Kurt -- `save` under another name', arg[0].column)
                 if open_block_depth(kb) > 0:
                     raise KurtException(f'EvalError: `save` only outside of blocks -- close the open blocks first', keyword_token.column)
                 if any(len(node.show) > 0 for node in [kb] + ([kb.parent] if kb.parent is not None else [])):
@@ -3732,6 +3771,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     case [*tail] if sum(1 for t in tail if is_helper_keyword(t)) == 1:
                         with_index = next(i for i, t in enumerate(tail) if is_helper_keyword(t))
                         pre_with, fact_expr = tail[:with_index], tail[with_index+1:]
+                        if not fact_expr:
+                            raise KurtException(msg)                  # `pick x with` without a fact
                         if len(pre_with) != 1:
                             raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{" ".join(str(t.value) for t in pre_with)}`' if len(pre_with) > 1 else msg)
                         new_const_expr = pre_with[0]
@@ -6583,7 +6624,7 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
                 kb.frozen |= kb.declared_symbols()   # only this theory may change their meaning
             if kurtc_enabled and len(kb.todos()) == todos_before and isinstance(candidate, Path):
                 write_kurtc(fname)       # checked completely: its certificates
-            kb = kb.merge_and_pop()  # merge 'sandbox' level if everything was ok
+            kb = kb.merge_and_pop(own_file=fname)  # merge 'sandbox' level if everything was ok
             kb.libs.append(fname)
             return kb
 
@@ -6665,6 +6706,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                             line=line, filename=input_stream.name)
                     break
                 new_line = new_line.rstrip()
+                if line == 1:
+                    new_line = new_line.removeprefix('\ufeff')   # a byte order mark, invisible in editors
             new_line = new_line.expandtabs(tab_indent)     # tabs are ok, but are converted
             if not continued and (new_line.strip() == '' or new_line.lstrip().startswith(';')):
                 # a blank line (or a line with only a comment) never carries anything to parse -- skip it outright rather

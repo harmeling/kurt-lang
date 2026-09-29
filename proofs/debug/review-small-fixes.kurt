@@ -1,0 +1,36 @@
+﻿; small fixes from the soundness review of 2026-09-29 (this file starts with a byte order
+; mark, invisible in most editors, which used to be a "scanning error" on line 1)
+load logic, equality, arith
+bool P
+arity P 1
+
+; `1.0` is the number `1` (it printed as `1`, but didn't match it)
+use P 1
+P 1.0
+use P 2.50
+P 2.5
+
+; an alias is another name for a symbol: not for a variable, and not in a cycle
+const r
+alias q r
+expect "EvalError"
+    alias r q
+expect "EvalError"
+    alias Q $x
+var v
+expect "EvalError"
+    alias w v
+alias q2 q
+P 1 ∨ q2 = r
+
+; a symbol means one operation of the calculator (`calc s power, s add` computed `add`), and
+; possibly `negate` besides, like `-`
+infix s 50 50
+calc s power
+expect "EvalError"
+    calc s add
+
+; `pick x with` needs a fact
+exists y (y = y)
+expect "EvalError"
+    pick x with

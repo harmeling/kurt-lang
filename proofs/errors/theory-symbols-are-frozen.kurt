@@ -1,0 +1,20 @@
+; the symbols of a theory that comes with Kurt can't be declared anew: that would change how
+; its axioms read (soundness review of 2026-09-29: `bool Nat`, `arity Nat 2`, `infix Nat 50 50`
+; were accepted, and afterwards `0 ∈ Nat` no longer parsed)
+load natural, analysis
+expect "EvalError"
+    bool Nat
+expect "EvalError"
+    arity Nat 2
+expect "EvalError"
+    infix Nat 50 50
+expect "EvalError"
+    infix abs 50 50
+expect "EvalError"
+    prefix Nat 50
+expect "EvalError"
+    postfix Nat 50
+0 ∈ Nat
+
+; a symbol of its own is fine
+infix foo 50 50
