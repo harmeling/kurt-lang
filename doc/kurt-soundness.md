@@ -1055,6 +1055,21 @@ using `X`/`Y` rather than the file's own `p`/`q` example symbols so they
 would have caught this; confirmed by reverting the fix and re-running —
 all three fail.
 
+
+### 7.6 Each file in a fresh context (2026-09-29)
+
+A loaded file is checked on a copy of the core plus what it loads itself (`checked_exports`),
+not in the loader's context. Its `ExportBundle` then meets the loader
+(`validate_against_loader`). What that rests on: a proof in the loaded file used only the
+file's own axioms and those of the files it loads, so it stays a proof when more axioms are
+around -- except where a `def` was conservative only because its symbol was new. So a symbol
+both sides know must be defined by the same `def` on both sides (or by none), and its
+declarations must not contradict each other (they may be missing on one side: a later file may
+bind a symbol to the calculator, or declare it `flat`). A cached export of a file is used only
+while the file and the files it loaded have the same hash, and for the same `--strict`, trusted
+paths and `.kurtc` setting. (`tests/test_load_isolation.py`,
+`arity-redeclaration-across-load-rejected.kurt`)
+
 ## 8. Matcher changes for the `proofs-not-yet` backlog (2026-09-25)
 
 Made while moving `gauss.kurt`, `solve-math-equation.kurt`, `chains.kurt`, … from

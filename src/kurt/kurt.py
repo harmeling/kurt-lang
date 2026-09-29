@@ -41,6 +41,7 @@ import inspect      # inspect.stack
 
 import itertools    # itertools.[product, count, chain, permutations]
 import json        # for `.kurtc` files, the certificates of a file
+import copy        # copy.deepcopy, for the fresh context of a loaded file (`load_file`)
 import contextlib  # contextlib.contextmanager, for `users_comment`
 import time        # the dates of files, for `--deps`
 from dataclasses import dataclass, field
@@ -883,6 +884,7 @@ class ExportBundle:
     chain: list[list[str]]
     frozen: set[str]                         # the symbols a trusted theory declared (`is_trusted_file`)
     libs: list[str]                          # the files it loaded
+    todos: list[str] = field(default_factory=list)   # its open `todo`s
 
 # the fields of `ExportBundle` that are symbol-keyed attributes of `KnowledgeBase`, of this level only
 EXPORTED_SYMBOL_ATTRS = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop', 'flat', 'sym', 'alias',
@@ -942,12 +944,14 @@ def validate_exports(bundle: ExportBundle, child: 'KnowledgeBase', parent: 'Know
         raise KurtException(f'EvalError: {", ".join(f"`{c}`" for c in clash)} is a constant of the loaded file, but a variable here -- load the file before `var`, or rename the variable')
 
 def apply_exports(parent: 'KnowledgeBase', bundle: ExportBundle) -> None:
-    # add the exports to `parent`, the level that loaded the file
-    parent.theory.extend(bundle.theory)
+    # add the exports to `parent`, the level that loaded the file -- what `parent` has already
+    # (from a file that both loaded) only once
+    known = {(f.filename, f.line, f.label) for node in parent.levels() for f in node.theory}
+    parent.theory.extend(f for f in bundle.theory if (f.filename, f.line, f.label) not in known)
     for attr in EXPORTED_SYMBOL_ATTRS:
         getattr(parent, attr).update(getattr(bundle, attr))
-    parent.chain.extend(bundle.chain)
-    parent.libs.extend(bundle.libs)
+    parent.chain.extend(c for c in bundle.chain if c not in parent.all_chains())
+    parent.libs.extend(lib for lib in bundle.libs if parent.get_load_level(lib) is None)
     if bundle.calc_ops:
         parent.all_calc_ops = {**parent.all_calc_ops, **{sym: list(ops) for sym, ops in bundle.calc_ops.items()}}
 
@@ -1350,6 +1354,30 @@ class KnowledgeBase:
         # from a genuinely fresh individual like a `let`/`pick`/`const`-introduced
         # constant (not fine, it must not survive past the block it came from)
         return self.get_arity(s) > 0 or self.is_operator(s) or self.is_bindop(s) or self.is_bool(s)
+
+    def levels(self) -> Iterator['KnowledgeBase']:
+        # this level and the ones above it
+        node: Optional[KnowledgeBase] = self
+        while node is not None:
+            yield node
+            node = node.parent
+
+    def lookup(self, attr: str, s: str):
+        # the entry for `s` in the dict `attr` of the innermost level that has one
+        for node in self.levels():
+            table = getattr(node, attr)
+            if s in table:
+                return table[s]
+        return None
+
+    def get_infix(self, s: str) -> Optional[tuple[int, int]]:   return self.lookup('infix', s)
+    def get_prefix(self, s: str) -> Optional[int]:              return self.lookup('prefix', s)
+    def get_postfix(self, s: str) -> Optional[int]:             return self.lookup('postfix', s)
+    def get_lbracket(self, s: str) -> Optional[str]:            return self.lookup('brackets', s)
+
+    def is_known(self, s: str) -> bool:
+        # whether `s` is declared or used somewhere on this level or above
+        return any(s in node.declared_symbols() or s in node.used or s in node.brackets.values() for node in self.levels())
 
     def get_arity(self, fun: str) -> int:
         if fun in self.arity:
@@ -1882,6 +1910,7 @@ initial_kb.add_const (EXISTS_SYMBOL)                       # exists is const  no
 initial_kb.add_alias('∀', FORALL_SYMBOL)                   # alias for forall
 initial_kb.add_alias('∃', EXISTS_SYMBOL)                   # alias for exists
 initial_kb.frozen = initial_kb.declared_symbols()          # the core can't be changed, e.g. by `sym implies`
+core_kb: KnowledgeBase = copy.deepcopy(initial_kb)         # the core only: every file is checked on a copy of it (`load_file`)
 
 ################
 ## kurt lexer ##
@@ -6574,6 +6603,77 @@ def is_already_loaded(filename: str, kb: KnowledgeBase, search_paths) -> bool:
             return False
     return False
 
+# the exports of the files checked so far in this run (not the main file, which prints its
+# steps): a file is checked once, not again for each file that loads it -- as long as it and the
+# files it loads didn't change, and neither did the settings that decide what is accepted
+_checked_exports: dict[tuple, tuple[ExportBundle, list[tuple[str, Optional[str]]]]] = {}
+
+def checked_exports(fname: str, f: TextIO, candidate, loader: KnowledgeBase, mainstream: bool) -> ExportBundle:
+    # check the file in a fresh context -- the core, and the files it loads itself, nothing of
+    # its loader (whose facts it could otherwise use without loading them, and whose load order
+    # would matter) -- and return what it exports
+    key = (fname, source_hash(fname), strict_mode, tuple(str(p) for p in trusted_paths), kurtc_enabled)
+    cached = _checked_exports.get(key) if not mainstream and key[1] is not None else None
+    if cached is not None and all(source_hash(dep) == digest for dep, digest in cached[1]):
+        return copy.deepcopy(cached[0])
+    load_dependencies[fname] = []
+    if kurtc_enabled:
+        read_kurtc(fname)
+    root = copy.deepcopy(core_kb)
+    root.format, root.verbose, root.hint = loader.format, loader.verbose, loader.hint   # only how it looks
+    kb = root.push_level('sandbox', [])    # (the level of the file)
+    kb.tmp = True
+    kb.is_load_boundary = True             # `break` must not be able to close this implicit level
+    kb = read_eval_loop(f, kb, mainstream=mainstream)
+    if kb.level > 1:
+        raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed.')
+    assert kb.level == 1, f'BUG: `load_file` decreased the level from 1 to {kb.level}'
+    if is_trusted_file(fname):
+        kb.frozen |= kb.declared_symbols()   # only this theory may change their meaning
+    if kurtc_enabled and len(root.todos()) == 0 and isinstance(candidate, Path):
+        write_kurtc(fname)       # checked completely: its certificates
+    if len(kb.show) > 0:
+        raise KurtException(f'EvalError: cannot merge and pop a level with promised formulas, got {len(kb.show)} formulas.')
+    bundle = compute_exports(kb)
+    validate_exports(bundle, kb, root, fname)
+    bundle.todos = list(root.todos())
+    if not mainstream and key[1] is not None:
+        _checked_exports[key] = (copy.deepcopy(bundle), [(dep, source_hash(dep)) for dep in bundle.libs])
+    return bundle
+
+def symbol_declarations(kb: 'KnowledgeBase | ExportBundle', s: str) -> tuple:
+    # how `s` is read: everything a `load` must not change about a symbol that both sides know
+    if isinstance(kb, ExportBundle):
+        return (kb.infix.get(s), kb.prefix.get(s), kb.postfix.get(s), kb.arity.get(s, 0), tuple(kb.bool.get(s, [])),
+                s in kb.bindop, s in kb.flat, s in kb.sym, kb.alias.get(s), tuple(kb.calc_ops.get(s, [])), kb.brackets.get(s))
+    return (kb.get_infix(s), kb.get_prefix(s), kb.get_postfix(s), kb.get_arity(s), tuple(kb.bool_sig(s)),
+            kb.is_bindop(s), kb.is_flat(s), kb.is_sym(s), kb.get_alias(s), tuple(kb.get_calc_ops(s)), kb.get_lbracket(s))
+
+def validate_against_loader(bundle: ExportBundle, loader: 'KnowledgeBase', fname: str) -> None:
+    # the file was checked on its own: a symbol it shares with its loader must mean the same on
+    # both sides -- the same declarations, and, if it is defined, the same `def` (a `def` is only
+    # conservative for a symbol that is new)
+    clash = sorted(sym for sym in bundle.symbols if sym in bundle.const and loader.is_var(sym) and sym[0] not in '$%')
+    if clash:
+        raise KurtException(f'EvalError: {", ".join(f"`{c}`" for c in clash)} is a constant of the loaded file, but a variable here -- load the file before `var`, or rename the variable')
+    def key(f: 'Formula') -> tuple[str, str, str]:
+        return (f.filename, f.line, f.label)
+    loader_formulas = [f for node in loader.levels() for f in node.theory]
+    loader_defs = {f.def_symbol: key(f) for f in loader_formulas if f.def_symbol is not None}
+    bundle_defs = {f.def_symbol: key(f) for f in bundle.theory if f.def_symbol is not None}
+    core = core_kb.declared_symbols() | core_kb.used
+    for sym in sorted(bundle.symbols - core):
+        if sym[0] in '$%' or not loader.is_known(sym):
+            continue
+        # a later file may add to a symbol (arith.kurt binds `=` of equality.kurt to the
+        # calculator), so a declaration may be missing on one side -- but not be another one
+        if any(a and b and a != b for a, b in zip(symbol_declarations(loader, sym), symbol_declarations(bundle, sym))):
+            raise KurtException(f'EvalError: `{sym}` is declared differently here and in `{fname}` -- rename it in one of them')
+        if loader_defs.get(sym) != bundle_defs.get(sym):
+            where = bundle_defs.get(sym) or loader_defs.get(sym)
+            assert where is not None
+            raise KurtException(f'EvalError: `{sym}` is defined in `{where[0]}` (line {where[1]}), but is another `{sym}` on the other side of `load {fname}` -- rename it in one of them')
+
 def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, mainstream:bool=False, silent:bool=False) -> KnowledgeBase:
     # files are always loaded into a new level that is dropped once everything is ok to avoid partial loads
     if not filename.endswith('.kurt'):
@@ -6620,31 +6720,17 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths = theory_path, main
             load_dependencies.setdefault(current_line[0][0], []).append(fname)
         try:
             _loading_in_progress.add(fname)
-            load_dependencies[fname] = []
-            if kurtc_enabled:
-                read_kurtc(fname)
-            todos_before = len(kb.todos())
             with candidate_file as f:
-                kb = kb.push_level('sandbox', [])  # load the file in 'sandbox' to avoid partial loads
-                level = kb.level      # save current level, this one we want to reach after loading
-                kb.tmp = True              # mark as temporary knowledge base during loading
-                kb.is_load_boundary = True # `break` must not be able to close this implicit level
-                kb = read_eval_loop(f, kb, mainstream=mainstream)
-            # checks after closing the file
-            if kb.level > level:
-                # drop all opened levels and raise exception
-                while kb.level > level:
-                    kb = kb.pop_level()
-                raise KurtException(f'\nEvalError: inside `{fname}` not all blocks closed.')
-            elif kb.level < level:
-                assert False, f'BUG: `load_file` decreased the level from {level} to {kb.level}'
-            if is_trusted_file(fname):
-                kb.frozen |= kb.declared_symbols()   # only this theory may change their meaning
-            if kurtc_enabled and len(kb.todos()) == todos_before and isinstance(candidate, Path):
-                write_kurtc(fname)       # checked completely: its certificates
-            kb = kb.merge_and_pop(own_file=fname)  # merge 'sandbox' level if everything was ok
+                bundle = checked_exports(fname, f, candidate, kb, mainstream)
+            validate_against_loader(bundle, kb, fname)
+            apply_exports(kb, bundle)
+            for todo in bundle.todos:
+                kb.todo_add(todo)
             kb.libs.append(fname)
             return kb
+        except KurtException as e:
+            e.kb_after = None       # a level of the loaded file's own context, not of the loader
+            raise
 
         finally:
             _loading_in_progress.discard(fname)

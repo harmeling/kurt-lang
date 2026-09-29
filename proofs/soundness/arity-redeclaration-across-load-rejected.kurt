@@ -10,7 +10,9 @@
 ; trace, no error at all). Fixed by giving `add_arity` a proper ancestor-aware `is_arity_set`
 ; check, matching how every other `add_*` "already declared" guard (`add_prefix`,
 ; `add_const`, `add_bool`, ...) already worked via `is_infix`/`is_const`/`bool_sig`/etc.
-; See doc/kurt-soundness.md #4.1.
+; See doc/kurt-soundness.md #4.1. Since each file is checked in a fresh context (2026-09-29),
+; the conflict is found when the second file's exports meet the first's: both export a fact
+; with their `P` (a `P` that only one of them uses in exported facts would stay private).
 load arity-conflict-helper-a
 expect "EvalError"
     load arity-conflict-helper-b

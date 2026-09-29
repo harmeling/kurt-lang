@@ -721,10 +721,25 @@ rather than a duplicate-axiom error. A
 file that is still *in the middle* of loading (a genuine cycle: `a.kurt`
 has `load "b.kurt"`, and `b.kurt` has `load "a.kurt"`) is tracked
 separately and raises a clean `EvalError: circular \`load\`: ...` instead
-of recursing forever. Loading happens inside its own temporary
-level, so a file that leaves a block unexpectedly open (an unmatched
+of recursing forever. A file that leaves a block unexpectedly open (an unmatched
 `assume`/`let`/`pick`/`proof`/`sandbox`) fails the whole `load` rather than
 silently leaking a half-open block into your file.
+
+**Each file is checked on its own.** A loaded file is checked in a fresh
+context: the hard-coded core (§8.1) and the files it loads itself -- nothing
+of the file that loads it, not its facts, declarations, or `calc on`. So a
+library can't use a fact without loading the file it comes from, and the
+order of two `load`s doesn't change what either of them proves. What the file
+exports (below) is then added to the loading file. A symbol that both know
+must mean the same there: its declarations may not contradict each other
+(one side may have more, e.g. arith.kurt binds `=` of equality.kurt to the
+calculator), and if it is defined by a `def`, it must be the same `def` on
+both sides -- a `def` is only conservative for a new symbol, so
+`const f` / `use f = 1` here and `def f = 2` in the loaded file is an error.
+A fact that two loaded files both pass on (from a file both of them load)
+is added once. In one run of Kurt, a file is checked once and its exports
+are reused, as long as neither it nor a file it loads changed; only the
+file you check itself is always checked again (it prints its steps).
 
 The packaged theories (`src/kurt/theories/`), and roughly what each adds,
 declaring their own prerequisites via their own `load` lines:

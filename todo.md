@@ -22,14 +22,14 @@ git checkout main && git pull && git merge dev && git push && git checkout dev
 - TODO quantifiers only with `load logic`: `forall`/`exists` syntax and the blocks `let`/`pick` become available only then (smaller core for propositional/modal courses); the engine's by-name handling of `forall` (e.g. stripping outer quantifiers of facts) must then depend on it being declared
 - TODO modal necessitation ("from a theorem A infer □A") can't be written: `use %p ⇒ □%p` would be unsound. A small `rule %p / □%p "nec"` for rules that only apply to theorems (facts proven with no assumption open) would do
 
-- TODO a loaded file is checked in the context of what was loaded before it: its proofs see (and could use) facts it doesn't load itself, and get slower with every theory around (group.kurt: 3 s alone, 8.5 s after `load arith`). Load a file in a fresh context instead (only what it loads itself), then add its exports?
+- DONE (2026-09-29) a loaded file is checked in the context of what was loaded before it: its proofs see (and could use) facts it doesn't load itself, and get slower with every theory around (group.kurt: 3 s alone, 8.5 s after `load arith`). Load a file in a fresh context instead (only what it loads itself), then add its exports?
 
 ## on the way to 0.9 and 1.0 (2026-09-29, see release-plan.md)
 
 before 0.9 (public):
 - DONE a targeted soundness review of what the kernel doesn't check independently: the block rules, `def`, `load`/exports, `calc`, the normal forms (`flat`, `sym`) -- four bug hunts, all found bugs fixed with regression tests (doc/kurt-soundness.md §8.17, 2026-09-29)
 - TODO what the soundness review left open: curried `(f x) y` and `f x y` are two different terms; a sum whose bound variable shadows an outer one (`sum x (0, n) (sum x (0, x) x)`) isn't derived by "sum-last"; the reasons of trivial steps name unrelated rules (`a = a` "by chain-trans-0-0(pow-identity, pow-identity)"); an error shows the internal bracket node as `()`; `chain R` in a block names a pseudo-file `<chain transitivity ...>`; a chain can't continue the line that opens a block (`assume a < b` / `    = c`) -- only an error now
-- TODO loading in a fresh context (see below): a library's proofs must not depend on what its loader loaded before -- on top of the `ExportBundle`, with a cache by path and hashes (codex-suggestions.md, P0)
+- DONE (2026-09-29) loading in a fresh context (see below): a library's proofs must not depend on what its loader loaded before -- on top of the `ExportBundle`, with a cache by path and hashes (codex-suggestions.md, P0)
 - TODO public polish: README, version number, the internal files in the repo root, PyPI
 - TODO docs for the new features: `cert`, `.kurtc`, tuples, groups, operator variables in the tutorial (the cookbook has 20 recipes now, by Codex, 2026-09-29)
 - DONE (codex-suggestions.md, P2, 2026-09-29) three small bugs: `parse` never prints `type check failed` (`keyword_token in ['parse']` compares a `Token`); a `def` line with several definitions logs the last one for each; REPL history is written but never read (`and False` in `main`)

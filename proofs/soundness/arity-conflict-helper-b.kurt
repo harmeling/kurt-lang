@@ -3,3 +3,5 @@
 ; symbol name as arity-conflict-helper-a.kurt -- fine on its own, the point is what happens
 ; when both get loaded together.
 arity P 2
+bool P
+use P $x $y implies P $x $y  "trivial-2"
