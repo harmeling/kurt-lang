@@ -154,5 +154,74 @@ class TestKernelRejects(unittest.TestCase):
         self.assert_rejected(v, {'other value': ''})
 
 
+
+class TestKernelRejectsBlocks(unittest.TestCase):
+    # closing `assume`, `let`, `pick`: real certificates are accepted, changed ones rejected
+
+    def verdicts(self, text, kind, variants):
+        found = [v for cert, v in check_during_run(text, variants) if cert.kind == kind]
+        self.assertTrue(found, f'no {kind} step')
+        verdicts = found[0]
+        self.assertIsNone(verdicts.pop('as is'))
+        return verdicts
+
+    def assert_rejected(self, verdicts, fragments):
+        for name, fragment in fragments.items():
+            self.assertIsNotNone(verdicts[name], f'the kernel accepts the wrong step "{name}"')
+            self.assertIn(fragment, verdicts[name], name)
+
+    def test_impl_intro_and_not_intro(self):
+        def variants(cert, kb):
+            if cert.kind != 'impl-intro':
+                return {}
+            return {'other goal': dataclasses.replace(cert, goal=token('B')),
+                    'not-intro': dataclasses.replace(cert, kind='not-intro', goal=[token('not'), token('A')])}
+        text = 'load prop\nbool A, B\nuse A implies B\nassume A\n    B\ntrue'
+        v = self.verdicts(text, 'impl-intro', variants)
+        self.assert_rejected(v, {'other goal': 'is not', 'not-intro': 'not `false`'})
+
+    def test_forall_intro(self):
+        def variants(cert, kb):
+            if cert.kind != 'forall-intro':
+                return {}
+            return {'no forall': dataclasses.replace(cert, goal=cert.rule.expr)}
+        text = 'bool P\narity P 1\nconst P\nuse P $y\nlet x\n    P x\ntrue'
+        self.assert_rejected(self.verdicts(text, 'forall-intro', variants), {'no forall': 'is not'})
+
+    def test_exists_elim(self):
+        def variants(cert, kb):
+            if cert.kind != 'exists-elim':
+                return {}
+            return {'other goal': dataclasses.replace(cert, goal=[token('P'), token('c')]),
+                    'not the last line': dataclasses.replace(cert, rule=cert.block.pick_fact)}
+        text = 'load logic\nbool P, Q\narity P 1\nconst P, Q\nuse ∃ $x P $x\nuse P $y implies Q\npick c with P c\n    Q\nQ'
+        v = self.verdicts(text, 'exists-elim', variants)
+        self.assert_rejected(v, {'other goal': 'last line', 'not the last line': 'not the last line'})
+
+    def test_no_constant_of_the_block_escapes(self):
+        # a `pick` block whose last line mentions the witness `c` would let `c` escape (the
+        # search never gets that far, so a fake last line `P c` is put into the block)
+        verdicts = []
+        verify = kurt.kernel_verify
+        def recording(cert, kb):
+            if cert.kind == 'exists-elim' and not verdicts:
+                block = cert.block
+                fake = kurt.Formula(block, block.pick_fact.expr, '', '', '', '', '', '')
+                block.theory.append(fake)
+                try:
+                    verdicts.append(verify(dataclasses.replace(cert, rule=fake, goal=fake.expr), kb))
+                finally:
+                    block.theory.pop()
+            return verify(cert, kb)
+        kurt.kernel_verify = recording
+        try:
+            run_with_certificates('load logic\nbool P, Q\narity P 1\nconst P, Q\nuse ∃ $x P $x\nuse P $y implies Q\npick c with P c\n    Q\ntrue')
+        finally:
+            kurt.kernel_verify = verify
+        self.assertTrue(verdicts)
+        self.assertIsNotNone(verdicts[0], 'the witness escapes the `pick` block')
+        self.assertIn('occur in', verdicts[0])
+
+
 if __name__ == '__main__':
     unittest.main()

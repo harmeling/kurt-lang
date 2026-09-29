@@ -757,6 +757,8 @@ class KnowledgeBase:
         self.level: int             = 0 if parent is None else parent.level + 1
         self.mode_str: str          = mode[0]    # one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick', 'expect']
         self.mode_args: list[Expr]  = mode[1]    # expression that opened the current block (just [] for 'root', 'sandbox', 'proof')
+        self.pick_source: Optional[Formula] = None   # for a `pick` block: the existential fact it picks from
+        self.pick_fact: Optional[Formula]   = None   # ... and the fact about the witness (for the kernel)
         self.libs: list[str]        = []         # the filenames of loaded libraries
         self.tmp: bool              = tmp        # whether this is a temporary knowledge base (e.g., for loading files this enable correct indenting)
         self.is_load_boundary: bool = False      # set only on the implicit `sandbox` level `load_file` itself
@@ -953,6 +955,7 @@ class KnowledgeBase:
         exclude |= {"var"}   # variables are local to a file/block
         exclude |= {"tmp"}   # temporary flags are local to a file
         exclude |= {"is_load_boundary"}   # a per-level marker, never something to propagate upward
+        exclude |= {"pick_source", "pick_fact"}   # per-level, for a `pick` block
         # only constants and the theory are merged upwards
         for attr, child_attr in self.__dict__.items():
             if attr in exclude:
@@ -2610,6 +2613,14 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int, mainstream: bool) -> 
     if contains(expr, not_allowed, kb_parent):
         raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of the previous one, got `{expr_str(expr, kb_parent)}`, not allowed are {not_allowed}')
 
+    # the kernel checks the step, with the block's level (see `kernel_verify_block`)
+    block = kb
+    rule_name = {'assume': 'impl-intro', 'case': 'impl-intro', 'let': 'forall-intro', 'pick': 'exists-elim'}[mode_str]
+    record_certificate(Certificate(rule_name, expr, frozenset(), kb.theory[-1], block=block), block)
+    if mode_str == 'assume' and isinstance(last_expr, Token) and last_expr.value == FALSE_SYMBOL:
+        not_expr: Expr = [Token('SYMBOL', NOT_SYMBOL), kb.mode_args[0]]
+        record_certificate(Certificate('not-intro', not_expr, frozenset(), kb.theory[-1], block=block), block)
+
     # add a the new formula to the theory
     reason = decorate_reason(mainstream, reason, filename, str(line))
     f = Formula(kb, expr, '', str(line), filename, '', reason, keyword='')
@@ -2757,6 +2768,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, input_li
                         break  # end the loop without the `else` block
     else:
         raise KurtException(f'ProofError: can not find an existential formula that matches the `pick`')
+    source = candidate
 
     # (3) open a new block, add a new constant and the fact
     kb = kb.push_level('pick', [new_const_expr])     # open a new block
@@ -2766,6 +2778,7 @@ def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, input_li
     input_line = input_line.split('with')[1].strip() if 'with' in input_line else ''
     f = Formula(kb, fact, input_line, str(line), filename, label, reason, keyword='', local=local)
     kb.theory_append(f)
+    kb.pick_source, kb.pick_fact = source, f
     return kb, fact
 
 def eval_global_format(keyword: str, args: list[Expr], kb: KnowledgeBase) -> None:
@@ -4750,7 +4763,7 @@ kernel_check: bool = False      # check every step with the kernel (the test sui
 
 @dataclass
 class Certificate:
-    kind: str                           # 'rule', or 'top', 'calc', 'calc-fact', 'todo'
+    kind: str                           # 'rule', or 'top', 'calc', 'calc-fact', 'todo', or a block rule (see `block`)
     goal: Expr                          # the claim, as `derive_expr` sees it (outer `∀`s removed, variables renamed)
     fixed: frozenset[str]               # the free variables of the goal, which stand for anything: they get no value
     rule: Optional[Formula] = None      # the fact or rule used ('rule'), or the fact that computes to the goal ('calc-fact')
@@ -4761,6 +4774,7 @@ class Certificate:
     values: dict[str, Expr] = field(default_factory=dict)   # the values of the variables (of the rule and of the facts)
     facts: list[Formula] = field(default_factory=list)      # the facts that match the parts of the premise
     fact_fresh: list[tuple[str, ...]] = field(default_factory=list)  # fresh names for `∀` parts of the premise, matched without their `∀`s
+    block: Optional[KnowledgeBase] = None   # for closing a block ('impl-intro', 'not-intro', 'forall-intro', 'exists-elim'): its level
 
 certificates: list[Certificate] = []
 
@@ -4934,9 +4948,88 @@ def k_known(f: Formula, kb: KnowledgeBase) -> bool:
             return is_implication(e) and ((e[1] is L and e[2] is R) or (e[1] is R and e[2] is L))  # type: ignore[index]
     return False
 
+def k_constants(e: Expr, kb: KnowledgeBase, bound: frozenset[str] = frozenset()) -> set[str]:
+    # the symbols of `e` that are not variables and not bound
+    match e:
+        case Token(label='SYMBOL', value=v) if isinstance(v, str):
+            return set() if v in bound or kb.is_var(v) else {v}
+        case Token():
+            return set()
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            bv, _ = unpack_condition(cond, kb)
+            return {op} | set().union(*(k_constants(c, kb, bound | {bv}) for c in [cond, *body]))
+        case [*children]:
+            return set().union(*(k_constants(c, kb, bound) for c in children)) if children else set()
+    raise KernelReject(f'unexpected expression `{e}`')
+
+def kernel_verify_block(cert: Certificate) -> Optional[str]:
+    # closing a block: `cert.rule` is its last line, `cert.goal` the formula it gives
+    block = cert.block
+    assert block is not None and block.parent is not None and cert.rule is not None
+    parent = block.parent
+    last = cert.rule
+    if not block.theory or block.theory[-1] is not last:
+        return 'the last line is not the last line of the block'
+    def new_in_block(c: str) -> bool:
+        # a constant made by the block (`let`/`pick`), unknown outside of it -- or a variable
+        return parent.is_var(c) or (c in block.const and not parent.is_const(c) and not parent.is_used(c))
+    def no_escape(e: Expr) -> Optional[str]:
+        # an individual constant of the block must not occur in what the block gives
+        leaked = {c for c in k_constants(e, parent) if c in block.const and not parent.is_var(c) and not block.is_vocabulary_symbol(c)}
+        return f'the constants {sorted(leaked)} of the block occur in `{expr_str(e, parent)}`' if leaked else None
+    match cert.kind:
+        case 'impl-intro' | 'not-intro':
+            if block.mode_str not in ('assume', 'case') or len(block.mode_args) != 1:
+                return 'not an `assume` or `case` block'
+            assumption = block.mode_args[0]
+            if cert.kind == 'impl-intro':
+                expected: Expr = [Token('SYMBOL', IMPL_SYMBOL), assumption, last.expr]
+            else:
+                if not (isinstance(last.expr, Token) and last.expr.value == FALSE_SYMBOL):
+                    return 'the last line is not `false`'
+                expected = [Token('SYMBOL', NOT_SYMBOL), assumption]
+            if not equal_expr(cert.goal, expected, parent, keep_order=False):
+                return f'`{expr_str(cert.goal, parent)}` is not `{expr_str(expected, parent)}`'
+            return no_escape(cert.goal)
+        case 'forall-intro':
+            if block.mode_str != 'let' or not block.mode_args:
+                return 'not a `let` block'
+            expected = last.expr
+            for condition in reversed(block.mode_args):
+                if is_bool_var_token(condition, parent):
+                    continue
+                v, _ = unpack_condition(condition, parent)
+                if not new_in_block(v):
+                    return f'`{v}` was not new in the `let` block'
+                expected = [Token('SYMBOL', FORALL_SYMBOL), condition, expected]
+            if not equal_expr(cert.goal, expected, parent, keep_order=False):
+                return f'`{expr_str(cert.goal, parent)}` is not `{expr_str(expected, parent)}`'
+            return no_escape(cert.goal)
+        case 'exists-elim':
+            if block.mode_str != 'pick' or len(block.mode_args) != 1 or block.pick_source is None or block.pick_fact is None:
+                return 'not a `pick` block'
+            witness = block.mode_args[0]
+            if not (isinstance(witness, Token) and isinstance(witness.value, str) and new_in_block(witness.value)):
+                return f'the witness `{expr_str(witness, parent)}` was not new in the `pick` block'
+            if not k_known(block.pick_source, parent):
+                return 'the existential fact is not in the theory'
+            match block.pick_source.simplified_expr:
+                case [Token(label='SYMBOL', value=q), Token(label='SYMBOL', value=x), body] if q == EXISTS_SYMBOL and isinstance(x, str):
+                    instance = normalize_expr(k_replace(body, x, witness, parent), parent)
+                case _:
+                    return 'the fact picked from is not an existential'
+            if not equal_expr(instance, normalize_expr(block.pick_fact.expr, parent), parent, keep_order=False):
+                return f'the fact `{expr_str(block.pick_fact.expr, parent)}` about the witness is not `{expr_str(instance, parent)}`'
+            if not equal_expr(cert.goal, last.expr, parent, keep_order=False):
+                return 'the block does not give its last line'
+            return no_escape(cert.goal)
+    return f'unknown block rule `{cert.kind}`'
+
 def kernel_verify(cert: Certificate, kb: KnowledgeBase) -> Optional[str]:
     # `None` if the certificate proves its goal, otherwise what is wrong
     try:
+        if cert.block is not None:
+            return kernel_verify_block(cert)
         goal = normalize_expr(cert.goal, kb)
         match cert.kind:
             case 'todo':

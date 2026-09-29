@@ -1278,12 +1278,21 @@ In the test suite, every step of every proof file, theory and tutorial lesson is
 kernel (`tests/utils.py: kernel_checking`); a rejected step raises `KernelError`, which no
 `expect` can catch. `tests/test_kernel.py` changes real certificates (no facts, another goal, a
 rule not in the theory, a value for a goal variable, a value depending on a fresh variable, a
-capture) and checks that the kernel rejects each one.
+capture; for blocks: another result, no `∀`, not the last line, a witness that escapes) and
+checks that the kernel rejects each one.
 
-Not (yet) checked by the kernel: closing a block (impl-intro, forall-intro with its check that no
-constant of the block leaks out, exists-elim, not-intro -- `eval_done`), and `pick`'s match with an
-existential fact. These are short, direct checks in `eval_done`/`eval_pick`, without search. Open
-design question: when may a schema variable depend on a bound variable -- today by the criterion of
+Closing a block has a certificate too, checked with the block's level (`kernel_verify_block`):
+
+- impl-intro (`assume`, `case`): the result is `assumption ⇒ last line`;
+- not-intro: the last line is `false`, the result `¬ assumption`;
+- forall-intro (`let`): the result is the last line under the `∀`s of the `let`, each of whose
+  variables was new in the block;
+- exists-elim (`pick`): the fact about the witness is the body of the existential fact it was
+  picked from, with the witness (new in the block) for the bound variable, and the result is the
+  last line;
+- and for each: no individual constant of the block occurs in the result.
+
+Open design question: when may a schema variable depend on a bound variable -- today by the criterion of
 §8.10; the alternatives are to declare it in the rule (like Isabelle's `?T i`) or Metamath's
 distinct-variable conditions.
 
