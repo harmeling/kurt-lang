@@ -53,6 +53,7 @@ before 1.0:
 - TODO own calculators for a theory (e.g. numpy for vectors)? see the discussion of 2026-09-29: only as exact, trusted code shipped with Kurt, not from a theory file
 - TODO `calc` doesn't solve: `$b / 3` against `0` with `$b` unknown, or `1! = 1` from `1! = 1 * 0!` and `0! = 1` in one step (the search works backwards from the goal)
 - TODO printing: a comma list in custom brackets shows as `⟨ (a , b) ⟩`; a negative literal as `-8 ^ 0.5`, which reads as `-(8 ^ 0.5)`
+- TODO `def` by pattern matching on constructors (`def fact 0 = 1`, `def fact (s $n) = (s $n) * fact $n`) -- currently the left-hand side must be the new symbol applied to distinct variables, so recursive definitions go through `use`. Safe if: (1) only declared constructors in patterns (`constructors Nat 0, s`, distinct and injective by the theory), never `+`, `*` (`def f ($x + $y) = $x` gives `f 3 = 1` and `f 3 = 0`); (2) the patterns of one symbol don't overlap; (3) structural recursion only (`def f (s $n) = f (s $n) + 1` gives `0 = 1`); (4) all equations of a symbol form one definition, the symbol new at the first one. Not exhaustive is harmless (the value stays unknown)
 - TODO the kernel's rule for when a schema variable may depend on a bound variable: implicit as now, declared (Isabelle's `?T i`), or Metamath-style distinct-variable conditions (release-plan.md)
 
 ## NEXT
