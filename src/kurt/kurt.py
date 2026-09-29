@@ -4501,9 +4501,19 @@ def sub_solutions(expr: Expr, token_x: Token, p_a: Expr, p_A: Expr, s: State, kb
 
 def subterm_candidates(expr: Expr, kb: KnowledgeBase) -> Iterator[Optional[Expr]]:
     # each distinct subterm of `expr`, including groups of arguments of flat operators, and
-    # `None` (for "no occurrence at all")
+    # `None` (for "no occurrence at all") -- but none with a variable that `expr` binds: that one
+    # is no term outside its binder (found in the soundness review of 2026-09-29)
+    try:
+        bound = free_bound_vars(expr, kb)[1]
+    except KurtException:
+        bound = set()
     seen: list[Expr] = []
     for _, node in iter_nodes(expr):
+        if isinstance(node, Token):
+            if node.value in bound:
+                continue
+        elif bound and not free_vars_only(node, kb).isdisjoint(bound):
+            continue
         if not any(node == other for other in seen):
             seen.append(node)
             yield node
@@ -4851,7 +4861,12 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                                     assert isinstance(cond_e, list) and isinstance(cond_p, list)
                                     args_e = args_e + cond_e
                                     args_p = args_p + cond_p
-                                # Rename the expr-side binder body from v_e to v_p (alpha-eq) before unifying.
+                                # Rename the expr-side binder body from v_e to v_p (alpha-eq) before unifying --
+                                # unless `v_p` is free there, which the renaming would capture: then the pattern's
+                                # binder (which shadows `v_p`) and the expr's can't be the same, e.g. `∀ $x (Q $x $x)`
+                                # and `∀ $z (Q $x $z)` (found in the soundness review of 2026-09-29)
+                                if v_p != v_e and any(v_p in free_vars_only(a, kb) for a in args_e):
+                                    return
                                 args_e = [deepcopy_expr(args_e_i) for args_e_i in args_e]
                                 args_e = alpha_rename_binder_body(args_e, v_e, v_p, kb)
                                 # Block the pattern binder (domain+range) during descent
@@ -4906,8 +4921,10 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                                         perm_pattern: list[Expr] = [child[0] if len(child)==1 else [pattern[0], *child] for child in perm]
                                         yield from unify_exprs_with_patterns(list(zip(tail_e, perm_pattern)) + tail, s, kb)
 
-                # list matching (same length, no special operators)
-                case [*_] if isinstance(expr, list) and len(expr)==len(pattern):
+                # list matching (same length, no special operators) -- not of a binder (its bound
+                # variable is no argument), which an operator variable `∘` could otherwise match
+                case [*_] if isinstance(expr, list) and len(expr)==len(pattern) and not (
+                        isinstance(expr[0], Token) and isinstance(expr[0].value, str) and kb.is_bindop(expr[0].value)):
                     yield from unify_exprs_with_patterns(list(zip(expr, pattern)) + tail, s, kb)
 
                 case _:
@@ -5000,10 +5017,26 @@ def capture_avoiding_replace(A: Expr, x: str, t: Expr, s: State, kb: KnowledgeBa
     return apply_subst(A_alpha, s.bind(x, t), kb)
 
 # trigger a single substitution in `expr` if possible, return the new expression and the new state
+class BinderMisread(KurtException):
+    # a rule's binder `∀ (sub $x $v %C) ...` whose condition, once computed, binds another variable
+    # than `$v`: `∀ ($y > $v) P $y` reads as a binder over `$y` -- the search skips such a match
+    def __init__(self) -> None:
+        super().__init__('EvalError: the condition of a binder binds another variable once computed')
+
 def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
     expr = deepcopy_expr(expr)
     # fully apply current substitution (capture-avoiding via blocked)
     expr = apply_subst(expr, s, kb)
+
+    def unblock_as_before(s_new: State, x: str, s_old: State) -> State:
+        # leave the scope of `x`: unblock it -- but a free variable of the goal (blocked as domain
+        # only, see `impl_elim`) stays blocked: a bound and a free variable can have the same name
+        # (found in the soundness review of 2026-09-29). A block as domain *and* range is the one of
+        # a rule's binder from matching (`block_always`), which ends here.
+        s_new = State(s_new.subst, s_new.blocked_as_domain - {x}, s_new.blocked_as_range - {x}, s_new.eigen)
+        if x in s_old.blocked_as_domain and x not in s_old.blocked_as_range:
+            s_new = s_new.block_as_domain(x)
+        return s_new
 
     def trigger_sub_core(e: Expr, s: State) -> tuple[Expr, State]:
         e = s.walk(e)  # head-normalize again
@@ -5021,7 +5054,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                 # only fire when the schema is concrete (no %A style bool vars)
                 if not is_bool_var_token(A_s, kb) or (isinstance(A_s, Token) and x == A_s.value):
                     # we're done with the binder x; unblock it BEFORE returning
-                    s_after = s_local.unblock(x)
+                    s_after = unblock_as_before(s_local, x, s)
                     # perform capture-avoiding A[x:=t]
                     A_repl = capture_avoiding_replace(A_s, x, t_s, s_after, kb)
                     # e.g. `b + c` replacing `$x` in `a + $x` must give the flat `a + b + c`
@@ -5029,7 +5062,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                     return A_repl, s_after
                 else:
                     # do NOT leave x permanently blocked if we don't fire
-                    s_after = s_local.unblock(x)
+                    s_after = unblock_as_before(s_local, x, s)
                     return [e[0], e[1], t_s, A_s], s_after
 
             # binding operator: [op, bv, *body]
@@ -5039,9 +5072,16 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                 # enter binder scope
                 s_scope = s.block_always(bv)
                 new_cond, s_scope = trigger_sub_core(cond, s_scope)
+                if is_sub(cond) and not is_sub(new_cond):
+                    try:
+                        reading = unpack_condition(new_cond, kb)[0]
+                    except KurtException:
+                        reading = None        # no variable to bind at all
+                    if reading != bv:
+                        raise BinderMisread()     # found in the soundness review of 2026-09-29
                 new_body, s_scope = trigger_sub_core(body, s_scope)
                 # leave binder scope (pop the block)
-                s_after = s_scope.unblock(bv)
+                s_after = unblock_as_before(s_scope, bv, s)
                 assert isinstance(new_body, list)
                 return [e[0], new_cond, *new_body], s_after
 
@@ -5889,9 +5929,12 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                     # try to unify the rest of the expressions (the `tail`)
                     s_local = s_cand
                     tail_local = []
-                    for e in tail:
-                        e_local, s_tail = trigger_sub(e, s_local, kb)
-                        tail_local.append(e_local)
+                    try:
+                        for e in tail:
+                            e_local, s_tail = trigger_sub(e, s_local, kb)
+                            tail_local.append(e_local)
+                    except BinderMisread:
+                        continue
                     if not all(valid_bindop_conditions(e, kb) for e in tail_local):
                         continue    # see the same check in `impl_elim`
                     success, found_formulas, s_final, strips = match_all_theory(tail_local, s_local, kb)
@@ -6014,7 +6057,10 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
         else:
             # deep copy of `premise` is necessary, since `match_all_theory` will be called several times with the different substitution `subst`
             # and we have to apply the various substitutions to it, which might change from call to call
-            premise_local, s_local = trigger_sub(premise, s_matched, kb)
+            try:
+                premise_local, s_local = trigger_sub(premise, s_matched, kb)
+            except BinderMisread:
+                continue
             if not valid_bindop_conditions(premise_local, kb):
                 continue        # e.g. `∀ (sub $x $v %C) %P` with a `%C` that doesn't mention `$x`
 

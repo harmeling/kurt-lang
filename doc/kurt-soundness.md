@@ -1337,6 +1337,15 @@ packaged theories. What they found, and what was fixed (each with its regression
   (except for the blocks it closed, and the block whose first line it was), and a line evaluated
   again after an `expect` closed can fail without killing the shell.
   (`proofs/errors/no-crashes.kurt`, `tests/test_shell_errors.py`)
+- Search bugs that only the kernel caught (each a `KernelError`: never unsound, but a file stops
+  with "a bug in Kurt"): matching two binders renamed the expression's bound variable to the
+  rule's even where that one was free in the body (a capture); computing a `sub` unblocked a
+  variable of the goal, since a bound and a free variable can have the same name (now only the
+  rule binder's block from matching ends there, `unblock_as_before`); a rule's condition `sub $x
+  $v %C` could compute to one that binds another variable (`$y > $v` -- the search skips such a
+  match, `BinderMisread`); an operator variable matched a binder like `max`; and a bound
+  variable of the goal was proposed as the value to substitute (`subterm_candidates`).
+  (`search-bugs-the-kernel-caught.kurt`)
 
 ## 9. The kernel: every step is checked again
 
