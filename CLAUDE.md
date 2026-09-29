@@ -43,6 +43,7 @@ Run the interpreter directly:
     kurt -v path/to/proof.kurt  # verbose output
     kurt -s path/to/proof.kurt  # strict, for grading
     kurt --no-kurtc path/to/proof.kurt  # don't write/use the `.kurtc` certificate files
+    kurt --deps path/to/proof.kurt      # the tree of loaded files, with their certificates
 
 A LaTeX document of a proof comes from a separate script, not from Kurt itself:
 

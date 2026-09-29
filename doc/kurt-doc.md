@@ -28,6 +28,7 @@ the source.
     kurt -s path/to/proof.kurt       # strict, for grading (see below)
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
     kurt --no-kurtc path/to/proof.kurt   # neither write nor use `.kurtc` files (see below)
+    kurt --deps path/to/proof.kurt       # the files it loads, and their certificates (see below)
 
 If no filename is given, Kurt starts the shell directly. If a filename is
 given without `-i`, Kurt checks the whole file, prints `Proof checked` (or,
@@ -58,6 +59,19 @@ up to five times). A `.kurtc` can't make Kurt accept anything the kernel doesn't
 or outdated one only costs the time of the search -- so it is also used with `--strict`. Kurt
 only writes and uses `.kurtc` files when run as `kurt` (the command line or shell), not when used
 as a Python module.
+
+`kurt --deps foo.kurt` shows the tree of the files that `foo.kurt` loads (read from their `load`
+lines, without checking anything), each with the state of its certificates and the dates of the
+file and its `.kurtc`:
+
+    gauss.kurt  -- certified  (file 2026-09-29 06:11, certificates 2026-09-29 06:13)
+    └─ analysis.kurt  -- certified  (file 2026-09-28 16:11, certificates 2026-09-29 06:13)
+       └─ natural.kurt  -- out of date: the file changed since  (file 2026-09-29 07:02)
+          ├─ set.kurt  -- certified, but logic.kurt changed since  (...)
+          ...
+
+"certified, but ... changed since" means: the certificates fit the file, but a file it loads has
+changed -- they are still tried (and checked by the kernel) the next time, and rewritten after it.
 
 
 ## 2. Lexical structure

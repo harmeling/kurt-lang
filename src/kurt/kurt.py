@@ -42,6 +42,7 @@ import inspect      # inspect.stack
 import itertools    # itertools.[product, count, chain, permutations]
 import copy        # copy.deepcopy, for a fresh session in `save_state_str`
 import json        # for `.kurtc` files, the certificates of a file
+import time        # the dates of files, for `--deps`
 from dataclasses import dataclass, field
 from typing import TypeAlias, Literal, Callable, TypeVar, Generic, Iterator, TextIO, Optional, get_args
 from pathlib import Path
@@ -5038,6 +5039,82 @@ def read_kurtc(fname: str) -> None:
     except (KeyError, ValueError, AttributeError, TypeError):
         replay_hints.pop(fname, None)
 
+def resolve_load(name: str, from_file: str) -> Optional[str]:
+    # the file that `load name` in `from_file` loads (as `load_file` finds it), or `None`
+    if not name.endswith('.kurt'):
+        name += '.kurt'
+    paths = packaged_theory_paths if packaged_theory_file(name) is not None else [Path(from_file).parent.resolve()] + theory_path
+    for path in paths:
+        candidate = path / name
+        try:
+            if candidate.is_file():
+                return str(candidate)
+        except (OSError, AttributeError):
+            continue
+    return None
+
+def loaded_files(fname: str) -> list[str]:
+    # the files that the `load` lines of `fname` load (read from the text, without running it)
+    found: list[str] = []
+    try:
+        with open(fname, encoding='utf-8') as f:
+            lines = f.readlines()
+    except OSError:
+        return found
+    for line in lines:
+        m = re.match(r'\s*load\s+(.*?)\s*(;.*)?$', line)
+        if m:
+            for name in split_filenames(m.group(1)):
+                resolved = resolve_load(name, fname)
+                if resolved is not None and resolved not in found:
+                    found.append(resolved)
+    return found
+
+def kurtc_status(fname: str) -> str:
+    # whether `fname` has certificates that fit it as it is now
+    try:
+        with open(fname + 'c', encoding='utf-8') as f:
+            content = json.load(f)
+    except OSError:
+        return 'not certified'
+    except ValueError:
+        return 'not certified (the `.kurtc` is damaged)'
+    if not isinstance(content, dict) or content.get('kurtc') != KURTC_VERSION:
+        return 'not certified (a `.kurtc` of another format)'
+    if content.get('sha256') != source_hash(fname):
+        return 'out of date: the file changed since'
+    changed = [os.path.basename(d.get('file', '?')) for d in content.get('depends', []) if d.get('sha256') != source_hash(d.get('file', ''))]
+    note = f', but {", ".join(changed)} changed since' if changed else ''
+    if content.get('kurt') != file_fingerprint():
+        note += f', by another version of Kurt ({content.get("kurt")})'
+    return 'certified' + note
+
+def dependencies_str(fname: str) -> str:
+    # the tree of the files that `fname` loads, with the state of their certificates
+    lines: list[str] = []
+    seen: set[str] = set()
+    def date(path: str) -> str:
+        try:
+            return time.strftime('%Y-%m-%d %H:%M', time.localtime(os.path.getmtime(path)))
+        except OSError:
+            return '-'
+    def show(f: str, prefix: str, last: bool, top: bool) -> None:
+        branch = '' if top else ('└─ ' if last else '├─ ')
+        name = os.path.basename(f)
+        if f in seen:
+            lines.append(f'{prefix}{branch}{name}  (see above)')
+            return
+        seen.add(f)
+        status = kurtc_status(f)
+        certified = f', certificates {date(f + "c")}' if status.startswith('certified') else ''
+        lines.append(f'{prefix}{branch}{name}  -- {status}  (file {date(f)}{certified})')
+        children = loaded_files(f)
+        inner = prefix + ('' if top else ('   ' if last else '│  '))
+        for i, child in enumerate(children):
+            show(child, inner, i == len(children) - 1, False)
+    show(fname, '', True, True)
+    return '\n'.join(lines)
+
 def align(old: Expr, new: Expr, names: dict[str, str]) -> bool:
     # whether `new` is `old` with its canonical names (`$$c3`) replaced by names, consistently --
     # extends `names` by the replacements
@@ -6296,6 +6373,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-v', '--verbose',      action='store_true', help=f'show extra information during proof checking')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
     parser.add_argument('--no-kurtc',           action='store_true', help=f'neither write nor use `.kurtc` files (the certificates of a checked file, see doc/kurt-doc.md)')
+    parser.add_argument('--deps',               action='store_true', help=f'show the files that `filename` loads, with the state of their certificates, without checking anything')
     return parser.parse_args()
 
 def main() -> None:
@@ -6325,6 +6403,16 @@ def main() -> None:
     # set reason indentation
     global comment_indent
     comment_indent = args.comment_indent
+
+    # only the files and their certificates?
+    if args.deps:
+        if args.filename is None:
+            sys.exit('--deps needs a file')
+        fname = args.filename if args.filename.endswith('.kurt') else args.filename + '.kurt'
+        if not os.path.isfile(fname):
+            sys.exit(f'no file `{fname}`')
+        print(dependencies_str(fname))
+        sys.exit(0)
 
     # say hello
     log(kb, f'This is Kurt, v{version} ({made_by}), file {file_fingerprint()}')

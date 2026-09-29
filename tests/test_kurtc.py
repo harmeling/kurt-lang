@@ -123,5 +123,23 @@ class TestReplay(KurtcTestCase):
         self.assertIn('B                                         ; 4 by 3, 2', self.run_file(path))
 
 
+class TestDependencies(KurtcTestCase):
+    def test_tree_with_status(self):
+        self.write('a.kurt', 'bool A\nuse A "a"\n')
+        self.write('b.kurt', 'load a\nbool B\nuse A implies B "b"\n')
+        main = self.write('main.kurt', 'load a, b\nB\n')
+        self.assertIn('main.kurt  -- not certified', kurt.dependencies_str(str(main)))
+        self.run_file(main)
+        tree = kurt.dependencies_str(str(main)).splitlines()
+        self.assertTrue(tree[0].startswith('main.kurt  -- certified'), tree)
+        self.assertTrue(tree[1].startswith('├─ a.kurt  -- certified'), tree)
+        self.assertTrue(tree[2].startswith('└─ b.kurt  -- certified'), tree)
+        self.assertEqual(tree[3], '   └─ a.kurt  (see above)')
+        (Path(self.dir.name) / 'a.kurt').write_text('bool A\nuse A "a"\n; changed\n')
+        tree = kurt.dependencies_str(str(main)).splitlines()
+        self.assertIn('certified, but a.kurt changed since', tree[0])
+        self.assertIn('out of date: the file changed since', tree[1])
+
+
 if __name__ == '__main__':
     unittest.main()
