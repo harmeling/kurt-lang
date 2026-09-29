@@ -1410,6 +1410,11 @@ class KnowledgeBase:
     def add_bindop(self, fun: str) -> None:
         if self.is_used(fun):
             raise KurtException(f'EvalError: symbol `{fun}` has been already used in a formula')
+        if self.is_infix(fun) and not self.is_prefix(fun):
+            # an infix binder, e.g. set.kurt's `|` in `{ $z ∈ $A | P $z }`: its left operand is
+            # the condition with the bound variable, its right operand the body
+            self.bindop.add(fun)
+            return
         if self.is_operator(fun):
             raise KurtException(f'EvalError: symbol `{fun}` is already used as prefix, postfix, infix, or bracket')
         if not self.is_arity_set(fun):
@@ -2572,6 +2577,38 @@ def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filenam
             rhs_candidates = extract_by_condition(RHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s), kb)
             if len(rhs_candidates) != 0:
                 raise KurtException(f'EvalError: `def` does not allow new symbols on the right-hand side, got `{rhs_candidates}` in `{expr_str(expr, kb)}`')
+            # a definition must be conservative, i.e. only give a name to the right-hand side: the
+            # left-hand side is the new symbol applied to distinct variables (`c`, `f($x, $y)`,
+            # `$a ⊂ $b`), and the right-hand side has no other variables -- otherwise e.g.
+            # `def c = $y` gives `c = 1` and `c = 2`, and `def c * 0 = 1` gives `0 = 1`
+            def definiendum_vars(e: Expr) -> Optional[list[str]]:
+                # the variables of `c`, `c($x, ...)`, or curried, `(c $f $g) $x` -- `None` if `e`
+                # is not of that shape
+                match e:
+                    case Token(label='SYMBOL', value=v) if v == lhs_const:
+                        return []
+                    case [head, *params] if params and all(is_var_token(p, kb) for p in params):
+                        inner = definiendum_vars(head)
+                        return None if inner is None else inner + [p.value for p in params]   # type: ignore[union-attr]
+                    case [Token(label='SYMBOL', value=op), *params] if (isinstance(op, str)
+                            and sum(1 for p in params if isinstance(p, Token) and p.value == lhs_const) == 1
+                            and all(is_var_token(p, kb) or (isinstance(p, Token) and p.value == lhs_const) for p in params)
+                            and not any(contains_symbol(f.expr, op) for f in kb.all_theory())):
+                        # e.g. `$f is injective`: the new symbol as an argument of an operator that
+                        # no formula mentions yet, so all instances are new, different terms
+                        return [p.value for p in params if is_var_token(p, kb)]   # type: ignore[union-attr]
+                return None
+            found_vars = definiendum_vars(LHS)
+            if found_vars is None:
+                raise KurtException(f'EvalError: `def` needs the new `{lhs_const}` applied to variables on the left-hand side, like `{lhs_const}($x, $y)`, got `{expr_str(LHS, kb)}`')
+            lhs_vars: list[str] = found_vars
+            if len(set(lhs_vars)) != len(lhs_vars):
+                raise KurtException(f'EvalError: `def` needs distinct variables on the left-hand side, got `{expr_str(LHS, kb)}`')
+            extra = sorted(free_bound_vars(RHS, kb)[0] - set(lhs_vars))
+            if extra:
+                raise KurtException(f'EvalError: the variables {", ".join(f"`{v}`" for v in extra)} of the right-hand side of `def` must occur on the left-hand side too')
+            if kb.is_sym(lhs_const) or kb.is_flat(lhs_const):
+                raise KurtException(f'EvalError: `{lhs_const}` is declared `sym` or `flat`, which `def` would have to prove -- define it without')
         case _:
             raise KurtException(f'EvalError: `def` only allowed with `{EQUAL_SYMBOL}` and `{IFF_SYMBOL}`, got `{expr_str(expr, kb)}`')
     f = eval_use(kb, expr, input_line, label, filename, line, keyword='def', mainstream=False, local=local)
@@ -3283,6 +3320,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 case _:
                     msg = create_usage(keyword, [[], ['STRING']])
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if new_stuff:
+            check_strict(keyword, filename)     # a claim about the operator, like an axiom
         check_not_frozen(new_stuff, keyword, filename, kb)
         for op in new_stuff:
             kb.add_flat(op)
@@ -3298,6 +3337,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 case _:
                     msg = create_usage(keyword, [[], ['STRING']])
                     raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+        if new_stuff:
+            check_strict(keyword, filename)     # a claim about the operator, like an axiom
         check_not_frozen(new_stuff, keyword, filename, kb)
         for op in new_stuff:
             kb.add_sym(op)
@@ -3447,6 +3488,11 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if len(args) == 0:
             log(kb, kb.theory_str(keyword=keyword).strip())
         else:
+            proof_block = block_forbidding_use(kb)
+            if proof_block is not None:
+                # like `use`: a symbol defined inside a block would leave it with a meaning that
+                # depends on the block's constants (`let x` / `def k iff P x` gives `∀ x (k iff P x)`)
+                raise KurtException(f'EvalError: `def` is not allowed inside `{proof_block}` -- define it before the proof (or use `let` with a condition)', keyword_token.column)
             formulas = []
             lhs_consts = []
             for expr in args:

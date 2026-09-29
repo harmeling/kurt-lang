@@ -25,7 +25,8 @@ class TestStrictMode(unittest.TestCase):
 
     def test_rejects_unproven_statements(self):
         for source in ['bool A\nuse A\n', 'bool A\ntodo A\n', 'infix lt 20 20\nbool lt 0\nchain lt\n',
-                       'infix plus 60 60\ncalc plus add\n']:      # a `calc` binding is like an axiom
+                       'infix plus 60 60\ncalc plus add\n',       # a `calc` binding is like an axiom
+                       'infix plus 60 60\nsym plus\n', 'infix plus 60 60\nflat plus\n']:   # so are `sym` and `flat`
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
                 with self.assertRaises(kurt.KurtException):
                     self.check(source, tmp)

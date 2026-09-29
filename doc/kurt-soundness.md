@@ -1283,6 +1283,26 @@ is part of what the kernel trusts; a binding is like an axiom, so `--strict` rej
 the trusted theories, and the symbols of a trusted theory can't be bound anew.
 Regressions: `proofs/debug/calc-edge-cases.kurt`, `proofs/debug/calc-bindings.kurt`.
 
+### 8.17 The soundness review of 2026-09-29
+
+Four systematic bug hunts -- blocks, quantifiers and substitution, parsing and `calc`, theories
+with `def`/`load`/`--strict`/`.kurtc` -- each trying to derive something false with only the
+packaged theories. What they found, and what was fixed (each with its regression test):
+
+- `def` was not conservative: a variable only on the right (`def c = $y`: `c = 1`, `c = 2`), a
+  left-hand side that is not the new symbol applied to distinct variables (`def c * 0 = 1`,
+  `def f ($x + $y) = $x`), a `def` of an operator declared `sym`/`flat`, and a `def` inside a
+  proof block, which then depended on the block's constants. Now the left-hand side is the new
+  symbol applied (possibly curried) to distinct variables -- or the new symbol as an argument of an
+  operator no formula mentions yet (`$f is injective`) --, the right-hand side has no other
+  variables, and `def` is not allowed in proof blocks. `--strict` also rejects `sym`/`flat`
+  outside the trusted theories. (`def-is-conservative.kurt`, `def-not-in-proof-blocks.kurt`)
+- set.kurt's "separation" didn't bind its variable: `{ y ∈ Nat | y = y }` gave `(0 + 1) = y`.
+  Now `|` is a binder (an infix operator can be one), and separation abstracts every occurrence.
+  (`separation-binds-its-variable.kurt`)
+- set.kurt's "function-extensionality" was false for mappings as opaque objects (every object is
+  in `∅ → B`, so `0 = 1`); removed. (`no-function-extensionality.kurt`)
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,

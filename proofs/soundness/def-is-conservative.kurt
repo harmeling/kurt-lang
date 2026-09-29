@@ -1,0 +1,42 @@
+; a `def` only gives a name to its right-hand side, so it can't prove anything new: the new
+; symbol applied to distinct variables on the left, no other variables on the right, not for an
+; operator declared `sym` or `flat`, and not inside a proof block (found in the soundness review
+; of 2026-09-29, doc/kurt-soundness.md §8.17) -- each of these used to give `1 = 2` or `false`
+load arith
+expect "EvalError"
+    def c = $y                      ; `c = 1` and `c = 2`
+expect "EvalError"
+    def c * 0 = 1                   ; `0 = 1` by "mul-zero"
+expect "EvalError"
+    def f ($x + $y) = $x            ; `f (1 + 2)` is `1` and `2`
+expect "EvalError"
+    def f ($x * 0) = $x
+expect "EvalError"
+    def g($x, $x) = $x              ; not distinct
+expect "EvalError"
+    def P iff %A                    ; `P` and `not P`
+
+; `sym`/`flat` are claims about an operator, which a `def` can't keep
+infix ## 60 60
+sym ##
+expect "EvalError"
+    def $a ## $b = $a - $b          ; `1 - 2 = 2 - 1`
+infix #& 60 60
+flat #&
+expect "EvalError"
+    def $a #& $b = $a - $b
+
+; the new symbol as an argument of an operator only if no formula mentions that operator yet:
+; `*` has laws ("mul-zero"), `is` has none
+expect "EvalError"
+    def $x * k = $x                 ; `0 * k` is `0` by "mul-zero", so `0 = $x` for every `$x`
+infix is 30 30
+const is
+def $f is injective  iff  ∀ $x ∀ $y ($f $x = $f $y  ⇒  $x = $y)
+
+; what a `def` is for still works
+def h($x) = $x * $x
+infix ∘ 40 40
+def ($f ∘ $g) $x = $f ($g $x)       ; curried: `∘` applied to `$f`, `$g`, and the result to `$x`
+calc on
+h(3) = 9

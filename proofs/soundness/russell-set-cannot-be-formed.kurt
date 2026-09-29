@@ -5,8 +5,10 @@
 load set
 const A
 
-expect "TypeError"
-    def S = { $x | not ($x ∈ $x) }       ; no unrestricted comprehension
+; `{ $x | ... }` can be written, but nothing says what its elements are: no unrestricted comprehension
+def S = { $x | not ($x ∈ $x) }
+expect "ProofError"
+    S ∈ { $x | not ($x ∈ $x) }  ≡  not (S ∈ S)
 
 def R = { $x ∈ A | not ($x ∈ $x) }
 R ∈ { $x ∈ A | not ($x ∈ $x) }  ≡  R ∈ A ∧ not (R ∈ R)

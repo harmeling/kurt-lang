@@ -20,6 +20,7 @@ load equality, logic
 ; syntax
 infix    in 25 25        ; element
 infix    |  10 10        ; separator for set comprehension
+bindop   |               ; `{ $z ∈ $A | P $z }` binds `$z`, like `∀ $z ∈ $A ...`
 infix    ⊂  18 18        ; subset
 infix    ∪  30 30        ; union
 infix    ∩  40 40        ; intersection
@@ -41,8 +42,10 @@ infix    × 45 45         ; Cartesian product
 ; extensionality: two sets are equal iff they have the same elements
 use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)                      "extensionality"
 
-; separation: the elements of `$A` with the property `%F`
-use $a ∈ { $z ∈ $A | sub $x $z %F }  ≡  $a ∈ $A ∧ sub $x $a %F    "separation"
+; separation: the elements of `$A` with the property `%F` -- `$z` is bound by `|`, so `%F` is the
+; property of *every* occurrence of `$z` (it used to be an ordinary variable, and a `sub` could
+; take just some of its occurrences: `{ y ∈ Nat | y = y }` then gave `(0 + 1) = y`)
+use $a ∈ { $z ∈ $A | %F }  ≡  $a ∈ $A ∧ sub $z $a %F               "separation"
 
 ; subset
 def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)                    "subset"
@@ -86,10 +89,9 @@ use $p ∈ $A × $B  implies  $p = (fst $p, snd $p)                  "product-pa
 ; the set of all objects that behave like an A→B mapping when applied.
 use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space"
 
-; function extensionality is a genuine new axiom here, not a derived theorem: under this
-; "opaque applicable object" model, `$f`/`$g` aren't literally sets of pairs, so knowing they
-; agree on every input says nothing, via ordinary set extensionality, about whether they're
-; the *same set* -- it has to be postulated directly.
-use ($f ∈ ($A → $B)) and ($g ∈ ($A → $B)) and (∀ $a ($a ∈ $A implies ($f $a) = ($g $a))) implies $f = $g   "function-extensionality"
+; no function extensionality: in this model it would be false -- every object is in `∅ → B`
+; (nothing to check), so any two objects would be equal (`0 = 1`); and in general, knowing the
+; values `f a` for `a ∈ A` doesn't determine the object `f`. It needs mappings as sets of pairs
+; (with their domain), see todo.md.
 
 ; for automatic testing we add the following line:

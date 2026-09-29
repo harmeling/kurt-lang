@@ -40,7 +40,7 @@ arity h 1
 expect "EvalError"
     bindop h
 expect "EvalError"
-    bindop plus
+    bindop neg                      ; (an infix operator can be a binder, like set.kurt's `|`)
 arity b 2
 bindop b
 expect "EvalError"

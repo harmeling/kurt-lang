@@ -23,7 +23,7 @@ THEORIES = ['prop', 'equality', 'logic', 'set', 'arith', 'natural', 'modal']
 # an infix symbol in any axiom for `is_infix`/etc. to find; this isn't the oversight
 # `^`/`invimplies` were, so it's exempted here rather than "fixed" with an invented axiom.
 # (`→` used to be exempted here too, for the same reason: no axiom mentioned it. That's fixed
-# now -- set.kurt's function-space/function-extensionality axioms use `→` for real.)
+# now -- set.kurt's function-space axiom uses `→` for real.)
 KNOWN_UNAXIOMATIZED = {'set': {':'}}
 
 def declared_operators(theory: str) -> set[str]:

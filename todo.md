@@ -40,6 +40,8 @@ before 1.0:
 
 ## open points from the discussion of 2026-09-29
 
+- TODO mappings as sets of pairs (with their domain), so that function extensionality holds -- removed from set.kurt on 2026-09-29, since it was false for mappings as opaque objects (every object is in `∅ → B`, which gave `0 = 1`)
+
 - TODO scalars vs. vectors: arith.kurt's laws hold for *everything* written with `+`, `*` -- so vectors can share `+` with numbers only if (a) arith's laws get the condition `$a ∈ R` (every arithmetic proof then needs membership facts: numerals automatically? `let x ∈ R`?), or (b) arith becomes an instance of a structure, like group.kurt: `field(R, (+), (*), 0, 1, (-), inv)`, and vectors `vector-space(V, R, ...)`. Try (b) with rings/fields first?
 - TODO the inner product: after scalars vs. vectors; `⟨ ⟩` can be declared per file (`brackets ⟨ ⟩`), proofs-not-yet/scalar-product.kurt (Cauchy-Schwarz) waits for it. Not done: `bra`/`ket` as words for `⟨ ⟩` (only the shell shortcuts `\langle`, `\rangle`)
 - TODO group.kurt with a `flat` operator: a pattern `$a ∘ $b` matches `x + y`, but not `x + y + z` (one term with three arguments) -- fine for `+`, whose associativity is built in, but proofs for `+` and for an abstract `∘` look slightly different
