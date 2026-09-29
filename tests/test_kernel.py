@@ -223,5 +223,33 @@ class TestKernelRejectsBlocks(unittest.TestCase):
         self.assertIn('occur in', verdicts[0])
 
 
+class TestCertCommand(unittest.TestCase):
+    def output(self, text):
+        path = PROJECT_ROOT / 'tests' / 'cert-test.kurt'
+        path.write_text(text)
+        try:
+            kb = copy.deepcopy(kurt.initial_kb)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    kurt.load_file(str(path), kb, mainstream=True)
+                except kurt.KurtException:
+                    pass
+            return out.getvalue()
+        finally:
+            path.unlink()
+
+    def test_cert_shows_the_certificate(self):
+        out = self.output('bool A, B\nuse A implies B\nuse A\nB\ncert 4\ncert')
+        self.assertEqual(out.count('; goal:      `B`'), 2)        # `cert` alone: the last line with a step
+        self.assertIn('; rule:      `A implies B` (line 2)', out)
+        self.assertIn('; premise:   `A` (line 3)', out)
+        self.assertIn('; kernel:    checked', out)
+
+    def test_a_failed_line_has_no_certificate(self):
+        out = self.output('load prop\nbool A, B\nuse A\nexpect "ProofError"\n    A ∧ B\ncert 5')
+        self.assertIn('; line 5: no certificate', out)
+
+
 if __name__ == '__main__':
     unittest.main()

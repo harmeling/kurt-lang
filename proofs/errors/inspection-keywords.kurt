@@ -46,6 +46,9 @@ verbose on
 c > 0
 theory
 verbose off
+cert 15
+cert
+cert 5, 999
 
 ; wrong arguments
 expect "ParseError"
@@ -68,6 +71,8 @@ expect "ParseError"
     syntax 1
 expect "ParseError"
     theory 1
+expect "ParseError"
+    cert x
 expect "ParseError"
     save
 expect "ParseError"

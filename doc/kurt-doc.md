@@ -529,6 +529,21 @@ gaps left as exercises.
 
 Read-only introspection; changes nothing.
 
+### 6.5 `cert`
+
+    cert 17             ; the certificates of line 17 of this file (or of the shell)
+    cert 17, 18
+    cert                ; those of the last line with a step
+
+The comment after a checked line, e.g. `by (9, 8), "forall-cond-elim"`, is a short form of the
+line's *certificate*: what the kernel checks again, on its own, for each step (see
+`doc/kurt-soundness.md` §9). `cert` shows it in long form: the rule and how it is read (as a
+fact, or as premise ⇒ conclusion), the values of its variables, the fresh variables for `∀`s,
+the facts that match the premise -- or, for closing a block, the block and its last line -- and
+the kernel's verdict. The rule and the facts are shown with the internal names of their
+variables (`$$07`, `%%56`), which the values use. A line that failed has no certificate; a line
+that closes blocks by dedenting also has the certificates of the closings.
+
 ## 7. Goal-directed proof: `show` / `proof` / `qed`
 
     show EXPR              ; show EXPR "label"

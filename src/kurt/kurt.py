@@ -428,6 +428,7 @@ keywords: dict[str, str] = {
     'local':       'mark a label (on `use`/`show`/`def`) as local: the labelled formula/symbol is not exported when this file is `load`ed elsewhere, e.g. `use %A implies %A local "restatement"`',
 
     'theory':      'print all formulas, or print formulas that have a certain top level symbol',
+    'cert':        'show the certificates of a line in long form, as checked by the kernel, e.g. `cert 17`; without a number, of the last line with a step',
 
     # formulas
     'use':         'use a formula without proof as a axiom',
@@ -3322,6 +3323,28 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         for (s, t) in new_stuff:
             kb.add_alias(s, t)
     # THEORY AND PROOF RELATED
+    elif keyword == 'cert':
+        wanted: list[int] = []
+        for arg in args:
+            match arg:
+                case [Token(label='INT', value=n)] if isinstance(n, int):
+                    wanted.append(n)
+                case _:
+                    raise KurtException(f'ParseError: `cert` takes line numbers, e.g. `cert 17`', keyword_token.column)
+        if not wanted:
+            earlier = [n for (f, n) in certificates_by_line if f == filename and n < line]
+            wanted = [max(earlier)] if earlier else []
+        msgs = []
+        for n in wanted:
+            certs = certificates_by_line.get((filename, n), [])
+            if not certs:
+                msgs.append(f'; line {n}: no certificate (no step, or not a line of this file)')
+            for i, (cert, problem) in enumerate(certs):
+                part = f' ({i+1} of {len(certs)})' if len(certs) > 1 else ''
+                msgs.append(f'; line {n}{part}:\n' + certificate_str(cert, problem, kb, filename))
+        if mainstream:
+            log(kb, '\n'.join(msgs) if msgs else '; no certificate yet')
+
     elif keyword == 'theory':
         if len(args) == 0:
             log(kb, kb.theory_str().strip())
@@ -4783,12 +4806,80 @@ class KernelError(Exception):
     # `KurtException`, so that no `expect` (or `try`) in the search can swallow it
     pass
 
+# the certificates of each line (file name, line number), with the kernel's verdict -- for `cert`
+certificates_by_line: dict[tuple[str, int], list[tuple[Certificate, Optional[str]]]] = {}
+current_line: list[Optional[tuple[str, int]]] = [None]      # the line being evaluated (see `scan_parse_check_eval`)
+
 def record_certificate(cert: Certificate, kb: KnowledgeBase) -> None:
+    # the kernel checks every step; only with `kernel_check` (the test suite) a rejected step is
+    # an error, otherwise `cert` shows the verdict
+    try:
+        problem = kernel_verify(cert, kb)
+    except Exception as e:
+        if kernel_check:
+            raise
+        problem = f'the kernel failed: {type(e).__name__}: {e}'
+    if current_line[0] is not None:
+        certificates_by_line.setdefault(current_line[0], []).append((cert, problem))
     if kernel_check:
         certificates.append(cert)
-        problem = kernel_verify(cert, kb)
         if problem is not None:
             raise KernelError(f'KernelError: the kernel rejects the step to `{expr_str(cert.goal, kb)}`: {problem}')
+
+def formula_place(f: Formula, filename: str) -> str:
+    # where a formula comes from, e.g. `line 3` or `logic.kurt:22 "forall-elim"`
+    place = f'line {f.line}' if f.filename == filename else f'{os.path.basename(f.filename)}:{f.line}'
+    return place + (f' "{f.label}"' if f.label else '')
+
+def certificate_str(cert: Certificate, problem: Optional[str], kb: KnowledgeBase, filename: str) -> str:
+    # a certificate in long form, as comment lines
+    def e(x: Expr) -> str:
+        return f'`{expr_str(x, kb)}`'
+    lines = [f'goal:      {e(cert.goal)}']
+    if cert.fixed:
+        lines.append(f'           (with {", ".join(sorted(cert.fixed))} for anything)')
+    match cert.kind:
+        case 'top':
+            lines.append('by:        "top-intro"')
+        case 'calc':
+            lines.append('by:        calc, computing the comparison')
+        case 'calc-fact':
+            assert cert.rule is not None
+            lines.append(f'by:        calc, from {e(cert.rule.expr)} ({formula_place(cert.rule, filename)}), which computes to the goal')
+        case 'todo':
+            lines.append('by:        `todo`, not checked')
+        case 'impl-intro' | 'not-intro' | 'forall-intro' | 'exists-elim':
+            block = cert.block
+            assert block is not None and cert.rule is not None
+            opened = f'`{block.mode_str} {", ".join(expr_str(a, kb) for a in block.mode_args)}`'
+            lines.append(f'by:        "{cert.kind}", closing the block {opened}')
+            if cert.kind == 'exists-elim' and block.pick_source is not None and block.pick_fact is not None:
+                lines.append(f'picked:    {e(block.pick_fact.expr)} from {e(block.pick_source.expr)} ({formula_place(block.pick_source, filename)})')
+            lines.append(f'last line: {e(cert.rule.expr)} ({formula_place(cert.rule, filename)})')
+        case 'rule':
+            assert cert.rule is not None and cert.expr is not None
+            # the rule and the facts with the internal names of their variables, which the values use
+            place = formula_place(cert.rule, filename)
+            if cert.rule.direction_of is not None:
+                lines.append(f'rule:      {e(cert.expr)}, one direction of {e(cert.rule.direction_of)} ({place})')
+            else:
+                lines.append(f'rule:      {e(cert.expr)} ({place})')
+            if cert.form == 'fact':
+                lines.append('read as:   a fact, the goal is an instance of it')
+            else:
+                lines.append('read as:   premise ⇒ conclusion')
+                if cert.premise_fresh:
+                    lines.append(f'           the `∀` of the premise with the fresh {", ".join(cert.premise_fresh)}, which get no value')
+                if cert.conclusion_fresh:
+                    lines.append(f'           the `∀` of the conclusion with {", ".join(cert.conclusion_fresh)}')
+            for i, (v, value) in enumerate(sorted(cert.values.items())):
+                lines.append(f'{"values:" if i == 0 else "":11s}{v} := {e(value)}')
+            for i, f in enumerate(cert.facts):
+                lines.append(f'{"premise:" if i == 0 else "":11s}{e(f.simplified_expr)} ({formula_place(f, filename)})')
+            for names in cert.fact_fresh:
+                lines.append(f'           a `∀` of the premise with the fresh {", ".join(names)}')
+    lines.append('kernel:    checked' if problem is None else f'kernel:    REJECTED -- {problem}')
+    return '\n'.join('; ' + line for line in lines)
 
 ############
 ## kernel ##
@@ -5444,6 +5535,20 @@ def count_leading_spaces(s: str) -> int:
     return len(s) - len(s.lstrip())
 
 def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> tuple[KnowledgeBase, LexerState]:
+    # the certificates of the steps of this line are kept for `cert` -- unless the line fails
+    key = (filename, line)
+    outer = current_line[0]
+    current_line[0] = key
+    certificates_by_line.pop(key, None)
+    try:
+        return scan_parse_check_eval_line(input_line, lexer_state, kb, line, filename, mainstream)
+    except KurtException:
+        certificates_by_line.pop(key, None)
+        raise
+    finally:
+        current_line[0] = outer
+
+def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: KnowledgeBase, line: int, filename: str, mainstream:bool=False) -> tuple[KnowledgeBase, LexerState]:
 
     # read some lexer state variables for chaining
     lhs: Optional[Expr] = lexer_state.initial_LHS
