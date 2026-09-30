@@ -10,7 +10,7 @@ import unittest
 import kurt.kurt as kurt
 from tests.utils import PROJECT_ROOT
 
-# three small bugs found in codex-suggestions.md (2026-09-29)
+# three small bugs found in dev/codex-suggestions.md (2026-09-29)
 
 
 def check(text: str) -> tuple[str, str]:

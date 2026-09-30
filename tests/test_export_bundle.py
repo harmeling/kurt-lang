@@ -7,7 +7,7 @@ import unittest
 
 import kurt.kurt as kurt
 
-# what crosses the boundary of a loaded file (`ExportBundle`, codex-suggestions.md): the
+# what crosses the boundary of a loaded file (`ExportBundle`, dev/codex-suggestions.md): the
 # declarations a labelled, non-`local` fact needs -- and nothing else, not even a new field of
 # `KnowledgeBase` that nobody thought of
 

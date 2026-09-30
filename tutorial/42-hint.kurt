@@ -3,7 +3,7 @@
 ; `hint` is a toggle (`hint on` / `hint off`), meant to make Kurt print a
 ; hint for what might come next before each prompt, in the interactive
 ; shell.  As of this writing it is a planned feature: the switch exists and
-; can be flipped, but nothing reads it yet (see `todo.md`) -- so, unlike the
+; can be flipped, but nothing reads it yet (see `dev/todo.md`) -- so, unlike the
 ; other toggles in this section (`verbose`, `indent`, `calc`), you won't see
 ; any difference in behaviour from using it today.
 

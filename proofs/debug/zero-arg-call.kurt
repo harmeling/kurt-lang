@@ -1,5 +1,5 @@
 ; coverage for `f()`: a zero-argument call to a symbol parses identically to bare `f` (see
-; todo.md's own spec: "it should be parsed [like] just `f`"), for an arity-0 symbol. Empty
+; dev/todo.md's own spec: "it should be parsed [like] just `f`"), for an arity-0 symbol. Empty
 ; brackets used to be a flat `SyntaxError: token ) cannot start an expression` -- `add_brackets`'s
 ; `nud` now accepts an empty body, and `process_arity` collapses it away again when it directly
 ; follows an arity-0 symbol.

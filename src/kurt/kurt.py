@@ -64,8 +64,8 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
     hashlib = None
 
 # config: general information
-version        = 0.1
-made_by        = 'made by Stefan Harmeling, 2025'
+version        = '0.9.0'     # the only place of the version (pyproject.toml reads it from here)
+made_by        = 'made by Stefan Harmeling, 2025-2026'
 
 def file_fingerprint() -> str:
     # a short, self-verifying identifier for exactly which `kurt.py` is running. Unlike a
@@ -854,7 +854,7 @@ def calculate(e: Expr, kb: 'KnowledgeBase') -> Expr:
 
 # what a loaded file passes on to the file that loads it (see `KnowledgeBase.merge_and_pop`):
 # exactly the fields below -- a field of `KnowledgeBase` that isn't here stays in the file, so a
-# new one is local unless it is added here (codex-suggestions.md, 2026-09-29)
+# new one is local unless it is added here (dev/codex-suggestions.md, 2026-09-29)
 #
 # SELECTIVE EXPORT: only labelled, non-`local` facts -- and whatever symbol declarations they
 # actually need -- travel to the parent (see doc/kurt-doc.md's `load` section,
@@ -2381,7 +2381,7 @@ def flatten_all(expr: Expr, kb: KnowledgeBase) -> Expr:
 def is_empty_bracket_node(e: Expr, kb: KnowledgeBase) -> bool:
     # `()`/`{}`/etc. parsed with nothing inside -- see `add_brackets`'s `nud`. Used by
     # `group_by_arity`/`process_arity` to give `f()` a meaning: exactly `f` for an arity-0
-    # `f` (see `todo.md`'s own spec: "`f()` ... should be parsed [like] just `f`"), and a
+    # `f` (see `dev/todo.md`'s own spec: "`f()` ... should be parsed [like] just `f`"), and a
     # clear rejection rather than a confusing parse for a positive-arity `f`.
     return (isinstance(e, list) and len(e) == 1 and isinstance(e[0], Token)
             and isinstance(e[0].value, str) and kb.is_bracket_placeholder(e[0].value))
@@ -3463,6 +3463,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
     elif keyword == 'chain':
         if len(args) == 0:
             log(kb, kb.dict_or_set_str_all_levels(keyword))
+        proof_block = block_forbidding_use(kb) if args else None
+        if proof_block is not None:
+            # a chain is transitivity axioms, like `use`
+            raise KurtException(f'EvalError: `chain` is not allowed inside `{proof_block}` -- declare it before the proof', keyword_token.column)
         new_stuff = []
         for arg in args:
             assert isinstance(arg, list)

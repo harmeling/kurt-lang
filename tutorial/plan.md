@@ -81,6 +81,13 @@ PUTTING IT ALL TOGETHER -- writing a proof from scratch, not just one keyword
                       narrating the actual process: state the goal, sketch a
                       strategy, hit "can not derive" at least once, and fix it
 
+TRUST AND THEORIES -- certificates, and two theories that come with Kurt
+------------------------------------------------------------------------
+    46-cert      `cert N`: the certificate of a line, checked by the kernel;
+                 `.kurtc` files and `kurt --deps`
+    47-tuples    set.kurt's pairs and tuples, `fst`, `snd`, `A × B`, `f(a, b)`
+    48-groups    group.kurt, operator variables, operators as arguments `(+)`
+
 Not covered (deliberately)
 ---------------------------
     inspect      raises `NotImplementedError` in `kurt.py` -- not usable yet

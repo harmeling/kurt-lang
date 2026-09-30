@@ -1,9 +1,9 @@
-# suggestions-claude.md
+# dev/suggestions-claude.md
 
 Ideas for Kurt's language and implementation, from reading `src/kurt/kurt.py`
 end to end (lexer through CLI) and from writing the `tutorial/` lessons.
-These are my own suggestions, not drawn from `todo.md` — see
-`todo-claude.md` for the filtered, verified pass over the existing backlog.
+These are my own suggestions, not drawn from `dev/todo.md` — see
+`dev/todo-claude.md` for the filtered, verified pass over the existing backlog.
 Grouped by theme, roughly most- to least-impactful given Kurt's stated
 purpose (immediate, automatic feedback for students learning to write
 proofs). No code was changed while writing this.
@@ -26,8 +26,8 @@ confused student *that* they're wrong but not *why*, or what's close.
   into a nudge in the right direction, which is exactly what a human tutor
   would say.
 - **Give the inert `hint` keyword a real job that fits this.** Right now
-  `hint`/`hint on` (see `todo-claude.md`) toggles a flag nothing reads.
-  Rather than a generic "hint before every prompt" (vague, per `todo.md`'s
+  `hint`/`hint on` (see `dev/todo-claude.md`) toggles a flag nothing reads.
+  Rather than a generic "hint before every prompt" (vague, per `dev/todo.md`'s
   own phrasing), a concrete, scoped version: when `hint on`, a *failed*
   `show`/derivation prints the closest-candidate suggestion above, and a
   block that's still open prints what keyword would close it and what rule
@@ -44,7 +44,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   status: proven|axiom|todo|error, reason}`) plus a final summary would let
   an instructor grade a folder of submissions programmatically today,
   without inventing anything Kurt doesn't already track internally.
-  Combined with the exit-code fix in `todo-claude.md`, this turns Kurt into
+  Combined with the exit-code fix in `dev/todo-claude.md`, this turns Kurt into
   a real CI-friendly tool, not just an interactive REPL.
 - **Treat "Proof almost checked: N todos" as a partial-credit score.** It
   already exists (`main()`, the `todos()` count) — formalizing it (e.g. a
@@ -98,7 +98,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   small script that dumps a *given theory's* operator table (e.g. after
   `load logic`) as a TextMate grammar or tree-sitter query would give editor
   syntax highlighting almost for free, and is a much smaller lift than the
-  full VS Code/LSP integration `todo.md` mentions — a good first milestone
+  full VS Code/LSP integration `dev/todo.md` mentions — a good first milestone
   toward it, usable even before an LSP exists.
 - **An "unused axiom" lint.** Every `use`d axiom is a `Formula` sitting in
   `kb.theory`; every successful derivation step records which formulas it
@@ -113,7 +113,7 @@ confused student *that* they're wrong but not *why*, or what's close.
 ## Language features
 
 - **Let `sandbox` optionally "graft" its result, not just discard.**
-  Complements `todo-claude.md`'s note that `sandbox` still only ever
+  Complements `dev/todo-claude.md`'s note that `sandbox` still only ever
   discards (whether closed by dedenting or by `break`). The natural
   pairing: keep `sandbox`/dedent/`break` for pure scratch work (today's
   behaviour), plus a `qed`-like "commit" close for the "let me try this
@@ -140,7 +140,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   internal `contains`/`State.occurs` helpers), not a small extension of the
   existing pattern-matcher. Full writeup in `doc/kurt-soundness.md` §6.
 - **Generalize `chain` beyond parsing sugar into real transitive reasoning**
-  (elaborated with more implementation detail in `todo-claude.md`) — I'm
+  (elaborated with more implementation detail in `dev/todo-claude.md`) — I'm
   repeating it here because it's the single feature gap most likely to
   surprise a mathematically-minded user: writing `a = b`, `b < c` and
   expecting `a < c` "for free" the way a chain's *syntax* already implies
@@ -180,7 +180,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   evaluator, with formatting (`normal`/`sexpr`/`latex`/`json`) as a
   presentation layer on top, would decouple "Kurt checks a proof" from
   "Kurt prints to a terminal" — which is also exactly what the Pyodide/
-  browser idea in `todo.md` will eventually need anyway (a browser
+  browser idea in `dev/todo.md` will eventually need anyway (a browser
   playground can't `print()` to a real stdout).
 - **`KnowledgeBase` is doing a lot** (syntax tables, the theory, the level
   stack, mode/toggle flags, todos, loaded-files bookkeeping — the class
@@ -214,7 +214,7 @@ confused student *that* they're wrong but not *why*, or what's close.
 - `is_var`/`is_const` recursion up the parent chain (lines 888, 903) is
   simple and correct today, but it's another place that will need
   revisiting together with the "file-local variables" design work in
-  `todo-claude.md` — worth doing both at once rather than separately.
+  `dev/todo-claude.md` — worth doing both at once rather than separately.
 - `new_var_name`/`new_bool_var_name` use a Python function attribute
   (`new_var_name.counter`) as global mutable state across the whole
   process — harmless today, but it means two completely unrelated proofs
@@ -223,7 +223,7 @@ confused student *that* they're wrong but not *why*, or what's close.
   *how many* fresh variables any earlier, unrelated proof needed. That's
   almost certainly fine semantically (the names are meant to be opaque), but
   it does mean error messages that mention a generated name (like
-  `forall-elim-fail.kurt`'s `$$var552`, see `todo-claude.md`) are
+  `forall-elim-fail.kurt`'s `$$var552`, see `dev/todo-claude.md`) are
   order-dependent across a whole test run, not just file-local — another
   reason those exact-name-in-error-message tests are fragile.
 - **~~Warn when a `use` axiom is (or reduces to) a bare `%`/`$`-prefixed

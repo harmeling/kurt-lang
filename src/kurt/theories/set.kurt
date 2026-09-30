@@ -91,6 +91,6 @@ use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "
 ; no function extensionality: in this model it would be false -- every object is in `∅ → B`
 ; (nothing to check), so any two objects would be equal (`0 = 1`); and in general, knowing the
 ; values `f a` for `a ∈ A` doesn't determine the object `f`. It needs mappings as sets of pairs
-; (with their domain), see todo.md.
+; (with their domain), see dev/todo.md.
 
 ; for automatic testing we add the following line:

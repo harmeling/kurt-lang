@@ -1,4 +1,4 @@
-; regression test for a real bug found investigating file-local-scoping (todo-claude.md):
+; regression test for a real bug found investigating file-local-scoping (dev/todo-claude.md):
 ; redeclaring a symbol's `arity` to a *different* value within one file/level correctly
 ; raises `EvalError: arity of symbol ... has been already set to ...` -- but `add_arity`'s
 ; guard checked `fun in self.arity` directly, which only looks at the *current* level's own

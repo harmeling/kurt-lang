@@ -6,8 +6,8 @@
 
 This is a reference for the current behaviour of Kurt: what each keyword
 does, what the grammar allows, and what is and isn't checked. It describes
-things as they are, not as they're planned to become — see `todo.md` and
-`todo-claude.md` for planned work, and `dev-notes.md` for the history of
+things as they are, not as they're planned to become — see `dev/todo.md` and
+`dev/todo-claude.md` for planned work, and `dev-notes.md` for the history of
 *why* things ended up this way. To actually learn Kurt hands-on, start with
 `tutorial/00-true.kurt` and work through the numbered lessons instead; this
 document is for looking things up once you already know roughly what you're
@@ -492,7 +492,7 @@ symbol `true`, are the only rules hard-coded directly in Python — see
 §8.1). Derivation is a *single* hop: given `A`, `A implies B`, and `B
 implies C` all separately in the theory, deriving `C` in one step is *not*
 automatic — you must first derive `B` as its own line. See
-`todo-claude.md` for the design questions around making this multi-hop.
+`dev/todo-claude.md` for the design questions around making this multi-hop.
 
 A claim that's structurally identical to the last thing already in the
 theory is logged as a restatement of it (`by 2`), without being added again.
@@ -862,7 +862,7 @@ of `EXPR` are *fixed*: in `assume P $x`, `$x` is one arbitrary object, the
 same in every line of the block -- so `P $x` follows, but not `P $y`. Closing
 the block generalizes again: `P $x implies ...` holds for every `$x`. `case` is handled identically to
 `assume` (there is currently no extra checking specific to `case`, see
-`todo-claude.md`) — it's meant to be used as a sequence of `case`s covering
+`dev/todo-claude.md`) — it's meant to be used as a sequence of `case`s covering
 a disjunction, each producing its own `EXPR implies <goal>`; actually
 concluding the goal from all the cases (or-elim) then needs **two** things
 already in scope, not just the sequence of `case` blocks itself: the `or`
@@ -887,7 +887,7 @@ local axiom, in one step. Closing the block derives "forall-intro": the
 last thing proven inside becomes universally quantified over each new
 constant, in reverse declaration order, skipping any that turn out to be
 boolean variables. (`let`'s error messages, as of this writing, still say
-"`fix`" — an old name for this keyword — see `todo-claude.md`.)
+"`fix`" — an old name for this keyword — see `dev/todo-claude.md`.)
 
 ### 9.3 `pick`
 
@@ -962,7 +962,7 @@ This exists so a proof file (or a lesson, see `tutorial/16-expect.kurt`) can
 demonstrate a mistake and have Kurt itself confirm it still fails the
 expected way, rather than relying on a comment nobody re-checks, or on a
 separate test harness matching exact (and therefore fragile — see
-`todo-claude.md`) error text.
+`dev/todo-claude.md`) error text.
 
 The expected error may come from anywhere inside the block: from a
 statement directly inside it, from inside a nested block (`assume`,
@@ -1046,5 +1046,5 @@ and can be toggled but, as of this writing, nothing reads its value yet.
   `NotImplementedError` if used) — it's meant to eventually stop a running
   file and drop into the interactive shell at that point.
 
-See `todo-claude.md` for a fuller, implementation-referenced list of
+See `dev/todo-claude.md` for a fuller, implementation-referenced list of
 what's missing and what's feasible to add.

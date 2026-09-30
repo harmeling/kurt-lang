@@ -35,7 +35,7 @@ def file_last_line(fname):
     # (every file needed *some* marker, even the information-free `;;; Proof checked.` the
     # vast majority of files just repeated) -- relaxed since a missing marker is exactly as
     # informative as `;;; Proof checked.` was, and forcing every file to spell that out
-    # bought nothing (see todo-claude.md).
+    # bought nothing (see dev/todo-claude.md).
     content = fname.read_text()
     lines = content.splitlines()
     last = lines[-1].strip() if lines else ''

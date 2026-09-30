@@ -8,7 +8,7 @@ import unittest
 import kurt.kurt as kurt
 
 # each loaded file is checked in a fresh context: the core and what it loads itself, nothing
-# of the file that loads it (codex-suggestions.md, 2026-09-29) -- so a library can't depend on
+# of the file that loads it (dev/codex-suggestions.md, 2026-09-29) -- so a library can't depend on
 # its loader's facts without loading them, and the order of loads doesn't matter
 
 

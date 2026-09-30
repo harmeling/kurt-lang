@@ -67,6 +67,13 @@ This works via `_EMBEDDED_THEORIES` (empty in `src/kurt/kurt.py`, populated only
 - `proofs-not-yet/` = proofs that are known not to work yet; they are **not** scanned by the test discovery and exist as a to-do backlog for language features.
 - `tutorial/*.kurt` are the numbered tutorial lesson files (see `tutorial/plan.md`) and are not part of the `proofs/`-style auto-discovered test set — they carry no `;;; ` marker. `tests/test_kurt_tutorial.py` covers them separately: it only asserts that each lesson still `load_file`s without raising a `KurtException`, i.e. that it hasn't bit-rotted as the language changes, not that its output matches anything specific.
 
+## Internal files
+
+`dev/` holds what is for developing Kurt, not for using it: `dev/todo.md` (the backlog and the
+plan to 0.9/1.0), `dev/release-plan.md`, `dev/codex-suggestions.md`, `dev/todo-claude.md`,
+`dev/suggestions-claude.md`, `dev/lab-notes.md` (the log of agent sessions and SLURM jobs), and
+the author's own notes (`dev/notes-on-*.md`).
+
 ## Git workflow
 
 After creating a commit, also push it — but only when the current branch is `agent`. On any other branch (`main` in particular), commit as usual but do not push without being explicitly asked.
@@ -99,7 +106,7 @@ The kernel: every step the search accepts comes with a `Certificate`, which `ker
 
 Design rule: the `.kurt` file is the only source of truth. Anything Kurt writes (`.kurtc` certificates, `save` output) must either be Kurt source that is checked again, or hints that the kernel checks again -- never a second copy of facts that is trusted on its own.
 
-Docs worth reading before non-trivial language changes: `doc/kurt-doc.md` (language reference, describes current behavior only), `doc/kurt-soundness.md` (audit of what the inference engine's soundness actually rests on, rule by rule, with pointers to the regression tests in `proofs/soundness/` — read this before touching `eval_done`, `derive_expr`, `impl_elim`, or substitution/capture-avoidance), `doc/kurt-cookbook.md` (task-oriented recipes, one short checked example each), `doc/dev-notes.md` (chronological design-decision diary, not a reference — history of *why*, not a description of *what is*), `tutorial/*.kurt` and `tutorial/plan.md` (hands-on lessons). `todo.md` tracks known-missing features and open design questions; `codex-suggestions.md` is an independent review with detailed implementation briefs (its items are in `todo.md`); `todo-claude.md` and `suggestions-claude.md` are a filtered/verified pass over that backlog plus independent implementation-improvement ideas — check these before assuming something is a bug rather than a documented gap.
+Docs worth reading before non-trivial language changes: `doc/kurt-doc.md` (language reference, describes current behavior only), `doc/kurt-soundness.md` (audit of what the inference engine's soundness actually rests on, rule by rule, with pointers to the regression tests in `proofs/soundness/` — read this before touching `eval_done`, `derive_expr`, `impl_elim`, or substitution/capture-avoidance), `doc/kurt-cookbook.md` (task-oriented recipes, one short checked example each), `doc/dev-notes.md` (chronological design-decision diary, not a reference — history of *why*, not a description of *what is*), `tutorial/*.kurt` and `tutorial/plan.md` (hands-on lessons). `dev/todo.md` tracks known-missing features and open design questions; `dev/codex-suggestions.md` is an independent review with detailed implementation briefs (its items are in `dev/todo.md`); `dev/todo-claude.md` and `dev/suggestions-claude.md` are a filtered/verified pass over that backlog plus independent implementation-improvement ideas — check these before assuming something is a bug rather than a documented gap.
 
 ## Compute policy (shared node)
 
@@ -114,6 +121,6 @@ fine to run inline, but for any CPU-heavy task, submit it via `srun`/
 - Check `sinfo -N -o "%N %P %T %C %m %G"` for what's free.
 - Ask the user for memory/time-limit requirements if the task didn't
   already specify them.
-- Log each submitted job (command, job ID, purpose) in `lab-notes.md`.
+- Log each submitted job (command, job ID, purpose) in `dev/lab-notes.md`.
 - A SLURM time-limit kill only ends that compute job — it does not affect
   this claude session.

@@ -18,9 +18,9 @@ Already there:
 
 1. **Freeze the language.** 1.0 promises that proofs written today keep working. Open design
    questions that would break existing proofs -- decide each: before 1.0, or never:
-   - [ ] minimal core, quantifiers only with `load logic` (todo.md)
-   - [ ] `f(a,b)` meaning `f a b` (todo.md)
-   - [ ] labels: keep, or "the first word of the comment" (todo.md)
+   - [ ] minimal core, quantifiers only with `load logic` (dev/todo.md)
+   - [ ] `f(a,b)` meaning `f a b` (dev/todo.md)
+   - [ ] labels: keep, or "the first word of the comment" (dev/todo.md)
    - [ ] `save` as a replay of the input
    - [ ] `use` only directly in `sandbox`/`expect`
    - [ ] `ParseError` vs. `EvalError` for wrong arguments (currently mixed)
@@ -31,7 +31,7 @@ Already there:
    accepts is checked again by a kernel (`kernel_verify`) -- but not a small one yet: it still
    trusts the parser, `unpack_condition`, `normalize_expr` (`flat`, `sym`, `calc`) and
    `equal_expr`, which it shares with the search (`doc/kurt-soundness.md` §9 names them; making
-   the kernel independent of them is in todo.md, from codex-suggestions.md).
+   the kernel independent of them is in dev/todo.md, from dev/codex-suggestions.md).
    - [ ] a period of adversarial testing, e.g. students get credit for breaking it
    - [x] a small checking kernel: certificates for each step, checked by `kernel_verify`, on in
      the test suite (`doc/kurt-soundness.md` §9)
@@ -44,8 +44,8 @@ Already there:
 4. **Public polish.**
    - [ ] README: longer, current version, installation, a gallery of example proofs
    - [x] `doc/kurt-cookbook.md`: 20 recipes (by Codex, 2026-09-29)
-   - [ ] sort out the internal files in the repo root: `CLAUDE.md`, `todo-claude.md`,
-     `suggestions-claude.md`, `notes-on-*.md`, `lab-notes.md`, `llms.txt`, the empty file `kurt`
+   - [ ] sort out the internal files in the repo root: `CLAUDE.md`, `dev/todo-claude.md`,
+     `dev/suggestions-claude.md`, `notes-on-*.md`, `dev/lab-notes.md`, `llms.txt`, the empty file `kurt`
      (note: the git history contains everything)
    - [ ] version number (`pyproject.toml` and the banner say 0.1)
    - [ ] make the repository public
@@ -57,7 +57,7 @@ call it 1.0 after the language freeze and a semester of use.
 
 - **Citable releases**: PyPI (`pip install kurt-lang`, check that the name is free), Zenodo (a DOI
   for each GitHub release)
-- **In the browser**: Kurt via Pyodide on GitHub Pages (todo.md) -- students install nothing; for a
+- **In the browser**: Kurt via Pyodide on GitHub Pages (dev/todo.md) -- students install nothing; for a
   teaching tool probably the most important item here
 - **Online book**: the tutorial lessons plus exercises, as a Jupyter Book or mdBook with runnable
   Kurt. Models: Avigad et al., *Logic and Proof*; Lean's *Natural Number Game*

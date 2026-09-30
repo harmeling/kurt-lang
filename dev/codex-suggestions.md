@@ -6,8 +6,8 @@ Date: 2026-09-29
 
 This review covered the repository structure, project and release documentation, all shipped
 theories, the tutorial and proof corpus, the test harness, CI, supporting scripts, and the full
-`src/kurt/kurt.py` implementation. Existing `todo.md`, `todo-claude.md`, and
-`suggestions-claude.md` were treated as prior work; the recommendations below either add a new
+`src/kurt/kurt.py` implementation. Existing `dev/todo.md`, `dev/todo-claude.md`, and
+`dev/suggestions-claude.md` were treated as prior work; the recommendations below either add a new
 finding or turn an important existing idea into a concrete implementation brief.
 
 Verification performed on this checkout:
@@ -106,7 +106,7 @@ new fields should remain local unless code explicitly exports them.
 `load_file` checks a library using the caller's current `KnowledgeBase`. A library can therefore
 accidentally rely on a fact or declaration that its caller loaded earlier but that the library
 did not declare as a dependency. Its correctness and runtime can change with load order. This is
-already noted in `todo.md`; it should be elevated because it affects reproducibility, modularity,
+already noted in `dev/todo.md`; it should be elevated because it affects reproducibility, modularity,
 and the meaning of a successful check.
 
 ### Suggested implementation
@@ -317,7 +317,7 @@ switch in production code.
 Before public 0.9, make one pass whose only job is reconciling claims with the current tree:
 
 - `CLAUDE.md` says `kurt.py` is about 4,300 lines; it is about 6,800.
-- `release-plan.md` says about 5,600 lines and 105 tests; the current suite runs 136 tests.
+- `dev/release-plan.md` says about 5,600 lines and 105 tests; the current suite runs 136 tests.
 - The release plan simultaneously says the whole matcher/all code is trusted and says that a
   certificate kernel checks every step. Replace this with the exact trust boundary from
   `doc/kurt-soundness.md`.

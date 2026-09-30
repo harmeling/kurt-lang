@@ -1,11 +1,11 @@
-# todo-claude.md
+# dev/todo-claude.md
 
-A pass over `todo.md` plus a read-through of `src/kurt/kurt.py`, sorted by
+A pass over `dev/todo.md` plus a read-through of `src/kurt/kurt.py`, sorted by
 what's actually actionable. For each item I checked the current behaviour
 (usually by running a small `.kurt` snippet through the interpreter) rather
-than just trusting the one-line description in `todo.md`. Items are grouped
-by how ready-to-pick-up they are, not by which section of `todo.md` they came
-from. The original `todo.md` wording is quoted or paraphrased; my notes
+than just trusting the one-line description in `dev/todo.md`. Items are grouped
+by how ready-to-pick-up they are, not by which section of `dev/todo.md` they came
+from. The original `dev/todo.md` wording is quoted or paraphrased; my notes
 follow.
 
 No code was changed while producing this file.
@@ -101,7 +101,7 @@ Status as assessed:
   induction theory is deliberately out of scope for now, so the empty stub
   was deleted rather than filled in. Removed its `theory` table row in
   `doc/kurt-doc.md`, its mention in `CLAUDE.md`'s file list, and the stale
-  `induction.kurt`+`lambda-calculus.kurt` pairing in `suggestions-claude.md`
+  `induction.kurt`+`lambda-calculus.kurt` pairing in `dev/suggestions-claude.md`
   (that suggestion's example now just points at `lambda-calculus.kurt`).
 - ~~**`lambda-calculus.kurt`**~~ — **done, with real, load-bearing scope
   limits found and documented, not just "less complete than I'd like."**
@@ -274,7 +274,7 @@ Status as assessed:
   Updated `tests/how-to-write-test-proofs.md` and `CLAUDE.md`'s own
   description of the convention to match.
 
-## Already done / stale (recommend deleting from `todo.md`)
+## Already done / stale (recommend deleting from `dev/todo.md`)
 
 - **"get group.kurt working with constants and with `var x, y, z`"** —
   `proofs/linear-algebra/group.kurt` already declares `var x, y, z` and is
@@ -438,7 +438,7 @@ Status as assessed:
 ## Testing-infrastructure issue — now has a real fix (`expect`), partially retrofitted
 
 - **`tests/test_kurt_proofs.py` silently truncates failed-proof comparisons
-  to 17 characters.** Found while checking todo.md's "put lots of negative
+  to 17 characters.** Found while checking dev/todo.md's "put lots of negative
   proof examples into tests/proofs" and "test the conditions for forall and
   exist rules". The harness (line 72-75) does:
   ```python
@@ -466,7 +466,7 @@ Status as assessed:
   `proofs/debug/test-not-all-blocks-close.kurt` is testing a truncated
   file with no body to wrap in a block at all. The harness's 17-char
   fallback itself is unchanged and still needed for exactly those cases —
-  todo.md's "put lots of negative proof examples in tests/proofs" should
+  dev/todo.md's "put lots of negative proof examples in tests/proofs" should
   reach for `expect` first and fall back to the marker convention only when
   `expect` genuinely doesn't fit (spans files, or tests malformed structure
   rather than a failing statement).
@@ -542,12 +542,12 @@ Status as assessed:
   `doc/kurt-doc.md` §9.3.
 - ~~**`f()` (zero-argument call) doesn't parse**~~ — **done.** ("why not
   `f()`??? what is it? it should be parsed `(f)` instead of just `f`") The
-  original `todo.md` wording actually already answers its own "design
+  original `dev/todo.md` wording actually already answers its own "design
   decision" question, once read literally: `f()` should parse the same as
   `(f)` -- and `(f)`, once `remove_round_brackets` strips its purely
   grouping parens (as it already does for any `(EXPR)`), is *exactly* bare
   `f`. So the target was never a distinct "0-arg application node" (as
-  `todo-claude.md`'s own earlier, more speculative note here guessed) --
+  `dev/todo-claude.md`'s own earlier, more speculative note here guessed) --
   just "`f()` means `f`," full stop.
   Two changes: (1) `add_brackets`'s `nud` now accepts an empty body (peeks
   for the closing bracket immediately after the opening one) instead of
@@ -1103,9 +1103,9 @@ Status as assessed:
   (`AssertionError`, not a clean failure) — also fixed. See
   `doc/kurt-soundness.md` §3.3-3.4.
 
-## 2026-09-09 revisit of todo.md
+## 2026-09-09 revisit of dev/todo.md
 
-Re-read `todo.md` top to bottom against the current state of this file and
+Re-read `dev/todo.md` top to bottom against the current state of this file and
 `kurt.py`, since so much of the list above had already absorbed it. Most
 remaining lines are either already covered above (just re-confirmed) or are
 the vague/philosophical items already called out in "Deliberately left out"
@@ -1134,16 +1134,16 @@ below. Genuinely new or newly-concrete findings from this pass:
   non-decomposing branch. This is exactly why lambda calculus's bodies must
   be boolean-typed predicates rather than arbitrary terms. Not fixed here
   (a real matching-engine extension, same family as the other decomposition
-  gaps above), but the open question in `todo.md` now has a definite,
+  gaps above), but the open question in `dev/todo.md` now has a definite,
   demonstrated answer instead of a "maybe" — worth linking the two todo
-  items together if `todo.md` is edited.
+  items together if `dev/todo.md` is edited.
 - **"check if lbp > rbp then left-assoc else right-assoc"** — already
   answered, no code change needed: `infix`'s own help text (`kurt.py` line
   ~373) already states the rule precisely ("lhb > rhb means right
   associative"), and `add_infix` already takes both binding powers as
   explicit, independent parameters from the `infix OP lbp rbp` declaration
   — there's nothing implicit left to "check". Recommend deleting this line
-  from `todo.md`.
+  from `dev/todo.md`.
 - **"check conditions in `logic.kurt`"** — already done, just not
   cross-referenced. `logic.kurt` itself carries a detailed "requirements"
   comment block (its own header, right below the axioms) spelling out the
@@ -1152,7 +1152,7 @@ below. Genuinely new or newly-concrete findings from this pass:
   `doc/kurt-soundness.md`) are precisely the code catching up to what that
   comment already said was required. Nothing further to check here beyond
   what §0/§0b already cover.
-- Everything else remaining in `todo.md`'s "NEXT" and "TOPICS before 1.0/2.0"
+- Everything else remaining in `dev/todo.md`'s "NEXT" and "TOPICS before 1.0/2.0"
   sections that isn't listed as done/investigated above is either (a)
   genuinely open but vague enough to need a design decision from the
   maintainer first (what should be loaded by default, get rid of labels,
@@ -1163,7 +1163,7 @@ below. Genuinely new or newly-concrete findings from this pass:
   "Larger, well-defined refactors" above (the theory-indexing idea, the
   equal-elim short-cut idea, profiling). None of these got a deeper look
   this pass beyond confirming they're still accurate as stated — they're
-  intentionally left for `todo.md` itself to keep tracking rather than
+  intentionally left for `dev/todo.md` itself to keep tracking rather than
   duplicated here.
 
 ## Deliberately left out (too broad / not really a `kurt.py` task)
@@ -1174,5 +1174,5 @@ substitution-based (W)"), external/infra projects (running under Pyodide,
 VS Code / LSP integration — both plausible but each a separate project, not
 a `kurt.py` change), and inspirational links (the Terry Tao Lean posts, the
 Haskell indentation wiki page) are intentionally not listed above as
-"feasible tasks" — see `suggestions-claude.md` for the ones worth carrying
+"feasible tasks" — see `dev/suggestions-claude.md` for the ones worth carrying
 forward as longer-term ideas.

@@ -13,7 +13,7 @@ adversarial regression tests this audit produced: proof attempts that
 The goal this serves: "if Kurt says a proof is fine, it must be fine."
 Everything below is about *soundness* (never accepting an invalid proof),
 not completeness (finding every valid one) — the performance/multi-hop
-items in `todo-claude.md` are a different, lower-stakes concern by
+items in `dev/todo-claude.md` are a different, lower-stakes concern by
 comparison.
 
 ## 0. The most severe bug found in this whole audit: `forall-elim` could prove any two things equal
@@ -262,7 +262,7 @@ conditions.
 that turned out not to exist: a bare `A implies A` does not derive from
 nothing. Fixed by rewriting `minimal.kurt`'s inference-rules section to
 describe only what's real, with an explicit note about what was removed
-and why (see `todo-claude.md`). This was a documentation bug, not a
+and why (see `dev/todo-claude.md`). This was a documentation bug, not a
 soundness one — but a wrong description of the trust boundary is exactly
 the kind of thing that erodes confidence in what "if Kurt says it's fine"
 actually covers, so it's included here.
@@ -468,7 +468,7 @@ The `def-with-forall-in-rhs.kurt` note in §2.1 mentioned that `extract_by_condi
 RHS" check) has no bound-variable awareness at all, and only "works" because
 idiomatic Kurt always uses `$`-prefixed variables in bound positions (`$x`,
 `$y`, ...), which are unconditionally classified as variables by prefix alone
-regardless of scope. Investigated properly this time (task from `todo-claude.md`,
+regardless of scope. Investigated properly this time (task from `dev/todo-claude.md`,
 the mirror-image of the already-fixed RHS-forall/exists issue): a plain,
 non-prefixed bound variable is affected on **both** sides, in two different
 directions.
@@ -512,7 +512,7 @@ coincided with a live counter value, it would silently alias an internal
 substitution variable, which is exactly the kind of thing capture-avoidance
 (§3) is supposed to prevent.
 
-This was flagged in `todo-claude.md` as *unverified* — and, on first pass,
+This was flagged in `dev/todo-claude.md` as *unverified* — and, on first pass,
 wrongly claimed to be a real gap ("a user *can* type a variable named
 literally `$$foo`"). Checked properly this time: the lexer's `SYMBOL`
 pattern (the `scanner` regex in `kurt.py`) is `[$%@]?[A-Za-z][A-Za-z0-9]*` —
@@ -528,7 +528,7 @@ Locked in by `proofs/soundness/dollar-dollar-prefix-unparseable.kurt`.
 
 ### 3.3 Bug found and fixed: `equal_expr` was blind to alpha-equivalence
 
-Resolves `todo.md`'s open question, "check whether we need a version of
+Resolves `dev/todo.md`'s open question, "check whether we need a version of
 `equal_expr` that allows bounded renaming" — yes, confirmed with a real
 failing proof, not just a theoretical worry.
 
@@ -598,7 +598,7 @@ elsewhere. Already covered by existing regression tests
 
 ### 4.1 Bug found and fixed: `arity`/`bindop` didn't check the ancestor chain
 
-Found while investigating `todo-claude.md`'s "file-local variables /
+Found while investigating `dev/todo-claude.md`'s "file-local variables /
 explicit theory export" gap — specifically, checking whether loading two
 unrelated theories that happen to redeclare the same symbol name could
 cause anything worse than an ugly namespace clash. It could: not an
@@ -655,7 +655,7 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
 ## 6. Open questions, not resolved here
 
 - **Mixed boolean/non-boolean variables in one `let` list** (`let x, %A`) —
-  **now investigated and resolved**, though not the way `todo.md`'s framing
+  **now investigated and resolved**, though not the way `dev/todo.md`'s framing
   ("check that the quantification either applies to boolean or non-boolean
   vars, but not both") expected. `eval_done`'s forall-wrapping loop does skip
   wrapping conditions where `is_bool_var_token` is true, but this turns out
@@ -756,17 +756,17 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   value* is itself a multi-argument expression under the *same* flat
   operator as its context (a single-argument/bare-literal RHS, like
   `factorial-base`'s `0! = 1`, works fine at any depth).
-  This is exactly `todo.md`'s own "allow multiple replacement in one step
+  This is exactly `dev/todo.md`'s own "allow multiple replacement in one step
   (is that possible?)" item, previously listed as blocked on "needs a
   concrete motivating example before it's clear whether it's worth the
-  complexity" (see `todo-claude.md`) — this factorial-chaining proof *is*
+  complexity" (see `dev/todo-claude.md`) — this factorial-chaining proof *is*
   that concrete example now. Still a completeness gap, not a soundness
   one (it can only make a true goal harder to reach in one step, never a
   false one derivable), and still not fixed here: a real fix means
   `all_single_hole_decompositions` (or a sibling) trying every *subset* of
   a flat node's arguments as a candidate hole, not just every single node —
   a genuine, non-trivial feature (combinatorial cost per flat node, same
-  family of concern as the O(n^k) performance items in `todo-claude.md`),
+  family of concern as the O(n^k) performance items in `dev/todo-claude.md`),
   not a bug fix, so deliberately left as a documented, well-understood gap
   with a real motivating test case rather than attempted under this pass.
 - **`set-comprehension` (and any other axiom matched via `sub`-decomposition)
@@ -813,7 +813,7 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
 ## 7. Selective export (`load`'s `local` labels)
 
 Resolves the design question raised alongside "file-local variables /
-explicit theory export" in `todo-claude.md`: what exactly should a `load`ed
+explicit theory export" in `dev/todo-claude.md`: what exactly should a `load`ed
 file make visible? Implemented as: a `use`/`def` axiom or a proved
 (`show`/`proof`/`qed`) theorem is exported exactly when it carries a label
 that isn't marked `local` (`EXPR local "label"`, a new low-binding-power
@@ -903,7 +903,7 @@ alternative instead, exactly matching how `(`/`)` were already handled
 `{0, 1, 2, ...}` now lexes correctly with no workaround space, and that
 genuinely multi-char operators untouched by this change (`<=`, `>=`, `!=`,
 ...) still merge as before. This closes the "known gap" that used to be in
-`doc/kurt-doc.md` §11 and the matching `todo-claude.md` item. Regression:
+`doc/kurt-doc.md` §11 and the matching `dev/todo-claude.md` item. Regression:
 `proofs/soundness/bracket-adjacency-lexes-correctly.kurt`.
 
 ### 7.1 Bug found and fixed: a labelled bare/conjunction claim silently lost its label
