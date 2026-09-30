@@ -3,7 +3,8 @@
 Kurt is a small language for writing mathematical proofs in a form close to how people write
 them — one claim per line, blocks for assumptions and cases — and a checker that tells you
 immediately, line by line, whether each step follows. It is meant for students learning to prove
-things, much like running tests while learning to program.
+things, much like running tests while learning to program. Kurt has been developed by Stefan
+Harmeling since 2016.
 
 **Status: 0.9, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
 proof written for 0.9 may need small changes for 1.0.
@@ -21,7 +22,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.9.0 (made by Stefan Harmeling, 2025-2026), file 46eb3e7e942d
+    This is Kurt, v0.9.0 (made by Stefan Harmeling, 2016-2026), file 5bf15689233e
     use A implies B                           ; 3 without proof
     use A                                     ; 4 without proof
     B                                         ; 5 by 3(4)
@@ -135,5 +136,5 @@ code.
 
 ## License
 
-[MIT](./LICENSE) © 2025-2026 Stefan Harmeling. When you use or cite Kurt, please link back to
+[MIT](./LICENSE) © 2016-2026 Stefan Harmeling. When you use or cite Kurt, please link back to
 this repository. A star on GitHub is also appreciated!

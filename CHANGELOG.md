@@ -2,7 +2,7 @@
 
 ## 0.9.0 (2026-09-30)
 
-The first public version. The language isn't frozen yet (see `dev/todo.md`, "before 1.0").
+The first public release, after development since 2016. The language isn't frozen yet (see `dev/todo.md`, "before 1.0").
 
 ### New
 

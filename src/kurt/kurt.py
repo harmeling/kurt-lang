@@ -65,7 +65,7 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
 
 # config: general information
 version        = '0.9.0'     # the only place of the version (pyproject.toml reads it from here)
-made_by        = 'made by Stefan Harmeling, 2025-2026'
+made_by        = 'made by Stefan Harmeling, 2016-2026'
 
 def file_fingerprint() -> str:
     # a short, self-verifying identifier for exactly which `kurt.py` is running. Unlike a
