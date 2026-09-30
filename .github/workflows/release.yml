@@ -1,0 +1,40 @@
+name: Release
+
+# publishes to PyPI when a version tag (`v0.9.0`, ...) is pushed -- only after PyPI knows this
+# repository as a "trusted publisher" (pypi.org: the project `kurt-lang`, Publishing, add a
+# GitHub publisher: owner `harmeling`, repository `kurt-lang`, workflow `release.yml`,
+# environment `pypi`); no token is stored anywhere
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write          # for trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: The tag is the version in kurt.py
+        run: |
+          version=$(python -c "import ast,sys; t=ast.parse(open('src/kurt/kurt.py').read()); print(next(n.value.value for n in t.body if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'version'))")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, but kurt.py says $version"; exit 1; }
+
+      - name: Run the tests
+        run: |
+          pip install -e .
+          python -m unittest
+
+      - name: Build
+        run: |
+          pip install build
+          python -m build
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

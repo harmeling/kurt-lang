@@ -1,20 +1,16 @@
-# kurt-lang
+# Kurt
 
-The Kurt programming language is an artificial language to write proofs in a form that is designed to be close to how humans write proofs.  The file `src/kurt/kurt.py` contains the whole implementation.  You can either call `python3 src/kurt/kurt.py`, or `kurt` or `python -m kurt` (after installation via `pip`).  Let's start proving:
+Kurt is a small language for writing mathematical proofs in a form close to how people write
+them — one claim per line, blocks for assumptions and cases — and a checker that tells you
+immediately, line by line, whether each step follows. It is meant for students learning to prove
+things, much like running tests while learning to program.
 
-    ~/git/kurt-lang (main ✗) kurt
-    This is Kurt, v0.1 (made by Stefan Harmeling, 2025), file 7131d6838ffe
-    ;[1] bool A, B
-    ;[2] use A implies B
-    use A implies B                           ; 2 without proof
-    ;[3] use A
-    use A                                     ; 3 without proof
-    ;[4] B
-    B                                         ; 4 by 2(3)
-    ;[5] ^D
-    Bye!
+**Status: 0.9, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
+proof written for 0.9 may need small changes for 1.0.
 
-Alternatively, create a file `modus-ponens.kurt`:
+## A first proof
+
+A file `modus-ponens.kurt`:
 
     ; simple modus ponens proof
     bool A, B
@@ -22,126 +18,122 @@ Alternatively, create a file `modus-ponens.kurt`:
     use A
     B
 
-Then just check it in the commandline:
+Check it on the command line:
 
-    ~/git/kurt-lang (main ✗) kurt modus-ponens.kurt 
-    This is Kurt, v0.1 (made by Stefan Harmeling, 2025), file 7131d6838ffe
+    $ kurt modus-ponens.kurt
+    This is Kurt, v0.9.0 (made by Stefan Harmeling, 2025-2026), file 46eb3e7e942d
     use A implies B                           ; 3 without proof
     use A                                     ; 4 without proof
     B                                         ; 5 by 3(4)
     Proof checked
 
-The `file <hash>` in the banner is a fingerprint of the exact `kurt.py` bytes you're running (a
-truncated SHA-256) — it changes whenever the file's content does, so if you and someone else are
-comparing notes on unexpected behavior, matching (or mismatching) fingerprints tell you at a
-glance whether you're really running the same code, independent of version numbers or how you
-got the file (git checkout, the standalone bundle, or `pip install`).
+Each line gets the reason it holds: `B` follows by the rule of line 3 from the fact of line 4.
+A proof with blocks, from the theory `prop` that comes with Kurt:
 
-Happy proving!
+    ; if A implies B, then not B implies not A
+    load prop
+    bool A, B
 
-## Installing Kurt (for users)
+    show (A implies B) implies (not B implies not A)
+    proof
+        assume A implies B
+            assume not B
+                assume A
+                    B
+                    false
+                not A
+    qed
 
-The simplest way to use Kurt is to download a single self-contained `kurt.py` and run it with Python 3.10 or higher — no `theories/` directory, no other files, no install:
+`kurt` without a file starts an interactive shell, which reads the same language, with the
+same indentation rules as a file.
 
-    python3 kurt.py
-    ./kurt.py          # if you make it executable with `chmod +x kurt.py`
+## What Kurt offers
 
-This standalone file has all the standard theories (`prop.kurt`, `logic.kurt`, `arith.kurt`, ...) embedded directly in it, so `load prop` and friends work immediately. It's built from this repo with:
+- **Proofs as text**, line by line. Kurt finds each single step by itself, from the facts and
+  rules around. You don't need tactics or rule names.
+- **Theories written in Kurt itself**: propositional and first-order logic, equality, sets,
+  arithmetic, natural numbers with induction, analysis (sums, limits), groups, and modal logic.
+  Even the grammar is declared there (`infix`, `bindop`, `chain`), so students can read why a
+  step goes through.
+- **A kernel checks every step again**: the search hands each accepted step to a small checker
+  as a certificate. `cert N` shows the certificate of line `N`. The certificates of a checked
+  file are kept in a `.kurtc` file, and next time the kernel checks them again, without any
+  search.
+- **Exact arithmetic** with `calc on`: `0.1 + 0.2 = 0.3` holds, and `1 / 3` stays a fraction.
+- **For grading**: `kurt --strict` rejects axioms (`use`), `todo` and new rules outside the
+  theories that come with Kurt.
+- **No dependencies**: one Python file. It's also available as a single self-contained script
+  with all theories embedded, to hand out in a course.
 
-    python3 scripts/build_standalone.py       # writes dist/kurt.py
+## Installing
 
-This is useful if you would like to hand out the interpreter alongside exercises in a lecture or tutorial — copy just that one file anywhere.
-
-If you'd rather keep the theories as separate, readable/editable `.kurt` files next to the interpreter (e.g. to modify a theory yourself), copy `src/kurt/kurt.py` and the `src/kurt/theories/` directory together instead — same usage, but you have to keep `theories/` alongside `kurt.py`.
-
-Alternatively, Kurt is installable directly with pip from the GitHub repository (no cloning required)
-
-Install the latest version:
+With Python 3.10 or newer:
 
     pip install git+https://github.com/harmeling/kurt-lang.git
 
-Install a specific tag or branch:
+or a specific version, e.g. `...kurt-lang.git@v0.9.0`, or from a local clone with `pip install .`.
+Then run `kurt` or `python -m kurt`.
 
-    pip install git+https://github.com/harmeling/kurt-lang.git@v0.1.0
+**Without installing**, for a course: download one self-contained `kurt.py`, built from this
+repository with
 
-Or, install from a local clone:
+    python3 scripts/build_standalone.py       # writes dist/kurt.py
 
-    git clone https://github.com/harmeling/kurt-lang.git
-    cd kurt-lang
-    pip install .
+It has all the theories embedded (`load prop` and so on work right away) and needs nothing but
+Python: `python3 kurt.py proof.kurt`. To keep the theories as separate, editable files instead,
+copy `src/kurt/kurt.py` together with the directory `src/kurt/theories/`.
 
-## Installing Kurt Tools
+## Documentation
 
-The [Kurt language syntax repo](https://github.com/harmeling/kurt-syntax) includes both a Visual Studio Code extension (`kurt-syntax-<version>.vsix`) for syntax highlighting and snippets and indenting and an Emacs mode (`kurt-mode.el`).
+- [`tutorial/`](tutorial/): 49 short lessons (00 to 48), one keyword or idea each. Each one is a Kurt file
+  you can run and change ([plan](tutorial/plan.md)).
+- [`doc/kurt-cookbook.md`](doc/kurt-cookbook.md): recipes for common tasks. Prove an
+  implication, argue by contradiction, split into cases, rewrite with equality, use induction,
+  diagnose "can not derive".
+- [`doc/kurt-doc.md`](doc/kurt-doc.md): the language reference.
+- [`doc/kurt-soundness.md`](doc/kurt-soundness.md): what the checker's correctness rests on,
+  rule by rule, and the bugs found so far, each with its regression test.
+- [`proofs/`](proofs/): many more example proofs. Each one is also a test.
 
-### VS Code Extension Installation
+## Why trust it?
 
-1. **Download the Extension Package**
+A checker is only useful if what it accepts is correct. In Kurt, every step the search finds is
+checked again by the kernel. Loaded theories are checked on their own, independent of what was
+loaded before. A `def` must be conservative. Adversarial test files (`proofs/soundness/`) keep
+every bug found so far from coming back. Kurt is not a small-kernel system like Metamath or HOL
+Light yet: the kernel still shares the parser and the normal forms with the search.
+`doc/kurt-soundness.md` says exactly what is trusted.
 
-   You can download the latest VSIX package from the [kurt-syntax GitHub repository](https://github.com/harmeling/kurt-syntax).  
-   Alternatively, if you have the repository cloned, you can build the package locally:
+## Editor support
 
-   ```sh
-   cd path/to/kurt-syntax
-   vsce package
-   ```
+The [kurt-syntax](https://github.com/harmeling/kurt-syntax) repository has a Visual Studio Code
+extension (syntax highlighting, snippets, indentation) and an Emacs mode.
 
-2. **Install the VSIX Package**
+- **VS Code**: download `kurt-syntax-<version>.vsix` from that repository (or build it with
+  `vsce package`), then `code --install-extension kurt-syntax-<version>.vsix`.
+- **Emacs**: download `kurt-mode.el` and add to your configuration:
 
-   To install the extension, run the following command in your terminal:
+  ```elisp
+  (load "/path/to/kurt-mode.el")
+  (add-to-list 'auto-mode-alist '("\\.kurt\\'" . kurt-mode))
+  ```
 
-   ```sh
-   code --install-extension kurt-syntax-<version>.vsix
-   ```
-
-   Replace `<version>` with the appropriate version number or the actual package name of the generated file.
-
-### Emacs Mode Installation
-
-1. **Download `kurt-mode.el`**
-
-   The Emacs mode file is hosted in the [kurt-syntax GitHub repository](https://github.com/harmeling/kurt-syntax/blob/main/kurt-mode.el). Download or clone the file to your local setup.
-
-2. **Load the Mode in Your Emacs Configuration**
-
-   Add the following lines to your Emacs configuration (e.g., in your `.emacs` or `init.el` file):
-
-   ```elisp
-   ;; Load kurt-mode from the local file
-   (load "/path/to/kurt-mode.el")
-   (add-to-list 'auto-mode-alist '("\\.kurt\\'" . kurt-mode))
-   ```
-
-   Replace `/path/to/kurt-mode.el` with the actual path where you saved the file.
-
-That's it!
-
-## Developer Setup
-
-To work on Kurt locally, create a virtual environment and install the package in editable mode with development tools:
+## Developing Kurt
 
     python -m venv .venv
     source .venv/bin/activate
     pip install -e .[dev]
+    python -m unittest              # the test suite, including every file in proofs/
+    coverage run -m unittest && coverage report
 
-This installs Kurt in editable mode, meaning changes to the source code take effect immediately without reinstalling.
-The [dev] extra installs optional development dependencies such as coverage.
+The implementation is the single file `src/kurt/kurt.py`. The theories are in
+`src/kurt/theories/`. The plans, the backlog and review notes are in `dev/`.
 
-Run the test suite:
-
-    python -m unittest
-
-Run test with coverage:
-
-    coverage run -m unittest
-    coverage report
+The banner's `file <hash>` is a fingerprint of the exact `kurt.py` you're running. When you
+compare unexpected behavior with someone else, it tells you whether you really run the same
+code.
 
 ## License
 
-[MIT](./LICENSE) © 2025 Stefan Harmeling
-
-## Attribution
-
-This project is licensed under the [MIT License](LICENSE).  
-When using or referencing it, please include a link back to this repository.  
-A star on GitHub is also greatly appreciated!
+[MIT](./LICENSE) © 2025-2026 Stefan Harmeling. When you use or cite Kurt, please link back to
+this repository. A star on GitHub is also appreciated!
