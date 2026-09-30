@@ -105,6 +105,23 @@ every bug found so far from coming back. Kurt is not a small-kernel system like 
 Light yet: the kernel still shares the parser and the normal forms with the search.
 `doc/kurt-soundness.md` says exactly what is trusted.
 
+## AI assistance
+
+Stefan Harmeling has designed and developed Kurt since 2016, and AI tools have helped with
+parts of the work:
+
+- **ChatGPT**, used in interactive chat to figure out bugs and details of the search procedure,
+  in particular how to generate all possible matches.
+- **AI coding assistants** since September 2026: Anthropic's Claude via Claude Code, and OpenAI's
+  Codex. They implemented features and wrote tests, tutorial lessons and documentation. They
+  also reviewed the code for soundness bugs.
+
+The author has not checked every line of the code they produced. He has reviewed the changes,
+to see that they do what they should. Every change must also pass the test suite, which checks
+every proof in `proofs/` and every tutorial lesson, including the adversarial cases in
+`proofs/soundness/`. Commits made with an AI coding assistant say so in a `Co-Authored-By:`
+line. The design of the language, and the responsibility for it, remain the author's.
+
 ## Editor support
 
 The [kurt-syntax](https://github.com/harmeling/kurt-syntax) repository has a Visual Studio Code
