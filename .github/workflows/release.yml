@@ -4,11 +4,20 @@ name: Release
 # (job `standalone`), and the package on PyPI (job `pypi`) -- the latter only after PyPI knows this
 # repository as a "trusted publisher" (pypi.org: the project `kurt-lang`, Publishing, add a
 # GitHub publisher: owner `harmeling`, repository `kurt-lang`, workflow `release.yml`,
-# environment `pypi`); no token is stored anywhere
+# environment `pypi`); no token is stored anywhere. By hand, for a tag that exists already:
+# Actions, Release, Run workflow, with the tag (e.g. to put it on PyPI after the fact).
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:           # by hand, for a tag that exists already (e.g. to publish it on PyPI later)
+    inputs:
+      tag:
+        description: "the version tag, e.g. v0.7.0"
+        required: true
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   pypi:
@@ -21,6 +30,8 @@ jobs:
       id-token: write          # for trusted publishing
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
 
       - uses: actions/setup-python@v5
         with:
@@ -29,7 +40,7 @@ jobs:
       - name: The tag is the version in kurt.py
         run: |
           version=$(python -c "import ast,sys; t=ast.parse(open('src/kurt/kurt.py').read()); print(next(n.value.value for n in t.body if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'version'))")
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, but kurt.py says $version"; exit 1; }
+          test "v$version" = "$TAG" || { echo "tag $TAG, but kurt.py says $version"; exit 1; }
 
       - name: Run the tests
         run: |
@@ -52,6 +63,8 @@ jobs:
       contents: write          # to create the release
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
 
       - uses: actions/setup-python@v5
         with:
@@ -65,10 +78,14 @@ jobs:
           (cd /tmp/check && python $GITHUB_WORKSPACE/dist/kurt.py --no-kurtc theories.kurt)
           python dist/kurt.py --no-kurtc modus-ponens.kurt
 
-      - name: Create the release with kurt.py
+      - name: Create the release with kurt.py (or update the file of an existing one)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v v="$version" '$0 ~ "^## " v {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
-          gh release create "$GITHUB_REF_NAME" dist/kurt.py --title "Kurt $version" --notes-file notes.md
+          version="${TAG#v}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/kurt.py --clobber
+          else
+            awk -v v="$version" '$0 ~ "^## " v {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
+            gh release create "$TAG" dist/kurt.py --title "Kurt $version" --notes-file notes.md
+          fi
