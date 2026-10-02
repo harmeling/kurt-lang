@@ -1,0 +1,13 @@
+; neg forall is equivalent to exists neg
+; author: Jan Robine
+load logic
+arity P 1
+
+show ∃ x ¬P(x)  ⇒  ¬(∀ x P(x))
+proof
+    assume ∃ x ¬P(x)
+        pick a with ¬P(a)
+            assume ∀ x P(x)
+                P(a)
+                contradiction
+qed

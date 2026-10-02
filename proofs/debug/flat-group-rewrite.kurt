@@ -1,0 +1,11 @@
+; equal-elim can rewrite a group of arguments of a flat operator, although flattening forgot
+; that they were grouped: `1 * 1` inside `2 * 1 * 1`, `b + c` inside `a + b + c`
+load arith
+use 1! = 1 * 1
+use 2! = 2 * 1!
+2! = 2 * 1 * 1
+
+const a, b, c, d
+use b + c = d
+a + b + c = a + d
+a + d = a + b + c

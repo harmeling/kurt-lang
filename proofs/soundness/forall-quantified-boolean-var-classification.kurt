@@ -1,0 +1,25 @@
+; regression test for a real bug found while investigating `let x, %A` (mixed
+; boolean/non-boolean variables) for doc/kurt-soundness.md: `remove_outer_forall_quantifiers`
+; strips an explicit outer `forall` and replaces its bound variable with a fresh internal
+; name, but it called `new_var_name()` unconditionally -- even when the bound variable was
+; a `%`-prefixed *boolean* schema variable, which should get a fresh `%%NN`-style boolean
+; name instead (exactly as `rename_all_vars_rec`'s own bindop-handling branch already does
+; correctly, a few lines below in the same file). The mismatch silently turned an explicitly
+; `forall`-quantified boolean variable into a non-boolean one the moment it was stored.
+;
+; this is not just a classification nitpick: `impl_elim`'s case for a bare boolean-variable
+; premise (matching the *whole* conclusion unconditionally, see doc/kurt-soundness.md #6) is
+; gated on `is_bool_var_token`, which checks exactly this classification. So an axiom written
+; with an explicit `forall %A (...)` -- a natural, idiomatic way to quantify over a whole
+; proposition -- silently stopped being usable via that mechanism, a false rejection. Confirmed
+; by direct comparison against the exact same axiom written without the explicit `forall`
+; (`use %A implies P`, relying on implicit universal quantification of free variables), which
+; was never affected since it never goes through `remove_outer_forall_quantifiers` at all.
+load logic
+bool P, Q
+use forall %A (%A implies P)
+show P "boolean schema variable must stay boolean after its explicit forall is stripped"
+proof
+  Q implies P
+  P
+qed

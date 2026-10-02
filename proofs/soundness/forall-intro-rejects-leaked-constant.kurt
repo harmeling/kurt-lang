@@ -1,0 +1,16 @@
+; adversarial test: forall-intro must reject a conclusion that mentions a fresh
+; constant introduced *inside* the `let` block but never generalized over -- `helper`
+; here is not one of `let`'s own bound variables, it's a bystander declared inside the
+; block; if it were allowed to leak into the generalized conclusion, `forall x` would
+; be quantifying over the wrong thing while `helper` -- a name with no meaning once the
+; block closes -- silently rides along. See doc/kurt-soundness.md.
+load logic
+bool P
+const z
+use P z
+expect "ProofError"          ; the block below must fail to close
+    let x
+        const helper
+        use P helper       ; allowed, since inside `expect`
+        P helper
+true

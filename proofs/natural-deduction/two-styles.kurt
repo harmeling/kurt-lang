@@ -1,0 +1,35 @@
+; two-styles.kurt
+
+; syntax
+prefix not        18  ; logical not
+bool   not     0 1    ; `not` and its inputs have type bool
+bool   false          ; false has type bool
+alias  ¬ not
+alias  ⊥ false
+
+; inference rules
+use ¬¬%p ⇒ %p           "double-not-elim"
+use (%p ⇒ ⊥) ⇒ ¬%p      "not-intro"
+
+; let's prove something!
+const q
+show ⊥ ⇒ q  "ex-falso-quodlibet"
+proof
+    assume ⊥
+        assume ¬q
+            ⊥
+        ¬¬q
+        q
+qed
+
+show ⊥ ⇒ %q  "ex-falso-quodlibet"
+proof
+    let %q
+        assume ⊥
+            assume ¬%q
+                ⊥
+            ¬¬%q
+            %q
+        ⊥ ⇒ %q
+    ⊥ ⇒ %q
+qed

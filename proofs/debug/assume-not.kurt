@@ -1,0 +1,12 @@
+; assume-not.kurt
+
+prefix not        18     ; logical not
+infix  iff     10 10     ; logical if-and-only-if
+bool   not     0 1       ; `not` and its inputs have type bool
+
+use %A iff %A                                                       "iff-reflexive"
+use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
+
+assume not a
+    a
+;;; ProofError: can not derive `a`

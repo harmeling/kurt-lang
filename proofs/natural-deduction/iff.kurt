@@ -1,0 +1,10 @@
+load prop
+bool p
+
+; what to show
+show p iff p
+proof
+    assume p
+        p               ; restatement
+    p iff p             ; iff-intro
+qed

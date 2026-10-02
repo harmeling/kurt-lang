@@ -1,0 +1,23 @@
+load prop
+
+; variant 1
+bool p
+var p
+show p ⇒ ¬¬p
+proof
+    assume p
+        assume ¬p
+            p ∧ ¬p
+            ⊥
+        ¬¬p
+qed                     ; finally generalize from the local constant to a variable
+
+; variant 2
+show %p ⇒ ¬¬%p
+proof
+    assume %p           ; if the expr contains a free boolean variable, it will be fixed to value
+        assume ¬%p
+            %p ∧ ¬%p
+            ⊥
+        ¬¬%p
+qed                     ; finally generalize from the local constant to a variable

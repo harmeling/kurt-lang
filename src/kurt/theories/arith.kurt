@@ -1,0 +1,138 @@
+; arithmetic
+;
+; covers: +, -, *, /, ^ (with real algebraic identities: distributivity, inverses, identities,
+; the exponent laws), <, >, <=, >= (with transitivity, antisymmetry, trichotomy), and
+; factorial (recursively defined via "factorial-step", not just the base case) -- see
+; proofs/arithmetic/ for worked examples of all of this.
+;
+; `calc on` computes what you type, the results of substitutions, and a part of a rule as soon as
+; its variables have values (`($n - 1)!` with `$n := 3` matches `2!`, see
+; proofs/arithmetic/factorial-with-calc.kurt) -- but it doesn't solve: `$b / 3` doesn't match
+; `0` while `$b` is unknown.
+load equality
+
+;; syntax
+infix   +  60 60           ; binary plus
+infix   -  60 60           ; binary minus
+infix   *  70 70           ; binary times
+infix   /  70 70           ; binary divide
+infix   ^  75 74           ; power, right associative: `2 ^ 3 ^ 2` is `2 ^ (3 ^ 2)`
+prefix  -     72           ; unary minus, weaker than `^`: `- 2 ^ 2` is `- (2 ^ 2)`
+postfix !  82              ; factorial
+infix   <  20 20           ; less than
+infix   >  20 20           ; greater than
+infix   <= 20 20           ; less than or equal
+infix   >= 20 20           ; greater than or equal
+
+flat +, *
+sym  +, *
+bool <  0, >  0, <= 0, >= 0
+chain   = <= <
+chain   = >= >
+alias   ≤ <=
+alias   ≥ >=
+
+; `calc on` computes these with numbers, exactly (see doc/kurt-doc.md, `calc`)
+calc    + add, - subtract, - negate, * multiply, / divide, ^ power
+calc    = eq, ≠ ne, < lt, <= le, > gt, >= ge
+
+;; rules
+use $a = $b  ⇒  $a + $c = $b + $c   "add-eq"
+use $a = $b  ⇒  $a - $c = $b - $c   "sub-eq"
+use $a = $b  ⇒  $a * $c = $b * $c   "mul-eq"
+use $a = $b  ⇒  $a / $c = $b / $c   "div-eq"
+use ($a + $b) * $c = $a * $c + $b * $c   "distrib-add"
+use ($a - $b) * $c = $a * $c - $b * $c   "distrib-sub"
+use ($a + $b) - $c = $a - ($c - $b)      "add-sub"
+
+use $a + (-$a) = 0       "add-inverse"
+use $a - $a = 0          "sub-inverse"
+use $a * 1 = $a          "mul-identity"
+use $a / 1 = $a          "div-identity"
+use $a * (-1) = -$a      "mul-neg-one"
+use -(-$a) = $a          "double-negation"
+use $a * 0 = 0           "mul-zero"
+use $a ≠ 0 ⇒ 0 / $a = 0  "zero-div"
+use $a ≠ 0 ⇒ $a / $a = 1 "div-self"
+use $c ≠ 0 ⇒ ($a * $c) / $c = $a             "mul-div"
+use $c ≠ 0 ⇒ ($a / $c) * $c = $a             "div-mul"
+use $c ≠ 0 ⇒ $a / $c + $b / $c = ($a + $b) / $c  "div-add"
+use $a + 0 = $a          "add-identity"
+use $a - 0 = $a          "sub-identity"
+
+; `$a ^ 0 = 1` unconditionally would be wrong: 0^0 is conventionally left undefined, so it's
+; guarded by `$a ≠ 0` below instead of being a blanket axiom.
+use $a ^ 1 = $a                          "pow-identity"
+use $a ≠ 0  ⇒  $a ^ 0 = 1                "pow-zero"
+; the other laws only for a positive base: `((-1) ^ 2) ^ (1 / 2)` is `1`, but `(-1) ^ 1` is `-1`,
+; and `0 ^ 1 * 0 ^ (-1)` would be `0 ^ 0`
+use $a > 0  ⇒  $a ^ $b * $a ^ $c = $a ^ ($b + $c)   "pow-add"
+use $a > 0  ⇒  ($a ^ $b) ^ $c = $a ^ ($b * $c)      "pow-mul"
+
+;; order rules: <
+use $a < $b  ⇒  $a + $c < $b + $c   "lt-add"
+use $a < $b  ⇒  $a - $c < $b - $c   "lt-sub"
+use $c > 0 ∧ $a < $b  ⇒  $a * $c < $b * $c   "lt-mul-pos"
+use $c > 0 ∧ $a < $b  ⇒  $a / $c < $b / $c   "lt-div-pos"
+use $c < 0 ∧ $a < $b  ⇒  $a * $c > $b * $c   "lt-mul-neg"
+use $c < 0 ∧ $a < $b  ⇒  $a / $c > $b / $c   "lt-div-neg"
+
+;; order rules: <=
+use $a <= $b  ⇒  $a + $c <= $b + $c   "le-add"
+use $a <= $b  ⇒  $a - $c <= $b - $c   "le-sub"
+use $c > 0 ∧ $a <= $b  ⇒  $a * $c <= $b * $c   "le-mul-pos"
+use $c > 0 ∧ $a <= $b  ⇒  $a / $c <= $b / $c   "le-div-pos"
+use $c < 0 ∧ $a <= $b  ⇒  $a * $c >= $b * $c   "le-mul-neg"
+use $c < 0 ∧ $a <= $b  ⇒  $a / $c >= $b / $c   "le-div-neg"
+
+;; order rules: >
+use $a > $b  ⇒  $a + $c > $b + $c   "gt-add"
+use $a > $b  ⇒  $a - $c > $b - $c   "gt-sub"
+use $c > 0 ∧ $a > $b  ⇒  $a * $c > $b * $c   "gt-mul-pos"
+use $c > 0 ∧ $a > $b  ⇒  $a / $c > $b / $c   "gt-div-pos"
+use $c < 0 ∧ $a > $b  ⇒  $a * $c < $b * $c   "gt-mul-neg"
+use $c < 0 ∧ $a > $b  ⇒  $a / $c < $b / $c   "gt-div-neg"
+
+;; order rules: >=
+use $a >= $b  ⇒  $a + $c >= $b + $c   "ge-add"
+use $a >= $b  ⇒  $a - $c >= $b - $c   "ge-sub"
+use $c > 0 ∧ $a >= $b  ⇒  $a * $c >= $b * $c   "ge-mul-pos"
+use $c > 0 ∧ $a >= $b  ⇒  $a / $c >= $b / $c   "ge-div-pos"
+use $c < 0 ∧ $a >= $b  ⇒  $a * $c <= $b * $c   "ge-mul-neg"
+use $c < 0 ∧ $a >= $b  ⇒  $a / $c <= $b / $c   "ge-div-neg"
+
+;; order rules: adding inequalities, powers
+use $a < $b ∧ $c < $d  ⇒  $a + $c < $b + $d            "lt-add-lt"
+use $a > $b ∧ $c > $d  ⇒  $a + $c > $b + $d            "gt-add-gt"
+use $a > 0 ∧ $b > 0  ⇒  $a * $b > 0                   "mul-pos"
+use $a > 0 ∧ $b > 0  ⇒  $a / $b > 0                   "div-pos"
+use $a > 0  ⇒  $a ^ $b > 0                             "pow-pos"
+use $a > 0 ∧ $a < $b ∧ $c > 0  ⇒  $a ^ $c < $b ^ $c    "pow-lt"
+use $b > 0 ∧ $a > $b ∧ $c > 0  ⇒  $a ^ $c > $b ^ $c    "pow-gt"
+
+;; order rules: mixed
+use $a < $b  ⇒  ¬($a >= $b)   "lt-not-ge"
+use $a > $b  ⇒  ¬($a <= $b)   "gt-not-le"
+use $a <= $b  ⇒  ¬($a > $b)   "le-not-gt"
+use $a >= $b  ⇒  ¬($a < $b)   "ge-not-lt"
+
+;; transitivity: genuinely automatic now, not hand-written -- `chain = <= <` and
+;; `chain = >= >` above make kurt itself generate every combined-transitivity fact
+;; ("lt-trans", "le-lt-trans", "ge-gt-trans", ... one per ordered pair of chain members) as a
+;; real, directly-usable axiom. See `generate_chain_transitivity` in kurt.py and
+;; doc/kurt-soundness.md for how and why.
+
+;; anti-symmetry
+use $a <= $b ∧ $a >= $b  ⇒  $a = $b   "le-ge-antisym"
+use $a <  $b ∧ $a >  $b  ⇒  false   "lt-gt-contra"
+use $a <  $b ∧ $a >= $b  ⇒  false   "lt-ge-contra"
+use $a >  $b ∧ $a <= $b  ⇒  false   "gt-le-contra"
+
+;; trichotomy
+use $a < $b ∨ $a = $b ∨ $a > $b   "trichotomy"
+
+;; factorial
+use 0! = 1                              "factorial-base"
+use $n > 0  ⇒  $n! = $n * ($n - 1)!     "factorial-step"
+
+; for automatic testing we add the following line:

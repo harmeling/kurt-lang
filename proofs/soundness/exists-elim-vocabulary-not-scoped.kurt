@@ -1,0 +1,14 @@
+; regression test for the same false-rejection bug as
+; forall-intro-vocabulary-not-scoped.kurt, but for `pick` (exists-elim): a bare
+; boolean proposition `P` first used inside the block, in a conclusion that doesn't
+; depend on the witness at all, used to be wrongly rejected as if `P` were as scoped
+; to the block as the witness `y` itself. See doc/kurt-soundness.md.
+load logic
+bool Q, P
+arity Q 1
+use exists x Q x
+sandbox                ; `use` is only allowed at the top level, or in a `sandbox`
+    pick y with Q y
+        use P
+        P
+true

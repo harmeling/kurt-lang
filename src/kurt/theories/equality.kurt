@@ -1,0 +1,35 @@
+; equality
+;
+; covers: reflexivity ("equal-intro"), Leibniz substitution ("equal-elim": if $a=$b, anything
+; true of $a is true of $b), and `≠`'s relationship to `=`. Deliberately small -- "equal-elim"
+; is the substitution primitive nearly every other theory's `=`-chain proofs are built out of
+; (arith.kurt's algebraic rules, set.kurt's distributive-law proof, ...).
+load prop
+
+;; syntax
+infix = 20 20  ; higher binding power than space, equality is left-associative
+bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
+sym   =        ; equality is symmetric
+chain =        ; equality is chainable
+
+
+infix ≠ 20 20 ; inequality, note it is not chainable
+bool  ≠ 0
+sym   ≠
+; chain ≠  ; not chainable
+
+;; inference rules
+use $a = $a                                               "equal-intro"
+use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
+
+use not ($a = $b) implies  $a ≠ $b                        "not-equal-intro"
+use $a ≠ $b       implies  not ($a = $b)                  "not-equal-elim"
+
+;; anything else?
+;  we can also combine both rules
+; use ($a = $b) and (sub $x $a $A = sub $x $a $A)  implies  (sub $x $a $A = sub $x $b $A)  "term-replacement"
+;  e.g.
+;  other notation
+;  $a = $b and $f($a) = $f($a)  implies  $f($a) = $f($b)
+
+; for automatic testing we add the following line:

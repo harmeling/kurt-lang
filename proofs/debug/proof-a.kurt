@@ -1,0 +1,3 @@
+; proof-a.kurt: simple example where two files are involved to check proper filenames
+use A "a"
+use C "c"

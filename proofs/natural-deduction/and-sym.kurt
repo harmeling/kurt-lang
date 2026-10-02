@@ -1,0 +1,20 @@
+load prop
+
+; this version should be usable when loaded as well
+; the key is that there are no quantifier for bool vars, but
+; they are implicitly universally quantified
+
+var a, b
+show a ∧ b  ⇔  b ∧ a   "and-sym"
+proof
+    let a, b
+        assume a ∧ b
+            a
+            b
+            b ∧ a
+        assume b ∧ a
+            b
+            a
+            a ∧ b
+    a ∧ b  ⇔  b ∧ a
+qed

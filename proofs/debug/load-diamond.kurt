@@ -1,0 +1,11 @@
+; regression test for a diamond `load` dependency (dev/todo-claude.md's "check ... that
+; double-loading (`A` loads `B` loads `A`) is actually cycle-safe" -- the diamond variant of
+; that concern): `equality.kurt` and `logic.kurt` both `load prop.kurt`, so loading both in
+; the same file loads `prop` via two different paths. This must not be treated as a cycle
+; (it isn't one -- prop never loads anything back) and must not load `prop` twice either;
+; `get_load_level`'s cache (keyed by resolved filename) is what makes this safe. This exact
+; situation is already exercised incidentally by `set.kurt` (`load equality, logic`, part of
+; the auto-discovered theories/ test set) -- this file makes it an explicit, direct test.
+load equality
+load logic
+true

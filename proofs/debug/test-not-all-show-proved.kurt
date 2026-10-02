@@ -1,0 +1,4 @@
+; should create an error message
+load prop
+show true
+;;; EvalError: cannot merge and pop a level with promised formulas, got 1 formulas.

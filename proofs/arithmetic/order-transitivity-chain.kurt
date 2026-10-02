@@ -1,0 +1,16 @@
+; regression/coverage test: arith.kurt's transitivity axioms ("lt-trans" et al.) had never been
+; exercised by any real proof anywhere in the repo before this file (confirmed by grep: only 2
+; files loaded arith.kurt at all, and neither used the order theory). Chains two applications of
+; "lt-trans" (kurt's derivation is single-hop, so a<b<c<d needs an explicit intermediate a<c
+; step) to prove a<d from three separately-`use`d strict inequalities.
+load arith
+var a, b, c, d
+
+use a < b
+use b < c
+use c < d
+
+a < b and b < c
+a < c
+a < c and c < d
+a < d

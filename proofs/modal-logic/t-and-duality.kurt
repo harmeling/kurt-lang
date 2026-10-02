@@ -1,0 +1,15 @@
+; coverage test for modal.kurt's dual form of "T" and its "box-def"/"diamond-def" axioms (see
+; k-distribution.kurt's comment on the schema-variable bug these were part of) -- exercised here
+; with a plain declared boolean `X`, not the file's own `p`/`A` example symbols.
+; Given classical propositional logic and modal duality, `X implies ◇X` is equivalent to the
+; standard T axiom `□X implies X`; it is not the seriality axiom D (`□X implies ◇X`).
+load modal
+bool X
+
+use X
+X ⇒ ◇X
+◇X
+
+use □X
+□X ⇒ ¬◇¬X
+¬◇¬X

@@ -1,0 +1,39 @@
+; simple proofs from group theory
+load equality
+
+; define function symbols for infix and prefix notations
+infix  +  60 60           ; binary plus
+prefix -     80           ; unary minus
+var x, y, z
+
+; group axioms
+; (implicitly universally quantified over x, y, z)
+use (x + y) + z = x + (y + z)       "G1" ; associativity
+use 0 + x = x                       "G2" ; neutral element
+use -x + x = 0                      "G3" ; left inverse
+
+; left inverse is also the right inverse
+show x + -x = 0                     "G4" ; right inverse
+proof
+    let x
+        0 = -(x + -x) + (x + -x)                ; by G3
+          = -(x + -x) + (x + (0 + -x))          ; by G2  (wrong reason)
+          = -(x + -x) + (x + ((-x + x) + -x))   ; by G3
+          = -(x + -x) + ((x + (-x + x)) + -x)   ; by G1
+          = -(x + -x) + (((x + -x) + x) + -x)   ; by G1
+          = -(x + -x) + ((x + -x) + (x + -x))   ; by G1
+          = (-(x + -x) + (x + -x)) + (x + -x)   ; by G1
+          = 0 + (x + -x)                        ; by G3  (wrong reason)
+          = x + -x                              ; by G2
+qed
+
+; left neutral is also right neutral
+show x + 0 = x                      "G5" ; right neutral
+proof
+    let x
+        x + 0 = x + 0              ; by "equal-intro"
+              = x + (-x + x)       ; by G3  (wrong reason)
+              = (x + -x) + x       ; by G1
+              = 0 + x              ; by G4  (wrong reason)
+              = x                  ; by G2
+qed

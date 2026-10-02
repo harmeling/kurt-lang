@@ -1,0 +1,9 @@
+; coverage test for set.kurt's "function-space"/"function-space-def": a mapping is modelled as
+; an opaque, applicable set object (kurt's ordinary space-application, `$f $a`), and `A → B` is
+; the set of all such objects that map every element of A into B.
+load set
+const A, B, f
+
+use ∀ $a  ($a ∈ A implies (f $a) ∈ B)
+f ∈ (A → B)
+f : A → B

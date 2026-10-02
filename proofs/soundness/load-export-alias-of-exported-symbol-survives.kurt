@@ -1,0 +1,12 @@
+; regression test for a real bug found while implementing selective export: an alias is pure
+; syntax sugar for an existing symbol -- axioms are written with the *canonical* name (e.g.
+; `not`), so an alias (`¬`) never itself "occurs" in any formula's free symbols. The first
+; version of the export-closure computation missed this entirely, so `¬` silently lost its
+; alias registration on `load` even though `not` itself (the alias's target) survived fine --
+; confirmed by a real failure: `proofs/natural-deduction/neg-forall.kurt` (which `load`s
+; `logic`, transitively `prop`, and writes `¬P(x)`) misparsed as soon as this closure ran.
+; Minimal repro here: `¬` must still work as `not`'s alias after `load prop`.
+load prop
+bool P
+use ¬¬P implies P
+theory

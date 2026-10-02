@@ -1,0 +1,12 @@
+; simple equation
+load equality
+
+; first test
+use x = 0
+use y = x
+y = 0
+
+; second test
+var z
+use z = 1
+y = 1

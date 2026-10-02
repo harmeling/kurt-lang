@@ -1,0 +1,9 @@
+; example: impl-elim (aka modus ponens)
+bool A, B, C, D
+use A
+use A implies B
+B
+use A and B implies C
+C
+use A and B and C implies D
+D

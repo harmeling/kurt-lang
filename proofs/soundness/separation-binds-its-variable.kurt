@@ -1,0 +1,18 @@
+; `{ $z ∈ $A | P }` binds `$z` (set.kurt: `bindop |`), so "separation" gives the property of
+; every occurrence of `$z` -- it used to be an ordinary variable, and a `sub` could take only some
+; of its occurrences: `{ y ∈ Nat | y = y }` then gave `(0 + 1) = y` for any `y`, and
+; `{ 0 ∈ Nat | 0 = 0 }` gave `(0 + 1) = 0` (soundness review of 2026-09-29, §8.17)
+load natural
+0 ∈ Nat
+0 + 1 ∈ Nat
+(0 + 1) = (0 + 1)
+(0 + 1) ∈ Nat ∧ (0 + 1) = (0 + 1)
+(0 + 1) ∈ { $y ∈ Nat | $y = $y }                ; by separation
+(0 + 1) ∈ Nat ∧ (0 + 1) = (0 + 1)
+expect "ProofError"
+    (0 + 1) ∈ Nat ∧ (0 + 1) = 0
+expect "TypeError"
+    (0 + 1) ∈ { 0 ∈ Nat | 0 = 0 }              ; no variable to bind
+const c
+expect "TypeError"
+    c ∈ { c ∈ Nat | c = c }                    ; a constant can't be bound

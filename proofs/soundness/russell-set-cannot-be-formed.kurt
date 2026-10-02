@@ -1,0 +1,28 @@
+; Russell's paradox: with an unrestricted comprehension `{ x | x ∉ x }`, set.kurt used to be
+; inconsistent -- `R ∈ R ⇔ ¬(R ∈ R)` followed in two steps, and from it `false`. Separation
+; only forms subsets of a given set: for `R = { x ∈ A | x ∉ x }` the same argument only shows
+; that `R` is not an element of `A`
+load set
+const A
+
+; `{ $x | ... }` can be written, but nothing says what its elements are: no unrestricted comprehension
+def S = { $x | not ($x ∈ $x) }
+expect "ProofError"
+    S ∈ { $x | not ($x ∈ $x) }  ≡  not (S ∈ S)
+
+def R = { $x ∈ A | not ($x ∈ $x) }
+R ∈ { $x ∈ A | not ($x ∈ $x) }  ≡  R ∈ A ∧ not (R ∈ R)
+R = { $x ∈ A | not ($x ∈ $x) }
+R ∈ R  ≡  R ∈ A ∧ not (R ∈ R)
+assume R ∈ A
+    assume R ∈ R
+        R ∈ A ∧ not (R ∈ R)
+        not (R ∈ R)
+        false
+    not (R ∈ R)
+    R ∈ A ∧ not (R ∈ R)
+    R ∈ R
+    false
+not (R ∈ A)                              ; the only conclusion
+expect "ProofError"
+    false

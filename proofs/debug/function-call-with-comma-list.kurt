@@ -1,0 +1,19 @@
+; `g(a, b)` for a `g` of arity 2 means `g a b`: a comma list in round brackets gives the
+; arguments -- where `g` wouldn't get enough arguments otherwise; so `g (a, b) c` is still `g`
+; applied to the pair `(a, b)` and to `c`, and for a `f` of arity 1, `f(a, b)` is `f` of the pair
+load equality
+const a, b, c, f, g, h
+arity f 1
+arity g 2
+arity h 3
+
+use g(a, b) = c
+g a b = c                       ; the same
+use h(a, f(b), g(a, c)) = a
+h a (f b) (g a c) = a
+use f(a, b) = a                 ; `f` of the pair `(a, b)`
+f (a, b) = a
+expect "EvalError"
+    use g(a, b, c) = a          ; `g` takes two arguments
+expect "ProofError"
+    g b a = c                   ; the order of the arguments counts

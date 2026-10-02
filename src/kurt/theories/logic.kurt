@@ -1,0 +1,64 @@
+; first order logic
+;
+; covers: forall-elim (instantiate a universal at a specific value) and exists-intro
+; (introduce an existential from a witness). forall-intro and exists-elim are *not* axioms
+; here -- they're the effect of closing a `let`/`pick` block (see kurt.py's `eval_done`).
+;
+; not covered: `existsunique` (unique existence) -- drafted below but commented out, needs
+; more thought about how to state/use uniqueness cleanly before it's worth adding for real.
+
+;; syntax
+load prop  ; syntax and rules for prop logic
+; `forall`/`exists`'s syntax (arity, bindop, bool signature, ∀/∃ aliases) is hardcoded
+; directly in `initial_kb` now, not declared here -- see the comment next to it in
+; `kurt.py`, right after `initial_kb.add_arity(SUB_SYMBOL, 3)`. Only their axioms
+; (forall-elim, exists-intro) are theory-level, below.
+; arity  existsunique 2 ; existential quantification with uniqueness
+; bool   existsunique 0 2 ; position 1 is a variable or a boolean expression (with a variable)
+; alias  ∃! existsunique
+
+;; inference rules
+;use %A                                  implies  forall $x %A      "forall-intro"
+use forall $x %A                        implies  sub $x $a %A      "forall-elim"
+use sub $x $a %A                        implies  exists $x %A      "exists-intro"
+;use (exists $x %B) and (%B implies %A)  implies  %A                "exists-elim"
+
+; quantifiers with a condition, `∀ $x > 0 P $x` and `∃ $x > 0 P $x`: in a rule, the condition
+; `sub $x $v %C` stands for any condition on the bound variable `$v` (`%C` is the condition
+; with the hole `$x` for `$v`, e.g. `$x > 0`)
+use (forall (sub $x $v %C) %P) and (sub $x $a %C)  implies  sub $v $a %P    "forall-cond-elim"
+use (sub $x $a %C) and (sub $v $a %P)  implies  exists (sub $x $v %C) %P    "exists-cond-intro"
+use (forall (sub $x $v %C) %P)  iff  forall $w ((sub $x $w %C) implies (sub $v $w %P))  "forall-cond-def"
+use (exists (sub $x $v %C) %P)  iff  exists $w ((sub $x $w %C) and (sub $v $w %P))      "exists-cond-def"
+
+; ;; existsunique
+; use %A and (forall $x (%A implies (forall $y (%A implies ($x = $y)))))  implies  existsunique $x %A  "existsunique-intro"
+; use existsunique $x %A  implies  exists $x %A  "existsunique-elim-1"
+; use existsunique $x %A  implies  forall $x (%A implies (forall $y (%A implies ($x = $y))))  "existsunique-elim-2"
+
+
+;; better looking
+; use %A                     ⇒  ∀ $x %A       "forall-intro"
+; use ∀ $x %A                ⇒  sub $x $a %A  "forall-elim"
+; use sub $x $a %A           ⇒  ∃ $x %A       "exists-intro"      ; contraposition of "forall-elim"
+; use (∃ $x %B) ∧ (%B ⇒ %A)  ⇒  %A            "exists-elim"
+
+;; requirements
+; - for "forall-intro":
+;   - no requirements!  `$x` can appear in `%A` or not
+; - for "forall-elim" and "exists-intro":
+;   - `$a` doesn't contain free variables that are bound in `%A`
+;   - already sufficient would be if those free variables in `$a` are not bound in `%A` only at the locations of `$x`
+;   - can anything bad really happen, if we rename all variables (free and bound) beforehand?
+;     - probably not, since we rename all vars in `%A` before `$a` is instantiated
+; - for "exists-elim":
+;   - `%A` must not contain `$x`
+;   - since we first completely rename *all* variables this works:
+;       (exists $%1 %B) and (%B implies %A)  implies  %A
+;     where (for readability) we didn't replace `%A` and `%B`.  
+;   - case 1: we first match `%B` using `exist $%1 %B`, then `%B` will contain `$%1`, next
+;     we match `%B implies %A` where we can assign `$%1` appropriately, since it appears free
+;   - case 2: we match `%B` using `%B implies %A`, then we use that `%B` to match against
+;     `exists $%1 %B`
+
+; for automatic testing we add the following line:

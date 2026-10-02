@@ -1,0 +1,35 @@
+; the theorems of group.kurt hold for every group: here for the numbers with `+`, and for an
+; abstract group `G` with the operation `∘`
+load group, arith
+
+; the numbers (a set `R` of them) with `+`, `0` and `-`
+const R, x, y
+use group(R, (+), 0, (-))
+use x ∈ R
+use y ∈ R
+x + 0 = x                             ; by group-right-identity
+-(-x) = x                             ; by inverse-inverse
+x + y ∈ R                             ; by group-closed
+
+; an abstract group: `∘` is an operation here (group.kurt declares it infix)
+const G, e, inv, a, b, c
+arity inv 1
+use group(G, (∘), e, inv)
+use a ∈ G
+use b ∈ G
+inv (inv a) = a                       ; by inverse-inverse
+inv b ∈ G                             ; by group-inverse-in
+(a ∘ b) ∘ inv b = a ∘ (b ∘ inv b)     ; by group-associative
+b ∘ inv b = e                         ; by group-right-inverse
+a ∘ e = a                             ; by group-right-identity
+(a ∘ b) ∘ inv b = a ∘ (b ∘ inv b)
+                = a ∘ e
+                = a
+; an inverse from the equation it solves
+use c ∈ G
+use c ∘ a = e
+c = inv a                             ; by inverse-unique
+
+; `∘` is not commutative: nothing says so
+expect "ProofError"
+    a ∘ b = b ∘ a

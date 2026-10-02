@@ -1,0 +1,59 @@
+; coverage for arith.kurt's order-preservation axioms (lt-/le-/gt-/ge-* for +, -, *, /) and the
+; trichotomy/contradiction axioms -- none of these had ever been exercised by any proof file
+; before this one. Each group is wrapped in its own `sandbox` so its assumptions don't
+; accumulate into later, unrelated groups (several groups deliberately assume things that would
+; contradict each other if they were all in scope at once).
+load arith
+const a, b, c
+
+; addition/subtraction preserve every order relation regardless of sign
+sandbox
+    use a < b "given-lt"
+    a + c < b + c   "lt-add restated"
+    a - c < b - c   "lt-sub restated"
+
+; multiplication/division by a positive number preserves <; by a negative one, flips it
+sandbox
+    use a < b "given-lt"
+    use c > 0 "c-positive"
+    a * c < b * c   "lt-mul-pos restated"
+    a / c < b / c   "lt-div-pos restated"
+
+sandbox
+    use a < b "given-lt"
+    use c < 0 "c-negative"
+    a * c > b * c   "lt-mul-neg restated"
+    a / c > b / c   "lt-div-neg restated"
+
+; the same pattern holds for <=, >, >= too (one representative each, not all 24 combinations)
+sandbox
+    use a <= b "given-le"
+    a + c <= b + c   "le-add restated"
+
+sandbox
+    use a > b "given-gt"
+    a + c > b + c   "gt-add restated"
+
+sandbox
+    use a >= b "given-ge"
+    a + c >= b + c   "ge-add restated"
+
+; trichotomy
+$a < $b ∨ $a = $b ∨ $a > $b   "trichotomy restated"
+
+; the contradiction axioms: each pairs one strict/non-strict relation with its opposite
+sandbox
+    use a < b "assumed-lt"
+    use a > b "also-assumed-gt"
+    false   "lt-gt-contra restated"
+
+sandbox
+    use a < b "assumed-lt"
+    use a >= b "also-assumed-ge"
+    false   "lt-ge-contra restated"
+
+sandbox
+    use a > b "assumed-gt"
+    use a <= b "also-assumed-le"
+    false   "gt-le-contra restated"
+true

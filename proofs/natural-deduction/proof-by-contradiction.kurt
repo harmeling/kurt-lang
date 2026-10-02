@@ -1,0 +1,14 @@
+; example: proof by contradiction
+load prop
+
+; axioms
+use p ⇒ q
+use ¬q
+
+; what to show
+show ¬p
+proof
+    assume p
+        q
+        ⊥
+qed

@@ -1,0 +1,96 @@
+; set theory
+;
+; covers: separation (`{$z ∈ $A | P($z)}`, the subset of `$A` of the elements with property P),
+; extensionality, empty set, intersection, union, subset, power set, ordered pairs and tuples
+; (`(a, b)`, `fst`, `snd`), Cartesian products (`A × B`), and mappings (`:`/`→`,
+; `f : A → B` for "f is a function from A to B", without function extensionality) -- see
+; proofs/mafi1/001-two-equal-sets.kurt for a real distributive-law proof and
+; proofs/set-theory/ for more.
+;
+; This follows Zermelo-Fraenkel set theory, in a small version: there is no unrestricted
+; comprehension `{$z | P($z)}`, which would allow Russell's paradox (`{x | x ∉ x}`), but only
+; separation, which forms subsets of a given set. The sets that can't be formed that way --
+; the empty set, unions, power sets, function spaces -- are given by their own axioms.
+;
+; mappings are modelled as opaque, applicable set objects (kurt's ordinary space-application,
+; `$f $a`), not as ZF-style sets of ordered pairs -- see the comment further down, right above
+; "function-space", for why.
+load equality, logic
+
+; syntax
+infix    in 25 25        ; element
+infix    |  10 10        ; separator for set comprehension
+bindop   |               ; `{ $z ∈ $A | P $z }` binds `$z`, like `∀ $z ∈ $A ...`
+infix    ⊂  18 18        ; subset
+infix    ∪  30 30        ; union
+infix    ∩  40 40        ; intersection
+bool     in 0
+bool     ⊂ 0
+bool     ∈ 0
+alias    ∈ in            ; `∈` inherits all properties of `in`
+brackets { }             ; curly brackets
+; `A → B` is the *set* of all mappings from A to B; `f : A → B` reads as `f ∈ (A → B)` --
+; "f is a member of the set of A→B mappings" -- exactly like `∈` is already just an alias of
+; `in`
+infix    → 30 30         ; for mappings
+alias    : in
+infix    × 45 45         ; Cartesian product
+
+; we assume that all objects are sets
+
+; extensionality: two sets are equal iff they have the same elements
+use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)                      "extensionality"
+
+; separation: the elements of `$A` with the property `%F` -- `$z` is bound by `|`, so `%F` is the
+; property of *every* occurrence of `$z` (it used to be an ordinary variable, and a `sub` could
+; take just some of its occurrences: `{ y ∈ Nat | y = y }` then gave `(0 + 1) = y`)
+use $a ∈ { $z ∈ $A | %F }  ≡  $a ∈ $A ∧ sub $z $a %F               "separation"
+
+; subset
+def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)                    "subset"
+use $M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M                              "eq-def"
+
+; the empty set, unions and power sets exist
+const ∅
+use not ($a ∈ ∅)                                                 "empty-set"
+use $c ∈ $a ∪ $b  ≡  $c ∈ $a ∨ $c ∈ $b                           "union"
+use $b ∈ Pow($a)  ≡  $b ⊂ $a                                     "power-set"
+
+; intersection, by separation
+def $a ∩ $b = { $c ∈ $a | $c ∈ $b }                              "intersection"
+show $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B                         "in-intersection"
+proof
+    $x ∈ { $c ∈ $A | $c ∈ $B }  ≡  $x ∈ $A ∧ $x ∈ $B
+    $A ∩ $B = { $c ∈ $A | $c ∈ $B }
+    $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B
+qed
+
+; ordered pairs and tuples: `(a, b)`. The comma is right-associative, so the triple `(a, b, c)`
+; is the pair `(a, (b, c))` -- as in set theory, where n-tuples are built from pairs. So the
+; rules for pairs are also those for tuples: two triples are equal if their first components are,
+; and the pairs of their other components.
+use ($a, $b) = ($c, $d)  ≡  $a = $c ∧ $b = $d                      "pair-eq"
+const fst, snd
+arity fst 1
+arity snd 1
+use fst($a, $b) = $a                                              "fst"
+use snd($a, $b) = $b                                              "snd"
+
+; the Cartesian product: the pairs with components in `$A` and `$B`
+use ($a, $b) ∈ $A × $B  ≡  $a ∈ $A ∧ $b ∈ $B                      "product"
+use $p ∈ $A × $B  implies  $p = (fst $p, snd $p)                  "product-pairs"
+
+; axioms for mappings
+;
+; a mapping is modelled as an opaque, applicable set object, not (as in ZF set theory) a set
+; of ordered pairs -- building the full ZF machinery (relations as sets of pairs,
+; single-valuedness) would be a much bigger, separate undertaking. Application uses kurt's ordinary space-application (`$f $a`), and `A → B` is
+; the set of all objects that behave like an A→B mapping when applied.
+use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space"
+
+; no function extensionality: in this model it would be false -- every object is in `∅ → B`
+; (nothing to check), so any two objects would be equal (`0 = 1`); and in general, knowing the
+; values `f a` for `a ∈ A` doesn't determine the object `f`. It needs mappings as sets of pairs
+; (with their domain), see dev/todo.md.
+
+; for automatic testing we add the following line:

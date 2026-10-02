@@ -1,0 +1,20 @@
+; 40-format.kurt
+
+; `format` chooses how formulas are printed in the log: `normal` (the
+; default, close to how you typed it) or `sexpr` (fully-parenthesised
+; s-expressions, useful for seeing the exact tree structure Kurt parsed).
+; (For a LaTeX document of a proof, see `scripts/kurt2latex.py`.)
+
+bool A, B, C
+
+format sexpr
+use A
+use B
+A and B                 ; printed as `(and A B)`
+
+format normal
+use C
+A and C                  ; back to the default look: `A and C`
+
+; `format` with no argument reports the current setting:
+format

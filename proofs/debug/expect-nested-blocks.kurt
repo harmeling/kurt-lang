@@ -1,0 +1,26 @@
+; `expect` catches the expected error anywhere inside its block: in a nested block, and while
+; a nested block closes -- the whole `expect` block is discarded, and checking continues
+bool A, B
+use A
+
+expect "ProofError"          ; an error inside a nested block
+    assume A
+        B
+
+expect "ProofError"          ; `qed` can't derive the goal
+    show B
+    proof
+        A
+    qed
+
+expect "ProofError"          ; the dedent below can't close the proof
+    show B
+    proof
+        A
+A                            ; this line still counts, after the `expect` is discarded
+
+expect "ProofError"          ; nested `expect`s
+    expect "ProofError"
+        B
+    B
+A

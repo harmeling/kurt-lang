@@ -1,0 +1,41 @@
+; regression test for a real parsing bug found while writing tutorial/45-worked-proof.kurt: a
+; blank line inside an indented block used to be read literally by the indentation tracker as
+; "dedent all the way back to column 0" (a blank line's own leading-space count is always 0),
+; incorrectly closing every currently open block instead of being ignored -- either raising a
+; confusing `ParseError: expected increased indentation` (if the blank line came right after a
+; block-opening keyword still expecting its first indented line) or, worse, silently closing
+; blocks early and skipping real content that was never actually parsed (if the blank line came
+; after an ordinary statement mid-block). Fixed in `read_eval_loop`: a blank line (and not
+; already mid-statement) is now skipped outright, never fed through the indentation logic.
+bool A, B
+
+; case 1: blank line immediately after a block-opening keyword, before its first real line
+show A implies A
+proof
+
+    assume A
+        A
+qed
+
+; case 2: blank line between two ordinary statements inside a nested block
+show B implies B
+proof
+    assume B
+
+        B
+    B implies B
+qed
+
+; case 3: blank line right after an `expect` block that just confirmed an error -- this is
+; the exact shape that originally surfaced the bug (expect pops its own level on confirming,
+; leaving the *parent* block's indentation still in force when the blank line is next)
+use A
+show B implies A
+proof
+    assume B
+        expect "ProofError"
+            false
+
+        A
+    B implies A
+qed

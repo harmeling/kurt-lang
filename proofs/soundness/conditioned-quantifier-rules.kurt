@@ -1,0 +1,69 @@
+; adversarial tests for the rules about quantifiers with a condition (logic.kurt), whose binder
+; `sub $x $v %C` stands for any condition on the bound variable `$v` (`sub_condition_match` in
+; kurt.py, doc/kurt-soundness.md §8.11): the condition must be matched as a whole, with every
+; occurrence of the bound variable in the hole -- never dropped, weakened, or mixed up with
+; another condition
+load arith, logic
+calc on
+bool P, Q
+arity P 1
+arity Q 2
+const c
+
+sandbox
+    use ∀ $y > 0  P $y
+    expect "ProofError"
+        P c                     ; `c > 0` isn't known
+    use c > 1
+    expect "ProofError"
+        P c                     ; `c > 1` is not the condition `c > 0`
+    expect "ProofError"
+        ∀ $y P $y               ; the condition can't be dropped
+    expect "ProofError"
+        ∀ $y (P $y ⇒ $y > 0)    ; nor turned around
+    1 > 0
+    P 1                         ; by forall-cond-elim
+    ∀ $y ($y > 0 ⇒ P $y)        ; by forall-cond-def
+
+sandbox
+    use P 1
+    expect "ProofError"
+        ∃ $y > 0  P $y          ; `1 > 0` isn't known
+    use 1 > 0
+    ∃ $y > 0  P $y              ; by exists-cond-intro
+
+sandbox
+    ; the condition mentions the bound variable twice: both occurrences are the hole
+    use ∀ ($y > 0 ∧ $y < 1)  P $y
+    use c > 0
+    use 2 < 1
+    expect "ProofError"
+        P c                     ; `c > 0 ∧ 2 < 1` is not the condition for `c`
+    use c < 1
+    P c
+
+sandbox
+    ; an existential with a condition gives neither a witness nor the condition for one
+    use ∃ $y > 0  P $y
+    expect "ProofError"
+        P 1
+    expect "ProofError"
+        ∃ $y ($y > 1)
+    ∃ $y ($y > 0 ∧ P $y)        ; by exists-cond-def
+    expect "ProofError"
+        ∃ $y ($y > 1 ∧ P $y)
+
+sandbox
+    ; a binder inside the body: instantiating must not capture its variable
+    use ∀ $y > 0  ∃ $z  Q $z $y
+    use c > 0
+    ∃ $z  Q $z c
+    expect "ProofError"
+        ∃ $z  Q $z $z
+
+; in a rule, the condition `%C` can only be used with something substituted for its hole --
+; otherwise `%C` would give, e.g., `$x > 0` for any `$x`
+expect "EvalError"
+    use (∀ (sub $x $v %C) %P)  ⇒  %C
+expect "EvalError"
+    use (∀ (sub $x $v %C) %P)  ⇒  sub $z c %C

@@ -1,0 +1,14 @@
+; regression test for a severe, general robustness bug (independent of the specific
+; bracket-lexing bug in bracket-adjacency-lexes-correctly.kurt): if a file ends while a
+; statement is still incomplete (e.g. a genuinely unclosed bracket -- a plain typo, nothing
+; to do with the lexer), `read_eval_loop`'s file-reading branch just does `if not new_line:
+; break` on EOF -- silently discarding the incomplete statement and returning success,
+; with NO indication that the rest of the file (including whatever its real last statement
+; was supposed to be) was never actually read. `Proof checked` printed with exit code 0 for
+; a file that was silently truncated is exactly the kind of thing that must never happen:
+; if kurt says a proof is fine, it must be fine. Fixed by raising a clear `ParseError`
+; instead of breaking when EOF is hit while still mid-parse (`continued == True`).
+brackets { }
+parse {0, 1, 2
+true
+;;; ParseError: unexpected end of file while still parsing a statement that started around line

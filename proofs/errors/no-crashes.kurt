@@ -1,0 +1,63 @@
+; lines that used to crash Kurt (a Python traceback instead of an error), found in the soundness
+; review of 2026-09-29 -- each is an error now
+load logic, arith
+const a, b, c
+use a < b
+use b = c
+
+; a line continuing a chain is one operator and its right-hand side (was an `AssertionError`)
+expect "ParseError"
+    a < b
+      < b = c
+expect "ParseError"
+    a < b
+      < b implies a < b
+
+; a line indented like a chain's continuation must continue it (the indentation was taken for a
+; block's, and the next dedent closed one block too many)
+expect "ParseError"
+    a = a
+      = a
+      a = a
+a < b
+  = c
+
+; a chain doesn't continue the line that opens a block (its indentation is the block's)
+expect "SyntaxError"
+    assume a < b
+        = c
+
+; one `pick` per line (several opened several blocks, but indented only once)
+exists w (w = a)
+expect "EvalError"
+    pick p with p = a, q with q = a
+pick p with p = a
+    p = a
+    a = a
+
+; `local` comes after a formula, before its label
+expect "SyntaxError"
+    local
+expect "SyntaxError"
+    local "x"
+
+; an operator in parentheses is a term, not a function (`(implies) A` was an `IndexError`, and
+; `(implies) A B C` ignored `C`)
+bool A, B, C
+expect "ParseError"
+    use (implies) A
+expect "ParseError"
+    use (implies) A B C
+expect "ParseError"
+    use ()
+expect "ParseError"
+    use a = ()
+
+; too deeply nested (was a `RecursionError`)
+expect "EvalError"
+    use a = a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a - a
+
+; a loaded constant can't be a variable here (was an `AssertionError`)
+var y
+expect "EvalError"
+    load const-y-helper

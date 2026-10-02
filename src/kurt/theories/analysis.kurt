@@ -1,0 +1,66 @@
+; analysis
+;
+; covers: the absolute value `abs`, finite sums `sum i (a, b) T` (= T(a) + ... + T(b)), the
+; maximum/minimum and the supremum/infimum of the values of `T` for the `v` with a condition
+; (`max v ∈ A T`, `sup v > 0 T`, ...), and limits `lim v a T` of `T` for `v` going to `a`,
+; also with a condition on `v` (`lim v > 0 0 T` is the limit from the right) -- defined by ε
+; and δ. See proofs/analysis/ for worked examples.
+;
+; the binders of `max`, `sup`, `lim`, ... take any condition: in a rule, the condition
+; `sub $x $v %C` stands for any condition on the bound variable `$v` (see logic.kurt). The
+; summand `$T` may depend on the bound variable, since the rules only use it with something
+; substituted for it (`sub $v $a $T`).
+;
+; `max`, `sup`, `lim`, ... are functions that give a value for *every* argument -- also where
+; the maximum, the supremum or the limit doesn't exist. So there are only rules that
+; introduce them, from a proof that the maximum (supremum, limit) exists: a rule like
+; `(lim $v $a $T) = $L ⇔ ...` would be wrong, since `lim v 0 (1 / v) = lim v 0 (1 / v)` would
+; then say that this limit exists.
+load natural
+
+;; absolute value
+const abs
+arity abs 1
+use $a >= 0  ⇒  abs($a) = $a                "abs-nonneg"
+use $a < 0  ⇒  abs($a) = -$a                "abs-neg"
+use abs($a) >= 0                            "abs-ge-zero"
+use abs($a) = 0  ⇔  $a = 0                  "abs-zero"
+use abs($a * $b) = abs($a) * abs($b)        "abs-mul"
+use abs($a - $b) = abs($b - $a)             "abs-sub-sym"
+use abs($a + $b) <= abs($a) + abs($b)       "abs-triangle"
+
+;; finite sums: `sum i (a, b) T` is T(a) + T(a+1) + ... + T(b)
+const sum
+arity sum 3
+bindop sum
+use (sum $i ($a, $a) $T) = sub $i $a $T                                       "sum-one"
+use (sum $i ($a, $b + 1) $T) = (sub $i ($b + 1) $T) + (sum $i ($a, $b) $T)   "sum-last"
+use (sum $i ($b + 1, $b) $T) = 0                                              "sum-empty"
+
+;; maximum and minimum: a value of `T` that is attained, and that no other value exceeds
+const max, min
+arity max 2
+arity min 2
+bindop max, min
+use (sub $x $a %C) ∧ (∀ (sub $x $w %C) ((sub $v $w $T) <= (sub $v $a $T)))  ⇒  (max (sub $x $v %C) $T) = sub $v $a $T   "max-intro"
+use (sub $x $a %C) ∧ (∀ (sub $x $w %C) ((sub $v $w $T) >= (sub $v $a $T)))  ⇒  (min (sub $x $v %C) $T) = sub $v $a $T   "min-intro"
+
+;; supremum and infimum: the least upper bound and the greatest lower bound of the values of
+;; `T`, for a condition that holds for at least one `$a`, and values that are bounded by `$b`
+const sup, inf
+arity sup 2
+arity inf 2
+bindop sup, inf
+use (∀ (sub $x $w %C) ((sub $v $w $T) <= $b)) ∧ (sub $x $a %C)  ⇒  (sub $v $a $T) <= sup (sub $x $v %C) $T   "sup-upper"
+use (∀ (sub $x $w %C) ((sub $v $w $T) <= $b)) ∧ (sub $x $a %C)  ⇒  (sup (sub $x $v %C) $T) <= $b           "sup-least"
+use (∀ (sub $x $w %C) ((sub $v $w $T) >= $b)) ∧ (sub $x $a %C)  ⇒  (sub $v $a $T) >= inf (sub $x $v %C) $T   "inf-lower"
+use (∀ (sub $x $w %C) ((sub $v $w $T) >= $b)) ∧ (sub $x $a %C)  ⇒  (inf (sub $x $v %C) $T) >= $b           "inf-greatest"
+
+;; limits: `lim v a T` is the limit of `T` for `v` going to `a` (`v ≠ a`); with a condition,
+;; `lim v > 0 0 T`, only the `v` with the condition count -- then `a` must be a point that
+;; these `v` come arbitrarily close to, otherwise every number would be a limit
+const lim
+arity lim 3
+bindop lim
+use (∀ $e > 0 ∃ $d > 0 ∀ $y ((0 < abs($y - $a) ∧ abs($y - $a) < $d)  ⇒  abs((sub $v $y $T) - $L) < $e))  ⇒  (lim $v $a $T) = $L   "lim-intro"
+use (∀ $d > 0 ∃ $y ((sub $x $y %C) ∧ 0 < abs($y - $a) ∧ abs($y - $a) < $d)) ∧ (∀ $e > 0 ∃ $d > 0 ∀ $y (((sub $x $y %C) ∧ 0 < abs($y - $a) ∧ abs($y - $a) < $d)  ⇒  abs((sub $v $y $T) - $L) < $e))  ⇒  (lim (sub $x $v %C) $a $T) = $L   "lim-cond-intro"

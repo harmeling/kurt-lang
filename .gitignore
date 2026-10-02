@@ -1,0 +1,48 @@
+# backups
+*~
+
+# byte code
+*.pyc
+__pycache__
+.DS_Store
+profile.out
+.coverage
+tmp.txt
+foo.md
+test.py
+# touch
+
+# latex stuff
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.nav
+*.snm
+*.vrb
+*.lof
+
+# virtual environments
+.venv/
+venv/
+
+# bytecode
+__pycache__/
+*.pyc
+
+# build outputs
+build/
+dist/
+*.egg-info/
+
+# rust code
+kurt-rs/
+# personal Claude Code overrides
+.claude/settings.local.json
+# certificates of checked files (see doc/kurt-doc.md, `.kurtc`)
+*.kurtc

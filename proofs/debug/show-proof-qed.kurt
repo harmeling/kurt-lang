@@ -1,0 +1,8 @@
+; example: show-proof-qed
+;load all
+use E implies F
+show E implies F
+proof
+    assume E
+        F
+qed

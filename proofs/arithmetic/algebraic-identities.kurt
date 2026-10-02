@@ -1,0 +1,30 @@
+; coverage for arith.kurt's basic algebraic identity axioms -- these had never been exercised
+; by any proof file before this one (see doc/kurt-soundness.md's precedent for this kind of
+; "declared but never actually used" gap with syntax; this is the same idea applied to axioms).
+load arith
+const a, b
+
+; identities and inverses, restated generically (schema variables unify directly onto the
+; axiom's own, so these are direct, one-step derivations, not just restatements of the axiom)
+$a + 0 = $a          "add-identity restated"
+$a - 0 = $a          "sub-identity restated"
+$a * 1 = $a          "mul-identity restated"
+$a / 1 = $a          "div-identity restated"
+$a + (-$a) = 0       "add-inverse restated"
+$a - $a = 0          "sub-inverse restated"
+-(-$a) = $a          "double-negation restated"
+$a * (-1) = -$a      "mul-neg-one restated"
+$a * 0 = 0           "mul-zero restated"
+$a ≠ 0 ⇒ 0 / $a = 0  "zero-div restated"
+$a ≠ 0 ⇒ $a / $a = 1 "div-self restated"
+
+; distributivity, put to work: derive that `(a + b) * 2 = a * 2 + b * 2` combines
+; "distrib-add" with nothing else needed, since `2` unifies directly for `$c`
+(a + b) * 2 = a * 2 + b * 2
+
+; equation-substitution axioms: given a concrete equality, derive a new one preserving it
+use a = b "given"
+a + 1 = b + 1
+a - 1 = b - 1
+a * 2 = b * 2
+a / 2 = b / 2

@@ -1,0 +1,17 @@
+; proof-not-false.kurt
+load prop
+show ¬⊥
+proof
+    assume ⊥
+        ⊥              ; restatement
+    ¬⊥                 ; not-intro
+qed
+
+;; alternative syntax
+; show not false
+; proof
+;     assume false
+;         contradiction
+;     not false
+; qed
+

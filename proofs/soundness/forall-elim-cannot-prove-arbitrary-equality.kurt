@@ -1,0 +1,21 @@
+; regression test for the most severe soundness bug found this session: `load logic,
+; equality` alone (nothing else -- no set.kurt, no arith.kurt, unrelated to any specific
+; theory) let ANY two constants be proven equal, with no premise connecting them at all.
+; Confirmed the minimal reproduction directly before fixing it -- this exact file, unchanged,
+; used to print `Proof checked.` instead of failing.
+;
+; root cause: applying forall-elim (`(forall $x %A) implies (sub $x $a %A)`) to prove `f = g`
+; can decompose the goal via the "whole expression is the hole" single-hole decomposition,
+; giving `%A := ($x = g)`, `$a := f`. forall-elim's own premise (`forall $x %A`) then needs
+; `%A`, i.e. `$x = g`, to hold -- for a `$x` that's supposed to be a fresh eigenvariable
+; standing for "any value at all" (that's the whole point of forall-elim's own antecedent).
+; But nothing prevented `$x` itself from being unified straight to the concrete value `g`
+; during that premise search (matching against "equal-intro", $a=$a) -- letting a variable
+; that must mean "true no matter what x is" instead mean "true for this one x we picked",
+; which defeats the entire soundness of universal generalization. See doc/kurt-soundness.md's
+; dedicated writeup for the full mechanism and the fix (blocking that eigenvariable from being
+; assigned during the premise search).
+load logic, equality
+const f, g
+expect "ProofError"
+    f = g

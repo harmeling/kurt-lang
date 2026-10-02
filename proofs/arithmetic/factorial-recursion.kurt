@@ -1,0 +1,21 @@
+; coverage test for arith.kurt's factorial recursion, added alongside "factorial-base"
+; (previously the only factorial fact, `0! = 1`, with no recursive step at all -- `n!` for any
+; n != 0 was simply not derivable from anything). Proves `1! = 1` by chaining
+; "factorial-step" + "factorial-base" + "mul-identity".
+;
+; note: chaining a *second* application of "factorial-step" used to fail, since substituting
+; `1! = 1 * 1` into `2 * 1!` needs to rewrite the group `1 * 1` inside the flat `2 * 1 * 1` --
+; equal-elim can do that now, see proofs/debug/flat-group-rewrite.kurt. The literal
+; arithmetic (`1 - 1 = 0`) still has to be stated, since `calc` doesn't compute while matching
+; an axiom's pattern (`($n - 1)!` against `0!`).
+load arith
+use 1 - 1 = 0   "lit-1-1"
+use 1 > 0
+
+show 1! = 1
+proof
+    1! = 1 * (1-1)!
+       = 1 * 0!
+       = 1 * 1
+       = 1
+qed

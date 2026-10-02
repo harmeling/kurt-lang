@@ -1,0 +1,34 @@
+; forall-intro.kurt
+load logic
+bool A, B, C, D, E
+const A, B, C, D, E
+arity A 1, B 1, C 1, D 1, E 1
+
+use ∀ $x A $x
+use ∀ $x B $x
+
+show ∀ $x (A $x ∧ B $x)
+proof
+    let x
+        A x
+        B x
+        A x ∧ B x
+qed
+
+show ∀ $x (A $x ∨ C $x)
+proof
+    let x
+        A x
+        A x ∨ C x
+qed
+
+use ∀ $x (D $x ⇒ E $x)
+show (∀ $x D $x) ⇒ (∀ $x E $x)
+proof
+    assume ∀ $x D $x
+        let x
+            D x
+            D x ⇒ E x
+            E x
+        ∀ $x E $x
+qed

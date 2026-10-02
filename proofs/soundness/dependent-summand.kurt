@@ -1,0 +1,25 @@
+; a non-boolean schema variable may depend on a bound variable only if it is used exactly like
+; that: as the whole body of a binder over the same variable, or as the body of a `sub` for it
+; (see `find_dependent_vars`) -- like `$T` in the sum axioms below; anywhere else it stays a
+; fixed term
+load natural
+const sum
+arity sum 3
+bindop sum
+use (sum $i ($a, $b + 1) $T) = (sub $i ($b + 1) $T) + (sum $i ($a, $b) $T)  "sum-last"
+const n
+(sum x (0, n + 1) (x * x)) = (n + 1) * (n + 1) + (sum x (0, n) (x * x))
+(sum y (0, n + 1) 7) = 7 + (sum y (0, n) 7)
+
+; `$C` also occurs outside the binder, so it must not depend on the bound variable
+use (sum $i ($a, $b) $C) = ($b - $a + 1) * $C                          "sum-const"
+(sum y (1, n) 7) = (n - 1 + 1) * 7
+expect "ProofError"
+    (sum y (1, n) y) = (n - 1 + 1) * y
+
+; and `$T` in the body of `forall`, next to other things, is a fixed term too
+bool Q
+use (forall $x ($x = $T)) and (P $T) implies Q    "attack"
+use forall $w (P $w)
+expect "ProofError"
+    Q

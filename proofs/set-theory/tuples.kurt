@@ -1,0 +1,26 @@
+; ordered pairs and tuples (set.kurt): `(a, b) = (c, d)` exactly when `a = c` and `b = d`, and a
+; triple `(a, b, c)` is the pair `(a, (b, c))`
+load set
+const a, b, c, d, u, v, w, A, B
+
+; pairs
+use (a, b) = (c, d)
+a = c ∧ b = d                    ; by pair-eq
+a = c
+(a, b) = (a, b)                  ; by equal-intro
+fst(a, b) = a
+snd(c, d) = d
+
+; triples: two steps
+use (a, b, c) = (u, v, w)
+a = u ∧ (b, c) = (v, w)          ; by pair-eq
+(b, c) = (v, w)
+b = v ∧ c = w
+c = w
+
+; Cartesian products
+use a ∈ A
+use b ∈ B
+(a, b) ∈ A × B                   ; by product
+use d ∈ A × B
+d = (fst d, snd d)               ; by product-pairs

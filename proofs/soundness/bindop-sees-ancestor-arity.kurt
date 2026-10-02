@@ -1,0 +1,15 @@
+; companion bug to arity-redeclaration-across-load-rejected.kurt, opposite direction: found
+; while checking whether other `add_*` methods had the same "checks only the current level's
+; own dict, not the ancestor chain" flaw as `add_arity`. `add_bindop` checked
+; `fun not in self.arity` / `self.arity[fun]` directly instead of the ancestor-aware
+; `get_arity` -- so declaring `arity` at one level and `bindop` inside a *nested* block
+; (`sandbox`, `assume`, `let`, ...) wrongly rejected it with "before declaring symbol as
+; variable binding, you must set its arity", even though the arity genuinely was set, just
+; on an ancestor level. Confirmed directly before the fix. Fixed the same way as
+; arity-redeclaration-across-load-rejected.kurt: use the ancestor-aware `is_arity_set`/
+; `get_arity` instead of raw dict access. See doc/kurt-soundness.md #4.1.
+arity myforall 2
+sandbox
+    bindop myforall
+    true
+true

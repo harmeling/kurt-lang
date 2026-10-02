@@ -1,0 +1,17 @@
+; exist-elim.kurt
+
+load logic
+arity P 1
+bool P, B, C
+const P, B, C
+use ∀ a (P(a) ⇒ B)
+use B ⇒ C
+use ∃x P(x)
+
+show C
+proof
+    pick a with P(a)
+        P(a) ⇒ B
+        B
+    C
+qed

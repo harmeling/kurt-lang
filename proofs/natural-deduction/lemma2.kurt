@@ -1,0 +1,12 @@
+; lemma2.kurt
+load prop
+
+show (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
+proof
+    assume (%A ⇒ (%B ⇒ %C))
+        assume %A ∧ %B
+            %A
+            %B
+            %B ⇒ %C
+            %C
+qed

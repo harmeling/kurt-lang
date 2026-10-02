@@ -1,0 +1,11 @@
+; companion to forall-elim-cannot-prove-arbitrary-equality.kurt: confirms the fix for that bug
+; (blocking forall-elim's own eigenvariable from being resolved to a specific value during its
+; premise search) didn't overcorrect into breaking genuine forall-elim usage. A real
+; universally-quantified fact must still instantiate at a specific value.
+load logic
+bool P
+arity P 1
+const P, c
+
+use ∀ $x P $x
+P c

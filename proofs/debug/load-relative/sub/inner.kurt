@@ -1,0 +1,3 @@
+; standalone helper theory for uses-subdir.kurt's `load sub/inner.kurt` test.
+; Auto-discovered and run on its own too, so it needs a valid marker.
+bool R

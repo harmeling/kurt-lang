@@ -1,0 +1,10 @@
+; `sub` is for writing axiom schemas (`use`/`def`), not for ordinary claims -- there it would
+; only stand for its own result, so write that instead
+load logic
+bool P
+arity P 1
+const c
+use P c
+expect "EvalError"
+    sub $x c (P $x)
+P c

@@ -1,0 +1,12 @@
+; `calc` computes only the symbols that a theory binds to the calculator (`calc + add`)
+load equality
+infix + 30 30
+calc on
+expect "ProofError"
+    1 + 1 = 2                   ; `+` means nothing to the calculator yet
+calc + add
+1 + 1 = 2
+expect "EvalError"
+    calc + frobnicate           ; not an operation of the calculator
+expect "ParseError"
+    calc + add multiply

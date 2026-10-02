@@ -1,0 +1,17 @@
+; regression test: `def`'s right-hand-side scan (`extract_by_condition`, which has no
+; bound-variable awareness at all -- it only ever "works" in practice because idiomatic
+; Kurt uses `$`-prefixed schema variables in bound positions here, which are
+; unconditionally classified as variables regardless) must recognize `forall`/`exists`
+; themselves as already-classified vocabulary, not as unclassified "new symbols" the RHS
+; isn't allowed to contain. See doc/kurt-soundness.md §2.1's closing note: this broke
+; when `forall`/`exists` were first hard-coded via the same pattern as `sub` (`.used`
+; without `const`) -- fixed by registering them `const` instead, matching
+; `true`/`implies`/`and`. Found via proofs/linear-algebra/injective2.kurt, which
+; exercises the same thing in a full proof (there with `$x`/`$y`, as here).
+load logic
+bool Q
+arity Q 1
+const z
+use Q z
+def p iff forall $x Q $x
+true

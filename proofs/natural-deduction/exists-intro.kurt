@@ -1,0 +1,12 @@
+; example: exists-intro
+load logic
+load equality
+
+bool  prime
+arity prime 1        ; `prime` expects exactly one argument
+
+use prime 2
+
+def x = 2
+prime x
+∃ $z prime $z

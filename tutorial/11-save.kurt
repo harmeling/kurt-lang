@@ -1,0 +1,29 @@
+; 11-save.kurt
+
+; `save` keeps what you did: it writes the lines that were accepted so far
+; to a file. In the shell, that is your session without the lines that
+; failed, and without the ones that only showed something (`theory`,
+; `help`, ...) -- so you can try things out, and then keep what worked.
+; In a file like this one, it is simply its lines so far.
+
+bool A, B
+use A implies B "modus-ponens"
+use A
+
+show B
+proof
+    A
+    B
+qed
+
+save "/tmp/kurt-tutorial-save-demo.kurt"
+; the path is relative to the current working directory, not to this file
+
+; The saved file is ordinary Kurt source: checking it proves `B` again (and
+; writes its certificates to a `.kurtc` next to it, see doc/kurt-doc.md).
+; Try it from the command line:
+;
+;     kurt /tmp/kurt-tutorial-save-demo.kurt
+;
+; `save` needs all blocks closed and no pending `show` -- otherwise the saved
+; file wouldn't load.

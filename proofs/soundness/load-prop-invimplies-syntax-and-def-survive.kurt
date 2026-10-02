@@ -1,0 +1,13 @@
+; regression test for a real retrofit gap: `invimplies` (backwards implication, alias `⇐`)
+; had full syntax declared in prop.kurt (`infix`, `bool`, `chain`, `alias`) but, unlike every
+; other operator there, had no defining axiom relating it to `implies` at all -- a
+; pre-existing gap that didn't matter before selective export (everything was unconditionally
+; exported regardless of axioms) but became a real, observable break after: nothing exported
+; ever mentioned `invimplies`, so its syntax silently stopped surviving `load prop`. Fixed by
+; adding the natural definitional axiom relating it to `implies`. Confirmed here: `invimplies`
+; parses as infix, `⇐` resolves as its alias, and the defining axiom lets a genuine
+; `invimplies`-based derivation go through.
+load prop
+bool A, B
+use A implies B
+B ⇐ A

@@ -1,0 +1,11 @@
+; companion to capture-avoidance-blocks-unsound-instantiation.kurt: the *same* premise
+; must still let a genuinely safe instantiation through -- substituting the outer `x`
+; with a fresh, unrelated constant `c` involves no capture at all, and should succeed
+; exactly like it would on paper. This confirms the previous file's rejection is really
+; about capture-avoidance, not some unrelated limitation silently blocking this whole
+; shape of derivation.
+load logic
+load equality
+const c
+use forall x (exists y (not (x = y)))
+exists y (not (c = y))

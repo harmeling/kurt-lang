@@ -1,0 +1,35 @@
+; EXPERIMENTAL EXAMPLE: a modal-logic fragment
+;
+; This file demonstrates that Kurt theories can introduce modal prefix operators and axiom
+; schemata. It covers box (□, necessity), diamond (◇, possibility), their duality, distribution
+; over and/or, the K distribution axiom, and the T axiom in its dual form `%p implies ◇%p`.
+;
+; This is not a complete proof system for normal modal logic K or T: Kurt cannot currently
+; express the necessitation rule "from a theorem %p infer □%p". In particular, do not describe
+; `load modal` as implementing system K or T. There are also no 4/5 axioms or
+; accessibility-relation semantics. See proofs/modal-logic/ for executable examples.
+;
+; With classical propositional logic and the duality below, `%p implies ◇%p` is equivalent to
+; the standard T axiom `□%p implies %p`. It is not the seriality axiom D (`□%p implies ◇%p`).
+load prop
+prefix b 20, d 20          ; box and diamond
+bool b, d
+alias □ b
+alias ◇ d
+
+; every axiom below is a schema (`%p`/`%q`, like prop.kurt's `%A`/`%B`) so it applies to *any*
+; boolean expression, not just to two specific hardcoded propositions -- earlier versions of
+; this file wrote `p`/`q`/`A`/`B` without the `%` prefix, which silently pinned every axiom to
+; those exact declared constants and made it impossible to apply K (etc.) to anything else;
+; confirmed the difference directly: `use □(X ⇒ Y)` + `use □X` could never derive `□Y` before
+; this fix, only the literal `□(p ⇒ q)` + `□p` could ever derive `□q`.
+use ◇%p ≡ ¬□¬%p   "diamond-def"
+use □%p ≡ ¬◇¬%p   "box-def"
+use ◇%p ∨ ◇%q ≡ ◇(%p ∨ %q)   "diamond-distrib-or"
+use □%p ∧ □%q ≡ □(%p ∧ %q)   "box-distrib-and"
+
+; K distribution axiom
+use □(%p ⇒ %q) ⇒ (□%p ⇒ □%q)    "K"
+
+; T axiom, in its dual form
+use %p ⇒ ◇%p   "T"

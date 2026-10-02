@@ -1,0 +1,18 @@
+; regression test: `pick` used to crash the whole interpreter with an uncaught
+; `AssertionError: BUG: we should be one level up` whenever it failed *before* opening its
+; own block (e.g. "can not find an existential formula that matches the `pick`") while
+; nested inside another open block (here `expect`). Root cause: unlike `let`/`assume`/`case`
+; (which push their level in `eval_keyword_expression`, *before* calling into anything that
+; could raise), `pick`'s level is pushed *inside* `eval_pick` itself, only after checking
+; that a matching existential exists. `eval_keyword_expression`'s `'pick'` branch caught any
+; failure and unconditionally called `kb.pop_level()` to clean up -- correct when `eval_pick`
+; failed *after* opening its level, but wrong when it never opened one at all: that pop
+; instead discarded the *caller's* own already-open level (`expect`'s, here), corrupting the
+; level stack. Found while testing the `equal_expr` alpha-equivalence fix (see
+; pick-with-nested-quantifier.kurt) -- unrelated to it, but uncovered by trying to wrap a
+; failing `pick` in `expect`. Fixed by only popping when `eval_pick` actually pushed a level
+; (comparing `kb.level` before/after). See doc/kurt-soundness.md #3.4.
+expect "ProofError"
+    pick c with true
+true
+

@@ -1,0 +1,13 @@
+; `A ⊂ B` must need `x ∈ A implies x ∈ B` for *every* x, not for one: set.kurt used to have
+; the extra axiom `use $A ⊂ $B ≡ $x ∈ $A implies $x ∈ $B`, whose right-hand side has a free
+; `$x` -- so a single `c ∉ A` gave `c ∈ A implies c ∈ B` (ex falso), and with it `A ⊂ B` for
+; any `B`
+load set
+const A, B, c
+use not (c ∈ A)
+assume c ∈ A
+    false
+    c ∈ B
+c ∈ A implies c ∈ B
+expect "ProofError"
+    A ⊂ B

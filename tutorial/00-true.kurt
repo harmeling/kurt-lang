@@ -1,0 +1,46 @@
+; 00-true.kurt
+
+; Everything from a semicolon `;` to the end of the line is a comment -- Kurt ignores it,
+; it is only there for you (like this text).  A comment can also follow a formula on the
+; same line, as below.
+
+; The statement that is always true is `true`.
+
+true       ; will be always provable.
+
+; In the Kurt Playground you can run the proof file (ending in `.kurt`) 
+; with the script `kurt.py` by pressing the `Run` button (on the top left). 
+; It will go through it line by line.  For each line it will be checked 
+; how it can be inferred from the previous lines.  Since `true` 
+; is always true, there is nothing to prove.
+
+; So we can continue for now with:
+
+true
+true
+
+; Notice that these two extra `true` lines are logged as "by 5": restating a claim that was
+; just established refers back to the line where it was established, instead of deriving it
+; once more.
+
+; When you hit `run` for this file on the Kurt playground (or run this file
+; in the commandline with
+; 
+;      python kurt.py 00-true.kurt
+;      kurt 00-true.kurt             # this might work as well
+;
+; the output will tell you, whether the proof is correct.  In this case
+; Kurt will tell you that the line `true` can be inferred with the 
+; rule "top-intro".
+;
+; The rules are from natural deduction (look it up, or see links below).
+; Each line gets a number, e.g., `5 by "top-intro", which refers to the line
+; in the input file.  If a rule refers to other, it will use that number.
+;
+; That's it for the beginning!
+;
+; More readings:
+; - https://en.wikipedia.org/wiki/Natural_deduction
+; - https://leanprover.github.io/logic_and_proof_lean3/natural_deduction_for_propositional_logic.html
+; - https://leanprover.github.io/logic_and_proof_lean3/natural_deduction_for_first_order_logic.html
+

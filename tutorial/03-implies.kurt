@@ -1,0 +1,25 @@
+; 03-implies.kurt
+
+; `implies` is Kurt's built-in logical implication, declared as an infix
+; operator right inside the core language (see `minimal.kurt`, hard-coded and
+; loaded before anything else).  Given `A implies B` and `A`, Kurt can derive
+; `B` -- the rule is called "impl-elim", better known as modus ponens.
+
+bool A, B
+
+; `B` below is derived automatically via "impl-elim" (modus ponens), logged as e.g.
+; `by 13(14)` -- the implication of line 13 applied to the fact of line 14. (If the
+; implication has a label, e.g. `use A implies B "my-rule"`, the log shows the label
+; instead, since the label names the rule: `by my-rule(14)`.)
+use A implies B
+use A
+B
+
+; Chains of implications work fine too, one step at a time:
+bool C
+use B implies C
+C                       ; uses the just-derived `B` together with `B implies C`
+
+; Proving an implication itself (instead of just using one as an axiom) needs
+; only an `assume` block (lesson 18): assuming `A` and deriving `B` inside the
+; block gives `A implies B`.

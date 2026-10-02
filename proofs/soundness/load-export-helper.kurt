@@ -1,0 +1,16 @@
+; helper theory for the `load`-export regression tests (load-export-*.kurt in this
+; directory). Auto-discovered and run on its own too, so it needs a valid marker. Mixes
+; exported and local facts/defs so the consumer tests can check both directions. See
+; doc/kurt-doc.md's `load` section and doc/kurt-soundness.md #7.
+load prop
+bool P, Q, R, U
+use P  "exported-fact"
+use Q  local "local-fact"
+use R  ; no label at all -- also stays local, same as an explicit `local` marking
+def S iff P  "exported-def"
+def T iff P  local "local-def-not-required"
+use P implies U
+show U  "exported-theorem"
+proof
+  U
+qed

@@ -1,0 +1,10 @@
+; a theory loaded in a `sandbox` is gone with it, and can be loaded again afterwards (in a proof
+; block, `load` is not allowed: the loaded axioms would look proven there, like `use`)
+sandbox
+    load modal
+    true
+    trail
+sandbox
+    load modal    ; should be alright
+    true
+true

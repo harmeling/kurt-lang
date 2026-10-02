@@ -1,0 +1,51 @@
+; two-equal sets
+load set
+const A, B, C
+show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
+proof
+    ; for set equality we show "⊂" and "⊃"
+    show A ∩ (B ∪ C) ⊂ (A ∩ B) ∪ (A ∩ C)
+    proof
+        let x ∈ A ∩ (B ∪ C)
+            x ∈ A  ∧  x ∈ B ∪ C
+            x ∈ A
+            x ∈ B ∪ C
+            (x ∈ B) or (x ∈ C)
+            case x ∈ B
+                x ∈ A  ∧  x ∈ B
+                x ∈ A ∩ B
+                (x ∈ A ∩ B) or (x ∈ A ∩ C)
+                x ∈ (A ∩ B) ∪ (A ∩ C)
+                ;done
+            case x ∈ C
+                x ∈ A  ∧  x ∈ C
+                x ∈ A ∩ C
+                (x ∈ A ∩ B) or (x ∈ A ∩ C)
+                x ∈ (A ∩ B) ∪ (A ∩ C)
+                ;done
+            x ∈ (A ∩ B) ∪ (A ∩ C)
+        ; `⊂` is defined with `∀ $c ($c ∈ $a implies ...)`, `let x ∈ ...` gave `∀ x ∈ ...`
+        ∀ $x ($x ∈ A ∩ (B ∪ C)  implies  $x ∈ (A ∩ B) ∪ (A ∩ C))     ; by forall-cond-def
+    qed
+    show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
+    proof
+        let x ∈ (A ∩ B) ∪ (A ∩ C)
+            (x ∈ A ∩ B) or (x ∈ A ∩ C)
+            case x ∈ A ∩ B
+                x ∈ A  ∧  x ∈ B
+                x ∈ A
+                x ∈ B
+                (x ∈ B) or (x ∈ C)
+                x ∈ B ∪ C
+                x ∈ A ∩ (B ∪ C)
+            case x ∈ A ∩ C
+                x ∈ A  ∧  x ∈ C
+                x ∈ A
+                x ∈ C
+                (x ∈ B) or (x ∈ C)
+                x ∈ B ∪ C
+                x ∈ A ∩ (B ∪ C)
+            x ∈ A ∩ (B ∪ C)
+        ∀ $x ($x ∈ (A ∩ B) ∪ (A ∩ C)  implies  $x ∈ A ∩ (B ∪ C))     ; by forall-cond-def
+    qed
+qed

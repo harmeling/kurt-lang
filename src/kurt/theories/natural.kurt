@@ -1,0 +1,23 @@
+; natural numbers
+;
+; covers: `Nat` membership (0 is a natural number, and the successor of any natural number is
+; a natural number) and the induction principle (a property true at 0 and preserved by
+; successor is true of every natural number) -- see proofs/natural-numbers/induction.kurt for
+; a worked example, including the "state base case and step as one conjunction" pattern
+; `impl_elim`'s single-hop derivation needs to apply "induction" in one step.
+;
+; arithmetic comes from arith.kurt: natural numbers are real numbers, so all of its laws
+; (and `calc`) apply to them as well.
+load set
+load arith
+
+;; inference rules
+const Nat
+
+use 0 in Nat  "nat-zero"
+use $n in Nat  implies  $n+1 in Nat  "nat-succ"
+
+; A(0)  and  forall n (A(n) -> A(n+1))   implies   forall n A(n)
+use ((sub $x 0 %A) ∧ (∀ $n ∈ Nat  (sub $x $n %A  ⇒  sub $x ($n+1) %A)))   ⇒ ∀ $n in Nat  (sub $x $n %A)   "induction"
+
+; for automatic testing we add the following line:

@@ -1,0 +1,7 @@
+; regression test for `load`'s relative-path resolution, the `../` direction (companion to
+; ../uses-subdir.kurt): a file can `load` a file in its *parent* directory. Resolved the same
+; way -- against this file's own directory (`.../load-relative/sub/`) -- so `../helper.kurt`
+; must correctly step up to `.../load-relative/helper.kurt`.
+load ../helper.kurt
+use Q
+Q

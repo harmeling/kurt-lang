@@ -1,0 +1,31 @@
+# Kurt
+
+> Kurt is a small proof language with an automatic checker, for students learning to write
+> mathematical proofs. A proof is a text file (`.kurt`) of claims, one per line, with indented
+> blocks (`assume`, `let`, `pick`, `case`, `proof`); Kurt checks each line and prints why it
+> holds. The implementation is one dependency-free Python file, `src/kurt/kurt.py`.
+
+Writing Kurt proofs, the essentials:
+
+- Declare symbols first: `bool A, B` (propositions), `const a, b`, `arity f 1`. Variables of
+  rules start with `$` (objects) or `%` (propositions).
+- Load theories: `load prop` (propositional logic), `logic` (quantifiers), `equality`, `set`,
+  `arith`, `natural` (induction), `analysis`, `group`, `modal`.
+- `use F "label"` states an axiom; `show F` / `proof` / (indented steps) / `qed` proves a claim;
+  a plain line `F` is a claim that must follow in one step from what is there.
+- `assume A` opens a block; its last line `B` gives `A implies B` when the block closes by
+  dedenting. `let x` gives `forall x ...`, `pick c with P c` uses `exists`.
+- Check a file with `kurt FILE.kurt` (or `python -m kurt FILE.kurt`); `kurt --strict` rejects
+  axioms and `todo` outside Kurt's own theories.
+
+## Docs
+
+- [Language reference](doc/kurt-doc.md): every keyword, the syntax, blocks, theories
+- [Cookbook](doc/kurt-cookbook.md): recipes for common proof tasks, each with a checked example
+- [Tutorial](tutorial/plan.md): numbered lessons, each a runnable `.kurt` file
+- [Soundness](doc/kurt-soundness.md): what the checker's correctness rests on
+
+## Examples
+
+- [proofs/](proofs/): example proofs, each part of the test suite
+- [Theories](src/kurt/theories/): the theories that come with Kurt, written in Kurt

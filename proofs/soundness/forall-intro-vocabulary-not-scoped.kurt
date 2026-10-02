@@ -1,0 +1,16 @@
+; regression test for a false-rejection bug found while auditing forall-intro's
+; soundness check (`eval_done`'s `not_allowed` computation, see doc/kurt-soundness.md):
+; a predicate symbol whose *first use* happens to be inside a `let` block used to be
+; wrongly treated as a fresh individual local to that block (just like a genuine
+; `const`/`let`/`pick`-introduced object would be), and so was wrongly forbidden from
+; appearing in the block's forall-intro conclusion, even though it never actually
+; depended on the block's own fresh constant. `P` here is only ever mentioned inside
+; `let x`, on purpose.
+load logic
+bool P
+arity P 1
+sandbox                ; `use` is only allowed at the top level, or in a `sandbox`
+    let x
+        use P x
+        P x
+true

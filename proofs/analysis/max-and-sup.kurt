@@ -1,0 +1,19 @@
+; maximum and supremum of the values of `f` on a set `S`: the maximum is a value that is
+; attained, the supremum only needs an upper bound
+load analysis
+const S, f, g
+arity f 1
+arity g 1
+
+use 1 ∈ S
+use ∀ $w ∈ S  (f $w <= f 1)
+(max $v ∈ S (f $v)) = f 1               ; by max-intro
+f 1 <= sup $v ∈ S (f $v)                ; by sup-upper, with the bound `f 1`
+
+use ∀ $w ∈ S  (g $w <= 7)
+(sup $v ∈ S (g $v)) <= 7                ; by sup-least
+g 1 <= sup $v ∈ S (g $v)                ; by sup-upper
+expect "ProofError"
+    (max $v ∈ S (g $v)) = 7             ; the bound needn't be attained
+expect "ProofError"
+    (sup $v ∈ S (g $v)) = 7             ; and needn't be the least one

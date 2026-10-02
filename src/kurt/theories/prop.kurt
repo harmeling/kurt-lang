@@ -1,0 +1,97 @@
+; propositional logic
+;
+; covers: not, or, invimplies (backwards implication), iff, and the standard elimination/
+; introduction rules connecting them and the hardcoded connectives (and-intro/elim, or-intro/
+; elim, iff-intro/elim, not-intro/elim, bottom-intro/elim, top-elim). `true`/`false`/
+; `implies`/`and` themselves are hardcoded directly in kurt.py (see minimal.kurt for exactly
+; what) -- this file only adds `not`, `or`, `invimplies`, `iff`, and the rules relating them.
+;
+; loaded (directly or transitively) by nearly every other theory here -- logic.kurt,
+; equality.kurt, set.kurt, arith.kurt, and modal.kurt all `load prop` first.
+
+;; builtin syntax
+; infix  implies 13 12  ; logical implies, right associative (since 13>12)
+; bool   implies 0 1 2  ; and and its inputs have type bool
+; infix  and     16 16  ; logical and
+; bool   and     0 1 2  ; and and its inputs have type bool
+; flat   and            ; (a and b) and c  iff  a and b and c
+; sym    and            ; a and b  iff  b and a
+; bool   true           ; true has type bool
+; alias  ⊤ true
+; alias  ⇒ implies
+; alias  ∧ and
+
+;; syntax
+prefix not        18     ; logical not
+infix  or      14 14     ; logical or
+infix  invimplies 13 12  ; logical implies backwards, right associative (since 13>12)
+infix  iff     10 10     ; logical if-and-only-if
+bool   not     0 1       ; `not` and its inputs have type bool
+bool   or      0 1 2     ; `or` and its inputs have type bool
+bool   invimplies 0 1 2  ; `invimplies` and its inputs have type bool
+bool   iff     0 1 2     ; `and` and its inputs have type bool
+bool   false             ; false has type bool
+
+flat   or
+sym    or
+sym    iff
+
+chain  iff implies       ; implies left-to-right
+chain  iff invimplies    ; implies right-to-left
+
+alias  ¬ not
+alias  ∨ or
+alias  ⊥ false
+alias  contradiction false
+alias  ⇔ iff
+alias  ⇐ invimplies
+alias  ≡ iff
+
+;; inference rules
+;
+; all rules have the form (with finitely many premises)
+;
+;     premise1   premise2
+;     -------------------
+;     conclusion
+;
+; which we write in kurt as:
+; 
+;     premise1 and premise2 implies conclusion
+;
+; (the commented out axioms are implemented in `kurt.py`
+
+;; builtin
+; use %A implies %A                 "restatement" ; special case of "impl-elim"
+; use (%A implies %B) implies (%A implies %B)                       "impl-intro"
+; use ((%A implies %B) and %A) implies %B                           "impl-elim"
+; use true                                                          "top-intro"
+
+use %A  and  %B   implies   %A and %B                               "and-intro"
+use %A  and  %B   implies   %A                                      "and-elim"   ; `and` is symmetric and flat
+; notes
+; "and-intro" looks somewhat weird:  however, it will be used from the python code
+; such that the formulas of the LHS conjunction will be searched for in the theory
+
+use %A   implies   %A or %B                                         "or-intro"   ; `or` is symmetric and flat
+use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"
+
+use (%A invimplies %B) iff (%B implies %A)                         "invimplies-def"
+
+use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"
+use (%A iff %B) implies (%A implies %B)                             "iff-elim-forward"
+use (%A iff %B) implies (%B implies %A)                             "iff-elim-backward"
+use %A iff %A                                                       "iff-reflexive"
+use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
+
+use (true implies %A) implies %A                                    "top-elim"
+
+use %A and not %A implies false                                     "bottom-intro"
+use false implies %A                                                "bottom-elim"
+
+use (%A implies false) implies not %A                               "not-intro"
+use not not %A implies %A                                           "not-elim"
+use %A implies not not %A                                           "not-not-intro"
+use %A iff not not %A                                               "not-not"
+
+; for automatic testing we add the following line:

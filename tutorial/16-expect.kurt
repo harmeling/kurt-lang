@@ -1,0 +1,34 @@
+; 16-expect.kurt
+
+; So far, whenever a lesson wanted to say "this would fail", it could only
+; describe it in a comment and ask you to try it yourself (see 05-const.kurt,
+; 06-var.kurt).  `expect` lets a file demonstrate a mistake directly, and
+; have Kurt itself confirm it still fails the way the lesson says it does:
+; `expect "KIND"` opens a block whose content must raise an error of the
+; given kind (one of `ProofError`, `ParseError`, `EvalError`, `SyntaxError`,
+; `TypeError`) -- if it does, the block (and everything inside it) is simply
+; discarded and checking continues from the next line; if it doesn't, *that*
+; is now the failure.
+
+const zero
+
+expect "EvalError"
+    var zero          ; `zero` is already a constant -- this really does fail
+
+true                  ; ...and we're back to normal, checking continues here
+
+; `expect` only checks the *kind* of error, not its exact wording -- so a
+; lesson (or a test) using it doesn't quietly go stale the moment an error
+; message's phrasing changes, the way copying the exact text into a comment
+; (or into a test's expected output) would.
+
+; The error may come from anywhere inside the block, also from inside a
+; nested block, or from a nested block that can't be closed:
+
+bool A, B
+use A
+expect "ProofError"
+    show B
+    proof
+        A             ; `B` doesn't follow, so the proof can't be closed
+    qed

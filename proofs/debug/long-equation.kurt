@@ -1,0 +1,11 @@
+; long-equation.kurt
+;
+; simple equation with indentation inside a proof
+load equality
+use a=b
+use b=c
+show a=c
+proof
+    a = b          ; just a = b
+      = c          ; gets transformed into a = c
+qed

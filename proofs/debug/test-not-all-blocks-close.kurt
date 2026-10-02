@@ -1,0 +1,6 @@
+; error: not alle blocks close
+; should create an error message
+load prop
+show true
+proof
+;;; EvalError: inside

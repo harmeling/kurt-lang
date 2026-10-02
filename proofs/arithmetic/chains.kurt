@@ -1,0 +1,36 @@
+; chains.kurt
+;
+; relations chained on one line, `a = b ≤ c`, mean `a = b and b ≤ c` -- and chained
+; across continuation lines, each continuation line concludes from the first line's LHS
+load arith
+calc on                     ; `calc` checks comparisons of literal numbers, e.g. `3 ≤ 4`
+
+2 + 1 = 3 ≤ 4
+5 = 2 + 3 ≤ 7 < 8
+10 = 5 + 5
+   ≤ 12
+   < 13
+10 < 13
+
+; parentheses keep the plain reading: `(2 = 3) ≤ 4` compares a boolean with a number,
+; which no axiom (and no calculation) says anything about
+expect "ProofError"
+    (2 = 3) ≤ 4
+; a false link breaks the whole chain
+expect "ProofError"
+    2 = 3 ≤ 4
+
+; with constants: one chained line gives each link, and transitivity combines two of them
+calc off
+use a = b ≤ c < d
+a = b ≤ c
+a ≤ c
+
+; a chain gives its strongest relation: after a `<`, a later `=` still gives `<`
+use e = f
+use f < g
+use g = h
+e = f
+  < g
+  = h
+e < h

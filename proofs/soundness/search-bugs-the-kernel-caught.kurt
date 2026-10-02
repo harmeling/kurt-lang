@@ -1,0 +1,42 @@
+; steps the search accepted, but the kernel rejected (a `KernelError`, which stops the file) --
+; found in the soundness review of 2026-09-29. The search must reject them itself (the first
+; four are false), or find the right step (the last)
+load analysis
+bool P, Q, R, S
+arity P 1
+arity Q 2
+arity R 1
+arity S 1
+const c
+
+; matching two binders renamed the goal's bound variable to the rule's, which was free there
+use ∃ $x (P $x ∧ (∀ $x (Q $x $x)))
+expect "ProofError"
+    ∃ $y (P $y ∧ (∀ $x (Q $y $x)))
+
+; computing a `sub` in the search unblocked a variable of the goal (a bound and a free
+; variable with the same name)
+use R c ∧ (∃ $z (S $z))
+expect "ProofError"
+    not (not (R $y ∧ (∃ $y (S $y))))
+
+; "forall-cond-def": the condition `sub $x $v %C` computed to one that binds another variable
+; (`$y > $v` for `$y > 0`), which weakened `$y > 5` to `$y > 0`
+use ∀ ($y > 5) R $y
+expect "ProofError"
+    ∀ $y (($y > 0) ⇒ R $y)
+use ∀ ($y > 0) S $y
+∀ $y (($y > 0) ⇒ S $y)
+
+; an operator variable matched a binder (`max`), with its bound variable as an argument
+var ∘
+infix ∘ 70 70
+use ($a = $b) ⇒ (($a ∘ $d) = ($b ∘ $d))   "congruence"
+const f
+arity f 1
+expect "ProofError"
+    (max $v (f $v)) = (max $w (f $v))
+
+; a bound variable of the goal was proposed as the value to substitute (a `KernelError` for a
+; true claim)
+(sum x (1, 1) (sum y (0, x) y)) = sum y (0, 1) y

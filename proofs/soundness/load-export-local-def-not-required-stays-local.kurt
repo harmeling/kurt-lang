@@ -1,0 +1,5 @@
+; companion to load-export-def-symbol-survives.kurt: a `local`-labelled `def` whose symbol is
+; never needed by any exported fact stays local, same as an unlabelled/local `use` fact would.
+load load-export-helper
+bool T
+true

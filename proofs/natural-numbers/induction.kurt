@@ -1,0 +1,26 @@
+; coverage test for natural.kurt's induction axiom -- before this file, nothing anywhere in the
+; repo ever loaded natural.kurt outside its own self-check, so this axiom (the whole point of
+; the file) had never actually been exercised end-to-end. Doing so for the first time surfaced
+; an unrelated, general kurt.py crash bug in the failed-derivation error path for *any*
+; conditioned quantifier goal (`forall $x in Nat ...`), now fixed -- see
+; doc/kurt-soundness.md #7.4. The axiom itself checks out correct, demonstrated here with an
+; uninterpreted predicate `P` (the standard way to test a quantifier rule generically, same
+; style as `proofs/natural-deduction/forall-elim.kurt` etc. -- `natural.kurt` itself gives `Nat`
+; no arithmetic beyond membership, so there's no richer concrete property of numbers to induct
+; over yet).
+;
+; the base case and step must be phrased as a single conjunction, not two separate `use` facts:
+; kurt's derivation is single-hop, and `impl_elim` needs the whole antecedent to match at once.
+load natural
+bool P
+arity P 1
+const P
+
+use (P 0) and (forall $n in Nat (P $n implies P ($n+1)))   "base-and-step"
+
+; the induction principle in action: from just the base case and the step, every natural
+; number satisfies P -- including, concretely, the number 5, which was never mentioned anywhere
+; above.
+forall $n in Nat  P $n
+forall $n ($n in Nat implies P $n)      ; by forall-cond-def
+5 in Nat implies P 5

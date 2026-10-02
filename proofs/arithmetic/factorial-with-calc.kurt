@@ -1,0 +1,19 @@
+; with `calc on`, a part of a rule is computed as soon as its variables have values: matching
+; `3! = 3 * 2!` against "factorial-step" (`$n! = $n * ($n - 1)!`) computes `3 - 1` to `2`
+load arith
+calc on
+
+3 > 0
+3! = 3 * 2!                     ; by factorial-step
+2 > 0
+2! = 2 * 1!
+expect "ProofError"
+    2! = 2 * 0!                 ; `2 - 1` is not `0`
+
+; and a definition works with numbers directly
+arity f 1
+def f($x) = $x * $x
+f(3) = 9
+f(2) = 4
+expect "ProofError"
+    f(3) = 6

@@ -1,0 +1,23 @@
+; coverage for `f()`: a zero-argument call to a symbol parses identically to bare `f` (see
+; dev/todo.md's own spec: "it should be parsed [like] just `f`"), for an arity-0 symbol. Empty
+; brackets used to be a flat `SyntaxError: token ) cannot start an expression` -- `add_brackets`'s
+; `nud` now accepts an empty body, and `process_arity` collapses it away again when it directly
+; follows an arity-0 symbol.
+const f
+use f "f-holds"
+show f
+proof
+    f()
+qed
+
+; a positive-arity symbol still needs its arguments -- `f()` there is a clear, specific
+; rejection, not a confusing "argument is an empty placeholder" parse
+arity g 1
+expect "EvalError"
+    g()
+
+; ordinary calls with real arguments are unaffected
+const a
+arity h 1
+use h a
+h a

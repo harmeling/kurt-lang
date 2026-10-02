@@ -1,0 +1,15 @@
+; todo.kurt
+load logic, equality
+
+show p
+proof
+    todo p
+qed
+
+show p ⇒ q
+proof
+    todo
+qed
+; the output will be something like: '  todo.kurt:6 todo'
+; however, the `test_kurt_proofs.py` harness itself only checks the last output line,
+; which is always just "Proof checked." regardless of any pending todos

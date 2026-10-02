@@ -1,0 +1,28 @@
+; peano.kurt
+;
+; natural numbers from zero and a successor function `s`, with addition defined by
+; recursion on its first argument
+load set
+
+var n, m
+use 0 in Nat                        "zero"
+use n in Nat  implies  s n in Nat   "succ"   ; function application binds most tightly
+use n + 0 = n                       "add-zero"
+use (s n) + m = s (n + m)           "add-succ"
+use 1 = s 0                         "one"
+use 2 = s 1                         "two"
+
+; 2 is a natural number
+(s 0) in Nat
+1 in Nat
+(s 1) in Nat
+2 in Nat
+
+; 1 + 1 = 2
+(s 0) + 1 = s (0 + 1)
+1 + 1 = s (0 + 1)
+; ... but here we are stuck: `0 + 1 = 1` needs `0 + n = n`, which is not an axiom
+; (it follows by induction on n, see proofs/natural-numbers/induction.kurt)
+use 0 + n = n                       "zero-add"
+1 + 1 = s 1
+1 + 1 = 2

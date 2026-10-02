@@ -1,0 +1,101 @@
+; wrong uses of the proof keywords and blocks, of `def`, and wrongly typed formulas are
+; rejected -- each with its own error (see doc/kurt-doc.md §6, §7, §9)
+load logic, arith
+const c, d
+bool P, Q
+arity P 1
+const P, Q
+
+; `proof` needs a `show`, `qed` a `proof`, and each takes no arguments
+expect "ProofError"
+    proof
+expect "EvalError"
+    show c > 0
+    proof 1
+expect "EvalError"
+    sandbox 1
+expect "ParseError"
+    show c > 0, d > 0
+expect "EvalError"
+    show c + 1
+
+; a block can only be closed after a proof step
+expect "ProofError"
+    let y
+        const e
+expect "ProofError"
+    show Q
+    proof
+        const e
+    qed
+
+; `expect` needs one known kind of error
+expect "EvalError"
+    expect "Oops"
+        c > 0
+expect "EvalError"
+    expect
+        c > 0
+expect "EvalError"
+    expect "ProofError", "EvalError"
+        c > 0
+
+; claims, `use` and `assume` must be boolean
+expect "EvalError"
+    c + 1
+expect "EvalError"
+    use c + 1
+expect "EvalError"
+    assume c + 1
+        c > 0
+
+; `def`: one new constant on the left, nothing new on the right, and only with `=` or `⇔`
+expect "EvalError"
+    def e + f = c
+expect "EvalError"
+    def e = f + c
+expect "EvalError"
+    def e > c
+def e = c + d
+def R ⇔ P c
+
+; `pick` needs an existential fact that it matches, and a new constant
+use ∃ $x P $x
+expect "ProofError"
+    pick y with Q
+        c > 0
+expect "EvalError"
+    pick c with P c
+        c > 0
+expect "EvalError"
+    pick y > 0 with P y
+        c > 0
+expect "EvalError"
+    pick
+        c > 0
+
+; `sub` is typed: a variable first, and a value of the same kind
+expect "TypeError"
+    use sub c d (P c)
+expect "TypeError"
+    use sub %B c (Q)
+expect "TypeError"
+    use sub $x Q (P $x)
+
+; the first argument of a binder is a variable, or a condition that has one
+expect "TypeError"
+    use ∀ c (P c)
+expect "TypeError"
+    use ∀ 1 (P 1)
+expect "TypeError"
+    use ∀ (c > 0) (P c)
+
+; keywords and `with` only at the top of a line, a label after `local`, nothing between commas
+expect "SyntaxError"
+    c > (use d)
+expect "ParseError"
+    c > 0 with d > 0
+expect "SyntaxError"
+    c > 0 local
+expect "SyntaxError"
+    use c > 0, , d > 0

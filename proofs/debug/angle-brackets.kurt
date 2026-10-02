@@ -1,0 +1,9 @@
+; `⟨ ⟩` are symbols (in the shell: `\langle`, `\rangle`), usable as a bracket pair, e.g. for a
+; scalar product `⟨a, b⟩` -- which doesn't clash with the relations `<` and `>`
+load arith
+brackets ⟨ ⟩
+const a, b
+use ⟨a, b⟩ = ⟨b, a⟩ "symmetry"
+use ⟨a, a⟩ ≥ 0
+⟨b, a⟩ = ⟨a, b⟩
+⟨a, b⟩ < ⟨a, b⟩ + 1 ∨ true

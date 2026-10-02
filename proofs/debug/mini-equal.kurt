@@ -1,0 +1,18 @@
+; mini-equal
+
+; equality
+infix = 20 20  ; lower binding power than space, equality is left-associative
+;bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
+sym   =        ; equality is symmetric
+
+use $a = $a                                               "equal-intro"
+use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
+
+; define function symbols for infix and prefix notations
+infix  +  60 60           ; binary plus
+
+use a = b
+a + c = b + c
+; the proof:
+;    a+c = a+c  ; by "equal-intro"
+;    a+c = b+c  ; by "equal-elim"

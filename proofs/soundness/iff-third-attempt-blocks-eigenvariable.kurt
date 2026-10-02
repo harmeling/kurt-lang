@@ -1,0 +1,24 @@
+; regression test for a second, independent instance of the same eigenvariable-unification
+; class of bug as forall-elim's (see doc/kurt-soundness.md's dedicated write-up, section 0b).
+; found via a much narrower-looking report ("a declared-but-unconstrained `var` can get
+; treated as boolean anyway"), which turned out to be one *symptom* of this bug, not its cause.
+;
+; root cause: `impl_elim`'s handling of an `iff`-shaped theory fact (e.g. `not-not`: `%A iff
+; (not (not %A))`) has a "third attempt" that unifies the goal directly against the whole,
+; unstripped fact, meant to catch a literal restatement -- but unlike the other two attempts
+; (which recurse into the plain-implication branch, which *does* block the goal's own free
+; variables from being assigned during matching), this third attempt used the caller's state
+; completely unblocked. A goal's free variable (`a` below) is renamed to a fresh internal name
+; before matching regardless of whether it's boolean, so it was free to be unified straight to
+; `not (not C)`, satisfying `not-not`'s shape for *some* value of `a` -- never asserted to hold
+; -- rather than being required to hold for whatever `a` actually, specifically is.
+load prop
+var a
+bool C
+expect "ProofError"
+    a iff C
+
+; confirms it's not specific to `var`'s boolean-inference: a bare schema variable used
+; directly at top level (no `var` involved at all) hits the exact same bug
+expect "ProofError"
+    %A iff C

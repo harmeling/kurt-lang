@@ -1,0 +1,17 @@
+; regression test: `def`'s LHS/RHS "exactly one/zero new symbols" scan
+; (`extract_by_condition`) used to have no bound-variable awareness at all -- it worked in
+; practice for `forall`/`exists` themselves (see def-with-forall-in-rhs.kurt) only because
+; that specific mismatch was fixed separately, but a plain, non-`$`-prefixed bound variable
+; introduced by a quantifier was still mistaken for a free "new symbol". Idiomatic Kurt
+; always uses `$x`-style prefixed variables in bound positions (unconditionally classified
+; as variables regardless of scope, so never affected), but a plain `x` should work exactly
+; as well: it's just as validly scoped, `remove_outer_forall_quantifiers`/`rename_all_vars`
+; already treat it correctly once the formula is stored. Before the fix this `def` was
+; wrongly *rejected* with `got ['x', 'x']` naming `x` as a disallowed new symbol on the RHS.
+load logic
+bool Q
+arity Q 1
+const z
+use Q z
+def p iff forall x Q x
+true

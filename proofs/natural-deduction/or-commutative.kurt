@@ -1,0 +1,34 @@
+; or-commutative
+
+;; syntax
+infix  or      14 14  ; logical or
+bool   or      0 1 2  ; and and its inputs have type bool
+alias  ∨ or
+
+;; axioms
+use %A implies %A or %B                                             "or-intro-left"
+use %B implies %A or %B                                             "or-intro-right"
+use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"
+
+;; theorem
+bool p, q
+
+show (p ∨ q) ⇒ (q ∨ p)
+proof
+    assume p ∨ q
+        assume p
+            q ∨ p
+        assume q
+            q ∨ p
+        q ∨ p
+qed
+
+show (p ∨ q) ⇒ (q ∨ p)
+proof
+    assume p
+        q ∨ p
+    assume q
+        q ∨ p
+    assume p ∨ q
+        q ∨ p
+qed

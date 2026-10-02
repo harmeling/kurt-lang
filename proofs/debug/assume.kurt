@@ -1,0 +1,9 @@
+; assume.kurt
+use B
+assume A
+    B
+A implies B
+
+assume C
+    B
+theory

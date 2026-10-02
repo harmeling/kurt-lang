@@ -1,0 +1,14 @@
+; the second example of README.md -- keep the two the same
+; if A implies B, then not B implies not A
+load prop
+bool A, B
+
+show (A implies B) implies (not B implies not A)
+proof
+    assume A implies B
+        assume not B
+            assume A
+                B
+                false
+            not A
+qed

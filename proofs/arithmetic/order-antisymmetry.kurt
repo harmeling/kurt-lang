@@ -1,0 +1,9 @@
+; coverage test: arith.kurt's "le-ge-antisym" axiom, never exercised by any real proof before.
+load arith
+var a, b
+
+use a <= b
+use a >= b
+
+a <= b and a >= b
+a = b

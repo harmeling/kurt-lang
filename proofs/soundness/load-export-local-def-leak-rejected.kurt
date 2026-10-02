@@ -1,0 +1,14 @@
+; regression test: a `local`-labelled `def` whose symbol is required by an exported fact is
+; rejected with a clear error -- exporting a fact that mentions a symbol without exporting
+; what that symbol even *means* would silently smuggle out something the theory author
+; explicitly marked private. This fires even when the file is checked directly (not loaded
+; by anything else): `load_file`/`merge_and_pop` run uniformly whether this file is the
+; top-level file being checked or a dependency of another file, so the file's own internal
+; export consistency is checked regardless of how it's invoked. See
+; doc/kurt-soundness.md #7.
+load prop
+bool P
+use P  local "p-holds"
+def Q iff P  local "hidden"
+use Q implies P  "exported-leak"
+;;; EvalError: symbol(s) ['Q'] are defined `local` but required by an exported fact -- export their `def` too, or keep them out of exported facts

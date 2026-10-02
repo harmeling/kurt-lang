@@ -1,0 +1,10 @@
+; clauses
+; example where the conclusion is a conjunction and proven in one step
+load prop
+use A
+use B
+use A and B implies C
+use A and B implies D
+C
+D
+C and D

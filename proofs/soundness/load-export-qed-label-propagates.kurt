@@ -1,0 +1,11 @@
+; regression test: a proved theorem (`show ... "label" / proof / ... / qed`) carries its
+; label forward into the theory, exactly like a labelled `use`/`def` axiom would -- `eval_qed`
+; used to always store the final formula with an empty label (`label = ''`, unconditionally),
+; silently losing the `show`'s own label the moment the proof succeeded. Confirmed the same
+; mechanical way as the other tests here: `U` is only ever established via the proved
+; "exported-theorem" (never a bare `use`), so it has survived if `bool U` now raises.
+load load-export-helper
+expect "EvalError"
+    bool U
+true
+

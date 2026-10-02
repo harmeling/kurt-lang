@@ -1,0 +1,24 @@
+; 06-var.kurt
+
+; `var` explicitly declares a symbol as a variable: something that may stand
+; for arbitrary objects, as opposed to one fixed constant (05-const.kurt).
+
+var x, y
+
+; Just like `const`, once a role is fixed on a level it cannot be changed
+; afterwards, in either direction:
+;
+;     const x           ; would fail: `x` is already a variable
+
+; Symbols starting with a dollar sign or a percent sign are *always*
+; variables, no matter what -- they mark the parts of a `use` axiom that may
+; be matched against anything:
+;
+; - `$x`, `$a`, ... stand for terms (objects), e.g. `equality.kurt` contains
+;   `use $a = $a "equal-intro"` -- every object is equal to itself;
+; - `%A`, `%B`, ... stand for boolean formulas, e.g. `prop.kurt` contains
+;   `use %A and %B implies %A "and-elim"` -- for any formulas `%A`, `%B`.
+;
+; Mixing them up is a type error: `$A implies $A` is rejected, since
+; `implies` needs formulas on both sides.  You'll see plenty of these once we
+; `load prop` in lesson 10.

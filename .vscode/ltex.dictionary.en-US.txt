@@ -1,0 +1,6 @@
+arity
+forall-intro
+exist-elim
+or-elim
+unindent
+unindentation

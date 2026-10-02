@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+
+    {
+      "name": "Python: Debug (without args prompt)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "Python: Debug (with filename)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "args": ["-d", "${input:filename}"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "Python: Debug Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "purpose": ["debug-test"],      // used by the Test Explorer / CodeLens
+      // ⚠️ no "program"/"module"/"code" here
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONPATH": "${workspaceFolder}" },
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "unittest: Debug (discover tests/)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "unittest",
+      "args": ["discover", "-s", "tests", "-p", "test_*.py", "-v"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PYTHONPATH": "${workspaceFolder}" },
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    }
+  ],
+   "inputs": [
+    {
+      "id": "filename",
+      "type": "promptString",
+      "description": "Enter the filename to check"
+    },
+    {
+      "id": "args",
+      "type": "promptString",
+      "description": "Enter args to pass to the program"
+    }
+  ]
+}

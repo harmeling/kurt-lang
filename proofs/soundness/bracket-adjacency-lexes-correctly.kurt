@@ -1,0 +1,14 @@
+; regression test: the lexer used to merge adjacent "standard operator" punctuation greedily,
+; and bracket characters (`{`/`}`/`[`/`]`) were part of that same greedy class -- so
+; `{0, 1, 2, ...}` (no space before the closing brace) lexed `...}` as *one* token, silently
+; swallowing the closing brace. The consequence was worse than a parse error: the resulting
+; unclosed bracket left the parser permanently "waiting for a continuation", and
+; `read_eval_loop` just breaks out of its loop on EOF while in that state -- silently
+; discarding the *rest of the file*, no error at all. This is exactly what happened to
+; `natural.kurt` (doc/kurt-soundness.md #7) before anyone noticed, since nothing ever
+; `load`ed it. Fixed by giving bracket characters their own always-single-char alternative in
+; the scanner, matching how `(`/`)` already worked. Confirmed here with no workaround space --
+; if this regresses, `true` below is silently never reached and the file fails to close.
+brackets { }
+parse {0, 1, 2, ...}
+true

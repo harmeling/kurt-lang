@@ -1,0 +1,16 @@
+; coverage test for automatic chain transitivity (see chain-transitivity-is-automatic.kurt)
+; applied to equality.kurt's `chain =` and prop.kurt's `chain iff implies` -- confirms the
+; feature isn't specific to numeric order relations. The `implies`+`implies` case is a genuine
+; (if narrow) win against kurt's usual single-hop-derivation limitation: plain implication
+; chaining now needs no manual intermediate step either.
+load equality
+var a, b, c
+use a = b
+use b = c
+a = c
+
+load prop
+bool A, B, C
+use A implies B
+use B implies C
+A implies C

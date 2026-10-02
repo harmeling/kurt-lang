@@ -1,0 +1,25 @@
+; coverage for `pick`'s parsing (reuses `let`'s own `unpack_condition` to extract the new
+; constant, see eval_keyword_expression's `pick` branch): malformed `pick` usage should get a
+; specific, helpful error rather than the generic "takes a new constant..." message whenever
+; the specific mistake is identifiable.
+load logic
+bool P
+arity P 1
+var x
+const f
+use exists x (P x)
+
+; already-declared constant instead of a fresh one
+expect "EvalError"
+    pick f with P f
+
+; an extra condition on the witness is rejected (soundness: an existential witness can't
+; carry an unproven extra fact with no justification, unlike `let x>0`'s universally
+; quantified assumption)
+expect "EvalError"
+    pick a>0 with P a
+
+; a normal, unconstrained `pick` still works fine
+pick a with P a
+    true
+true

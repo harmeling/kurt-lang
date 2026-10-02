@@ -1,0 +1,16 @@
+; regression test locking in an invariant `new_var_name`/`new_bool_var_name` (kurt.py)
+; rely on: fresh internal names use a doubled prefix (`$$01`, `%%01`, ...) "because the
+; `$$` ensures that it is not a kurt variable that the user can define" (see the comment
+; there, and dev/todo-claude.md's now-corrected note). This was never actually verified --
+; checked here directly: the lexer's SYMBOL pattern is `[$%@]?[A-Za-z][A-Za-z0-9]*`, at
+; most *one* leading `$`/`%`/`@` followed immediately by a letter, so a doubled prefix
+; can never be scanned as a symbol at all; it fails at the lexer with a `SyntaxError`
+; before parsing/matching even begins. Confirmed for both `$$` and `%%`; a user can never
+; construct a name that collides with a generated one, by construction, not just
+; convention.
+expect "SyntaxError"
+    var $$foo
+expect "SyntaxError"
+    bool %%foo
+true
+

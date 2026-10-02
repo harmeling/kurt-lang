@@ -1,0 +1,79 @@
+; the keywords that only print something -- the declarations without arguments list what is
+; declared so far, and the inspection keywords show the state -- and their wrong uses
+load arith
+const c
+use c > 0 "c-pos"
+show c + 1 > 1
+proof
+    ; inside a block, to have something to show
+    level
+    mode
+    trail
+    context
+    show
+    c + 1 > 0 + 1
+qed
+
+; what is declared so far
+infix
+prefix
+postfix
+brackets
+arity
+bindop
+flat
+sym
+chain
+alias
+var
+const
+bool
+use
+def
+theory
+theory >
+syntax
+syntax +
+load
+help
+hint
+parse c + 1, -c
+tokenize c + 1, -c
+format sexpr
+c > 0
+format normal
+verbose on
+c > 0
+theory
+verbose off
+cert 15
+cert
+cert 5, 999
+
+; wrong arguments
+expect "ParseError"
+    level 1
+expect "ParseError"
+    mode 1
+expect "ParseError"
+    trail 1
+expect "ParseError"
+    context 1
+expect "ParseError"
+    format latex
+expect "ParseError"
+    format sexpr normal
+expect "ParseError"
+    calc maybe
+expect "ParseError"
+    calc on, off
+expect "ParseError"
+    syntax 1
+expect "ParseError"
+    theory 1
+expect "ParseError"
+    cert x
+expect "ParseError"
+    save
+expect "ParseError"
+    save "a.kurt", "b.kurt"

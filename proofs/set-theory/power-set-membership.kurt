@@ -1,0 +1,24 @@
+; coverage for set.kurt's "power-set" and "empty-set" axioms
+load set
+const A
+
+; every set is a subset of itself, so every set is a member of its own power set
+show A ⊂ A
+proof
+    let x
+        x ∈ A implies x ∈ A
+    A ⊂ A
+qed
+A ∈ Pow(A)
+
+; nothing is an element of the empty set, so it is a subset of every set
+show ∅ ⊂ A
+proof
+    let x
+        assume x ∈ ∅
+            not (x ∈ ∅)
+            false
+            x ∈ A
+    ∅ ⊂ A
+qed
+∅ ∈ Pow(A)

@@ -1,0 +1,11 @@
+; a `forall` premise is searched with a fresh variable for its bound variable, which stands for
+; an arbitrary object: no variable of the rule may take a value containing it. Before, `$T`
+; below could become `v ^ 1` (for the fresh `v`), since `v = v ^ 1` holds by the first axiom --
+; so `$T` depended on `$x` after all, and `Q` followed, although "some term equals every x"
+; only holds in a domain with a single element
+load equality
+bool Q
+use $a ^ 1 = $a
+use (forall $x ($x = $T)) implies Q    "attack"
+expect "ProofError"
+    Q

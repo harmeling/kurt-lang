@@ -1,0 +1,74 @@
+name: Release
+
+# when a version tag (`v0.7.0`, ...) is pushed: a GitHub release with the standalone `kurt.py`
+# (job `standalone`), and the package on PyPI (job `pypi`) -- the latter only after PyPI knows this
+# repository as a "trusted publisher" (pypi.org: the project `kurt-lang`, Publishing, add a
+# GitHub publisher: owner `harmeling`, repository `kurt-lang`, workflow `release.yml`,
+# environment `pypi`); no token is stored anywhere
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  pypi:
+    # only when switched on (GitHub: Settings, Secrets and variables, Actions, Variables:
+    # `PUBLISH_PYPI` = `true`) -- publishing on PyPI makes the package public
+    if: vars.PUBLISH_PYPI == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write          # for trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: The tag is the version in kurt.py
+        run: |
+          version=$(python -c "import ast,sys; t=ast.parse(open('src/kurt/kurt.py').read()); print(next(n.value.value for n in t.body if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'version'))")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, but kurt.py says $version"; exit 1; }
+
+      - name: Run the tests
+        run: |
+          pip install -e .
+          python -m unittest
+
+      - name: Build
+        run: |
+          pip install build
+          python -m build
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  standalone:
+    # the single-file `kurt.py` with all theories embedded, attached to a GitHub release of the
+    # tag -- so `.../releases/latest/download/kurt.py` is a stable link to it (independent of
+    # PyPI: this job runs also if the PyPI one fails)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # to create the release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build and check the standalone kurt.py
+        run: |
+          python scripts/build_standalone.py
+          mkdir /tmp/check
+          printf 'load natural, analysis, group\n0 ∈ Nat\n' > /tmp/check/theories.kurt
+          (cd /tmp/check && python $GITHUB_WORKSPACE/dist/kurt.py --no-kurtc theories.kurt)
+          python dist/kurt.py --no-kurtc modus-ponens.kurt
+
+      - name: Create the release with kurt.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## " v {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/kurt.py --title "Kurt $version" --notes-file notes.md

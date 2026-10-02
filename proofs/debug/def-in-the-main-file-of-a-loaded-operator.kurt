@@ -1,0 +1,5 @@
+; an unlabelled (so `local`) `def` of an operator that facts of a loaded file mention: those
+; facts are only passed on, they don't depend on the `def` -- this used to fail at the end with
+; "defined `local` but required by an exported fact" (soundness review of 2026-09-29)
+load group
+def $a ∘ $b = $a
