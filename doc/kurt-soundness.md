@@ -1374,6 +1374,20 @@ packaged theories. What they found, and what was fixed (each with its regression
   `def-in-the-main-file-of-a-loaded-operator.kurt`, `tests/test_save_command.py`,
   `tests/test_theory_syntax_survives_load.py`, `tests/test_shell_errors.py`)
 
+### 8.18 Found by translating to Lean: a `let` constant counted as a variable in nested blocks
+
+`let %E` makes `%E` a constant of its block. But `is_var` only looked at the constants of the
+current level: in a block inside the `let` block, a `$`- or `%`-name counted as a variable again.
+So `let %E` / `assume %E` / `Q` was accepted (`Q` is an instance of the "for all `%E`"
+assumption), closing both blocks gave `%E implies Q`, and with `%E := true`, `Q` from nothing --
+also past the kernel, which shares `is_var`. Now a `$`/`%`-name is no variable if an enclosing
+level made it a constant. That uncovered a second gap the first one had hidden: `bool_expr`
+counted a `%`-name as boolean only while it was a variable, so the `let` constant `%E` was not
+boolean, and and-elim no longer applied to `%E ∧ %F`. A `%`-name is boolean now also as a
+constant. Found while translating `proofs/natural-deduction/lemma.kurt` to Lean
+(`scripts/kurt2lean.py`): Lean's kernel didn't accept the step.
+(`let-constant-stays-constant-in-nested-blocks.kurt`)
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,

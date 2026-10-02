@@ -10,7 +10,7 @@ authors:
   - family-names: Harmeling
     given-names: Stefan
     affiliation: TU Dortmund University
-version: 0.7.0
+version: 0.7.1
 date-released: 2026-10-02
 license: MIT
 url: "https://www.kurt-lang.org"

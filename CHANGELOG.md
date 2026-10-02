@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.1 (2026-10-02)
+
+### Fixed
+
+- **A soundness bug:** a `let` constant counted as a variable again in a block inside the `let`
+  block. So `let %E` / `assume %E` / `Q` was accepted -- the assumption read as "for every `%E`"
+  -- and closing both blocks gave `%E implies Q`, from which `Q` followed: anything was provable.
+  The kernel shared the mistake. Also, a `%`-name made a constant by `let` is boolean now.
+  Regression test: `proofs/soundness/let-constant-stays-constant-in-nested-blocks.kurt`; see
+  `doc/kurt-soundness.md` §8.18.
+
+### New
+
+- `scripts/kurt2lean.py`, a prototype that translates a checked proof into Lean 4 from its
+  certificates, so that Lean's kernel checks it again (`python3 scripts/kurt2lean.py proof.kurt
+  -o proof.lean && lean proof.lean`). It found the bug above. Numbers, `calc`, quantifiers with a
+  condition and `def` aren't translated yet.
+- `CITATION.cff`, for citing Kurt; the website www.kurt-lang.org; the release workflow can be run
+  by hand for an existing tag.
+
 ## 0.7.0 (2026-10-02)
 
 The first public release, after development since 2016. The language isn't frozen yet: a proof written for 0.7 may need small changes for 1.0.

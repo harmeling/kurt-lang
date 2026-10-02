@@ -1,0 +1,18 @@
+; `let %E` makes `%E` a constant -- also in the blocks inside the `let` block. Kurt's `is_var` only
+; looked at the constants of the current level, so inside `assume %E` the assumption counted as
+; "for all %E", and `Q` followed from it: closing both blocks gave `%E implies Q`, and with
+; `%E := true`, `Q` from nothing (found by translating proofs to Lean, 2026-10-02)
+load prop, equality
+bool Q
+expect "ProofError"
+    let %E
+        assume %E
+            Q
+let %E
+    assume %E
+        %E
+%E implies %E
+expect "ProofError"
+    let $x
+        assume $x = $x
+            $x = Q

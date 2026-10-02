@@ -435,6 +435,13 @@ A LaTeX document of a proof is not produced by Kurt itself, but by the
 separate script `scripts/kurt2latex.py`, which formats Kurt's output
 (`python3 scripts/kurt2latex.py proof.kurt > proof.tex`).
 
+A Lean 4 file of a checked proof comes from `scripts/kurt2lean.py` (a prototype):
+`python3 scripts/kurt2lean.py proof.kurt -o proof.lean`, then `lean proof.lean` checks it again
+with Lean's kernel. It writes each step from its certificate -- the rule with the certificate's
+values, and its premise from the cited facts -- and the theories' rules as Lean `axiom`s, so Lean
+checks the proof, not the theories. Numbers, `calc`, quantifiers with a condition and `def` are
+not translated yet (`sorry`, listed at the end of the file).
+
 ### 4.8 Inspecting the grammar
 
 `syntax` (with no argument) prints every declared piece of syntax at every
