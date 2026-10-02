@@ -18,6 +18,8 @@ Writing Kurt proofs, the essentials:
 - Check a file with `kurt FILE.kurt` (or `python -m kurt FILE.kurt`); `kurt --strict` rejects
   axioms and `todo` outside Kurt's own theories.
 
+Website: https://www.kurt-lang.org (the GitHub repository); playground: https://harmeling.github.io/kurt-web/
+
 ## Docs
 
 - [Language reference](doc/kurt-doc.md): every keyword, the syntax, blocks, theories

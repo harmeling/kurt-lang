@@ -23,7 +23,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/harmeling/kurt-lang"
+Homepage = "https://www.kurt-lang.org"
+Repository = "https://github.com/harmeling/kurt-lang"
 Documentation = "https://github.com/harmeling/kurt-lang/blob/main/doc/kurt-doc.md"
 Issues = "https://github.com/harmeling/kurt-lang/issues"
 

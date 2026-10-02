@@ -9,6 +9,8 @@ Harmeling since 2016.
 **Status: 0.7, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
 proof written for 0.7 may need small changes for 1.0.
 
+Website: [www.kurt-lang.org](https://www.kurt-lang.org) (it leads here).
+
 **Try it in your browser**, without installing anything:
 [harmeling.github.io/kurt-web](https://harmeling.github.io/kurt-web/). The playground runs the same
 Kurt in the browser, with the tutorial lessons and examples.
