@@ -4,7 +4,7 @@ Kurt is a small language for writing mathematical proofs in a form close to how 
 them — one claim per line, blocks for assumptions and cases — and a checker that tells you
 immediately, line by line, whether each step follows. It is meant for students learning to prove
 things, much like running tests while learning to program. Kurt has been developed by Stefan
-Harmeling since 2016.
+Harmeling (TU Dortmund University) since 2016.
 
 **Status: 0.7, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
 proof written for 0.7 may need small changes for 1.0.

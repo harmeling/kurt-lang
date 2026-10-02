@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use Kurt, please cite it as below."
+type: software
+title: "Kurt: a proof language with an automatic checker"
+abstract: >-
+  Kurt is a small language for writing mathematical proofs in a form close to how people write
+  them, and a checker that tells you immediately, line by line, whether each step follows. It is
+  meant for students learning to prove things.
+authors:
+  - family-names: Harmeling
+    given-names: Stefan
+    affiliation: TU Dortmund University
+version: 0.7.0
+date-released: 2026-10-02
+license: MIT
+url: "https://www.kurt-lang.org"
+repository-code: "https://github.com/harmeling/kurt-lang"
+keywords:
+  - proof checker
+  - logic
+  - mathematics education
+  - natural deduction
