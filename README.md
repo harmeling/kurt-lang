@@ -75,12 +75,12 @@ same indentation rules as a file.
 
 ## Installing
 
-With Python 3.10 or newer:
+With Python 3.10 or newer, from [PyPI](https://pypi.org/project/kurt-lang/):
 
-    pip install git+https://github.com/harmeling/kurt-lang.git
+    pip install kurt-lang
 
-or a specific version, e.g. `...kurt-lang.git@v0.7.0`, or from a local clone with `pip install .`.
-Then run `kurt` or `python -m kurt`.
+Then run `kurt` or `python -m kurt`. The newest state of the repository, between releases:
+`pip install git+https://github.com/harmeling/kurt-lang.git`.
 
 **Without installing**, for a course: download the single self-contained `kurt.py` of the
 latest release,
