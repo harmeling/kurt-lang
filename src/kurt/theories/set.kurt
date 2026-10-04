@@ -86,7 +86,10 @@ use $p ∈ $A × $B  implies  $p = (fst $p, snd $p)                  "product-pa
 ; of ordered pairs -- building the full ZF machinery (relations as sets of pairs,
 ; single-valuedness) would be a much bigger, separate undertaking. Application uses kurt's ordinary space-application (`$f $a`), and `A → B` is
 ; the set of all objects that behave like an A→B mapping when applied.
-use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space"
+use $f : ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space"
+
+; alt: 
+; use $f : ($A → $B)  ≡  ∀ $a∈$A   ($f $a) ∈ $B
 
 ; no function extensionality: in this model it would be false -- every object is in `∅ → B`
 ; (nothing to check), so any two objects would be equal (`0 = 1`); and in general, knowing the

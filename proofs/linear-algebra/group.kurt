@@ -31,9 +31,8 @@ qed
 show x + 0 = x                      "G5" ; right neutral
 proof
     let x
-        x + 0 = x + 0              ; by "equal-intro"
-              = x + (-x + x)       ; by G3  (wrong reason)
+        x + 0 = x + (-x + x)       ; by G3
               = (x + -x) + x       ; by G1
-              = 0 + x              ; by G4  (wrong reason)
+              = 0 + x              ; by G4
               = x                  ; by G2
 qed
