@@ -1,0 +1,110 @@
+; Skalarprodukte -- inner products (lecture "Mathematik für Informatik 1" (mafi1), decks
+; 23-skalarprodukte and 24-orthogonale-vektoren)
+;
+; V is a real vector space (the subspaces of 06-untervektorraeume.kurt) with an inner product
+; ⟨x, y⟩ ∈ K, given by (S1)-(S3).  For (S3) the scalars need an order: only `$a > 0 ⇒ $a ≠ 0` is
+; used here.  The norm is left out (it needs the square root); Pythagoras is about ⟨x, x⟩.
+load 06-untervektorraeume
+brackets ⟨ ⟩
+infix > 20 20
+bool > 0
+use $a > 0  ⇒  $a ≠ 0                                                "greater-zero"
+
+use $x ∈ V ∧ $y ∈ V  ⇒  ⟨$x, $y⟩ ∈ K                                 "S-map"
+; (S1) bilinear: v ↦ ⟨x, v⟩ and v ↦ ⟨v, x⟩ are linear
+use $x ∈ V ∧ $y ∈ V ∧ $z ∈ V  ⇒  ⟨$x, $y + $z⟩ = ⟨$x, $y⟩ + ⟨$x, $z⟩   "S1-add-right"
+use $a ∈ K ∧ $x ∈ V ∧ $y ∈ V  ⇒  ⟨$x, $a · $y⟩ = $a · ⟨$x, $y⟩       "S1-times-right"
+use $x ∈ V ∧ $y ∈ V ∧ $z ∈ V  ⇒  ⟨$y + $z, $x⟩ = ⟨$y, $x⟩ + ⟨$z, $x⟩   "S1-add-left"
+use $a ∈ K ∧ $x ∈ V ∧ $y ∈ V  ⇒  ⟨$a · $y, $x⟩ = $a · ⟨$y, $x⟩       "S1-times-left"
+; (S2) symmetric
+use $x ∈ V ∧ $y ∈ V  ⇒  ⟨$x, $y⟩ = ⟨$y, $x⟩                          "S2"
+; (S3) positive definite
+use $x ∈ V ∧ $x ≠ 0  ⇒  ⟨$x, $x⟩ > 0                                 "S3"
+
+; deck 23: ⟨x, 0⟩ = 0 and ⟨0, x⟩ = 0, from the bilinearity
+show $x ∈ V  ⇒  ⟨$x, 0⟩ = 0                                          "S-zero-right"
+proof
+    assume $x ∈ V
+        0 ∈ V
+        ⟨$x, 0⟩ ∈ K
+        0 · 0 = 0                                       ; zero-times-vector
+        ⟨$x, 0⟩ = ⟨$x, 0 · 0⟩
+                = 0 · ⟨$x, 0⟩
+                = 0
+qed
+
+show $x ∈ V  ⇒  ⟨0, $x⟩ = 0                                          "S-zero-left"
+proof
+    assume $x ∈ V
+        0 ∈ V
+        ⟨0, $x⟩ = ⟨$x, 0⟩                               ; S2
+        ⟨$x, 0⟩ = 0                                     ; S-zero-right
+        ⟨0, $x⟩ = 0
+qed
+
+; ⟨v, v⟩ = 0 only for v = 0 (from S3)
+show $v ∈ V ∧ ⟨$v, $v⟩ = 0  ⇒  $v = 0                                "S3-zero"
+proof
+    assume $v ∈ V ∧ ⟨$v, $v⟩ = 0
+        $v ∈ V
+        ⟨$v, $v⟩ = 0
+        assume ¬($v = 0)
+            $v ≠ 0
+            ⟨$v, $v⟩ > 0                                ; S3
+            ⟨$v, $v⟩ ≠ 0                                ; greater-zero
+            ¬(⟨$v, $v⟩ = 0)
+            ⟨$v, $v⟩ = 0 ∧ ¬(⟨$v, $v⟩ = 0)
+            ⊥
+        ¬¬($v = 0)
+        $v = 0
+qed
+
+; deck 24: orthogonal vectors
+arity orthogonal 2
+def orthogonal($x, $y)  ⇔  ⟨$x, $y⟩ = 0                              "orthogonal"
+
+show $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  orthogonal($y, $x)     "orthogonal-sym"
+proof
+    assume $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
+        $x ∈ V
+        $y ∈ V
+        orthogonal($x, $y)
+        ⟨$x, $y⟩ = 0
+        ⟨$y, $x⟩ = ⟨$x, $y⟩                             ; S2
+        ⟨$y, $x⟩ = 0
+        orthogonal($y, $x)
+qed
+
+show $a ∈ K ∧ $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  orthogonal($x, $a · $y)   "orthogonal-times"
+proof
+    assume $a ∈ K ∧ $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
+        $a ∈ K
+        $x ∈ V
+        $y ∈ V
+        orthogonal($x, $y)
+        ⟨$x, $a · $y⟩ = $a · ⟨$x, $y⟩                   ; S1
+                      = $a · 0
+                      = 0
+        orthogonal($x, $a · $y)
+qed
+
+; Pythagoras: x ⊥ y ⇒ ‖x + y‖² = ‖x‖² + ‖y‖²
+show $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  ⟨$x + $y, $x + $y⟩ = ⟨$x, $x⟩ + ⟨$y, $y⟩   "pythagoras"
+proof
+    assume $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
+        $x ∈ V
+        $y ∈ V
+        orthogonal($x, $y)
+        $x + $y ∈ V
+        ⟨$x, $x⟩ ∈ K
+        ⟨$y, $y⟩ ∈ K
+        ⟨$x + $y, $x + $y⟩ = ⟨$x, $x + $y⟩ + ⟨$y, $x + $y⟩
+                           = (⟨$x, $x⟩ + ⟨$x, $y⟩) + ⟨$y, $x + $y⟩
+                           = (⟨$x, $x⟩ + ⟨$x, $y⟩) + (⟨$y, $x⟩ + ⟨$y, $y⟩)
+                           = (⟨$x, $x⟩ + 0) + (⟨$y, $x⟩ + ⟨$y, $y⟩)
+                           = ⟨$x, $x⟩ + (⟨$y, $x⟩ + ⟨$y, $y⟩)
+                           = ⟨$x, $x⟩ + (⟨$x, $y⟩ + ⟨$y, $y⟩)
+                           = ⟨$x, $x⟩ + (0 + ⟨$y, $y⟩)
+                           = ⟨$x, $x⟩ + (⟨$y, $y⟩ + 0)
+                           = ⟨$x, $x⟩ + ⟨$y, $y⟩
+qed

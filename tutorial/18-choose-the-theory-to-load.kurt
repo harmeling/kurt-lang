@@ -1,0 +1,23 @@
+; 18-choose-the-theory-to-load.kurt
+;
+; Choose the theory to load
+;
+; | Theory | Main contents |
+; |---|---|
+; | `prop` | `not`, `or`, `iff`, contradiction, propositional introduction/elimination rules |
+; | `logic` | `forall`, `exists`, conditioned quantifier rules; loads `prop` |
+; | `equality` | `=`, `!=`/`≠`, reflexivity and substitution; loads `prop` |
+; | `set` | membership, subsets, separation, union/intersection, products, tuples, mappings |
+; | `arith` | exact calculation bindings, algebraic laws, order, powers, factorial |
+; | `natural` | natural numbers: induction, the predecessor, well-ordering, even and odd, divisibility `∣`, `coprime` |
+; | `integer` | the integers `Int` |
+; | `rational` | the rationals `Rat`, every positive rational in lowest terms |
+; | `analysis` | absolute value, finite sums, extrema, suprema/infima, limits |
+; | `group` | reusable group structure and derived group theorems |
+;
+; Dependencies are loaded transitively. For example, `load natural` brings in `set`, `logic`,
+; `equality`, `prop`, and `arith` as required. Use `kurt --deps FILE` to inspect the actual tree.
+;
+; The packaged `modal` file is an experimental example, not a mature theory. It demonstrates
+; box/diamond syntax and several sound modal axiom schemata, but it is not a complete proof system
+; for normal modal logic K or T because Kurt cannot yet express the necessitation rule.

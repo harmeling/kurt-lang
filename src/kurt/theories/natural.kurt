@@ -6,18 +6,565 @@
 ; a worked example, including the "state base case and step as one conjunction" pattern
 ; `impl_elim`'s single-hop derivation needs to apply "induction" in one step.
 ;
+; also: `0 <= n`, so `n + 1 ≠ 0` and every n ≠ 0 has a predecessor; no natural number between
+; n and n + 1; the well-ordering principle (from induction); even and odd numbers (every number is
+; one of them, none is both); divisibility `∣` (`\mid`) and `coprime`.
+;
 ; arithmetic comes from arith.kurt: natural numbers are real numbers, so all of its laws
 ; (and `calc`) apply to them as well.
 load set
 load arith
+load logic
 
 ;; inference rules
 const Nat
+calc Nat naturals                   ; `calc on` proves `3 ∈ Nat`
 
 use 0 in Nat  "nat-zero"
 use $n in Nat  implies  $n+1 in Nat  "nat-succ"
+; sums and products of natural numbers are natural numbers (by induction from a recursive
+; definition of `+` and `*`; arith.kurt states their laws instead)
+use $a in Nat ∧ $b in Nat  implies  $a + $b in Nat  "nat-add"
+use $a in Nat ∧ $b in Nat  implies  $a * $b in Nat  "nat-mul"
+; natural numbers aren't negative
+use $n ∈ Nat  ⇒  0 <= $n  "nat-nonneg"
 
 ; A(0)  and  forall n (A(n) -> A(n+1))   implies   forall n A(n)
 use ((sub $x 0 %A) ∧ (∀ $n ∈ Nat  (sub $x $n %A  ⇒  sub $x ($n+1) %A)))   ⇒ ∀ $n in Nat  (sub $x $n %A)   "induction"
 
-; for automatic testing we add the following line:
+show 1 ∈ Nat     "nat-one"
+proof
+    0 + 1 ∈ Nat
+    calc on
+    1 ∈ Nat
+    calc off
+qed
+
+show 2 ∈ Nat     "nat-two"
+proof
+    1 + 1 ∈ Nat
+    calc on
+    2 ∈ Nat
+    calc off
+qed
+
+; 0 is no successor (Peano)
+show $n ∈ Nat  ⇒  $n + 1 ≠ 0     "nat-succ-ne-zero"
+proof
+    assume $n ∈ Nat
+        0 <= $n
+        0 + 1 <= $n + 1
+        calc on
+        1 <= $n + 1
+        0 < 1
+        calc off
+        0 < $n + 1
+        0 ≠ $n + 1
+qed
+
+; a natural number other than 0 is positive
+show $n ∈ Nat ∧ $n ≠ 0  ⇒  0 < $n     "nat-pos"
+proof
+    assume $n ∈ Nat ∧ $n ≠ 0
+        $n ∈ Nat
+        $n ≠ 0
+        0 <= $n
+        0 < $n ∨ 0 = $n ∨ 0 > $n                       ; trichotomy
+        case 0 < $n
+            0 < $n
+        case 0 = $n ∨ 0 > $n
+            case 0 = $n
+                ¬($n = 0)
+                $n = 0 ∧ ¬($n = 0)
+                ⊥
+                0 < $n
+            case 0 > $n
+                0 > $n ∧ 0 <= $n
+                ⊥                                      ; gt-le-contra
+                0 < $n
+            0 < $n
+        0 < $n
+qed
+
+; every natural number is 0 or a successor
+show ∀ $n ∈ Nat ($n = 0 ∨ ∃ $m ($m ∈ Nat ∧ $n = $m + 1))     "nat-zero-or-succ"
+proof
+    0 = 0
+    0 = 0 ∨ ∃ $m ($m ∈ Nat ∧ 0 = $m + 1)
+    let n ∈ Nat
+        assume n = 0 ∨ ∃ $m ($m ∈ Nat ∧ n = $m + 1)
+            n + 1 = n + 1
+            n ∈ Nat ∧ n + 1 = n + 1
+            ∃ $m ($m ∈ Nat ∧ n + 1 = $m + 1)
+            n + 1 = 0 ∨ ∃ $m ($m ∈ Nat ∧ n + 1 = $m + 1)
+    ∀ $n ∈ Nat ($n = 0 ∨ ∃ $m ($m ∈ Nat ∧ $n = $m + 1)  ⇒  $n + 1 = 0 ∨ ∃ $m ($m ∈ Nat ∧ $n + 1 = $m + 1))
+    (0 = 0 ∨ ∃ $m ($m ∈ Nat ∧ 0 = $m + 1)) ∧ ∀ $n ∈ Nat ($n = 0 ∨ ∃ $m ($m ∈ Nat ∧ $n = $m + 1)  ⇒  $n + 1 = 0 ∨ ∃ $m ($m ∈ Nat ∧ $n + 1 = $m + 1))
+    ∀ $n ∈ Nat ($n = 0 ∨ ∃ $m ($m ∈ Nat ∧ $n = $m + 1))
+qed
+
+; the predecessor
+show $n ∈ Nat ∧ $n ≠ 0  ⇒  ∃ $m ($m ∈ Nat ∧ $n = $m + 1)     "nat-pred"
+proof
+    assume $n ∈ Nat ∧ $n ≠ 0
+        $n ∈ Nat
+        $n ≠ 0
+        $n = 0 ∨ ∃ $m ($m ∈ Nat ∧ $n = $m + 1)
+        case $n = 0
+            ¬($n = 0)
+            $n = 0 ∧ ¬($n = 0)
+            ⊥
+            ∃ $m ($m ∈ Nat ∧ $n = $m + 1)
+        case ∃ $m ($m ∈ Nat ∧ $n = $m + 1)
+            ∃ $m ($m ∈ Nat ∧ $n = $m + 1)
+        ∃ $m ($m ∈ Nat ∧ $n = $m + 1)
+qed
+
+; no natural number between n and n + 1
+show ∀ $n ∈ Nat ∀ $k ∈ Nat ($k <= $n ∨ $n + 1 <= $k)     "nat-discrete"
+proof
+    ; n = 0
+    let k ∈ Nat
+        k = 0 ∨ ∃ $m ($m ∈ Nat ∧ k = $m + 1)
+        case k = 0
+            0 <= 0
+            k <= 0
+            k <= 0 ∨ 0 + 1 <= k
+        case ∃ $m ($m ∈ Nat ∧ k = $m + 1)
+            pick m with m ∈ Nat ∧ k = m + 1
+                m ∈ Nat
+                k = m + 1
+                0 <= m
+                0 + 1 <= m + 1
+                0 + 1 <= k
+                k <= 0 ∨ 0 + 1 <= k
+        k <= 0 ∨ 0 + 1 <= k
+    ∀ $k ∈ Nat ($k <= 0 ∨ 0 + 1 <= $k)
+    ; n → n + 1
+    let n ∈ Nat
+        assume ∀ $k ∈ Nat ($k <= n ∨ n + 1 <= $k)
+            let k ∈ Nat
+                k = 0 ∨ ∃ $m ($m ∈ Nat ∧ k = $m + 1)
+                case k = 0
+                    n + 1 ∈ Nat
+                    0 <= n + 1
+                    k <= n + 1
+                    k <= n + 1 ∨ n + 1 + 1 <= k
+                case ∃ $m ($m ∈ Nat ∧ k = $m + 1)
+                    pick m with m ∈ Nat ∧ k = m + 1
+                        m ∈ Nat
+                        k = m + 1
+                        m <= n ∨ n + 1 <= m
+                        case m <= n
+                            m + 1 <= n + 1
+                            k <= n + 1
+                            k <= n + 1 ∨ n + 1 + 1 <= k
+                        case n + 1 <= m
+                            n + 1 + 1 <= m + 1
+                            n + 1 + 1 <= k
+                            k <= n + 1 ∨ n + 1 + 1 <= k
+                        k <= n + 1 ∨ n + 1 + 1 <= k
+                k <= n + 1 ∨ n + 1 + 1 <= k
+            ∀ $k ∈ Nat ($k <= n + 1 ∨ n + 1 + 1 <= $k)
+    ∀ $n ∈ Nat (∀ $k ∈ Nat ($k <= $n ∨ $n + 1 <= $k)  ⇒  ∀ $k ∈ Nat ($k <= $n + 1 ∨ $n + 1 + 1 <= $k))
+    (∀ $k ∈ Nat ($k <= 0 ∨ 0 + 1 <= $k)) ∧ ∀ $n ∈ Nat (∀ $k ∈ Nat ($k <= $n ∨ $n + 1 <= $k)  ⇒  ∀ $k ∈ Nat ($k <= $n + 1 ∨ $n + 1 + 1 <= $k))
+    ∀ $n ∈ Nat ∀ $k ∈ Nat ($k <= $n ∨ $n + 1 <= $k)
+qed
+
+; every nonempty set of natural numbers has a least element
+show $S ⊂ Nat ∧ (∃ $x ($x ∈ $S))  ⇒  ∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y))     "well-ordering"
+proof
+    assume $S ⊂ Nat ∧ (∃ $x ($x ∈ $S))
+        $S ⊂ Nat
+        ∃ $x ($x ∈ $S)
+        ∀ $c ($c ∈ $S  implies  $c ∈ Nat)
+        assume ¬(∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y)))
+            ; then no k <= n is in S, by induction on n
+            ; n = 0: only k = 0, which would be the least element
+            let k ∈ Nat
+                assume k <= 0
+                    0 <= k
+                    k >= 0
+                    k = 0
+                    assume k ∈ $S
+                        0 ∈ $S
+                        let y ∈ $S
+                            y ∈ $S  implies  y ∈ Nat
+                            y ∈ Nat
+                            0 <= y
+                        ∀ $y ∈ $S (0 <= $y)
+                        0 ∈ $S ∧ ∀ $y ∈ $S (0 <= $y)
+                        ∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y))
+                        (∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y))) ∧ ¬(∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y)))
+                        ⊥
+                    ¬(k ∈ $S)
+            ∀ $k ∈ Nat ($k <= 0  ⇒  ¬($k ∈ $S))
+            ; n → n + 1
+            let n ∈ Nat
+                assume ∀ $k ∈ Nat ($k <= n  ⇒  ¬($k ∈ $S))
+                    ; n + 1 isn't in S: it would be the least element
+                    assume n + 1 ∈ $S
+                        let y ∈ $S
+                            y ∈ $S  implies  y ∈ Nat
+                            y ∈ Nat
+                            ∀ $k ∈ Nat ($k <= n ∨ n + 1 <= $k)       ; nat-discrete
+                            y <= n ∨ n + 1 <= y
+                            case y <= n
+                                y <= n  ⇒  ¬(y ∈ $S)
+                                ¬(y ∈ $S)
+                                y ∈ $S ∧ ¬(y ∈ $S)
+                                ⊥
+                                n + 1 <= y
+                            case n + 1 <= y
+                                n + 1 <= y
+                            n + 1 <= y
+                        ∀ $y ∈ $S (n + 1 <= $y)
+                        n + 1 ∈ $S ∧ ∀ $y ∈ $S (n + 1 <= $y)
+                        ∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y))
+                        (∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y))) ∧ ¬(∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y)))
+                        ⊥
+                    ¬(n + 1 ∈ $S)
+                    let k ∈ Nat
+                        assume k <= n + 1
+                            ∀ $j ∈ Nat ($j <= n ∨ n + 1 <= $j)       ; nat-discrete
+                            k <= n ∨ n + 1 <= k
+                            case k <= n
+                                k <= n  ⇒  ¬(k ∈ $S)
+                                ¬(k ∈ $S)
+                            case n + 1 <= k
+                                k >= n + 1
+                                k = n + 1
+                                ¬(k ∈ $S)
+                            ¬(k ∈ $S)
+                    ∀ $k ∈ Nat ($k <= n + 1  ⇒  ¬($k ∈ $S))
+            ∀ $n ∈ Nat (∀ $k ∈ Nat ($k <= $n  ⇒  ¬($k ∈ $S))  ⇒  ∀ $k ∈ Nat ($k <= $n + 1  ⇒  ¬($k ∈ $S)))
+            (∀ $k ∈ Nat ($k <= 0  ⇒  ¬($k ∈ $S))) ∧ ∀ $n ∈ Nat (∀ $k ∈ Nat ($k <= $n  ⇒  ¬($k ∈ $S))  ⇒  ∀ $k ∈ Nat ($k <= $n + 1  ⇒  ¬($k ∈ $S)))
+            ∀ $n ∈ Nat ∀ $k ∈ Nat ($k <= $n  ⇒  ¬($k ∈ $S))
+            ; but S has an element x, and x <= x
+            pick x with x ∈ $S
+                x ∈ $S  implies  x ∈ Nat
+                x ∈ Nat
+                ∀ $k ∈ Nat ($k <= x  ⇒  ¬($k ∈ $S))
+                x <= x
+                x <= x  ⇒  ¬(x ∈ $S)
+                ¬(x ∈ $S)
+                x ∈ $S ∧ ¬(x ∈ $S)
+                ⊥
+        ¬¬(∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y)))
+        ∃ $m ($m ∈ $S ∧ ∀ $y ∈ $S ($m <= $y))
+qed
+
+; a natural number other than 0 and 1 is at least 2
+show $d ∈ Nat ∧ $d ≠ 0 ∧ $d ≠ 1  ⇒  2 <= $d     "nat-ge-two"
+proof
+    assume $d ∈ Nat ∧ $d ≠ 0 ∧ $d ≠ 1
+        $d ∈ Nat
+        $d ≠ 0
+        $d ≠ 1
+        0 <= $d
+        $d >= 0
+        ∀ $k ∈ Nat ($k <= 0 ∨ 0 + 1 <= $k)              ; nat-discrete
+        $d <= 0 ∨ 0 + 1 <= $d
+        case $d <= 0
+            $d = 0                                     ; le-ge-antisym
+            ¬($d = 0)
+            $d = 0 ∧ ¬($d = 0)
+            ⊥
+            1 <= $d
+        case 0 + 1 <= $d
+            calc on
+            1 <= $d
+            calc off
+        1 <= $d
+        $d >= 1
+        1 ∈ Nat
+        ∀ $k ∈ Nat ($k <= 1 ∨ 1 + 1 <= $k)              ; nat-discrete
+        $d <= 1 ∨ 1 + 1 <= $d
+        case $d <= 1
+            $d = 1                                     ; le-ge-antisym
+            ¬($d = 1)
+            $d = 1 ∧ ¬($d = 1)
+            ⊥
+            1 + 1 <= $d
+        case 1 + 1 <= $d
+            1 + 1 <= $d
+        1 + 1 <= $d
+        calc on
+        2 <= $d
+        calc off
+qed
+
+; multiplying by a number of at least 2 makes a positive number larger
+show $b ∈ Nat ∧ $b ≠ 0 ∧ 2 <= $d  ⇒  $b < $d * $b     "nat-lt-mul"
+proof
+    assume $b ∈ Nat ∧ $b ≠ 0 ∧ 2 <= $d
+        $b ∈ Nat
+        $b ≠ 0
+        2 <= $d
+        0 < $b                                         ; nat-pos
+        $b > 0                                         ; lt-gt
+        2 * $b <= $d * $b                              ; le-mul-pos
+        0 + $b < $b + $b                               ; lt-add
+        0 + $b = $b                                    ; add-identity
+        (1 + 1) * $b = 1 * $b + 1 * $b                 ; distrib-add
+        1 * $b = $b                                    ; mul-identity
+        $b + $b = 1 * $b + 1 * $b
+                = (1 + 1) * $b
+        calc on
+        $b + $b = 2 * $b
+        calc off
+        $b < $b + $b
+        $b < 2 * $b
+        $b < $d * $b
+qed
+
+;; even and odd numbers
+bool even, odd
+arity even 1, odd 1
+def even $m  iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)       "even-def"
+def odd $m   iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)   "odd-def"
+
+; every natural number is even or odd (by induction)
+show ∀ $n ∈ Nat  (even $n ∨ odd $n)   "even-or-odd"
+proof
+    ; base case: 0 = 2 * 0
+    0 = 2 * 0
+    0 ∈ Nat ∧ 0 = 2 * 0
+    ∃ $k ($k ∈ Nat ∧ 0 = 2 * $k)
+    even 0
+    even 0 ∨ odd 0
+    ; induction step
+    show ∀ $n ∈ Nat  ((even $n ∨ odd $n)  ⇒  (even ($n + 1) ∨ odd ($n + 1)))
+    proof
+        let n ∈ Nat
+            assume even n ∨ odd n
+                assume even n
+                    ∃ $k ($k ∈ Nat ∧ n = 2 * $k)
+                    pick k with k ∈ Nat ∧ n = 2 * k
+                        n = 2 * k
+                        k ∈ Nat
+                        n + 1 = 2 * k + 1
+                        k ∈ Nat ∧ n + 1 = 2 * k + 1
+                        ∃ $j ($j ∈ Nat ∧ n + 1 = 2 * $j + 1)
+                        odd (n + 1)
+                        even (n + 1) ∨ odd (n + 1)
+                assume odd n
+                    ∃ $k ($k ∈ Nat ∧ n = 2 * $k + 1)
+                    pick k with k ∈ Nat ∧ n = 2 * k + 1
+                        n = 2 * k + 1
+                        k ∈ Nat
+                        n + 1 = 2 * k + 1 + 1
+                        calc on
+                        n + 1 = 2 * k + 2
+                        calc off
+                        2 * (k + 1) = 2 * k + 2 * 1
+                        calc on
+                        2 * (k + 1) = 2 * k + 2
+                        calc off
+                        n + 1 = 2 * (k + 1)
+                        k + 1 ∈ Nat
+                        k + 1 ∈ Nat ∧ n + 1 = 2 * (k + 1)
+                        ∃ $j ($j ∈ Nat ∧ n + 1 = 2 * $j)
+                        even (n + 1)
+                        even (n + 1) ∨ odd (n + 1)
+                even (n + 1) ∨ odd (n + 1)
+    qed
+    ; by induction (natural.kurt)
+qed
+
+; 2 k = 2 j + 1 has no solution in Nat
+show ∀ $k ∈ Nat ∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)     "even-ne-odd"
+proof
+    ; k = 0: 2 j + 1 ≠ 0
+    let j ∈ Nat
+        2 * j ∈ Nat
+        2 * j + 1 ≠ 0                                 ; nat-succ-ne-zero
+        calc on
+        2 * 0 ≠ 2 * j + 1
+        calc off
+    ∀ $j ∈ Nat (2 * 0 ≠ 2 * $j + 1)
+    ; k → k + 1
+    let k ∈ Nat
+        assume ∀ $j ∈ Nat (2 * k ≠ 2 * $j + 1)
+            2 * k ∈ Nat
+            2 * (k + 1) = 2 * k + 2 * 1
+            let j ∈ Nat
+                assume 2 * (k + 1) = 2 * j + 1
+                    j = 0 ∨ ∃ $m ($m ∈ Nat ∧ j = $m + 1)       ; nat-zero-or-succ
+                    case j = 0
+                        2 * k + 2 * 1 = 2 * (k + 1)
+                                      = 2 * j + 1
+                                      = 2 * 0 + 1
+                        2 * k + 2 * 1 + (- 1) = 2 * 0 + 1 + (- 1)
+                        calc on
+                        2 * k + 1 = 0
+                        calc off
+                        2 * k + 1 ≠ 0                         ; nat-succ-ne-zero
+                        ¬(2 * k + 1 = 0)
+                        2 * k + 1 = 0 ∧ ¬(2 * k + 1 = 0)
+                        ⊥
+                    case ∃ $m ($m ∈ Nat ∧ j = $m + 1)
+                        pick m with m ∈ Nat ∧ j = m + 1
+                            m ∈ Nat
+                            j = m + 1
+                            2 * (m + 1) = 2 * m + 2 * 1
+                            2 * k + 2 * 1 = 2 * (k + 1)
+                                          = 2 * j + 1
+                                          = 2 * (m + 1) + 1
+                                          = 2 * m + 2 * 1 + 1
+                            2 * k + 2 * 1 + (- 2) = 2 * m + 2 * 1 + 1 + (- 2)
+                            calc on
+                            2 * k = 2 * m + 1
+                            calc off
+                            2 * k ≠ 2 * m + 1
+                            ¬(2 * k = 2 * m + 1)
+                            2 * k = 2 * m + 1 ∧ ¬(2 * k = 2 * m + 1)
+                            ⊥
+                    ⊥
+                ¬(2 * (k + 1) = 2 * j + 1)
+                2 * (k + 1) ≠ 2 * j + 1
+            ∀ $j ∈ Nat (2 * (k + 1) ≠ 2 * $j + 1)
+    ∀ $k ∈ Nat (∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)  ⇒  ∀ $j ∈ Nat (2 * ($k + 1) ≠ 2 * $j + 1))
+    (∀ $j ∈ Nat (2 * 0 ≠ 2 * $j + 1)) ∧ ∀ $k ∈ Nat (∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)  ⇒  ∀ $j ∈ Nat (2 * ($k + 1) ≠ 2 * $j + 1))
+    ∀ $k ∈ Nat ∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)
+qed
+
+; no number is even and odd
+show ¬(even $m ∧ odd $m)     "not-even-and-odd"
+proof
+    assume even $m ∧ odd $m
+        even $m
+        odd $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)
+        pick k with k ∈ Nat ∧ $m = 2 * k
+            k ∈ Nat
+            $m = 2 * k
+            pick j with j ∈ Nat ∧ $m = 2 * j + 1
+                j ∈ Nat
+                $m = 2 * j + 1
+                2 * k = $m
+                      = 2 * j + 1
+                ∀ $j ∈ Nat (2 * k ≠ 2 * $j + 1)        ; even-ne-odd
+                2 * k ≠ 2 * j + 1
+                ¬(2 * k = 2 * j + 1)
+                2 * k = 2 * j + 1 ∧ ¬(2 * k = 2 * j + 1)
+                ⊥
+qed
+
+; the square of an odd number is odd: m m = (2k+1) m = 2 k m + m = 2 (k m + k) + 1
+show $m ∈ Nat ∧ odd $m  ⇒  odd ($m * $m)   "odd-square"
+proof
+    assume $m ∈ Nat ∧ odd $m
+        odd $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)
+        pick k with k ∈ Nat ∧ $m = 2 * k + 1
+            $m = 2 * k + 1
+            k ∈ Nat
+            $m ∈ Nat
+            $m * $m = (2 * k + 1) * $m
+                    = 2 * k * $m + 1 * $m
+                    = 2 * k * $m + $m
+                    = 2 * k * $m + (2 * k + 1)
+                    = 2 * k * $m + 2 * k + 1
+                    = 2 * (k * $m + k) + 1
+            k * $m ∈ Nat
+            k * $m + k ∈ Nat
+            k * $m + k ∈ Nat ∧ $m * $m = 2 * (k * $m + k) + 1
+            ∃ $j ($j ∈ Nat ∧ $m * $m = 2 * $j + 1)
+            odd ($m * $m)
+qed
+
+; if the square is even, so is the number: otherwise it is odd, and so is its square
+show $m ∈ Nat ∧ even ($m * $m)  ⇒  even $m   "even-square"
+proof
+    assume $m ∈ Nat ∧ even ($m * $m)
+        $m ∈ Nat
+        even $m ∨ odd $m                               ; even-or-odd
+        assume even $m
+            even $m
+        assume odd $m
+            odd ($m * $m)                              ; odd-square
+            even ($m * $m) ∧ odd ($m * $m)
+            false                                      ; not-even-and-odd
+            even $m
+        even $m                                        ; or-elim
+qed
+
+;; divisibility
+infix ∣ 20 20
+bool ∣ 0
+def $a ∣ $b  ⇔  ∃ $k ($k ∈ Nat ∧ $b = $a * $k)       "divides"
+
+show $a ∈ Nat  ⇒  $a ∣ $a     "divides-refl"
+proof
+    assume $a ∈ Nat
+        1 ∈ Nat
+        $a = $a * 1
+        1 ∈ Nat ∧ $a = $a * 1
+        ∃ $k ($k ∈ Nat ∧ $a = $a * $k)
+        $a ∣ $a
+qed
+
+show $a ∈ Nat  ⇒  1 ∣ $a     "one-divides"
+proof
+    assume $a ∈ Nat
+        $a = 1 * $a
+        $a ∈ Nat ∧ $a = 1 * $a
+        ∃ $k ($k ∈ Nat ∧ $a = 1 * $k)
+        1 ∣ $a
+qed
+
+show $a ∣ $b ∧ $b ∣ $c  ⇒  $a ∣ $c     "divides-trans"
+proof
+    assume $a ∣ $b ∧ $b ∣ $c
+        $a ∣ $b
+        $b ∣ $c
+        ∃ $k ($k ∈ Nat ∧ $b = $a * $k)
+        ∃ $k ($k ∈ Nat ∧ $c = $b * $k)
+        pick k with k ∈ Nat ∧ $b = $a * k
+            k ∈ Nat
+            $b = $a * k
+            pick j with j ∈ Nat ∧ $c = $b * j
+                j ∈ Nat
+                $c = $b * j
+                $c = $a * k * j
+                k * j ∈ Nat
+                k * j ∈ Nat ∧ $c = $a * (k * j)
+                ∃ $l ($l ∈ Nat ∧ $c = $a * $l)
+                $a ∣ $c
+qed
+
+; even means divisible by 2
+show even $m  ⇔  2 ∣ $m     "even-divides"
+proof
+    assume even $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
+        2 ∣ $m
+    assume 2 ∣ $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
+        even $m
+qed
+
+; coprime: 1 is the only common divisor
+arity coprime 2
+def coprime($a, $b)  ⇔  ∀ $d ∈ Nat ($d ∣ $a ∧ $d ∣ $b  ⇒  $d = 1)     "coprime"
+
+show coprime($a, $b)  ⇒  ¬(even $a ∧ even $b)     "coprime-not-both-even"
+proof
+    assume coprime($a, $b)
+        ∀ $d ∈ Nat ($d ∣ $a ∧ $d ∣ $b  ⇒  $d = 1)
+        assume even $a ∧ even $b
+            even $a
+            even $b
+            2 ∣ $a                                     ; even-divides
+            2 ∣ $b                                     ; even-divides
+            2 ∣ $a ∧ 2 ∣ $b
+            2 ∣ $a ∧ 2 ∣ $b  ⇒  2 = 1
+            2 = 1
+            calc on
+            2 ≠ 1
+            calc off
+            ¬(2 = 1)
+            2 = 1 ∧ ¬(2 = 1)
+            false
+qed

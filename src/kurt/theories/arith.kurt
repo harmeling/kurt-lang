@@ -57,6 +57,8 @@ use $a ≠ 0 ⇒ $a / $a = 1 "div-self"
 use $c ≠ 0 ⇒ ($a * $c) / $c = $a             "mul-div"
 use $c ≠ 0 ⇒ ($a / $c) * $c = $a             "div-mul"
 use $c ≠ 0 ⇒ $a / $c + $b / $c = ($a + $b) / $c  "div-add"
+use $c ≠ 0 ∧ $d ≠ 0 ⇒ ($a / $c) * ($b / $d) = ($a * $b) / ($c * $d)  "div-mul-div"
+use $a ≠ 0 ∧ $b ≠ 0 ⇒ $a * $b ≠ 0             "mul-ne-zero"
 use $a + 0 = $a          "add-identity"
 use $a - 0 = $a          "sub-identity"
 
@@ -122,8 +124,17 @@ use $a >= $b  ⇒  ¬($a < $b)   "ge-not-lt"
 ;; real, directly-usable axiom. See `generate_chain_transitivity` in kurt.py and
 ;; doc/kurt-soundness.md for how and why.
 
+;; the relations among each other
+use $a <= $b  ⇔  $b >= $a            "le-ge"
+use $a < $b  ⇔  $b > $a              "lt-gt"
+use $a < $b  ⇒  $a <= $b             "lt-le"
+use $a <= $a                         "le-refl"
+use $a < $b  ⇒  $a ≠ $b              "lt-ne"
+
 ;; anti-symmetry
 use $a <= $b ∧ $a >= $b  ⇒  $a = $b   "le-ge-antisym"
+use $a > $b  ⇒  $a ≠ $b                "gt-ne"
+use $a - $b >= 0  ⇒  $a >= $b          "sub-ge-zero"
 use $a <  $b ∧ $a >  $b  ⇒  false   "lt-gt-contra"
 use $a <  $b ∧ $a >= $b  ⇒  false   "lt-ge-contra"
 use $a >  $b ∧ $a <= $b  ⇒  false   "gt-le-contra"
@@ -134,5 +145,3 @@ use $a < $b ∨ $a = $b ∨ $a > $b   "trichotomy"
 ;; factorial
 use 0! = 1                              "factorial-base"
 use $n > 0  ⇒  $n! = $n * ($n - 1)!     "factorial-step"
-
-; for automatic testing we add the following line:

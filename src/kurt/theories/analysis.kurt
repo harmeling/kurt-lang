@@ -45,6 +45,19 @@ bindop max, min
 use (sub $x $a %C) ∧ (∀ (sub $x $w %C) ((sub $v $w $T) <= (sub $v $a $T)))  ⇒  (max (sub $x $v %C) $T) = sub $v $a $T   "max-intro"
 use (sub $x $a %C) ∧ (∀ (sub $x $w %C) ((sub $v $w $T) >= (sub $v $a $T)))  ⇒  (min (sub $x $v %C) $T) = sub $v $a $T   "min-intro"
 
+;; argmax and argmin over a set: *some* element of `$A` where `T` is largest (smallest) -- there
+;; can be several, so there is no rule `argmax ... = $a`; the rules say something only if such an
+;; element `$a` exists (`argmax` is a choice of one of them). Only over a set `$v ∈ $A`: with any
+;; condition (`sub $x $v %C`), the argmax term would be the value of another `sub`, inside it.
+const argmax, argmin
+arity argmax 2
+arity argmin 2
+bindop argmax, argmin
+use ($a ∈ $A) ∧ (∀ ($w ∈ $A) ((sub $v $w $T) <= (sub $v $a $T)))  ⇒  (argmax $v ∈ $A $T) ∈ $A   "argmax-in"
+use ($a ∈ $A) ∧ (∀ ($w ∈ $A) ((sub $v $w $T) <= (sub $v $a $T)))  ⇒  ∀ ($w ∈ $A) ((sub $v $w $T) <= (sub $v (argmax $v ∈ $A $T) $T))   "argmax-max"
+use ($a ∈ $A) ∧ (∀ ($w ∈ $A) ((sub $v $w $T) >= (sub $v $a $T)))  ⇒  (argmin $v ∈ $A $T) ∈ $A   "argmin-in"
+use ($a ∈ $A) ∧ (∀ ($w ∈ $A) ((sub $v $w $T) >= (sub $v $a $T)))  ⇒  ∀ ($w ∈ $A) ((sub $v $w $T) >= (sub $v (argmin $v ∈ $A $T) $T))   "argmin-min"
+
 ;; supremum and infimum: the least upper bound and the greatest lower bound of the values of
 ;; `T`, for a condition that holds for at least one `$a`, and values that are bounded by `$b`
 const sup, inf

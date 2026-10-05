@@ -1,0 +1,16 @@
+; contraposition.kurt
+load prop
+var A, B
+
+; lemma
+use A ⇒ B  ≡  ¬A ∨ B  "implication-or"
+use A ∨ ¬A            "excluded middle"
+
+; theorem
+show (A ⇒ B)  ≡  (¬B ⇒ ¬A)   "contraposition"
+proof
+    A ⇒ B  ≡  ¬A ∨ B
+           ≡  B ∨ ¬A
+           ≡  ¬¬B ∨ ¬A
+           ≡  ¬B ⇒ ¬A
+qed

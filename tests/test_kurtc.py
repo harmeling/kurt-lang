@@ -82,6 +82,16 @@ class TestReplay(KurtcTestCase):
         self.assertGreater(searches1, 0)
         self.assertEqual(searches2, 0)
 
+    def test_conditional_rewriting_checks_again(self):
+        # the certificate of a rewriting step with a derived instance (`7a`) refers to that step,
+        # which doesn't exist yet on the next run -- then the search has to be the full one again
+        # (it used to be the plain one, without the shortcuts, and failed)
+        path = self.write('cr.kurt', 'load set\ninfix · 70 70\nconst K, a, b, c\nuse $a ∈ K  ⇒  $a · 1 = $a  "K7"\n'
+                                     'use b ∈ K\nuse c · (b · 1) = a\nc · b = a\n')
+        self.run_file(path)
+        self.assertTrue(Path(str(path) + 'c').exists())
+        self.assertIn('7a by K7', self.run_file(path))
+
     def test_changed_source_ignores_the_kurtc(self):
         path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
         self.run_file(path)

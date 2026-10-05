@@ -1,0 +1,58 @@
+; Determinante und Matrixprodukt (lecture "Mathematik für Informatik 1" (mafi1), deck
+; 18-det-matrixproduct), from det(A B) = det(A) det(B) and det(E) = 1
+load matrizen
+
+; det(A⁻¹) = det(A)⁻¹ -- and det(A) ≠ 0, which the formula needs
+show $A ∈ GL  ⇒  det($A) ≠ 0 ∧ det(inv $A) = inv det($A)              "det-inv"
+proof
+    assume $A ∈ GL
+        $A ∈ Mat
+        inv $A ∈ Mat
+        det($A) ∈ K
+        det(inv $A) ∈ K
+        ; 1 = det E = det(A A⁻¹) = det A det A⁻¹
+        1 = det(E)                                      ; det-E
+          = det($A · (inv $A))
+          = det($A) · det(inv $A)
+        ; so det(A) ≠ 0, since otherwise 1 = 0 det A⁻¹ = 0
+        assume det($A) = 0
+            0 = 0 · det(inv $A)                         ; zero-times
+            1 = 0 · det(inv $A)
+            1 = 0
+            0 ≠ 1                                       ; K7a
+            ¬(0 = 1)
+            0 = 1 ∧ ¬(0 = 1)
+            ⊥
+        ¬(det($A) = 0)
+        det($A) ≠ 0
+        ; and det A⁻¹ is the inverse of det A in K
+        inv det($A) ∈ K                                 ; K-inv
+        (inv det($A)) · det($A) = 1                     ; K8
+        det(inv $A) · det($A) = det($A) · det(inv $A)   ; K6
+        det(inv $A) · det($A) = 1
+        det(inv $A) = inv det($A)                       ; inv-unique
+        det($A) ≠ 0 ∧ det(inv $A) = inv det($A)
+qed
+
+; the matrices of a map in two bases (B = C⁻¹ A C) have the same determinant
+show $A ∈ Mat ∧ $C ∈ GL  ⇒  det(((inv $C) · $A) · $C) = det($A)       "det-similar"
+proof
+    assume $A ∈ Mat ∧ $C ∈ GL
+        $A ∈ Mat
+        $C ∈ GL
+        $C ∈ Mat
+        inv $C ∈ Mat
+        (inv $C) · $A ∈ Mat
+        det($A) ∈ K
+        det($C) ∈ K
+        det(inv $C) ∈ K
+        det(((inv $C) · $A) · $C) = det((inv $C) · $A) · det($C)
+                                  = (det(inv $C) · det($A)) · det($C)
+                                  = (det($A) · det(inv $C)) · det($C)
+                                  = det($A) · (det(inv $C) · det($C))
+                                  = det($A) · det((inv $C) · $C)
+                                  = det($A) · det(E)
+                                  = det($A) · 1
+                                  = 1 · det($A)
+                                  = det($A)
+qed

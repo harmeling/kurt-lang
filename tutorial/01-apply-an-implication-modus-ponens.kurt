@@ -1,0 +1,18 @@
+; 01-apply-an-implication-modus-ponens.kurt
+;
+; Apply an implication: modus ponens
+;
+; If the theory contains `A implies B` and `A`, write `B`. Kurt applies implication elimination
+; automatically.
+
+bool A, B, C
+
+use A implies B  "A-to-B"
+use A
+B
+
+use B implies C  "B-to-C"
+C
+
+; Kurt performs one inference step at a time. It derives `B` first and can then use that new fact
+; to derive `C`.

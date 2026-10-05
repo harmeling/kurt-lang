@@ -4,7 +4,7 @@ Kurt is a small language for writing mathematical proofs in a form close to how 
 them — one claim per line, blocks for assumptions and cases — and a checker that tells you
 immediately, line by line, whether each step follows. It is meant for students learning to prove
 things, much like running tests while learning to program. Kurt has been developed by Stefan
-Harmeling (TU Dortmund University) since 2016.
+Harmeling (TU Dortmund) since 2016.
 
 **Status: 0.7, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
 proof written for 0.7 may need small changes for 1.0.
@@ -94,11 +94,11 @@ copy `src/kurt/kurt.py` together with the directory `src/kurt/theories/`.
 
 ## Documentation
 
-- [`tutorial/`](tutorial/): 49 short lessons (00 to 48), one keyword or idea each. Each one is a Kurt file
-  you can run and change ([plan](tutorial/plan.md)).
-- [`doc/kurt-cookbook.md`](doc/kurt-cookbook.md): recipes for common tasks. Prove an
-  implication, argue by contradiction, split into cases, rewrite with equality, use induction,
-  diagnose "can not derive".
+- [`tutorial/`](tutorial/): the tutorial, 20 lessons, task by task: prove an implication, argue by
+  contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
+  derive". Each one is a Kurt file you can run and change.
+- [`keywords/`](keywords/): 49 short lessons (00 to 48), one keyword or idea each
+  ([plan](keywords/plan.md)).
 - [`doc/kurt-doc.md`](doc/kurt-doc.md): the language reference.
 - [`doc/kurt-soundness.md`](doc/kurt-soundness.md): what the checker's correctness rests on,
   rule by rule, and the bugs found so far, each with its regression test.

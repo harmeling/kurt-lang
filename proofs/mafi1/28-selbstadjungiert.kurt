@@ -1,0 +1,62 @@
+; selbstadjungierte Endomorphismen -- self-adjoint maps (lecture "Mathematik für Informatik 1"
+; (mafi1), deck 28-selbstadjungierte-endomorphismen)
+load 26-eigenwerte, skalarprodukt
+
+; f is self-adjoint
+use $v ∈ V ∧ $w ∈ V  ⇒  ⟨f($v), $w⟩ = ⟨$v, f($w)⟩                    "self-adjoint"
+
+; Notiz 1: eigenvectors for different eigenvalues are orthogonal
+show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ $w ∈ V ∧ f($v) = $l · $v ∧ f($w) = $m · $w  ⇒  orthogonal($v, $w)   "eigenvectors-orthogonal"
+proof
+    assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ $w ∈ V ∧ f($v) = $l · $v ∧ f($w) = $m · $w
+        $l ∈ K
+        $m ∈ K
+        $l ≠ $m
+        $v ∈ V
+        $w ∈ V
+        f($v) = $l · $v
+        f($w) = $m · $w
+        ⟨$v, $w⟩ ∈ K
+        ; λ ⟨v, w⟩ = ⟨λ v, w⟩ = ⟨f v, w⟩ = ⟨v, f w⟩ = ⟨v, μ w⟩ = μ ⟨v, w⟩
+        $l · ⟨$v, $w⟩ = ⟨$l · $v, $w⟩
+                      = ⟨f($v), $w⟩
+                      = ⟨$v, f($w)⟩
+                      = ⟨$v, $m · $w⟩
+                      = $m · ⟨$v, $w⟩
+        ; so 0 = (λ - μ) ⟨v, w⟩
+        - $m ∈ K
+        ($l + (- $m)) · ⟨$v, $w⟩ = $l · ⟨$v, $w⟩ + (- $m) · ⟨$v, $w⟩
+                                 = $m · ⟨$v, $w⟩ + (- $m) · ⟨$v, $w⟩
+                                 = ($m + (- $m)) · ⟨$v, $w⟩
+                                 = 0 · ⟨$v, $w⟩
+                                 = 0
+        $l + (- $m) ∈ K
+        $l + (- $m) = 0 ∨ ⟨$v, $w⟩ = 0                  ; no-zero-divisors
+        case $l + (- $m) = 0
+            $l = $m                                     ; minus-zero
+            ¬($l = $m)
+            $l = $m ∧ ¬($l = $m)
+            ⊥
+            ⟨$v, $w⟩ = 0
+        case ⟨$v, $w⟩ = 0
+            ⟨$v, $w⟩ = 0
+        ⟨$v, $w⟩ = 0
+        orthogonal($v, $w)
+qed
+
+; Notiz 2: for an eigenvector v, f maps v^⊥ into v^⊥
+show $l ∈ K ∧ $v ∈ V ∧ f($v) = $l · $v ∧ $u ∈ V ∧ orthogonal($u, $v)  ⇒  orthogonal(f($u), $v)   "eigenvector-perp-invariant"
+proof
+    assume $l ∈ K ∧ $v ∈ V ∧ f($v) = $l · $v ∧ $u ∈ V ∧ orthogonal($u, $v)
+        $l ∈ K
+        $v ∈ V
+        f($v) = $l · $v
+        $u ∈ V
+        orthogonal($u, $v)
+        ⟨f($u), $v⟩ = ⟨$u, f($v)⟩
+                    = ⟨$u, $l · $v⟩
+                    = $l · ⟨$u, $v⟩
+                    = $l · 0
+                    = 0
+        orthogonal(f($u), $v)
+qed

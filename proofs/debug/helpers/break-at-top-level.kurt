@@ -1,0 +1,4 @@
+; `break` at the top level of a file (see ../break-rejects-file-top-level.kurt)
+bool A
+use A
+break

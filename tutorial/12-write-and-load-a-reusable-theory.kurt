@@ -1,0 +1,30 @@
+; 12-write-and-load-a-reusable-theory.kurt
+;
+; Write and load a reusable theory
+;
+; A theory is an ordinary `.kurt` file. Facts cross a `load` boundary only when they have a label
+; and are not marked `local`.
+;
+; The theory of this lesson is the file `12-my-theory.kurt` next to this one:
+;
+;     load prop
+;     bool P, Q
+;
+;     use P implies Q  "P-to-Q"
+;     use P            "P"
+;     use Q local      "internal-helper"
+;
+; This file uses it:
+
+load 12-my-theory
+
+P
+P implies Q
+Q
+
+; The labelled facts `P` and `P implies Q` are exported. The `local` fact stays inside
+; `my-theory.kurt`. Unlabelled facts also stay local. A symbol declaration travels with an
+; exported fact when that fact needs it; there is no separate export declaration.
+;
+; Give labels stable, descriptive names. They appear in proof reasons and make exported theory
+; APIs clearer.

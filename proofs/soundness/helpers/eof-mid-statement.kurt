@@ -1,0 +1,4 @@
+; a file that ends inside a statement (see ../eof-mid-statement-rejected.kurt)
+brackets { }
+parse {0, 1, 2
+true

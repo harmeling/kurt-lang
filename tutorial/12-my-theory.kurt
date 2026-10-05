@@ -1,0 +1,10 @@
+; 12-my-theory.kurt
+;
+; the theory that lesson 12 (12-write-and-load-a-reusable-theory.kurt) loads: its labelled facts
+; are exported, the `local` one is not
+load prop
+bool P, Q
+
+use P implies Q  "P-to-Q"
+use P            "P"
+use Q local      "internal-helper"

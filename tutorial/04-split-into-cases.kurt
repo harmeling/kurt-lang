@@ -1,0 +1,30 @@
+; 04-split-into-cases.kurt
+;
+; Split into cases
+;
+; For a proof from `A or B`, prove the same conclusion in an `A` case and a `B` case. The
+; propositional theory's `or-elim` rule combines the disjunction and the two implications produced
+; by closing the case blocks.
+
+load prop
+bool A, B, C
+
+use A or B
+use A implies C
+use B implies C
+
+show C
+proof
+    case A
+        C
+    case B
+        C
+    C
+qed
+
+; A `case` block behaves like `assume` when it closes: the first block produces `A implies C`, and
+; the second produces `B implies C`. The final `C` is the explicit `or-elim` step.
+;
+; For more than two alternatives, combine the cases in stages. `or` is flat and symmetric, but the
+; current search is deliberately single-hop; an intermediate implication or conclusion is often
+; needed.

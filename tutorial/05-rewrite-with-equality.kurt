@@ -1,0 +1,33 @@
+; 05-rewrite-with-equality.kurt
+;
+; Rewrite with equality
+;
+; Load `equality` for reflexivity and Leibniz substitution. If `a = b` and a fact contains `a`,
+; Kurt can replace that occurrence with `b`.
+
+load equality
+const a, b, f
+arity f 1
+
+use a = b
+use f(a) = a
+f(b) = a
+
+; The last step uses the labelled rule `equal-elim` from `equality.kurt`. Equality is symmetric,
+; so Kurt can also use an equation in the other direction.
+;
+; When a rewrite does not happen, state an intermediate expression showing exactly one
+; replacement. Kurt is a one-step checker, not a multi-step simplifier.
+;
+; A rule with conditions works for rewriting too, if the conditions are facts: with
+; `$a ∈ K ⇒ $a · 1 = $a` and `b ∈ K`, the step from `c · (b · 1) = a` to `c · b = a` is
+; accepted -- Kurt derives the instance `b · 1 = b` and shows it as a step of its own (line `33a`
+; before line 33):
+
+load set
+const K, c
+infix · 70 70
+use $x ∈ K  ⇒  $x · 1 = $x      "one-right"
+use b ∈ K
+use c · (b · 1) = a
+c · b = a

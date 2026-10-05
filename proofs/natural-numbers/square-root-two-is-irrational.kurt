@@ -1,0 +1,80 @@
+; the square root of 2 is not a rational number
+;
+; If sqrt 2 = m / n in lowest terms, then m m = 2 n n; so m m is even, so m is even (the square of
+; an odd number is odd), m = 2 j, so n n = 2 j j and n is even too -- but m and n are coprime.
+; From the theories: even and odd numbers, "even-square" and "coprime-not-both-even" (natural.kurt),
+; and "lowest-terms" (rational.kurt, from the well-ordering of the natural numbers). Assumed (as
+; `use`): what the proof needs of sqrt 2.
+load rational
+
+; the core: if m m = 2 n n, both are even
+show $m ∈ Nat ∧ $n ∈ Nat ∧ $m * $m = 2 * ($n * $n)  ⇒  even $m ∧ even $n   "both-even"
+proof
+    assume $m ∈ Nat ∧ $n ∈ Nat ∧ $m * $m = 2 * ($n * $n)
+        $m ∈ Nat
+        $n ∈ Nat
+        $m * $m = 2 * ($n * $n)
+        $n * $n ∈ Nat
+        $n * $n ∈ Nat ∧ $m * $m = 2 * ($n * $n)
+        ∃ $k ($k ∈ Nat ∧ $m * $m = 2 * $k)
+        even ($m * $m)
+        $m ∈ Nat ∧ even ($m * $m)
+        even $m                                        ; even-square
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
+        pick j with j ∈ Nat ∧ $m = 2 * j
+            j ∈ Nat
+            $m = 2 * j
+            $m * $m = 2 * j * $m                       ; mul-eq
+                    = 2 * j * (2 * j)
+            2 * j * (2 * j) = 2 * ($n * $n)
+            calc on
+            2 ≠ 0
+            calc off
+            (2 * j * (2 * j)) / 2 = (2 * ($n * $n)) / 2
+            (2 * ($n * $n)) / 2 = $n * $n                       ; mul-div
+            (2 * j * (2 * j)) / 2 = 2 * (j * j)                 ; mul-div
+            $n * $n = (2 * j * (2 * j)) / 2
+            $n * $n = 2 * (j * j)
+            j * j ∈ Nat
+            j * j ∈ Nat ∧ $n * $n = 2 * (j * j)
+            ∃ $k ($k ∈ Nat ∧ $n * $n = 2 * $k)
+            even ($n * $n)
+            $n ∈ Nat ∧ even ($n * $n)
+            even $n                                    ; even-square
+            even $m ∧ even $n
+        even $m ∧ even $n
+qed
+
+; the square root of 2: what the proof needs of it
+arity sqrt 1
+use sqrt 2 * sqrt 2 = 2      "sqrt-two"
+use sqrt 2 > 0               "sqrt-two-positive"
+
+show ¬(sqrt 2 ∈ Rat)   "sqrt-two-irrational"
+proof
+    assume sqrt 2 ∈ Rat
+        sqrt 2 ∈ Rat ∧ sqrt 2 > 0
+        ∃ $m ∃ $n ($m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ coprime($m, $n) ∧ sqrt 2 = $m / $n)   ; lowest-terms
+        pick m with ∃ $n (m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ coprime(m, $n) ∧ sqrt 2 = m / $n)
+            pick n with m ∈ Nat ∧ n ∈ Nat ∧ n ≠ 0 ∧ coprime(m, n) ∧ sqrt 2 = m / n
+                m ∈ Nat
+                n ∈ Nat
+                n ≠ 0
+                coprime(m, n)
+                ¬(even m ∧ even n)                                ; coprime-not-both-even
+                sqrt 2 = m / n
+                (m / n) * (m / n) = (m * m) / (n * n)             ; div-mul-div
+                sqrt 2 * sqrt 2 = (m / n) * sqrt 2
+                                = (m / n) * (m / n)
+                                = (m * m) / (n * n)
+                2 = (m * m) / (n * n)
+                n * n ≠ 0                                         ; mul-ne-zero
+                2 * (n * n) = ((m * m) / (n * n)) * (n * n)       ; mul-eq
+                ((m * m) / (n * n)) * (n * n) = m * m             ; div-mul
+                m * m = 2 * (n * n)
+                m ∈ Nat ∧ n ∈ Nat ∧ m * m = 2 * (n * n)
+                even m ∧ even n                                   ; both-even
+                false                                             ; bottom-intro
+            false
+        false
+qed

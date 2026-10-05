@@ -1,0 +1,208 @@
+; lineare Abbildungen -- linear maps (lecture "Mathematik für Informatik 1" (mafi1), deck
+; 10-lineare-abbildungen)
+;
+; "Seien V, W, Y Vektorräume über K und f: V → W, g: W → Y linear."
+load vektorraum
+const V, W, Y, f, g
+arity f 1, g 1
+
+use vectorspace(V)                                                   "V-vectorspace"
+use vectorspace(W)                                                   "W-vectorspace"
+use vectorspace(Y)                                                   "Y-vectorspace"
+
+; f: V → W is linear
+use $x ∈ V  ⇒  f($x) ∈ W                                             "f-map"
+use $x ∈ V ∧ $y ∈ V  ⇒  f($x + $y) = f($x) + f($y)                   "f-additive"
+use $a ∈ K ∧ $x ∈ V  ⇒  f($a · $x) = $a · f($x)                      "f-homogeneous"
+
+; g: W → Y is linear
+use $x ∈ W  ⇒  g($x) ∈ Y                                             "g-map"
+use $x ∈ W ∧ $y ∈ W  ⇒  g($x + $y) = g($x) + g($y)                   "g-additive"
+use $a ∈ K ∧ $x ∈ W  ⇒  g($a · $x) = $a · g($x)                      "g-homogeneous"
+
+; Lemma: f(0) = 0
+show f(0) = 0                                                        "f-zero"
+proof
+    0 ∈ V
+    f(0) ∈ W
+    0 · 0 = 0                                           ; zero-times-vector in V
+    f(0 · 0) = 0 · f(0)                                 ; f is homogeneous
+    0 · f(0) = 0                                        ; zero-times-vector in W
+    f(0) = f(0 · 0)
+         = 0 · f(0)
+         = 0
+qed
+
+; Lemma: f(x - y) = f(x) - f(y), where x - y is x + (-y)
+show $x ∈ V ∧ $y ∈ V  ⇒  f($x + (- $y)) = f($x) + (- f($y))          "f-minus"
+proof
+    assume $x ∈ V ∧ $y ∈ V
+        $x ∈ V
+        $y ∈ V
+        - $y ∈ V
+        - 1 ∈ K
+        f($y) ∈ W
+        f($x + (- $y)) = f($x) + f(- $y)
+                       = f($x) + f((- 1) · $y)
+                       = f($x) + (- 1) · f($y)
+                       = f($x) + (- f($y))
+qed
+
+; Satz: g ∘ f is linear
+arity h 1
+def h($x) = g(f($x))                                                 "h"     ; h = g ∘ f
+
+show $x ∈ V  ⇒  h($x) ∈ Y                                            "h-map"
+proof
+    assume $x ∈ V
+        f($x) ∈ W
+        g(f($x)) ∈ Y
+        h($x) = g(f($x))
+        h($x) ∈ Y
+qed
+
+show $x ∈ V ∧ $y ∈ V  ⇒  h($x + $y) = h($x) + h($y)                  "h-additive"
+proof
+    assume $x ∈ V ∧ $y ∈ V
+        $x ∈ V
+        $y ∈ V
+        f($x) ∈ W
+        f($y) ∈ W
+        h($x + $y) = g(f($x + $y))                      ; definition of g ∘ f
+                   = g(f($x) + f($y))
+                   = g(f($x)) + g(f($y))
+                   = h($x) + g(f($y))                   ; definition of g ∘ f
+                   = h($x) + h($y)
+qed
+
+show $a ∈ K ∧ $x ∈ V  ⇒  h($a · $x) = $a · h($x)                     "h-homogeneous"
+proof
+    assume $a ∈ K ∧ $x ∈ V
+        $a ∈ K
+        $x ∈ V
+        f($x) ∈ W
+        h($a · $x) = g(f($a · $x))                      ; definition of g ∘ f
+                   = g($a · f($x))
+                   = $a · g(f($x))
+                   = $a · h($x)                         ; definition of g ∘ f
+qed
+
+; Satz: Kern f = {0} ⇔ f injective
+def Kern = { $x ∈ V | f($x) = 0 }                                    "Kern"
+def Null = { $x ∈ V | $x = 0 }                                       "Null"  ; {0} ⊂ V
+
+; in V, x - y = 0 gives x = y
+show $x ∈ V ∧ $y ∈ V ∧ $x + (- $y) = 0  ⇒  $x = $y                   "V-minus-zero"
+proof
+    assume $x ∈ V ∧ $y ∈ V ∧ $x + (- $y) = 0
+        $x ∈ V
+        $y ∈ V
+        $x + (- $y) = 0
+        - $y ∈ V
+        (- $y) + $x = $x + (- $y)                       ; V2
+        (- $y) + $x = 0
+        $y + (- $y) = 0                                 ; V4
+        (- $y) + $y = $y + (- $y)                       ; V2
+        (- $y) + $y = 0
+        $x = $y                                         ; V-minus-unique, with -y as the vector
+qed
+
+show Kern = Null  ⇔  ∀ $x ∈ V ∀ $y ∈ V (f($x) = f($y) ⇒ $x = $y)     "kernel-injective"
+proof
+    ; ⇒
+    assume Kern = Null
+        Kern ⊂ Null ∧ Null ⊂ Kern
+        Kern ⊂ Null
+        ∀ $c ($c ∈ Kern  implies  $c ∈ Null)
+        let x ∈ V
+            let y ∈ V
+                assume f(x) = f(y)
+                    - y ∈ V
+                    x + (- y) ∈ V
+                    f(y) ∈ W
+                    f(x + (- y)) = f(x) + (- f(y))      ; f-minus
+                                 = f(y) + (- f(y))
+                                 = 0
+                    x + (- y) ∈ V ∧ f(x + (- y)) = 0
+                    x + (- y) ∈ { $z ∈ V | f($z) = 0 }  ; separation
+                    x + (- y) ∈ Kern
+                    x + (- y) ∈ Null
+                    x + (- y) ∈ { $z ∈ V | $z = 0 }
+                    x + (- y) ∈ V ∧ x + (- y) = 0       ; separation
+                    x + (- y) = 0
+                    x = y                               ; V-minus-zero
+        ∀ $x ∈ V ∀ $y ∈ V (f($x) = f($y) ⇒ $x = $y)
+    ; ⇐
+    assume ∀ $x ∈ V ∀ $y ∈ V (f($x) = f($y) ⇒ $x = $y)
+        0 ∈ V
+        f(0) = 0                                        ; f-zero
+        ; Kern ⊂ Null
+        let c
+            assume c ∈ Kern
+                c ∈ { $z ∈ V | f($z) = 0 }              ; Kern
+                c ∈ V ∧ f(c) = 0                        ; separation
+                c ∈ V
+                f(c) = 0
+                f(c) = f(0)
+                ∀ $y ∈ V (f(c) = f($y) ⇒ c = $y)
+                f(c) = f(0) ⇒ c = 0
+                c = 0
+                c ∈ V ∧ c = 0
+                c ∈ { $z ∈ V | $z = 0 }                 ; separation
+                c ∈ Null
+        ∀ $c ($c ∈ Kern  implies  $c ∈ Null)
+        Kern ⊂ Null
+        ; Null ⊂ Kern
+        let c
+            assume c ∈ Null
+                c ∈ { $z ∈ V | $z = 0 }                 ; Null
+                c ∈ V ∧ c = 0                           ; separation
+                c ∈ V
+                c = 0
+                f(c) = f(0)
+                f(c) = 0
+                c ∈ V ∧ f(c) = 0
+                c ∈ { $z ∈ V | f($z) = 0 }              ; separation
+                c ∈ Kern
+        ∀ $c ($c ∈ Null  implies  $c ∈ Kern)
+        Null ⊂ Kern
+        Kern = Null
+qed
+
+; Satz: Bild f = W ⇔ f surjective
+def Bild = { $y ∈ W | ∃ $x ($x ∈ V ∧ f($x) = $y) }                   "Bild"
+
+show Bild = W  ⇔  ∀ $y ∈ W ∃ $x ($x ∈ V ∧ f($x) = $y)                "image-surjective"
+proof
+    ; ⇒
+    assume Bild = W
+        Bild ⊂ W ∧ W ⊂ Bild
+        W ⊂ Bild
+        ∀ $c ($c ∈ W  implies  $c ∈ Bild)
+        let y ∈ W
+            y ∈ Bild
+            y ∈ { $z ∈ W | ∃ $x ($x ∈ V ∧ f($x) = $z) }   ; Bild
+            y ∈ W ∧ ∃ $x ($x ∈ V ∧ f($x) = y)            ; separation
+            ∃ $x ($x ∈ V ∧ f($x) = y)
+        ∀ $y ∈ W ∃ $x ($x ∈ V ∧ f($x) = $y)
+    ; ⇐
+    assume ∀ $y ∈ W ∃ $x ($x ∈ V ∧ f($x) = $y)
+        ; Bild ⊂ W, which holds for every f
+        let c
+            assume c ∈ Bild
+                c ∈ { $z ∈ W | ∃ $x ($x ∈ V ∧ f($x) = $z) }   ; Bild
+                c ∈ W ∧ ∃ $x ($x ∈ V ∧ f($x) = c)        ; separation
+                c ∈ W
+        ∀ $c ($c ∈ Bild  implies  $c ∈ W)
+        Bild ⊂ W
+        ; W ⊂ Bild
+        let c
+            assume c ∈ W
+                ∃ $x ($x ∈ V ∧ f($x) = c)                ; surjective
+                c ∈ W ∧ ∃ $x ($x ∈ V ∧ f($x) = c)
+                c ∈ { $z ∈ W | ∃ $x ($x ∈ V ∧ f($x) = $z) }   ; separation
+                c ∈ Bild
+        ∀ $c ($c ∈ W  implies  $c ∈ Bild)
+        W ⊂ Bild
+        Bild = W
+qed

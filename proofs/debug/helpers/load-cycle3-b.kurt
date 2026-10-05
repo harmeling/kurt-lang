@@ -1,0 +1,4 @@
+; middle link of the 3-file `load` cycle, see load-cycle3-a.kurt. Loaded from a.kurt, this
+; file's own `load` continues the chain to c.kurt; loaded directly (as its own test case),
+; it closes the cycle starting from this link instead.
+load "load-cycle3-c.kurt"

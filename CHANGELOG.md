@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.7.2 (2026-10-05)
+
+- `pick` from an existential with a condition: `pick c with c > 0 ∧ P c` from `∃ $y > 0 P $y`.
+- `argmax` and `argmin` over a set in analysis.kurt (`argmax $v ∈ A T`, *some* place of the
+  maximum, only if one exists).
+- The reasons of trivial steps name the expected rule: `a = a` is "by equal-intro", `A and A`
+  "by and-intro" (the search tries facts first, the rules that fit almost anything last).
+- A smaller kernel: its own alpha-equivalence and binder reading, no code shared with the search
+  (checked by a test).
+- `alias` only for a new name, without declarations of its own (set.kurt had `bool ∈ 0`).
+- A crash when a substituted value contained a binder over the replaced variable.
+- "TU Dortmund" in the README and `CITATION.cff`.
+- `proofs/linear-algebra/cauchy-schwarz.kurt`: the Cauchy-Schwarz inequality for an inner product
+  (was in `proofs-not-yet`). For it: arith.kurt's "gt-ne" (`$a > $b ⇒ $a ≠ $b`) and
+  "sub-ge-zero" (`$a - $b >= 0 ⇒ $a >= $b`), and the excluded middle in prop.kurt, proven there
+  from "not-elim".
+- `proofs/natural-numbers/square-root-two-is-irrational.kurt` (was in `proofs-not-yet`): even
+  and odd numbers, "every natural number is even or odd" by induction, the square of an odd number
+  is odd, and the irrationality of the square root of 2 -- assuming that no natural number is even
+  and odd, and that a positive rational is m / n with m, n not both even. For it: natural.kurt's
+  "nat-add" and "nat-mul" (sums and products of natural numbers are natural numbers), and
+  arith.kurt's "div-mul-div" and "mul-ne-zero".
+- `proofs/mafi1/`: the proofs of the lecture "Mathematik für Informatik 1" (linear algebra) that
+  fit Kurt: fields, vector spaces, subspaces, groups, linear maps, the span of two vectors,
+  inner products, orthogonal complements, eigenspaces, self-adjoint maps, and derivations with
+  matrices and determinants -- with each axiom for the elements of its set (`λ ∈ K`, `x ∈ V`), as
+  on the slides. An index is in `proofs/mafi1/README.md`.
+- `\cdot` is `·`.
+- The tutorial is new: `tutorial/`, 20 lessons task by task (made from the cookbook,
+  `doc/kurt-cookbook.md`, which is gone). The old tutorial, one keyword or idea per lesson, is
+  `keywords/` now.
+- `kurt foo.kurtc`: the certificates of `foo.kurt`, readable, line by line (as `cert` shows them).
+- The tests check the proof files in 4 processes at once (`KURT_TEST_JOBS`).
+- A faster search for rewriting steps: the subterms where the goal differs from one of the latest
+  facts are tried first (the tests take a fifth less time).
+- A faster search: a formula that can't unify with a premise is skipped without trying (the tests
+  take about a third less time).
+
+- natural.kurt: `0 <= n`, `n + 1 ≠ 0`, the predecessor, no natural number between n and n + 1,
+  the well-ordering principle (proven from induction), even and odd numbers (none is both), and
+  divisibility `∣` (`\mid`) with `coprime`.
+- integer.kurt (`Int`) and rational.kurt (`Rat`), with every positive rational in lowest terms
+  ("lowest-terms", proven from the well-ordering). `square-root-two-is-irrational.kurt` now only
+  assumes what it needs of the square root of 2.
+- scripts/kurt2latex.py: all symbols as LaTeX (also `∘`, `·`, `×`, `⟨ ⟩`, Greek letters, and in
+  the comments), `$a` as *a*, names upright (`\mathrm{inv}`), and a line with a comment in one row.
+- A file with stored certificates for a conditional rewriting step failed on the next run: the
+  search after a stored certificate that didn't fit was the plain one, without the shortcuts.
+- Conditional rewriting: a rewriting step may use a rule with conditions that are facts
+  (`$a ∈ K ⇒ 1 · $a = $a` with `b ∈ K` for `c · (b · 1)` → `c · b`); the instance is shown as a
+  step of its own (`17a`). proofs/mafi1/ is 168 lines shorter for it.
+- `f(x)` without a space is one term, binding more tightly than `f x`: `inv det(A)` is
+  `inv (det A)`, and `∀ $x ∈ Perp(M) ...` reads `Perp(M)` as part of the condition.
+- logic.kurt: "forall-iff" and "exists-iff", for rewriting under a quantifier.
+- Found by the search now: `⊥` from `∀ x P(x)` and `¬(∀ x P(x))`, and a `∀` formula out of a
+  conjunction.
+- The kernel shares no code with the search any more (also not for the conditions of `let`), and
+  sees the knowledge base only through a read-only snapshot during a check.
+- The scope of a binder: only its condition and its last argument, the body -- the range of a `sum`
+  and the point of a `lim` are outside, as in mathematics (in `sum x (0, n) (sum x (0, x) x)`,
+  the inner range is the outer `x`). Before, every argument was inside.
+- set.kurt: mappings are sets of pairs, as in ZF (`f ∈ (A → B)` means `f ⊂ A × B` with exactly one
+  pair `(a, f a)` for each `a ∈ A`), so function extensionality holds ("function-extensionality").
+  Before, a mapping was an opaque object, and every object was in `∅ → B`.
+- `calc on` proves memberships like `3 ∈ Nat`, `-3 ∈ Int`, `1 / 3 ∈ Rat`: the calculator knows the
+  sets `naturals`, `integers`, `rationals`, and the theories bind theirs (`calc Nat naturals`).
+- arith.kurt: how `<`, `<=`, `>`, `>=` relate ("le-ge", "lt-gt", "lt-le", "le-refl", "lt-ne").
+- `let x with P(x)` (the same as `let P(x)`, naming the constant) and `pick c > 0` (the same as
+  `pick c with c > 0`): `let` and `pick` take conditions the same way. A `pick` without a matching
+  `∃` suggests `let`.
+- The shell fills in the indentation: each line starts with the one of the current block (one
+  level deeper after `proof`, `assume`, ...), and a backspace dedents.
+- `expect "KIND" "TEXT"`: the error message must also contain the text. The tests use it instead of
+  the `;;; ` markers on the last line, which are gone.
+- A `todo` inside a discarded block (`sandbox`, `expect`, `break`) no longer counts as open.
+- `pick x with P(x, y)`: a comma inside brackets no longer splits the line.
+- Instantiating a `∀` with a value that already occurs in the formula: the matcher now also tries
+  some of the value's occurrences as the bound variable, not only one or all of them.
 ## 0.7.1 (2026-10-02)
 
 ### Fixed

@@ -1,4 +1,4 @@
-; var-const.kurt
-var x
-const x
-;;; EvalError: symbol `x` is already a variable on this level or starts with "$"
+; var-const.kurt: `const x` after `var x` on the same level is rejected (in a new block it would
+; shadow the variable, so the two lines are in a helper file)
+expect "EvalError" "symbol `x` is already a variable on this level"
+    load "helpers/var-const.kurt"

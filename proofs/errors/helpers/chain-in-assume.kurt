@@ -1,0 +1,6 @@
+; `chain` inside `assume` (see ../chain-in-a-block.kurt)
+load prop
+infix R 20 20
+bool A
+assume A
+    chain R

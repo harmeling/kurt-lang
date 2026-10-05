@@ -1,0 +1,21 @@
+; 03-prove-a-negation-by-contradiction.kurt
+;
+; Prove a negation by contradiction
+;
+; Load propositional logic for `not`, `false`, and their rules. Assume the proposition you want to
+; negate and derive `false`.
+
+load prop
+bool p, q
+
+use p implies q
+use not q
+
+show not p
+proof
+    assume p
+        q
+        false
+qed
+
+; Here `q` contradicts `not q`, so Kurt derives `false`. Closing `assume p` then derives `not p`.

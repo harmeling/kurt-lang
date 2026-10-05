@@ -1,0 +1,21 @@
+; "forall-iff" and "exists-iff" (logic.kurt) rewrite under a binder only with an equivalence that
+; holds for *every* x: not with one about a single object, nor with one about a variable that an
+; assumption fixes
+load logic
+const P, Q, c
+arity P 1, Q 1
+
+use ∀ x (P(x) ⇔ Q(x))
+(∀ x P(x)) ⇔ (∀ x Q(x))
+(∃ x P(x)) ⇔ (∃ x Q(x))
+
+const R, S
+arity R 1, S 1
+use R(c) ⇔ S(c)
+expect "ProofError"
+    (∀ x R(x)) ⇔ (∀ x S(x))
+assume R($y) ⇔ S($y)
+    expect "ProofError"
+        (∀ x R(x)) ⇔ (∀ x S(x))
+    R($y) ⇔ S($y)
+(∀ x P(x)) ⇔ (∀ x Q(x))

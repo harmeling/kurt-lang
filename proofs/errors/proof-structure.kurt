@@ -37,7 +37,10 @@ expect "EvalError"
     expect
         c > 0
 expect "EvalError"
-    expect "ProofError", "EvalError"
+    expect "ProofError" 3
+        c > 0
+expect "EvalError"
+    expect "ProofError" "can not derive" "c"
         c > 0
 
 ; claims, `use` and `assume` must be boolean

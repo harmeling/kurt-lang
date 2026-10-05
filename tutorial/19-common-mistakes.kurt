@@ -1,0 +1,15 @@
+; 19-common-mistakes.kurt
+;
+; Common mistakes
+;
+; | Symptom | Likely cause | Remedy |
+; |---|---|---|
+; | `can not derive` a true statement | More than one inference step is missing | Add intermediate claims explicitly |
+; | A connective is treated like an undeclared symbol | Its theory was not loaded | Load `prop`, `logic`, `equality`, or `arith` as appropriate |
+; | A quantified proof leaks a local name | A `let`/`pick` witness appears in the conclusion | Generalize it with `let`, or prove a witness-independent result |
+; | A loaded fact is unavailable | It is unlabelled or marked `local` | Give intended public facts stable non-local labels |
+; | A rule with several premises does not fire | The complete premise is not available in the expected form | Derive or combine the premises first |
+; | Arithmetic does not simplify | `calc` is off or an unknown must be solved for | Enable `calc` for concrete values; use algebraic rules for unknowns |
+; | A rewrite changes too much or too little | The desired substitution is not a single obvious match | State a closer intermediate equality |
+; | A file passes but is unfinished | It contains `todo` | Read the final todo list; run strict mode for grading |
+; | A custom theory loads but exports nothing | Its useful facts have no labels | Label each fact that forms the theory's public API |

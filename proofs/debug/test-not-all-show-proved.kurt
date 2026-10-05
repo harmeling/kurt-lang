@@ -1,4 +1,3 @@
-; should create an error message
-load prop
-show true
-;;; EvalError: cannot merge and pop a level with promised formulas, got 1 formulas.
+; error: a `show` without its proof at the end of the file
+expect "EvalError" "cannot merge and pop a level with promised formulas, got 1 formulas."
+    load "helpers/not-all-show-proved.kurt"

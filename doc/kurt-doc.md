@@ -8,7 +8,7 @@ This is a reference for the current behaviour of Kurt: what each keyword
 does, what the grammar allows, and what is and isn't checked. It describes
 things as they are, not as they're planned to become — see `dev-notes.md` for
 the history of *why* things ended up this way. To actually learn Kurt hands-on, start with
-`tutorial/00-true.kurt` and work through the numbered lessons instead; this
+`keywords/00-true.kurt` and work through the numbered lessons instead; this
 document is for looking things up once you already know roughly what you're
 looking for.
 
@@ -27,6 +27,7 @@ the source.
     kurt -s path/to/proof.kurt       # strict, for grading (see below)
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
     kurt --no-kurtc path/to/proof.kurt   # neither write nor use `.kurtc` files (see below)
+    kurt path/to/proof.kurtc             # the certificates of proof.kurt, readable (see below)
     kurt --deps path/to/proof.kurt       # the files it loads, and their certificates (see below)
 
 If no filename is given, Kurt starts the shell directly. If a filename is
@@ -76,6 +77,11 @@ changed -- they are still tried (and checked by the kernel) the next time, and r
 deleted, and is never trusted: a `.kurtc` only holds hints, which the kernel checks each time;
 the reasons Kurt prints and `cert` only show a check that already happened; and `save` writes
 Kurt source again, not a snapshot of facts.
+
+`kurt foo.kurtc` shows the certificates of `foo.kurt`, line by line, as `cert` does: the goal, the
+rule (with its file and line), the values of its variables, and the facts it uses, and the
+blocks it closes. Kurt checks `foo.kurt` for that (quietly, with the `.kurtc`), so what is shown
+was checked by the kernel; the first line says whether the `.kurtc` still belongs to the file.
 
 
 ## 2. Lexical structure
@@ -165,7 +171,11 @@ juxtaposition is space-application regardless.
 
 Function application binds more tightly than every other operator, as in
 mathematics: `f x + y` and `f(x) + y` are `(f x) + y`, and `s n in Nat` is
-`(s n) in Nat`. Parentheses only group, so `f(x)` is just `f x`.
+`(s n) in Nat`. Parentheses only group, so `f(x)` is just `f x` -- with one
+difference: a bracket written directly after a symbol, without a space, makes
+one term that binds more tightly still. So `inv det(A)` is `inv (det A)` (while
+`inv det (A)` is `(inv det) A`), and in the condition of a binder,
+`∀ $x ∈ Perp(M) Q($x)` reads `Perp(M)` as one term.
 
 ### 3.2 Constants vs. variables
 
@@ -300,6 +310,11 @@ least 2 (the bound variable plus at least one more argument), and it must
 not already be declared as any kind of operator or already used in a
 formula.
 
+The scope of the bound variable is the condition and the *last* argument,
+the body; arguments in between are outside of it, as in mathematics: in
+`sum i (a, b) T` the range `(a, b)`, in `lim v a T` the point `a`. So in
+`sum x (0, n) (sum x (0, x) x)`, the inner range `(0, x)` is the outer `x`.
+
 A schema variable in the body of a binder normally stands for something
 that does *not* depend on the bound variable — in `(∀ $x ($x = $T))`, `$T`
 is one fixed term. A boolean `%A` may depend on it (that's what
@@ -314,7 +329,12 @@ axioms only ever use with something substituted for `$i`.
 it: `∀ $n ∈ Nat P $n`, `∃ $d > 0 ...`, `lim $x > 0 0 (f $x)`. Unbracketed,
 it is a relation whose left-hand side is the variable; its right-hand side
 extends over infix operators (`∀ $x ∈ A ∪ B ...`) but stops at the first
-function application, which is where the body starts. In parentheses, any
+function application, which is where the body starts -- except for `f(x)`
+written without a space, which stays in the condition (`∀ $x ∈ Perp(M) ...`).
+In a formula outside of a block, write the variable of a condition with `$`
+(`∀ $x ∈ M ...`): a plain name there is a new constant, and then the
+condition has no variable to bind ("first arg must ... contain at least one
+free variable"); `∀ x (...)` without a condition and `let x ∈ M` are fine. In parentheses, any
 condition works, `∀ ($x > 0 ∧ $x < 1) (P $x)`, as long as it contains
 exactly one variable (a `$`-variable or one declared `var`), which is the
 one being bound — it may occur more than once. A relation may contain
@@ -499,6 +519,13 @@ symbol `true`, are the only rules hard-coded directly in Python — see
 implies C` all separately in the theory, deriving `C` in one step is *not*
 automatic — you must first derive `B` as its own line. See
 `dev/todo-claude.md` for the design questions around making this multi-hop.
+
+One exception, for rewriting: a rewriting step (a chain `X = A` / `= B`, or a
+claim that changes one place of a recent fact) may use a rule with
+conditions, e.g. `$a ∈ K ⇒ 1 · $a = $a`, if the conditions are facts. Kurt
+then derives the instance (`1 · b = b`, with the fact `b ∈ K`) as a step of
+its own, shown as line `17a` before line 17, and rewrites with it. Both steps
+have their certificates, which the kernel checks.
 
 A claim that's structurally identical to the last thing already in the
 theory is logged as a restatement of it (`by 2`), without being added again.
@@ -754,12 +781,14 @@ declaring their own prerequisites via their own `load` lines:
 |---|---|---|
 | `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
 | `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
-| `logic.kurt` | forall-elim, exists-intro, and the rules for quantifiers with a condition (§4.4) (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
-| `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings (`→`, function-space membership; no function extensionality, which is false for mappings as opaque objects) | `equality`, `logic` |
-| `arith.kurt` | arithmetic | `equality` |
-| `natural.kurt` | natural numbers, induction | `set`, `arith` |
+| `logic.kurt` | forall-elim, exists-intro, the rules for quantifiers with a condition (§4.4), and rewriting under a quantifier ("forall-iff", "exists-iff": from `∀ x (A ⇔ B)`, `(∀ x A) ⇔ (∀ x B)`) (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
+| `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings as sets of pairs (`f ∈ (A → B)`: `f ⊂ A × B` with one pair `(a, f a)` for each `a ∈ A`), "apply-in", "function-extensionality" | `equality`, `logic` |
+| `arith.kurt` | arithmetic; the order (`<`, `<=`, `>`, `>=` and how they relate) | `equality` |
+| `natural.kurt` | natural numbers, induction; `0 <= n`, the predecessor, no number between n and n + 1, the well-ordering principle (proven from induction); `even` and `odd` (every number is one of them, none both); divisibility `∣` (`\mid`), `coprime` | `set`, `arith`, `logic` |
+| `integer.kurt` | integers `Int`: the natural numbers and their negatives, closed under `+`, `-`, `*` | `natural` |
+| `rational.kurt` | rationals `Rat`: m / n with m ∈ `Int`, n ∈ `Nat`, n ≠ 0; closed under `+`, `-`, `*`, `/`; "lowest-terms": a positive rational is m / n with coprime m, n (proven from the well-ordering) | `integer` |
 | `group.kurt` | groups: `group(G, (∘), e, inv)` defined by `closed`, `associative`, `identity`, `inverse`; rules for single steps ("group-associative", "group-right-inverse", ...); theorems: the identity and the inverse are unique, `inv (inv a) = a`. `∘` is an operator variable, so it all holds for any group, e.g. `group(R, (+), 0, (-))` | `set` |
-| `analysis.kurt` | `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |
+| `analysis.kurt` | `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, `argmax`/`argmin` over a set (*some* place of the maximum, `argmax $v ∈ A T`), limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |
 
 `modal.kurt` is an **experimental example**, rather than one of the mature theories above. It
 demonstrates `□`/`◇`, duality, distribution, the K distribution axiom, and the T axiom in its
@@ -846,7 +875,10 @@ closes as many levels as the drop in indentation implies, applying
 whatever each level's closing rule is (`impl-intro`, `forall-intro`, ...,
 below). There is no separate "shell mode" for this: the interactive shell
 reads real leading whitespace exactly like a file does, so pasting file
-content into `kurt -i` behaves the same as running it as a file. Two
+content into `kurt -i` behaves the same as running it as a file. To help
+with typing, the shell (at a terminal, with readline) starts each line with
+the indentation of the current block, one level (four spaces) deeper after a
+line that opens a block; a backspace dedents. Two
 keywords remain as *optional* alternatives to dedenting, and work
 identically in files and the shell: `qed` (§7 — still needs a real dedent,
 but also checks you're closing a `proof`) and `break` (§9.5 — needs no
@@ -888,7 +920,8 @@ ordinary "can not derive" on that final line, not a `case`-specific error.
 ### 9.2 `let`
 
     let SYMBOL             ; or a comma-separated list: let x, y, z
-    let SYMBOL CONDITION    ; e.g. let x>0
+    let CONDITION           ; e.g. let x>0
+    let SYMBOL with CONDITION   ; the same, naming the constant, e.g. let x with P(x)
         ...
 
 Introduces one or more brand-new constants (each must not already be a
@@ -896,12 +929,18 @@ declared constant). A condition (`let x>0`) also `use`s the condition as a
 local axiom, in one step. Closing the block derives "forall-intro": the
 last thing proven inside becomes universally quantified over each new
 constant, in reverse declaration order, skipping any that turn out to be
-boolean variables. (`let`'s error messages, as of this writing, still say
-"`fix`" — an old name for this keyword — see `dev/todo-claude.md`.)
+boolean variables. `let x with C` is `let C`, with the constant named: it
+is rejected if `C` is about another symbol.
+
+`let` and `pick` take their conditions the same way, but they are opposite
+rules: `let` *assumes* the condition for an arbitrary `x` and gives "for all
+x" (∀-introduction); `pick` needs a known `∃` and gives a witness
+(∃-elimination). A `pick` without a matching `∃` says so, and suggests `let`.
 
 ### 9.3 `pick`
 
     pick SYMBOL with FACT
+    pick FACT              ; the same, with the SYMBOL that FACT is about, e.g. pick c > 0
         ...
 
 Requires some already-known formula `exists $x P` in the theory such that
@@ -913,6 +952,11 @@ constant introduced on the block's own level) — with that check passed, it
 becomes the block's result on the parent level, without any reference to
 the witness.
 
+From an existential with a condition, `exists $x > 0 P $x` (§4.4), `FACT` is the condition and
+the body for the witness: `pick c with c > 0 ∧ P c` -- as logic.kurt's "exists-cond-def" says,
+`∃ (sub $x $v %C) %P` is `∃ $w ((sub $x $w %C) ∧ (sub $v $w %P))`, so no detour through that
+rule is needed.
+
 `SYMBOL` must be a bare new-or-existing name, unlike `let`'s otherwise
 similar `let SYMBOL` / `let SYMBOL>0` (§9.2) — a `pick`ed witness can never
 carry an extra condition of its own the way a `let`-bound one can: `let`'s
@@ -921,7 +965,9 @@ closes, but a `pick`ed witness is existential, so an unearned extra
 condition on it would just be an unproven fact about a specific value, not
 a sound derivation. `pick x>0 with FACT` is therefore rejected outright
 (`EvalError`) rather than silently accepted or silently ignored; the
-witness's only property comes from `FACT` itself.
+witness's only property comes from `FACT` itself. Without `with`, as in
+`pick c > 0`, the whole line is the `FACT` (as `let c > 0` is the condition),
+and the witness is the one new symbol it is about.
 
 ### 9.4 `sandbox`
 
@@ -968,7 +1014,7 @@ having raised, *that itself* is now the failure (`ExpectationError: this
 raises but of the *wrong* kind, that's also a failure, reported with both
 kinds shown.
 
-This exists so a proof file (or a lesson, see `tutorial/16-expect.kurt`) can
+This exists so a proof file (or a lesson, see `keywords/16-expect.kurt`) can
 demonstrate a mistake and have Kurt itself confirm it still fails the
 expected way, rather than relying on a comment nobody re-checks, or on a
 separate test harness matching exact (and therefore fragile — see
@@ -982,10 +1028,12 @@ last case the line that triggered the dedent is already outside the
 `expect` block, so it is still evaluated afterwards. Any lines of the
 block after the one that raised the error are skipped. Since the content
 of an `expect` block is always discarded, `use` is allowed inside it (see
-§6.2). What `expect` can't do is check the error *message* — a test whose
-point is a specific message still uses a `;;; ` marker (see
-`tests/how-to-write-test-proofs.md`); and a `break` inside `expect` closes
-the `expect` block itself.
+§6.2). A second string is a text that the error message must contain:
+`expect "ProofError" "can not derive"` (a string can't contain `"`). A
+`break` inside `expect` closes the `expect` block itself; an error that only
+a whole file can make (a block still open at its end, `break` at its top
+level, ...) is checked by `expect` around a `load` of such a file (see
+`tests/how-to-write-test-proofs.md`).
 
 ## 10. Session toggles and output
 
@@ -1006,7 +1054,11 @@ Kurt's built-in calculator, whose operations are `add`, `subtract`, `negate`,
     calc + add, - subtract, - negate, * multiply, / divide, ^ power
     calc = eq, ≠ ne, < lt, <= le, > gt, >= ge
 
-and a symbol that isn't bound is never computed. A binding is like an axiom
+and a symbol that isn't bound is never computed. Sets of numbers, too: the
+calculator knows `naturals`, `integers` and `rationals`, natural.kurt does
+`calc Nat naturals` (integer.kurt and rational.kurt likewise for `Int` and
+`Rat`), and set.kurt `calc in element`; then `calc on` proves `3 ∈ Nat` and
+`-3 ∈ Int`, but not `-3 ∈ Nat`. A binding is like an axiom
 (`1 + 1 = 2`, `2 + 1 = 3`, ...), so `--strict` rejects it outside the trusted
 theories, and the symbols of a trusted theory can't be bound anew. Numbers
 are exact: integers, decimals (`0.1` is exactly one tenth, so `0.1 + 0.2 =

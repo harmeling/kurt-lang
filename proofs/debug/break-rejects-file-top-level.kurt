@@ -6,9 +6,7 @@
 ; bookkeeping (it expects to be the only one popping that particular level). Fixed via
 ; `KnowledgeBase.is_load_boundary`, set only on that implicit level.
 ;
-; note: this can't use `expect` -- inside an `expect` block, `break` would close that block
-; instead of reaching the top level, so the `;;; ` marker convention is used.
-bool A
-use A
-break
-;;; EvalError: `break` has no block to close here -- this is the top level of the file, not a `sandbox` you opened yourself
+; `break` inside an `expect` block would close that block instead of reaching the top level, so
+; the file with the `break` is a helper, loaded here.
+expect "EvalError" "`break` has no block to close here -- this is the top level of the file"
+    load "helpers/break-at-top-level.kurt"

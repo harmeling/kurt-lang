@@ -37,7 +37,7 @@ alias ∧ and
 ; (`$A implies $A`) and a general "impl-intro" schema
 ; (`($A implies $B) implies ($A implies $B)`) as bare axioms -- neither is reachable as
 ; a standalone fact (e.g. a bare `A implies A` does not derive from nothing). Prove a
-; specific instance instead, with `show`/`proof`/`assume`/`qed` (see `tutorial/`,
+; specific instance instead, with `show`/`proof`/`assume`/`qed` (see `keywords/`,
 ; lessons 08-proof and 18-assume). `not`/`false` themselves also aren't declared here at
 ; all -- see `prop.kurt` for those, and for a general, always-available "not-intro".
 
@@ -67,6 +67,3 @@ bool   forall 0 2, exists 0 2                ; position 2 (the body) must be boo
 const  forall, exists
 alias  ∀ forall
 alias  ∃ exists
-
-; for automatic testing we add the following line (in this case we should fail, because of `false`):
-;;; ProofError: can not derive `false`

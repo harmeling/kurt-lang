@@ -1,0 +1,31 @@
+; 16-diagnose-can-not-derive.kurt
+;
+; Diagnose “can not derive”
+;
+; Kurt searches for one justified inference at a time. A mathematically true conclusion may still
+; need intermediate lines. When a line fails:
+;
+; 1. Check that the required theory is loaded. `not`/`or` need `prop`, equality needs `equality`,
+;    quantifier rules need `logic`, and arithmetic rules need `arith`.
+; 2. Check the exact parsed form with `parse EXPRESSION`, especially around precedence, function
+;    application, and custom operators.
+; 3. Use `theory` or `theory OPERATOR` to see which facts are currently available.
+; 4. Write the missing intermediate conclusion explicitly. Do not expect multi-hop search.
+; 5. For an implication rule, make its entire premise available as facts. Some rules require a
+;    conjunction as one fact, notably induction.
+; 6. Check whether a fact was kept inside a block or was not exported by a loaded file.
+; 7. Turn `calc` on only when concrete arithmetic should be normalized; turn it off when the
+;    unreduced expression is needed for a rewrite.
+; 8. Use `cert` on the preceding successful step to compare its exact formula with the failed goal.
+;
+; A good development loop is:
+
+;     show GOAL
+;     proof
+;         ; write the intended strategy as comments
+;         ; try one small inference
+;         ; if it fails, add the missing bridge as another line
+;     qed
+
+; The complete version of this workflow, including a deliberate failed attempt and repair, is
+; `keywords/45-worked-proof.kurt`.

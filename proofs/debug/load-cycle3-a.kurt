@@ -1,6 +1,0 @@
-; regression test for a *3-file* `load` cycle (a.kurt -> b.kurt -> c.kurt -> a.kurt),
-; companion to the 2-file load-cycle-a.kurt/load-cycle-b.kurt: `_loading_in_progress`'s
-; cycle check is a generic set membership test, not hardcoded to a 2-file back-and-forth,
-; but that was never actually verified with a longer chain until now.
-load "load-cycle3-b.kurt"
-;;; EvalError: circular `load`:

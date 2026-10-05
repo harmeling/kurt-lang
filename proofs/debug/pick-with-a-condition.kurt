@@ -1,0 +1,23 @@
+; `pick` from an existential with a condition: the witness gets the condition and the body, as
+; logic.kurt's "exists-cond-def" says (`∃ (sub $x $v %C) %P` is `∃ $w ((sub $x $w %C) and (sub $v $w %P))`)
+load logic, arith
+bool P, Q
+arity P 1, Q 1
+use ∃ $y > 0 P $y
+pick c with c > 0 ∧ P c
+    P c
+    ∃ $z P $z
+∃ $z P $z
+
+; the fact must be exactly the condition and the body (`Q` has only the existential with a condition)
+use ∃ $y > 0 Q $y
+expect "ProofError"
+    pick d with Q d
+expect "ProofError"
+    pick d with d > 1 ∧ Q d
+
+; the witness can't leave the block
+expect "ProofError"
+    pick d with d > 0 ∧ Q d
+        d > 0
+true

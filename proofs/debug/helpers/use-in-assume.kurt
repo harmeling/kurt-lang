@@ -1,0 +1,4 @@
+; `use` inside `assume` (see ../use-not-allowed-in-proof-blocks.kurt)
+bool A, B
+assume A
+    use B

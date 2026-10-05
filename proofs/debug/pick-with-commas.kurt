@@ -1,0 +1,18 @@
+; `pick` with a comma inside its formula (a function with two arguments, a pair): `pick` isn't
+; parsed as one expression, its tokens are split at commas -- which used to split inside brackets
+; too ("one `pick` per line")
+load set
+arity P 2
+const Q
+use ∃ $x P($x, $x)
+pick m with P(m, m)
+    P(m, m)
+    ∃ $x P($x, $x)
+
+use ∃ $x ∃ $y (P($x, $y) ∧ ($x, $y) ∈ Q)
+pick a with ∃ $y (P(a, $y) ∧ (a, $y) ∈ Q)
+    pick b with P(a, b) ∧ (a, b) ∈ Q
+        (a, b) ∈ Q
+        ∃ $z ($z ∈ Q)
+    ∃ $z ($z ∈ Q)
+∃ $z ($z ∈ Q)

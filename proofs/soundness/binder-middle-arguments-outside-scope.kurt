@@ -1,0 +1,21 @@
+; the middle arguments of a binder -- the range of `sum i (a, b) T`, the point of `lim v a T` --
+; are outside the scope of its variable, as in mathematics: in `sum x (0, n) (sum x (0, x) x)`,
+; the inner range `(0, x)` is the outer `x` (decided 2026-10-05; before, every argument of a
+; binder was inside its scope, and the kernel was inconsistent about it)
+load analysis
+const n, f
+arity f 1
+
+; "sum-last" substitutes the outer x also into the range of the inner sum
+(sum x (0, n + 1) (sum x (0, x) x)) = (sum x (0, n + 1) x) + (sum x (0, n) (sum x (0, x) x))
+
+; instantiating a ∀ with the name of the binder: no capture, the range is outside
+use ∀ y ((sum x (0, y) x) = f y)
+(sum x (0, n) x) = f n
+(sum x (0, x) x) = f x
+
+; the outer w is the range of the sum, the inner w its variable: instantiating the outer one
+; replaces the range only
+use ∀ w ((sum w (0, w) w) = 5)
+(sum w (0, 3) w) = 5
+(sum v (0, 3) v) = 5

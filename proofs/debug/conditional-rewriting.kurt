@@ -1,0 +1,18 @@
+; rewriting inside a term with a rule that has conditions: from `$a ∈ K ⇒ $a · 1 = $a` and the fact
+; `b ∈ K`, the step `c · (b · 1) = a` → `c · b = a` -- the instance `b · 1 = b` is derived and added
+; as a step of its own (line `8a`), and the rewriting uses it (2026-10-05; before, the instance had
+; to be a line of the proof)
+load set
+infix + 60 60
+infix · 70 70
+const K, a, b, c
+use $a ∈ K  ⇒  $a · 1 = $a      "K7"
+use b ∈ K
+use c · (b · 1) = a
+c · b = a
+
+; also in a chain, with the conditions of two rules
+use $a ∈ K ∧ $b ∈ K  ⇒  $a · $b = $b · $a      "K6"
+use c ∈ K
+c · (b · 1) = c · b
+            = b · c

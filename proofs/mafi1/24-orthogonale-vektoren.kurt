@@ -1,0 +1,106 @@
+; orthogonale Vektoren -- the orthogonal complement (lecture "Mathematik für Informatik 1"
+; (mafi1), deck 24-orthogonale-vektoren); orthogonality and Pythagoras are in skalarprodukt.kurt
+load skalarprodukt
+arity Perp 1
+
+; M^⊥ = { v ∈ V | ∀ u ∈ M : v ⊥ u }
+def Perp($M) = { $v ∈ V | ∀ $u ∈ $M (⟨$v, $u⟩ = 0) }                 "Perp"
+
+; Satz: M^⊥ is a subspace of V (for M ⊂ V)
+show $M ⊂ V  ⇒  subspace(Perp($M))                                   "Perp-subspace"
+proof
+    assume $M ⊂ V
+        ∀ $c ($c ∈ $M  implies  $c ∈ V)
+        ; M^⊥ ⊂ V
+        let c
+            assume c ∈ Perp($M)
+                c ∈ { $v ∈ V | ∀ $u ∈ $M (⟨$v, $u⟩ = 0) }        ; Perp
+                c ∈ V ∧ ∀ $u ∈ $M (⟨c, $u⟩ = 0)                 ; separation
+                c ∈ V
+        ∀ $c ($c ∈ Perp($M)  implies  $c ∈ V)
+        Perp($M) ⊂ V
+        ; (U1): 0 ∈ M^⊥
+        0 ∈ V
+        let u ∈ $M
+            u ∈ $M  implies  u ∈ V
+            u ∈ V
+            ⟨0, u⟩ = 0                                  ; S-zero-left
+        ∀ $u ∈ $M (⟨0, $u⟩ = 0)
+        0 ∈ V ∧ ∀ $u ∈ $M (⟨0, $u⟩ = 0)
+        0 ∈ { $v ∈ V | ∀ $u ∈ $M (⟨$v, $u⟩ = 0) }      ; separation
+        0 ∈ Perp($M)
+        ∃ $x ($x ∈ Perp($M))
+        ; (U2): v + w ∈ M^⊥
+        let v ∈ Perp($M)
+            let w ∈ Perp($M)
+                v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }
+                w ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }
+                v ∈ V ∧ ∀ $u ∈ $M (⟨v, $u⟩ = 0)
+                w ∈ V ∧ ∀ $u ∈ $M (⟨w, $u⟩ = 0)
+                v ∈ V
+                w ∈ V
+                ∀ $u ∈ $M (⟨v, $u⟩ = 0)
+                ∀ $u ∈ $M (⟨w, $u⟩ = 0)
+                v + w ∈ V
+                let u ∈ $M
+                    u ∈ $M  implies  u ∈ V
+                    u ∈ V
+                    ⟨v, u⟩ = 0
+                    ⟨w, u⟩ = 0
+                    ⟨v + w, u⟩ = ⟨v, u⟩ + ⟨w, u⟩        ; S1
+                               = 0 + ⟨w, u⟩
+                               = 0 + 0
+                               = 0
+                ∀ $u ∈ $M (⟨v + w, $u⟩ = 0)
+                v + w ∈ V ∧ ∀ $u ∈ $M (⟨v + w, $u⟩ = 0)
+                v + w ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }   ; separation
+                v + w ∈ Perp($M)
+        ∀ $x ∈ Perp($M) ∀ $y ∈ Perp($M) ($x + $y ∈ Perp($M))
+        ; (U3): λ v ∈ M^⊥
+        let a ∈ K
+            let v ∈ Perp($M)
+                v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }
+                v ∈ V ∧ ∀ $u ∈ $M (⟨v, $u⟩ = 0)
+                v ∈ V
+                ∀ $u ∈ $M (⟨v, $u⟩ = 0)
+                a · v ∈ V
+                let u ∈ $M
+                    u ∈ $M  implies  u ∈ V
+                    u ∈ V
+                    ⟨v, u⟩ = 0
+                    ⟨a · v, u⟩ = a · ⟨v, u⟩             ; S1
+                               = a · 0
+                               = 0
+                ∀ $u ∈ $M (⟨a · v, $u⟩ = 0)
+                a · v ∈ V ∧ ∀ $u ∈ $M (⟨a · v, $u⟩ = 0)
+                a · v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }   ; separation
+                a · v ∈ Perp($M)
+        ∀ $a ∈ K ∀ $x ∈ Perp($M) ($a · $x ∈ Perp($M))
+        subspace(Perp($M))
+qed
+
+; Satz: M ∩ M^⊥ = {0} if 0 ∈ M -- "⊂": only 0 is in both
+show $v ∈ $M ∧ $v ∈ Perp($M)  ⇒  $v = 0                              "Perp-meet"
+proof
+    assume $v ∈ $M ∧ $v ∈ Perp($M)
+        $v ∈ $M
+        $v ∈ Perp($M)
+        $v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }     ; Perp
+        $v ∈ V ∧ ∀ $u ∈ $M (⟨$v, $u⟩ = 0)              ; separation
+        $v ∈ V
+        ∀ $u ∈ $M (⟨$v, $u⟩ = 0)
+        ⟨$v, $v⟩ = 0                                    ; v ⊥ v
+        $v = 0                                          ; S3-zero
+qed
+
+; "⊃", which the slide doesn't write out: 0 is in both
+show $M ⊂ V ∧ 0 ∈ $M  ⇒  0 ∈ $M ∩ Perp($M)                           "Perp-meet-zero"
+proof
+    assume $M ⊂ V ∧ 0 ∈ $M
+        $M ⊂ V
+        0 ∈ $M
+        subspace(Perp($M))                              ; Perp-subspace
+        0 ∈ Perp($M)                                    ; U-zero
+        0 ∈ $M ∧ 0 ∈ Perp($M)
+        0 ∈ $M ∩ Perp($M)
+qed

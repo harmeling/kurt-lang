@@ -1,0 +1,20 @@
+; 11-prove-a-statement-by-induction.kurt
+;
+; Prove a statement by induction
+;
+; `natural.kurt` provides the induction principle. Supply the base case and induction step as one
+; conjunction, because application of the induction rule is a single inference step.
+
+load natural
+bool P
+arity P 1
+const P
+
+use P(0) and (forall $n in Nat (P($n) implies P($n + 1)))  "base-and-step"
+
+forall $n in Nat P($n)
+forall $n ($n in Nat implies P($n))
+5 in Nat implies P(5)
+
+; For a real proof, derive the base and step in a preceding proof block instead of introducing
+; them with `use`. Keep the resulting conjunction available as one fact before invoking induction.

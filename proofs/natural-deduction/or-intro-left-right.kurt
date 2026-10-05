@@ -11,6 +11,6 @@ use %B implies %A or %B                                             "or-intro-ri
 
 bool p, q
 use q
-q ∨ p
+expect "ProofError" "can not derive `q ∨ p`"
+    q ∨ p
 p ∨ q
-;;; ProofError: can not derive `q ∨ p`

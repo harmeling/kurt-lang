@@ -133,3 +133,10 @@ expect "EvalError"
 ; `load` needs a file that exists
 expect "EvalError"
     load no-such-theory
+
+; an alias must be a new name, without declarations of its own -- set.kurt had `bool ∈ 0` and then
+; `alias ∈ in`, and the two declarations could have differed (2026-10-02)
+bool el 0
+expect "EvalError"
+    alias el plus
+true

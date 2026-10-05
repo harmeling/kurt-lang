@@ -1,0 +1,85 @@
+; Gruppen -- groups (lecture "Mathematik für Informatik 1" (mafi1), deck 07-koerper)
+;
+; A group needs (G1), (G3) and (G4) only, where (G3) and (G4) give a neutral element and inverses
+; from the right; Satz a shows that they also work from the left (after Bosch, Algebra, p. 286).
+; As in koerper.kurt, the existential axioms come with names: `e` and `inv a`.
+load set
+infix ∘ 70 70
+const G, e, inv
+
+use $a ∈ G ∧ $b ∈ G  ⇒  $a ∘ $b ∈ G                                  "G-closed"
+use e ∈ G                                                            "G-e"
+use $a ∈ G  ⇒  inv $a ∈ G                                            "G-inv"
+
+use $a ∈ G ∧ $b ∈ G ∧ $c ∈ G  ⇒  ($a ∘ $b) ∘ $c = $a ∘ ($b ∘ $c)     "G1"
+use $a ∈ G  ⇒  $a ∘ e = $a                                           "G3"
+use $a ∈ G  ⇒  $a ∘ (inv $a) = e                                     "G4"
+
+; Satz a (iii): a right inverse is a left inverse, a b = e ⇒ b a = e
+show $a ∈ G ∧ $b ∈ G ∧ $a ∘ $b = e  ⇒  $b ∘ $a = e                   "left-inverse"
+proof
+    assume $a ∈ G ∧ $b ∈ G ∧ $a ∘ $b = e
+        $a ∈ G
+        $b ∈ G
+        $a ∘ $b = e                                     ; (i)
+        ; by (G4) there is a c with (ii) b c = e
+        inv $b ∈ G
+        $b ∘ $a ∈ G
+        ($b ∘ $a) ∘ $b ∈ G
+        $b ∘ $a = ($b ∘ $a) ∘ e                         ; G3
+                = ($b ∘ $a) ∘ ($b ∘ (inv $b))           ; (ii)
+                = (($b ∘ $a) ∘ $b) ∘ (inv $b)           ; G1
+                = ($b ∘ ($a ∘ $b)) ∘ (inv $b)           ; G1
+                = ($b ∘ e) ∘ (inv $b)                   ; (i)
+                = $b ∘ (inv $b)                         ; G3
+                = e                                     ; (ii)
+qed
+
+; Satz a (iv): the neutral element is neutral from the left too, e a = a
+show $a ∈ G  ⇒  e ∘ $a = $a                                          "left-neutral"
+proof
+    assume $a ∈ G
+        inv $a ∈ G
+        $a ∘ (inv $a) = e                               ; G4
+        e ∘ $a = ($a ∘ (inv $a)) ∘ $a                   ; (i)
+               = $a ∘ ((inv $a) ∘ $a)                   ; G1
+               = $a ∘ e                                 ; (iii)
+               = $a                                     ; G3
+qed
+
+; Satz b: cancellation from the right, b a = c a ⇒ b = c
+show $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $b ∘ $a = $c ∘ $a  ⇒  $b = $c        "cancel-right"
+proof
+    assume $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $b ∘ $a = $c ∘ $a
+        $a ∈ G
+        $b ∈ G
+        $c ∈ G
+        $b ∘ $a = $c ∘ $a
+        inv $a ∈ G
+        $b = $b ∘ e                                     ; G3
+           = $b ∘ ($a ∘ (inv $a))                       ; G4
+           = ($b ∘ $a) ∘ (inv $a)                       ; G1
+           = ($c ∘ $a) ∘ (inv $a)                       ; assumption
+           = $c ∘ ($a ∘ (inv $a))                       ; G1
+           = $c ∘ e                                     ; G4
+           = $c                                         ; G3
+qed
+
+; Satz b: cancellation from the left, a b = a c ⇒ b = c ("analog", with Satz a)
+show $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $a ∘ $b = $a ∘ $c  ⇒  $b = $c        "cancel-left"
+proof
+    assume $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $a ∘ $b = $a ∘ $c
+        $a ∈ G
+        $b ∈ G
+        $c ∈ G
+        $a ∘ $b = $a ∘ $c
+        inv $a ∈ G
+        $a ∘ (inv $a) = e                               ; G4
+        $b = e ∘ $b
+           = ((inv $a) ∘ $a) ∘ $b
+           = (inv $a) ∘ ($a ∘ $b)
+           = (inv $a) ∘ ($a ∘ $c)
+           = ((inv $a) ∘ $a) ∘ $c
+           = e ∘ $c
+           = $c
+qed

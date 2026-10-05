@@ -123,10 +123,14 @@
         "activityBarTop.inactiveForeground": "#15202b99",
         "commandCenter.foreground": "#15202b",
         "statusBar.debuggingBackground": "#97f187",
-        "statusBar.debuggingForeground": "#15202b"
+        "statusBar.debuggingForeground": "#15202b",
+        "statusBar.inactiveBackground": "#97f187"
     },
     "peacock.color": "#97f187",
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
     "python.analysis.extraPaths": ["src"],
+    "files.associations": {
+        "*.kurtc": "json"
+    },
 }

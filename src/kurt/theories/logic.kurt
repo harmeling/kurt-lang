@@ -31,6 +31,12 @@ use (sub $x $a %C) and (sub $v $a %P)  implies  exists (sub $x $v %C) %P    "exi
 use (forall (sub $x $v %C) %P)  iff  forall $w ((sub $x $w %C) implies (sub $v $w %P))  "forall-cond-def"
 use (exists (sub $x $v %C) %P)  iff  exists $w ((sub $x $w %C) and (sub $v $w %P))      "exists-cond-def"
 
+; rewriting under a binder: an equivalence that holds for every x may replace one formula by the
+; other inside `∀ x` and `∃ x` (`iff-subst` can't, since its `sub` doesn't capture `x`). Axioms,
+; since a proof for any `%A` that depends on `$x` would need `sub` in its lines.
+use (forall $x (%A iff %B))  implies  ((forall $x %A) iff (forall $x %B))   "forall-iff"
+use (forall $x (%A iff %B))  implies  ((exists $x %A) iff (exists $x %B))   "exists-iff"
+
 ; ;; existsunique
 ; use %A and (forall $x (%A implies (forall $y (%A implies ($x = $y)))))  implies  existsunique $x %A  "existsunique-intro"
 ; use existsunique $x %A  implies  exists $x %A  "existsunique-elim-1"
@@ -60,5 +66,3 @@ use (exists (sub $x $v %C) %P)  iff  exists $w ((sub $x $w %C) and (sub $v $w %P
 ;     we match `%B implies %A` where we can assign `$%1` appropriately, since it appears free
 ;   - case 2: we match `%B` using `%B implies %A`, then we use that `%B` to match against
 ;     `exists $%1 %B`
-
-; for automatic testing we add the following line:

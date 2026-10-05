@@ -1,0 +1,28 @@
+; `let` and `pick` take their conditions the same way: `let x with C` is `let C` (if C is about x),
+; and `pick C` is `pick x with C` (x is the one C is about); a `pick` without a matching `∃
+; points to `let`
+load arith, logic
+bool P
+arity P 1
+let x with P(x)
+    P(x)
+∀ (P $x) (P $x)
+let y with y > 0
+    y > 0
+    y ≠ 0
+∀ $y > 0 ($y ≠ 0)
+expect "EvalError" "the condition is about `z`, not `w`"
+    let w with z > 0
+        z > 0
+
+use ∃ $x (P $x)
+pick c with P(c)
+    P(c)
+    ∃ $x (P $x)
+use ∃ $y ($y > 0)
+pick e > 0
+    e > 0
+    ∃ $x ($x > 0)
+expect "ProofError" "write `let f with ...` instead"
+    pick f < 0
+        true

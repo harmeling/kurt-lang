@@ -1,0 +1,5 @@
+; `load` inside `assume` (see ../load-not-in-proof-blocks.kurt)
+load prop
+bool A
+assume A
+    load modal

@@ -1,0 +1,4 @@
+; regression test for a `load` cycle: a.kurt loads b.kurt loads a.kurt.
+; this used to crash with an uncaught Python RecursionError instead of a
+; clean KurtException -- see `_loading_in_progress` in `load_file`.
+load "load-cycle-b.kurt"

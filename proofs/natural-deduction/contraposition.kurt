@@ -1,6 +1,5 @@
 ; contraposition.kurt
 load prop
-load excluded-middle      ; `%p ∨ ¬%p`, proven in excluded-middle.kurt
 var A, B
 
 ; lemma
@@ -14,7 +13,16 @@ proof
                 ¬A ∨ B
             assume ¬A
                 ¬A ∨ B
-            A ∨ ¬A                ; the excluded middle
+            ; the excluded middle, A ∨ ¬A: otherwise A, and also ¬A, would give A ∨ ¬A
+            assume ¬(A ∨ ¬A)
+                assume A
+                    A ∨ ¬A
+                    contradiction
+                ¬A
+                A ∨ ¬A
+                contradiction
+            ¬¬(A ∨ ¬A)
+            A ∨ ¬A                ; by not-elim
             ¬A ∨ B                ; by or-elim
     qed
     show (¬A ∨ B)  ⇒  (A ⇒ B)

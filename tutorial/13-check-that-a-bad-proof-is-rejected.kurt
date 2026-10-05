@@ -1,0 +1,24 @@
+; 13-check-that-a-bad-proof-is-rejected.kurt
+;
+; Check that a bad proof is rejected
+;
+; Use `expect "KIND"` for an example or regression that should fail. It checks the category of the
+; error; a second string, `expect "ProofError" "can not derive"`, is a text that the message must
+; contain.
+
+bool A, B
+use A
+
+expect "ProofError"
+    B
+
+true
+
+; Supported kinds are `ProofError`, `ParseError`, `EvalError`, `SyntaxError`, and `TypeError`. If
+; the block succeeds instead of raising the named error, the expectation itself fails.
+;
+; Use this pattern in teaching material and most negative regression proofs. Give the text only
+; when the message itself is the behavior under test:
+
+expect "ProofError" "can not derive `B`"
+    B

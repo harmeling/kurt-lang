@@ -1,0 +1,31 @@
+; 09-use-an-existential-witness.kurt
+;
+; Use an existential witness
+;
+; `pick` opens a block around a fresh witness obtained from an existential fact. The conclusion
+; leaving the block must not mention the witness.
+
+load logic
+bool P, B, C
+arity P 1
+const P, B, C
+
+use forall $x (P($x) implies B)
+use B implies C
+use exists $x P($x)
+
+show C
+proof
+    pick a with P(a)
+        P(a) implies B
+        B
+    C
+qed
+
+; Inside the block, `a` is one particular but unknown witness and `P(a)` is available. Closing the
+; block preserves `C` because `C` does not mention `a`.
+;
+; From an existential with a condition, `exists $x > 0 P($x)`, the fact about the witness is the
+; condition and the body: `pick c with c > 0 and P(c)`, or just `pick c > 0 and P(c)` (the
+; witness is the new name of the formula). `pick` needs the existential as a fact: to show
+; something for an arbitrary `x` with a property instead, use `let x with ...` (lesson 08).

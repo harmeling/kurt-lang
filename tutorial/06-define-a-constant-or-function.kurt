@@ -1,0 +1,27 @@
+; 06-define-a-constant-or-function.kurt
+;
+; Define a constant or function
+;
+; `def` gives one new symbol a conservative definition. Load `prop` for definitions with `iff`, or
+; `equality`/`arith` for definitions with `=`.
+
+load arith
+calc on
+
+def four = 2 + 2
+four = 4
+
+def square($x) = $x * $x
+square(3) = 9
+square(5) = 25
+
+; The left side must contain exactly one new symbol, optionally applied to distinct variables. All
+; variables on the right must also occur on the left. These are rejected because they are not
+; conservative definitions:
+
+;     def c = $x             ; an unconstrained variable appears only on the right
+;     def f($x, $x) = $x     ; repeated parameter
+;     def c * 0 = 1          ; the new symbol is not the defined head of a term
+
+; Use `use` for an axiom and `def` only for introducing a name whose meaning is fixed by existing
+; terms.

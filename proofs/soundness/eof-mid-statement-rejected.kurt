@@ -8,7 +8,6 @@
 ; a file that was silently truncated is exactly the kind of thing that must never happen:
 ; if kurt says a proof is fine, it must be fine. Fixed by raising a clear `ParseError`
 ; instead of breaking when EOF is hit while still mid-parse (`continued == True`).
-brackets { }
-parse {0, 1, 2
-true
-;;; ParseError: unexpected end of file while still parsing a statement that started around line
+; (the file that ends inside the statement is a helper, loaded here)
+expect "ParseError" "unexpected end of file while still parsing a statement"
+    load "helpers/eof-mid-statement.kurt"

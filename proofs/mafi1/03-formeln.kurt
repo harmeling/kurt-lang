@@ -1,0 +1,132 @@
+; Formeln -- formulas (lecture "Mathematik für Informatik 1" (mafi1), deck 03-formeln)
+;
+; Kontraposition and the five equivalences are in 11a-beweise.kurt and tautologien.kurt.
+load 11a-beweise, set
+const P
+arity P 1
+
+; negating quantifiers (i): ¬∀x P(x) ⇔ ∃x ¬P(x)
+show ¬(∀ x P(x))  ⇔  ∃ x ¬P(x)                                       "not-forall"
+proof
+    assume ¬(∀ x P(x))
+        assume ¬(∃ x ¬P(x))
+            let a
+                assume ¬P(a)
+                    ∃ x ¬P(x)
+                    ⊥
+                ¬¬P(a)
+                P(a)
+            ∀ x P(x)
+            ⊥
+        ¬¬(∃ x ¬P(x))
+        ∃ x ¬P(x)
+    assume ∃ x ¬P(x)
+        pick a with ¬P(a)
+            assume ∀ x P(x)
+                P(a)
+                ⊥
+            ¬(∀ x P(x))
+qed
+
+; (ii): ¬∃x P(x) ⇔ ∀x ¬P(x)
+show ¬(∃ x P(x))  ⇔  ∀ x ¬P(x)                                       "not-exists"
+proof
+    assume ¬(∃ x P(x))
+        let a
+            assume P(a)
+                ∃ x P(x)
+                ⊥
+            ¬P(a)
+        ∀ x ¬P(x)
+    assume ∀ x ¬P(x)
+        assume ∃ x P(x)
+            pick a with P(a)
+                ¬P(a)
+                ⊥
+            ⊥
+        ¬(∃ x P(x))
+qed
+
+; an equivalence is two implications
+show (%A ⇔ %B)  ⇔  (%A ⇒ %B) ∧ (%B ⇒ %A)                            "iff-as-and"
+proof
+    assume %A ⇔ %B
+        %A ⇒ %B
+        %B ⇒ %A
+        (%A ⇒ %B) ∧ (%B ⇒ %A)
+    assume (%A ⇒ %B) ∧ (%B ⇒ %A)
+        %A ⇒ %B
+        %B ⇒ %A
+        %A ⇔ %B
+qed
+
+; A = B ⇔ A ⊂ B ∧ B ⊂ A, as a chain of equivalences
+const A, B
+
+; ∀ distributes over ∧ (here for the formulas of the next proof)
+show (∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A)))  ⇔  (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))   "forall-and"
+proof
+    assume ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))
+        let y
+            (y ∈ A ⇒ y ∈ B) ∧ (y ∈ B ⇒ y ∈ A)
+            y ∈ A ⇒ y ∈ B
+        ∀ y (y ∈ A ⇒ y ∈ B)
+        let z
+            (z ∈ A ⇒ z ∈ B) ∧ (z ∈ B ⇒ z ∈ A)
+            z ∈ B ⇒ z ∈ A
+        ∀ z (z ∈ B ⇒ z ∈ A)
+        (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))
+    assume (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))
+        ∀ x (x ∈ A ⇒ x ∈ B)
+        ∀ x (x ∈ B ⇒ x ∈ A)
+        let y
+            y ∈ A ⇒ y ∈ B
+            y ∈ B ⇒ y ∈ A
+            (y ∈ A ⇒ y ∈ B) ∧ (y ∈ B ⇒ y ∈ A)
+        ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))
+qed
+
+show A = B  ⇔  A ⊂ B ∧ B ⊂ A                                         "set-equality"
+proof
+    ; the definition of ⇔ under the ∀ ("forall-iff")
+    (∀ x (x ∈ A ⇔ x ∈ B)) ⇔ ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))   ; forall-iff
+    A = B ⇔ ∀ x (x ∈ A ⇔ x ∈ B)                                        ; extensionality
+          ⇔ ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))                    ; forall-iff
+          ⇔ (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))              ; ∀ distributes over ∧
+          ⇔ A ⊂ B ∧ (∀ x (x ∈ B ⇒ x ∈ A))                              ; definition of ⊂
+          ⇔ A ⊂ B ∧ B ⊂ A                                              ; definition of ⊂
+qed
+
+; the two forms of injectivity are the same, by Kontraposition
+const f, M
+arity f 1
+show (∀ $x ∈ M ∀ $y ∈ M ($x ≠ $y ⇒ f($x) ≠ f($y)))  ⇔  (∀ $x ∈ M ∀ $y ∈ M (f($x) = f($y) ⇒ $x = $y))   "injective-forms"
+proof
+    assume ∀ $x ∈ M ∀ $y ∈ M ($x ≠ $y ⇒ f($x) ≠ f($y))
+        let x ∈ M
+            ∀ $y ∈ M (x ≠ $y ⇒ f(x) ≠ f($y))
+            let y ∈ M
+                x ≠ y ⇒ f(x) ≠ f(y)
+                assume f(x) = f(y)
+                    assume ¬(x = y)
+                        x ≠ y
+                        f(x) ≠ f(y)
+                        ¬(f(x) = f(y))
+                        ⊥
+                    ¬¬(x = y)
+                    x = y
+        ∀ $x ∈ M ∀ $y ∈ M (f($x) = f($y) ⇒ $x = $y)
+    assume ∀ $x ∈ M ∀ $y ∈ M (f($x) = f($y) ⇒ $x = $y)
+        let x ∈ M
+            ∀ $y ∈ M (f(x) = f($y) ⇒ x = $y)
+            let y ∈ M
+                f(x) = f(y) ⇒ x = y
+                assume x ≠ y
+                    ¬(x = y)
+                    assume f(x) = f(y)
+                        x = y
+                        ⊥
+                    ¬(f(x) = f(y))
+                    f(x) ≠ f(y)
+        ∀ $x ∈ M ∀ $y ∈ M ($x ≠ $y ⇒ f($x) ≠ f($y))
+qed

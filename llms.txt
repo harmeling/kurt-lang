@@ -23,8 +23,8 @@ Website: https://www.kurt-lang.org (the GitHub repository); playground: https://
 ## Docs
 
 - [Language reference](doc/kurt-doc.md): every keyword, the syntax, blocks, theories
-- [Cookbook](doc/kurt-cookbook.md): recipes for common proof tasks, each with a checked example
-- [Tutorial](tutorial/plan.md): numbered lessons, each a runnable `.kurt` file
+- [Tutorial](tutorial/): numbered lessons, task by task, each a runnable `.kurt` file
+- [Keywords](keywords/plan.md): numbered lessons, one keyword or idea each
 - [Soundness](doc/kurt-soundness.md): what the checker's correctness rests on
 
 ## Examples

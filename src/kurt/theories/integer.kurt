@@ -1,0 +1,62 @@
+; integers
+;
+; covers: `Int`, the integers -- the natural numbers and their negatives -- closed under `+`, `-`
+; and `*`. As for natural.kurt, they are numbers of arith.kurt, so its laws (and `calc`) apply.
+load natural
+const Int
+calc Int integers                   ; `calc on` proves `-3 ∈ Int`
+
+use $n ∈ Nat  ⇒  $n ∈ Int                         "int-nat"
+use $n ∈ Nat  ⇒  -$n ∈ Int                        "int-neg-nat"
+use $z ∈ Int  ⇒  $z ∈ Nat ∨ -$z ∈ Nat             "int-cases"      ; nothing else
+use $a ∈ Int ∧ $b ∈ Int  ⇒  $a + $b ∈ Int         "int-add"
+use $a ∈ Int ∧ $b ∈ Int  ⇒  $a - $b ∈ Int         "int-sub"
+use $a ∈ Int ∧ $b ∈ Int  ⇒  $a * $b ∈ Int         "int-mul"
+
+show 0 ∈ Int     "int-zero"
+proof
+    0 ∈ Nat
+    0 ∈ Int
+qed
+
+show 1 ∈ Int     "int-one"
+proof
+    1 ∈ Nat
+    1 ∈ Int
+qed
+
+show $z ∈ Int  ⇒  -$z ∈ Int     "int-neg"
+proof
+    assume $z ∈ Int
+        $z ∈ Nat ∨ -$z ∈ Nat
+        case $z ∈ Nat
+            -$z ∈ Int                                  ; int-neg-nat
+        case -$z ∈ Nat
+            -$z ∈ Int                                  ; int-nat
+        -$z ∈ Int
+qed
+
+; a positive integer is a natural number
+show $z ∈ Int ∧ $z > 0  ⇒  $z ∈ Nat     "int-pos-nat"
+proof
+    assume $z ∈ Int ∧ $z > 0
+        $z ∈ Int
+        $z > 0
+        $z ∈ Nat ∨ -$z ∈ Nat
+        case $z ∈ Nat
+            $z ∈ Nat
+        case -$z ∈ Nat
+            0 <= -$z                                   ; nat-nonneg
+            -$z >= 0                                   ; le-ge
+            -$z + $z >= 0 + $z                         ; ge-add
+            -$z + $z = 0                               ; add-inverse
+            0 + $z = $z                                ; add-identity
+            0 >= 0 + $z
+            0 >= $z
+            $z <= 0                                    ; le-ge
+            $z > 0 ∧ $z <= 0
+            ⊥                                          ; gt-le-contra
+            $z ∈ Nat
+        $z ∈ Nat
+qed
+

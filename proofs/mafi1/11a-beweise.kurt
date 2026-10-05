@@ -1,0 +1,54 @@
+; Beweise -- proof techniques (lecture "Mathematik für Informatik 1" (mafi1), deck 11a-beweise):
+; the laws that the slides derive from the tautologies by chains of equivalences
+load tautologien
+
+; tertium non datur, as an equivalence with ⊤
+show (%A ∨ ¬%A)  ⇔  ⊤                                                "tertium"
+proof
+    assume %A ∨ ¬%A
+        ⊤
+    assume ⊤
+        %A ∨ ¬%A                                        ; excluded-middle
+qed
+
+; ¬A ≡ A ⇒ ⊥
+show ¬%A  ⇔  (%A ⇒ ⊥)                                                "not-as-impl"
+proof
+    ¬%A ⇔ ¬%A ∨ ⊥                                       ; or-bottom
+        ⇔ (%A ⇒ ⊥)                                      ; impl-or
+qed
+
+; ⊥ ≡ A ∧ ¬A
+show ⊥  ⇔  %A ∧ ¬%A                                                  "bottom-as-and"
+proof
+    ⊥ ⇔ ¬⊤                                              ; not-top
+      ⇔ ¬(%A ∨ ¬%A)                                     ; tertium
+      ⇔ ¬%A ∧ ¬¬%A                                      ; de-morgan-or
+      ⇔ ¬%A ∧ %A                                        ; not-not
+qed
+
+; ex falso quodlibet: ⊥ ⇒ A is always true
+show (⊥ ⇒ %A)  ⇔  ⊤                                                  "ex-falso"
+proof
+    (⊥ ⇒ %A) ⇔ ¬⊥ ∨ %A                                  ; impl-or
+             ⇔ ⊤ ∨ %A                                   ; not-bottom
+             ⇔ ⊤                                        ; or-top
+qed
+
+; Kontraposition
+show (%A ⇒ %B)  ⇔  (¬%B ⇒ ¬%A)                                       "contraposition"
+proof
+    (%A ⇒ %B) ⇔ ¬%A ∨ %B                                ; impl-or
+              ⇔ ¬%A ∨ ¬¬%B                              ; not-not
+              ⇔ (¬%B ⇒ ¬%A)                             ; impl-or (∨ is symmetric)
+qed
+
+; Fallunterscheidung (case distinction)
+show ((%A ∨ %B) ⇒ %C)  ⇔  (%A ⇒ %C) ∧ (%B ⇒ %C)                      "case-distinction"
+proof
+    ((%A ∨ %B) ⇒ %C) ⇔ ¬(%A ∨ %B) ∨ %C                  ; impl-or
+                     ⇔ (¬%A ∧ ¬%B) ∨ %C                 ; de-morgan-or
+                     ⇔ (¬%A ∨ %C) ∧ (¬%B ∨ %C)          ; distrib-or
+                     ⇔ (%A ⇒ %C) ∧ (¬%B ∨ %C)           ; impl-or
+                     ⇔ (%A ⇒ %C) ∧ (%B ⇒ %C)            ; impl-or
+qed

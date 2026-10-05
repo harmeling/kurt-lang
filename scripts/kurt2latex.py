@@ -52,15 +52,47 @@ SYMBOLS = {
     '≠': r'\neq', '<=': r'\leq', '≤': r'\leq', '>=': r'\geq', '≥': r'\geq', 'in': r'\in',
     '∈': r'\in', '⊂': r'\subset', '∪': r'\cup', '∩': r'\cap', '∅': r'\emptyset',
     '→': r'\to', '*': r'\cdot', '□': r'\Box', '◇': r'\Diamond', 'λ': r'\lambda',
+    'invimplies': r'\Leftarrow', '⇐': r'\Leftarrow', '∉': r'\notin', '⊆': r'\subseteq',
+    '⊃': r'\supset', '⊇': r'\supseteq', '×': r'\times', '∘': r'\circ', '·': r'\cdot',
+    '∣': r'\mid', '↦': r'\mapsto', '⟨': r'\langle ', '⟩': r'\rangle ', '∞': r'\infty',
+    '|': r'\mid',
 }
+# single characters, also inside a word (`⟨a`, `f∘g`): Greek letters and the symbols above
+GREEK = {'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta', 'ε': 'varepsilon', 'ζ': 'zeta',
+         'η': 'eta', 'θ': 'theta', 'ι': 'iota', 'κ': 'kappa', 'λ': 'lambda', 'μ': 'mu', 'ν': 'nu',
+         'ξ': 'xi', 'π': 'pi', 'ρ': 'rho', 'σ': 'sigma', 'τ': 'tau', 'υ': 'upsilon', 'φ': 'varphi',
+         'χ': 'chi', 'ψ': 'psi', 'ω': 'omega', 'Γ': 'Gamma', 'Δ': 'Delta', 'Θ': 'Theta',
+         'Λ': 'Lambda', 'Π': 'Pi', 'Σ': 'Sigma', 'Φ': 'Phi', 'Ψ': 'Psi', 'Ω': 'Omega'}
+CHARS = {**{k: v for k, v in SYMBOLS.items() if len(k) == 1 and ord(k) > 127},
+         **{k: '\\' + v + ' ' for k, v in GREEK.items()}}
 
 LINE = re.compile(r'^( *)(.*?)\s*(?:; (.*))?$')
 
 
 def latex_formula(text: str) -> str:
-    text = text.replace('%', r'\%').replace('$', r'\$')
+    # `$a` and `%A` (variables) are written `a` and `A`, as in mathematics
+    text = re.sub(r'[$%]+([A-Za-z])', r'\1', text)
+    text = text.replace('%', r'\%').replace('$', r'\$').replace('&', r'\&').replace('#', r'\#')
     words = re.split(r'(\s+|[(){}\[\],])', text)
-    return ''.join(SYMBOLS.get(w, w) for w in words)
+    # a name of several letters (`inv`, `det`, `Nat`) upright, as `\mathrm{inv}`
+    words = [SYMBOLS.get(w, rf'\mathrm{{{w}}}' if re.fullmatch(r'[A-Za-z][A-Za-z0-9]+', w) else w) for w in words]
+    return ''.join(''.join(CHARS.get(c, c) for c in w) if not w.startswith('\\') else w for w in words)
+
+
+def latex_text(text: str) -> str:
+    # a reason or a comment: text, with the special characters of LaTeX escaped and the
+    # symbols in math mode
+    out = []
+    for c in text:
+        if c in '%$&#_{}':
+            out.append('\\' + c)
+        elif c in '~^\\':
+            out.append({'~': r'\textasciitilde{}', '^': r'\textasciicircum{}', '\\': r'\textbackslash{}'}[c])
+        elif c in CHARS:
+            out.append(f'${CHARS[c].strip()}$')
+        else:
+            out.append(c)
+    return ''.join(out)
 
 
 def latex_document(output: str, indent: int = 4) -> str:
@@ -74,8 +106,13 @@ def latex_document(output: str, indent: int = 4) -> str:
         if formula.startswith(';') or formula.startswith('Proof'):
             rows.append(f'% {line}')      # a note or the final verdict, kept as a comment
             continue
+        reason = latex_text(reason or '')
+        if formula == '' and rows and rows[-1].endswith(' \\\\'):
+            # the reason of a line with a comment of its own: Kurt prints it on the next line --
+            # here it goes after the comment, in the same row
+            rows[-1] = rows[-1][:-3] + f' --- {reason} \\\\'
+            continue
         quads = r'\quad' * (len(spaces) // indent)
-        reason = (reason or '').replace('%', r'\%').replace('_', r'\_')
         rows.append(f'${quads} {latex_formula(formula)}$ & {reason} \\\\')
     return HEADER + '\n'.join(rows) + '\n' + FOOTER
 

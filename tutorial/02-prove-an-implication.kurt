@@ -1,0 +1,20 @@
+; 02-prove-an-implication.kurt
+;
+; Prove an implication
+;
+; To prove `A implies C`, assume `A`, derive `C`, and leave the `assume` block. Closing the block
+; discharges the assumption and applies implication introduction.
+
+bool A, B, C
+use A implies B
+use B implies C
+
+show A implies C
+proof
+    assume A
+        B
+        C
+qed
+
+; The facts proved inside the block do not leak out individually. The result that leaves the block
+; is `A implies C`.

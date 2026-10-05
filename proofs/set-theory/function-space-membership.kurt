@@ -1,9 +1,40 @@
-; coverage test for set.kurt's "function-space"/"function-space-def": a mapping is modelled as
-; an opaque, applicable set object (kurt's ordinary space-application, `$f $a`), and `A → B` is
-; the set of all such objects that map every element of A into B.
+; coverage test for set.kurt's mappings: a mapping f ∈ (A → B) is a set of pairs, f ⊂ A × B, with
+; exactly one pair (a, b) for each a ∈ A ("function-space"), and `f a` is that b ("apply")
 load set
-const A, B, f
+const A, B, f, g, a
 
-use ∀ $a  ($a ∈ A implies (f $a) ∈ B)
-f ∈ (A → B)
-f : A → B
+use f ∈ (A → B)
+use g : A → B
+use a ∈ A
+(a, f a) ∈ f ∧ f a ∈ B                ; apply-in
+f a ∈ B
+
+; function extensionality: mappings from A that agree on A are equal
+use ∀ $x ∈ A (f $x = g $x)
+f = g
+
+; the empty mapping is the only mapping from ∅
+let c
+    assume c ∈ ∅
+        ¬(c ∈ ∅)
+        c ∈ ∅ ∧ ¬(c ∈ ∅)
+        ⊥
+        c ∈ ∅ × B
+∀ $c ($c ∈ ∅  implies  $c ∈ ∅ × B)
+∅ ⊂ ∅ × B
+let x ∈ ∅
+    ¬(x ∈ ∅)
+    x ∈ ∅ ∧ ¬(x ∈ ∅)
+    ⊥
+    ∃ $y ((x, $y) ∈ ∅)
+∀ $x ∈ ∅ ∃ $y (($x, $y) ∈ ∅)
+let x, y, z
+    assume (x, y) ∈ ∅ ∧ (x, z) ∈ ∅
+        (x, y) ∈ ∅
+        ¬((x, y) ∈ ∅)
+        (x, y) ∈ ∅ ∧ ¬((x, y) ∈ ∅)
+        ⊥
+        y = z
+∀ $x ∀ $y ∀ $z (($x, $y) ∈ ∅ ∧ ($x, $z) ∈ ∅  implies  $y = $z)
+∅ ⊂ ∅ × B ∧ (∀ $x ∈ ∅ ∃ $y (($x, $y) ∈ ∅)) ∧ ∀ $x ∀ $y ∀ $z (($x, $y) ∈ ∅ ∧ ($x, $z) ∈ ∅  implies  $y = $z)
+∅ ∈ (∅ → B)

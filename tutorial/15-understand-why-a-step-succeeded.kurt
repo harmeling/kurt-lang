@@ -1,0 +1,23 @@
+; 15-understand-why-a-step-succeeded.kurt
+;
+; Understand why a step succeeded
+;
+; Kurt prints a short reason beside every accepted formula. Labels replace raw source locations
+; when available. For more detail, use `cert` after a step:
+
+bool A, B
+use A implies B  "modus-ponens"
+use A
+B
+cert 4
+
+; The certificate shows:
+;
+; - the goal,
+; - the rule or fact used,
+; - variable instantiations,
+; - premises and their source locations, and
+; - the kernel's verdict.
+;
+; `cert` without a line number shows the most recent line with a certificate. `verbose` prints
+; more matching information while checking, but `cert` is usually the clearer first tool.

@@ -1,0 +1,145 @@
+; Untervektorräume -- subspaces (lecture "Mathematik für Informatik 1" (mafi1), deck
+; 06-untervektorraeume)
+load vektorraum
+const V
+use vectorspace(V)                                                  "V-vectorspace"
+arity subspace 1
+
+; U ⊂ V is a subspace of V if (U1), (U2) and (U3) hold
+def subspace($U)  ⇔  $U ⊂ V ∧ (∃ $x ($x ∈ $U)) ∧ (∀ $x ∈ $U ∀ $y ∈ $U ($x + $y ∈ $U)) ∧ (∀ $a ∈ K ∀ $x ∈ $U ($a · $x ∈ $U))   "subspace"
+
+; the parts of the definition, for use in the proofs below
+show subspace($U) ∧ $x ∈ $U  ⇒  $x ∈ V                              "U-in-V"
+proof
+    assume subspace($U) ∧ $x ∈ $U
+        subspace($U)
+        $U ⊂ V ∧ (∃ $y ($y ∈ $U)) ∧ (∀ $y ∈ $U ∀ $z ∈ $U ($y + $z ∈ $U)) ∧ (∀ $a ∈ K ∀ $y ∈ $U ($a · $y ∈ $U))
+        $U ⊂ V
+        ∀ $c ($c ∈ $U  implies  $c ∈ V)
+        $x ∈ $U  implies  $x ∈ V
+        $x ∈ $U
+        $x ∈ V
+qed
+
+show subspace($U) ∧ $x ∈ $U ∧ $y ∈ $U  ⇒  $x + $y ∈ $U               "U2"
+proof
+    assume subspace($U) ∧ $x ∈ $U ∧ $y ∈ $U
+        subspace($U)
+        $U ⊂ V ∧ (∃ $z ($z ∈ $U)) ∧ (∀ $v ∈ $U ∀ $w ∈ $U ($v + $w ∈ $U)) ∧ (∀ $a ∈ K ∀ $v ∈ $U ($a · $v ∈ $U))
+        ∀ $v ∈ $U ∀ $w ∈ $U ($v + $w ∈ $U)
+        $x ∈ $U
+        ∀ $w ∈ $U ($x + $w ∈ $U)
+        $y ∈ $U
+        $x + $y ∈ $U
+qed
+
+show subspace($U) ∧ $a ∈ K ∧ $x ∈ $U  ⇒  $a · $x ∈ $U                "U3"
+proof
+    assume subspace($U) ∧ $a ∈ K ∧ $x ∈ $U
+        subspace($U)
+        $U ⊂ V ∧ (∃ $z ($z ∈ $U)) ∧ (∀ $v ∈ $U ∀ $w ∈ $U ($v + $w ∈ $U)) ∧ (∀ $b ∈ K ∀ $v ∈ $U ($b · $v ∈ $U))
+        ∀ $b ∈ K ∀ $v ∈ $U ($b · $v ∈ $U)
+        $a ∈ K
+        ∀ $v ∈ $U ($a · $v ∈ $U)
+        $x ∈ $U
+        $a · $x ∈ $U
+qed
+
+; Lemma: 0 ∈ U
+show subspace($U)  ⇒  0 ∈ $U                                         "U-zero"
+proof
+    assume subspace($U)
+        $U ⊂ V ∧ (∃ $z ($z ∈ $U)) ∧ (∀ $v ∈ $U ∀ $w ∈ $U ($v + $w ∈ $U)) ∧ (∀ $b ∈ K ∀ $v ∈ $U ($b · $v ∈ $U))
+        ∃ $z ($z ∈ $U)                                  ; (U1)
+        pick x with x ∈ $U
+            x ∈ V
+            0 · x ∈ $U                                  ; (U3)
+            0 · x = 0                                   ; computed as on the slide, see zero-times-vector
+            0 ∈ $U
+qed
+
+; Lemma: -x ∈ U
+show subspace($U) ∧ $x ∈ $U  ⇒  - $x ∈ $U                            "U-minus"
+proof
+    assume subspace($U) ∧ $x ∈ $U
+        subspace($U)
+        $x ∈ $U
+        $x ∈ V
+        - 1 ∈ K
+        (- 1) · $x ∈ $U                                 ; (U3)
+        (- 1) · $x = - $x                               ; minus-one-times-vector
+        - $x ∈ $U
+qed
+
+; Satz: a subspace is a vector space -- (V3) and (V4) hold in U by the two lemmas, and the other
+; axioms hold since they hold for all elements of V; e.g. (V1) and (V8):
+show subspace($U)  ⇒  0 ∈ $U ∧ (∀ $x ∈ $U ($x + 0 = $x ∧ - $x ∈ $U ∧ $x + (- $x) = 0))   "U-V3-V4"
+proof
+    assume subspace($U)
+        0 ∈ $U                                          ; U-zero
+        let x ∈ $U
+            x ∈ V
+            x + 0 = x                                   ; V3
+            - x ∈ $U                                    ; U-minus
+            x + (- x) = 0                               ; V4
+            x + 0 = x ∧ - x ∈ $U ∧ x + (- x) = 0
+        0 ∈ $U ∧ (∀ $x ∈ $U ($x + 0 = $x ∧ - $x ∈ $U ∧ $x + (- $x) = 0))
+qed
+
+show subspace($U) ∧ $x ∈ $U ∧ $y ∈ $U ∧ $z ∈ $U  ⇒  ($x + $y) + $z = $x + ($y + $z)   "U-V1"
+proof
+    assume subspace($U) ∧ $x ∈ $U ∧ $y ∈ $U ∧ $z ∈ $U
+        subspace($U)
+        $x ∈ $U
+        $y ∈ $U
+        $z ∈ $U
+        $x ∈ V
+        $y ∈ V
+        $z ∈ V
+        ($x + $y) + $z = $x + ($y + $z)                 ; V1
+qed
+
+; exercise ("Beweis?"): the intersection of two subspaces is a subspace
+show subspace($U) ∧ subspace($W)  ⇒  subspace($U ∩ $W)               "intersection-subspace"
+proof
+    assume subspace($U) ∧ subspace($W)
+        subspace($U)
+        subspace($W)
+        ; U ∩ W ⊂ V
+        let c
+            assume c ∈ $U ∩ $W
+                c ∈ $U ∧ c ∈ $W
+                c ∈ $U
+                c ∈ V                                   ; U-in-V
+        ∀ $c ($c ∈ $U ∩ $W  implies  $c ∈ V)
+        $U ∩ $W ⊂ V
+        ; (U1): 0 is in both
+        0 ∈ $U
+        0 ∈ $W
+        0 ∈ $U ∩ $W
+        ∃ $z ($z ∈ $U ∩ $W)
+        ; (U2)
+        let x ∈ $U ∩ $W
+            let y ∈ $U ∩ $W
+                x ∈ $U ∧ x ∈ $W
+                y ∈ $U ∧ y ∈ $W
+                x ∈ $U
+                x ∈ $W
+                y ∈ $U
+                y ∈ $W
+                x + y ∈ $U                              ; U2
+                x + y ∈ $W                              ; U2
+                x + y ∈ $U ∩ $W
+        ∀ $x ∈ $U ∩ $W ∀ $y ∈ $U ∩ $W ($x + $y ∈ $U ∩ $W)
+        ; (U3)
+        let a ∈ K
+            let x ∈ $U ∩ $W
+                x ∈ $U ∧ x ∈ $W
+                x ∈ $U
+                x ∈ $W
+                a · x ∈ $U                              ; U3
+                a · x ∈ $W                              ; U3
+                a · x ∈ $U ∩ $W
+        ∀ $a ∈ K ∀ $x ∈ $U ∩ $W ($a · $x ∈ $U ∩ $W)
+        subspace($U ∩ $W)
+qed

@@ -1,0 +1,66 @@
+; Eigenwerte und Eigenvektoren -- eigenvalues and eigenvectors (lecture "Mathematik für
+; Informatik 1" (mafi1), deck 26-eigenwerte-vektoren)
+;
+; "Sei f: V → V ein Endomorphismus."
+load 06-untervektorraeume
+const f
+arity f 1
+use $x ∈ V  ⇒  f($x) ∈ V                                             "f-map"
+use $x ∈ V ∧ $y ∈ V  ⇒  f($x + $y) = f($x) + f($y)                   "f-additive"
+use $a ∈ K ∧ $x ∈ V  ⇒  f($a · $x) = $a · f($x)                      "f-homogeneous"
+
+; v is an eigenvector of f for the eigenvalue λ
+arity eigenvector 2
+def eigenvector($v, $l)  ⇔  f($v) = $l · $v ∧ $v ≠ 0                 "eigenvector"
+
+; E_λ = Kern(f - λ Id), the eigenspace
+arity E 1
+def E($l) = { $v ∈ V | f($v) = $l · $v }                             "eigenspace"
+
+; Satz: λ ≠ μ ⇒ E_λ ∩ E_μ = {0} -- "⊂": f(v) = λ v and f(v) = μ v give v = 0
+show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ f($v) = $l · $v ∧ f($v) = $m · $v  ⇒  $v = 0   "eigenspaces-meet"
+proof
+    assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ f($v) = $l · $v ∧ f($v) = $m · $v
+        $l ∈ K
+        $m ∈ K
+        $l ≠ $m
+        $v ∈ V
+        f($v) = $l · $v
+        f($v) = $m · $v
+        ; (λ - μ) v = λ v - μ v = 0
+        - $m ∈ K
+        $l + (- $m) ∈ K
+        $m · $v ∈ V
+        ($l + (- $m)) · $v = $l · $v + (- $m) · $v
+                           = $l · $v + (- ($m · $v))
+                           = $m · $v + (- ($m · $v))
+                           = 0
+        ; λ - μ ≠ 0, so we can divide by it
+        assume $l + (- $m) = 0
+            $l = $m ∧ ¬($l = $m)
+            ⊥
+        $l + (- $m) ≠ 0
+        inv ($l + (- $m)) ∈ K                           ; K-inv
+        $v = 1 · $v
+           = (inv ($l + (- $m)) · ($l + (- $m))) · $v
+           = inv ($l + (- $m)) · (($l + (- $m)) · $v)
+           = inv ($l + (- $m)) · 0
+           = 0
+qed
+
+; "⊃": 0 is in every eigenspace
+show $l ∈ K  ⇒  0 ∈ E($l)                                            "eigenspace-zero"
+proof
+    assume $l ∈ K
+        0 ∈ V
+        0 · 0 = 0                                       ; zero-times-vector
+        f(0) ∈ V
+        f(0) = f(0 · 0)
+             = 0 · f(0)
+             = 0
+        $l · 0 = 0                                      ; times-zero
+        f(0) = $l · 0
+        0 ∈ V ∧ f(0) = $l · 0
+        0 ∈ { $v ∈ V | f($v) = $l · $v }                ; separation
+        0 ∈ E($l)
+qed

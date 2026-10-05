@@ -1,11 +1,5 @@
 ; `def` is not allowed inside a proof block, like `use`: `let x` / `def k iff P x` used to give
 ; `∀ x (k iff P x)`, and then `P d` from `P c` (soundness review of 2026-09-29, §8.17)
-load logic
-bool P
-arity P 1
-const P, c, d
-show (P c) implies (P d)
-proof
-    let x
-        def k iff P x
-;;; EvalError: `def` is not allowed inside `let`
+; (in a helper file: inside `expect`, whose content is discarded, `def` is allowed)
+expect "EvalError" "`def` is not allowed inside `let`"
+    load "helpers/def-in-let.kurt"

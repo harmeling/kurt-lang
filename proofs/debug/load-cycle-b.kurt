@@ -1,5 +1,0 @@
-; the other half of the `load` cycle regression test, see `load-cycle-a.kurt`.
-; loaded from a.kurt, this file's own `load` closes the cycle; loaded
-; directly (as its own test case), it closes the cycle from the other side.
-load "load-cycle-a.kurt"
-;;; EvalError: circular `load`:

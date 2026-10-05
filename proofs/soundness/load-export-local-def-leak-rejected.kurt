@@ -6,9 +6,5 @@
 ; top-level file being checked or a dependency of another file, so the file's own internal
 ; export consistency is checked regardless of how it's invoked. See
 ; doc/kurt-soundness.md #7.
-load prop
-bool P
-use P  local "p-holds"
-def Q iff P  local "hidden"
-use Q implies P  "exported-leak"
-;;; EvalError: symbol(s) ['Q'] are defined `local` but required by an exported fact -- export their `def` too, or keep them out of exported facts
+expect "EvalError" "symbol(s) ['Q'] are defined `local` but required by an exported fact"
+    load "helpers/local-def-leak.kurt"

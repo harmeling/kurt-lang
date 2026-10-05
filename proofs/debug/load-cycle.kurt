@@ -1,0 +1,14 @@
+; regression test for `load` cycles, which used to crash with an uncaught Python RecursionError
+; instead of a clean error (see `_loading_in_progress` in `load_file`): two files that load each
+; other, and three in a ring -- from each of their files (in helpers/, which the tests don't run
+; on their own)
+expect "EvalError" "circular `load`"
+    load "helpers/load-cycle-a.kurt"
+expect "EvalError" "circular `load`"
+    load "helpers/load-cycle-b.kurt"
+expect "EvalError" "circular `load`"
+    load "helpers/load-cycle3-a.kurt"
+expect "EvalError" "circular `load`"
+    load "helpers/load-cycle3-b.kurt"
+expect "EvalError" "circular `load`"
+    load "helpers/load-cycle3-c.kurt"

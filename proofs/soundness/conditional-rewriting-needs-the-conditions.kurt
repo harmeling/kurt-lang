@@ -1,0 +1,15 @@
+; conditional rewriting (proofs/debug/conditional-rewriting.kurt) derives the instance of a rule
+; only if its conditions are facts: without `d ∈ K`, `d · 1` isn't `d`; and an instance derived in a
+; block for its assumption doesn't hold outside of it
+load set
+infix · 70 70
+const K, a, d
+use $a ∈ K  ⇒  $a · 1 = $a      "K7"
+use d · 1 = a
+expect "ProofError"
+    d = a
+assume d ∈ K
+    d = a
+expect "ProofError"
+    d = a
+(d ∈ K) ⇒ (d = a)

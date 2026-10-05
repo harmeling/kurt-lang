@@ -1,0 +1,25 @@
+; Hauptachsentransformation (lecture "Mathematik für Informatik 1" (mafi1), deck
+; 30-hauptachsen-transformation): from D = Pᵀ A P with P ∈ O(n) follows A = P D Pᵀ
+load matrizen
+
+show $A ∈ Mat ∧ $P ∈ Mat ∧ $D ∈ Mat ∧ $D = (T($P) · $A) · $P ∧ $P · T($P) = E  ⇒  $A = ($P · $D) · T($P)   "eigendecomposition"
+proof
+    assume $A ∈ Mat ∧ $P ∈ Mat ∧ $D ∈ Mat ∧ $D = (T($P) · $A) · $P ∧ $P · T($P) = E
+        $A ∈ Mat
+        $P ∈ Mat
+        $D ∈ Mat
+        $D = (T($P) · $A) · $P
+        $P · T($P) = E
+        T($P) ∈ Mat
+        T($P) · $A ∈ Mat
+        $P · T($P) ∈ Mat
+        ($P · T($P)) · $A ∈ Mat
+        ; P D Pᵀ = P (Pᵀ A P) Pᵀ = (P Pᵀ) A (P Pᵀ) = E A E = A, regrouped with (M1)
+        ($P · $D) · T($P) = ($P · ((T($P) · $A) · $P)) · T($P)
+                          = (($P · (T($P) · $A)) · $P) · T($P)
+                          = ((($P · T($P)) · $A) · $P) · T($P)
+                          = (($P · T($P)) · $A) · ($P · T($P))
+                          = (E · $A) · E
+                          = $A · E
+                          = $A
+qed

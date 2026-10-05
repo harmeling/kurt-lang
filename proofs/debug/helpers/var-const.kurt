@@ -1,0 +1,3 @@
+; `const x` after `var x` on the same level (see ../var-const.kurt)
+var x
+const x

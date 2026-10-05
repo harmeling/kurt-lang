@@ -1,0 +1,18 @@
+; `calc on` decides whether a number is in a set that a theory binds to the calculator: natural.kurt
+; `calc Nat naturals`, integer.kurt `calc Int integers`, rational.kurt `calc Rat rationals`, and
+; set.kurt `calc in element`
+load rational
+calc on
+3 ∈ Nat
+0 ∈ Nat
+-3 ∈ Int
+1 / 3 ∈ Rat
+0.25 ∈ Rat
+expect "ProofError"
+    -3 ∈ Nat
+expect "ProofError"
+    1 / 3 ∈ Int
+expect "ProofError"
+    x ∈ Nat
+3 + 4 ∈ Nat
+calc off

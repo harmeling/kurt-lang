@@ -1,8 +1,6 @@
 ; `chain` in a proof block is rejected like `use` (it is transitivity axioms) -- with its own
 ; message, not the one of the generated `use` in a pseudo-file (soundness review of 2026-09-29)
 load prop
-infix R 20 20
-bool A
-assume A
-    chain R
-;;; EvalError: `chain` is not allowed inside `assume` -- declare it before the proof
+; (in a helper file: inside `expect`, whose content is discarded, `chain` is allowed)
+expect "EvalError" "`chain` is not allowed inside `assume` -- declare it before the proof"
+    load "helpers/chain-in-assume.kurt"

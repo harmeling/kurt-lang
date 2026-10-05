@@ -1,0 +1,55 @@
+; inverse Matrix (lecture "Mathematik für Informatik 1" (mafi1), deck 15-inverse-matrix)
+load matrizen
+
+; the inverse is unique: B A = E gives B = A⁻¹ (deck 12, Satz 10)
+show $A ∈ GL ∧ $B ∈ Mat ∧ $B · $A = E  ⇒  $B = inv $A                 "inv-unique-left"
+proof
+    assume $A ∈ GL ∧ $B ∈ Mat ∧ $B · $A = E
+        $A ∈ GL
+        $B ∈ Mat
+        $B · $A = E
+        $A ∈ Mat
+        inv $A ∈ Mat
+        $B = $B · E
+           = $B · ($A · (inv $A))                       ; inv-right
+           = ($B · $A) · (inv $A)                       ; M1
+           = E · (inv $A)
+           = inv $A
+qed
+
+; the algorithm: if the row operations U (U = U_k ⋯ U_1) turn A into E, then A⁻¹ = U E
+show $A ∈ GL ∧ $U ∈ Mat ∧ $U · $A = E  ⇒  inv $A = $U · E             "gauss-jordan"
+proof
+    assume $A ∈ GL ∧ $U ∈ Mat ∧ $U · $A = E
+        $A ∈ GL
+        $U ∈ Mat
+        $U · $A = E
+        $A ∈ Mat
+        inv $A ∈ Mat
+        inv $A = E · (inv $A)
+               = ($U · $A) · (inv $A)
+               = $U · ($A · (inv $A))
+               = $U · E                                 ; inv-right
+qed
+
+; a symmetric invertible matrix has a symmetric inverse
+show $A ∈ GL ∧ T($A) = $A  ⇒  T(inv $A) = inv $A                     "symmetric-inverse"
+proof
+    assume $A ∈ GL ∧ T($A) = $A
+        $A ∈ GL
+        T($A) = $A
+        $A ∈ Mat
+        inv $A ∈ Mat
+        T(inv $A) ∈ Mat
+        ; E = Eᵀ = (A⁻¹ A)ᵀ = Aᵀ (A⁻¹)ᵀ = A (A⁻¹)ᵀ
+        E = T(E)                                        ; T-E
+          = T((inv $A) · $A)                            ; inv-left
+          = T($A) · T(inv $A)                           ; T-times
+          = $A · T(inv $A)
+        ; so (A⁻¹)ᵀ is the inverse, as A⁻¹ is
+        inv $A = (inv $A) · E
+               = (inv $A) · ($A · T(inv $A))
+               = ((inv $A) · $A) · T(inv $A)
+               = E · T(inv $A)                          ; inv-left
+               = T(inv $A)
+qed

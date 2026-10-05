@@ -1,0 +1,20 @@
+; 17-grade-student-proofs-with-strict-mode.kurt
+;
+; Grade student proofs with strict mode
+;
+; Strict mode rejects unproven `use`, `todo`, and `chain` statements outside trusted theories. It
+; also requires symbols to be declared before use.
+
+;     kurt --strict student-proof.kurt
+
+; To provide instructor-approved axioms, put theory files in a separate directory and mark that
+; directory trusted with `-p`:
+
+;     kurt --strict -p course-theories student-proof.kurt
+
+; The student file must prove its claims from Kurt's packaged theories and the theories in
+; `course-theories`. Do not put solution facts in a theory students can edit.
+;
+; For exercises under development, `todo` is useful outside strict mode. For submitted work,
+; strict mode ensures that a remaining `todo` or ad hoc axiom is an error rather than partial
+; success.

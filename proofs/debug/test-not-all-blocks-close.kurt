@@ -1,6 +1,3 @@
-; error: not alle blocks close
-; should create an error message
-load prop
-show true
-proof
-;;; EvalError: inside
+; error: a block still open at the end of the file
+expect "EvalError" "not all blocks closed"
+    load "helpers/not-all-blocks-close.kurt"

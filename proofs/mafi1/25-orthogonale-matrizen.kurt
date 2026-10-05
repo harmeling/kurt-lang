@@ -1,0 +1,19 @@
+; orthogonale Abbildungen (lecture "Mathematik für Informatik 1" (mafi1), deck
+; 25-orthogonale-abbildungen): A ∈ O(n), i.e. Aᵀ A = E, gives det A = ±1
+load matrizen
+
+show $A ∈ Mat ∧ T($A) · $A = E  ⇒  det($A) = 1 ∨ det($A) = - 1          "det-orthogonal"
+proof
+    assume $A ∈ Mat ∧ T($A) · $A = E
+        $A ∈ Mat
+        T($A) · $A = E
+        T($A) ∈ Mat
+        det($A) ∈ K
+        det(T($A)) = det($A)                            ; det-T
+        ; (det A)² = det Aᵀ det A = det(Aᵀ A) = det E = 1
+        det($A) · det($A) = det(T($A)) · det($A)
+                          = det(T($A) · $A)
+                          = det(E)
+                          = 1                           ; det-E
+        det($A) = 1 ∨ det($A) = - 1                     ; square-one
+qed

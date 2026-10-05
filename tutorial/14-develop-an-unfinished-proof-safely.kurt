@@ -1,0 +1,30 @@
+; 14-develop-an-unfinished-proof-safely.kurt
+;
+; Develop an unfinished proof safely
+;
+; Use `todo FORMULA` when a known gap should remain visible in the final result:
+
+load prop
+bool A, B
+
+show A implies B
+proof
+    assume A
+        todo B
+qed
+
+; Use `sandbox` for experiments that must not affect the surrounding theory:
+
+bool C, D
+use C
+
+sandbox
+    use D
+    D
+
+C
+expect "ProofError"
+    D
+
+; Use `break` to abandon an open block immediately. A sandbox is discarded whether it closes by a
+; dedent or by `break`.

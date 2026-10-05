@@ -1,0 +1,217 @@
+; Tautologien -- the tautologies that the lecture "Mathematik für Informatik 1" (mafi1) takes as
+; given, checked "by truth tables" (decks 03-formeln and 11a-beweise); Kurt has no truth tables,
+; so they are proven here by natural deduction.  03-formeln.kurt and 11a-beweise.kurt then
+; derive the other laws from them, as the slides do.
+load logic
+
+; De Morgan
+show ¬(%A ∧ %B)  ⇔  ¬%A ∨ ¬%B                                        "de-morgan-and"
+proof
+    assume ¬(%A ∧ %B)
+        assume %A
+            assume %B
+                %A ∧ %B
+                ⊥
+            ¬%B
+            ¬%A ∨ ¬%B
+        assume ¬%A
+            ¬%A ∨ ¬%B
+        %A ∨ ¬%A                                        ; excluded-middle
+        ¬%A ∨ ¬%B
+    assume ¬%A ∨ ¬%B
+        assume ¬%A
+            assume %A ∧ %B
+                %A
+                ⊥
+            ¬(%A ∧ %B)
+        assume ¬%B
+            assume %A ∧ %B
+                %B
+                ⊥
+            ¬(%A ∧ %B)
+        ¬(%A ∧ %B)
+qed
+
+show ¬(%A ∨ %B)  ⇔  ¬%A ∧ ¬%B                                        "de-morgan-or"
+proof
+    assume ¬(%A ∨ %B)
+        assume %A
+            %A ∨ %B
+            ⊥
+        ¬%A
+        assume %B
+            %A ∨ %B
+            ⊥
+        ¬%B
+        ¬%A ∧ ¬%B
+    assume ¬%A ∧ ¬%B
+        ¬%A
+        ¬%B
+        assume %A ∨ %B
+            assume %A
+                ⊥
+            assume %B
+                ⊥
+            ⊥
+        ¬(%A ∨ %B)
+qed
+
+; distributivity
+show %A ∨ (%B ∧ %C)  ⇔  (%A ∨ %B) ∧ (%A ∨ %C)                        "distrib-or"
+proof
+    assume %A ∨ (%B ∧ %C)
+        assume %A
+            %A ∨ %B
+            %A ∨ %C
+            (%A ∨ %B) ∧ (%A ∨ %C)
+        assume %B ∧ %C
+            %B
+            %C
+            %A ∨ %B
+            %A ∨ %C
+            (%A ∨ %B) ∧ (%A ∨ %C)
+        (%A ∨ %B) ∧ (%A ∨ %C)
+    assume (%A ∨ %B) ∧ (%A ∨ %C)
+        %A ∨ %B
+        %A ∨ %C
+        assume %A
+            %A ∨ (%B ∧ %C)
+        assume %B
+            assume %C
+                %B ∧ %C
+                %A ∨ (%B ∧ %C)
+            %A ∨ (%B ∧ %C)
+        %A ∨ (%B ∧ %C)
+qed
+
+show %A ∧ (%B ∨ %C)  ⇔  (%A ∧ %B) ∨ (%A ∧ %C)                        "distrib-and"
+proof
+    assume %A ∧ (%B ∨ %C)
+        %A
+        %B ∨ %C
+        assume %B
+            %A ∧ %B
+            (%A ∧ %B) ∨ (%A ∧ %C)
+        assume %C
+            %A ∧ %C
+            (%A ∧ %B) ∨ (%A ∧ %C)
+        (%A ∧ %B) ∨ (%A ∧ %C)
+    assume (%A ∧ %B) ∨ (%A ∧ %C)
+        assume %A ∧ %B
+            %A
+            %B
+            %B ∨ %C
+            %A ∧ (%B ∨ %C)
+        assume %A ∧ %C
+            %A
+            %C
+            %B ∨ %C
+            %A ∧ (%B ∨ %C)
+        %A ∧ (%B ∨ %C)
+qed
+
+; the implication as a disjunction
+show (%A ⇒ %B)  ⇔  ¬%A ∨ %B                                          "impl-or"
+proof
+    assume %A ⇒ %B
+        assume %A
+            %B
+            ¬%A ∨ %B
+        assume ¬%A
+            ¬%A ∨ %B
+        %A ∨ ¬%A                                        ; excluded-middle
+        ¬%A ∨ %B
+    assume ¬%A ∨ %B
+        assume %A
+            assume ¬%A
+                ⊥
+                %B
+            assume %B
+                %B
+            %B
+        %A ⇒ %B
+qed
+
+show ¬(%A ⇒ %B)  ⇔  %A ∧ ¬%B                                         "not-impl"
+proof
+    assume ¬(%A ⇒ %B)
+        assume ¬%A
+            assume %A
+                ⊥
+                %B
+            %A ⇒ %B
+            ⊥
+        ¬¬%A
+        %A
+        assume %B
+            assume %A
+                %B
+            %A ⇒ %B
+            ⊥
+        ¬%B
+        %A ∧ ¬%B
+    assume %A ∧ ¬%B
+        %A
+        ¬%B
+        assume %A ⇒ %B
+            %B
+            ⊥
+        ¬(%A ⇒ %B)
+qed
+
+; true and false (deck 11a)
+show ¬⊤  ⇔  ⊥                                                         "not-top"
+proof
+    assume ¬⊤
+        ⊤
+        ⊥
+    assume ⊥
+        ¬⊤
+qed
+
+show ¬⊥  ⇔  ⊤                                                         "not-bottom"
+proof
+    assume ¬⊥
+        ⊤
+    assume ⊤
+        assume ⊥
+            ⊥
+        ¬⊥
+qed
+
+show %A ∧ ⊤  ⇔  %A                                                    "and-top"
+proof
+    assume %A ∧ ⊤
+        %A
+    assume %A
+        ⊤
+        %A ∧ ⊤
+qed
+
+show %A ∨ ⊤  ⇔  ⊤                                                     "or-top"
+proof
+    assume %A ∨ ⊤
+        ⊤
+    assume ⊤
+        %A ∨ ⊤
+qed
+
+show %A ∧ ⊥  ⇔  ⊥                                                     "and-bottom"
+proof
+    assume %A ∧ ⊥
+        ⊥
+    assume ⊥
+        %A ∧ ⊥
+qed
+
+show %A ∨ ⊥  ⇔  %A                                                    "or-bottom"
+proof
+    assume %A ∨ ⊥
+        assume %A
+            %A
+        assume ⊥
+            %A
+        %A
+    assume %A
+        %A ∨ ⊥
+qed

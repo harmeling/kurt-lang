@@ -1,0 +1,112 @@
+; the Cauchy-Schwarz inequality: ⟨a, b⟩² <= ⟨a, a⟩ ⟨b, b⟩ for an inner product
+;
+; The vector u = q a - r b (with q = ⟨b, b⟩, r = ⟨a, b⟩) has a non-negative length:
+; 0 <= ⟨u, u⟩ = q (q p - r r) with p = ⟨a, a⟩, and for q > 0 that gives q p >= r r. For b = 0
+; both sides are 0. (Vectors and numbers share `+` and `*` here -- see "scalars vs. vectors" in
+; the todo list; every axiom below holds in each real inner product space.)
+load arith
+brackets ⟨ ⟩
+const a, b
+
+; an inner product: linear in the first argument, symmetric, positive definite
+use ⟨$x + $y, $z⟩ = ⟨$x, $z⟩ + ⟨$y, $z⟩     "lin-add"
+use ⟨$x - $y, $z⟩ = ⟨$x, $z⟩ - ⟨$y, $z⟩     "lin-sub"
+use ⟨$s * $x, $z⟩ = $s * ⟨$x, $z⟩           "lin-mul"
+use ⟨$x, $y⟩ = ⟨$y, $x⟩                      "symmetric"
+use ⟨$x, $x⟩ >= 0                            "nonneg"
+use $x ≠ 0  ⇒  ⟨$x, $x⟩ > 0                  "definite"
+
+def p = ⟨a, a⟩    "p-def"
+def q = ⟨b, b⟩    "q-def"
+def r = ⟨a, b⟩    "r-def"
+
+; the four inner products of q a and r b
+⟨q * a, q * a⟩ = q * ⟨a, q * a⟩
+               = q * ⟨q * a, a⟩
+               = q * (q * ⟨a, a⟩)
+               = q * q * p
+⟨r * b, q * a⟩ = r * ⟨b, q * a⟩
+               = r * ⟨q * a, b⟩
+               = r * (q * ⟨a, b⟩)
+               = r * q * r
+⟨q * a, r * b⟩ = q * ⟨a, r * b⟩
+               = q * ⟨r * b, a⟩
+               = q * (r * ⟨b, a⟩)
+               = q * (r * ⟨a, b⟩)
+               = q * r * r
+⟨r * b, r * b⟩ = r * ⟨b, r * b⟩
+               = r * ⟨r * b, b⟩
+               = r * (r * ⟨b, b⟩)
+               = r * r * q
+
+; u = q a - r b has a non-negative length: q (q p - r r) >= 0
+⟨q * a - r * b, q * a - r * b⟩ = ⟨q * a, q * a - r * b⟩ - ⟨r * b, q * a - r * b⟩
+⟨q * a, q * a - r * b⟩ = ⟨q * a - r * b, q * a⟩
+                       = ⟨q * a, q * a⟩ - ⟨r * b, q * a⟩
+                       = q * q * p - ⟨r * b, q * a⟩
+                       = q * q * p - q * r * r
+⟨r * b, q * a - r * b⟩ = ⟨q * a - r * b, r * b⟩
+                       = ⟨q * a, r * b⟩ - ⟨r * b, r * b⟩
+                       = q * r * r - ⟨r * b, r * b⟩
+                       = q * r * r - q * r * r
+                       = 0
+⟨q * a - r * b, q * a - r * b⟩ = (q * q * p - q * r * r) - ⟨r * b, q * a - r * b⟩
+                               = (q * q * p - q * r * r) - 0
+                               = q * q * p - q * r * r
+                               = (q * p - r * r) * q
+⟨q * a - r * b, q * a - r * b⟩ >= 0
+(q * p - r * r) * q >= 0
+
+; for b ≠ 0: q > 0, so divide by q
+show b ≠ 0  ⇒  ⟨a, a⟩ * ⟨b, b⟩ >= ⟨a, b⟩ * ⟨a, b⟩   "Cauchy-Schwarz for b ≠ 0"
+proof
+    assume b ≠ 0
+        ⟨b, b⟩ > 0                                   ; definite
+        q > 0
+        q ≠ 0                                        ; gt-ne
+        ((q * p - r * r) * q) / q >= 0 / q           ; ge-div-pos
+        ((q * p - r * r) * q) / q = q * p - r * r    ; mul-div
+        0 / q = 0                                    ; zero-div
+        q * p - r * r >= 0 / q
+        q * p - r * r >= 0
+        q * p >= r * r                               ; sub-ge-zero
+        ⟨b, b⟩ * p >= r * r
+        ⟨b, b⟩ * ⟨a, a⟩ >= r * r
+        ⟨b, b⟩ * ⟨a, a⟩ >= ⟨a, b⟩ * r
+        ⟨b, b⟩ * ⟨a, a⟩ >= ⟨a, b⟩ * ⟨a, b⟩
+qed
+
+; the zero vector: its inner products are 0
+show ⟨0, $z⟩ = 0   "zero-left"
+proof
+    0 * $z = 0
+    ⟨0, $z⟩ = ⟨0 * $z, $z⟩
+            = 0 * ⟨$z, $z⟩
+            = 0
+qed
+
+show b = 0  ⇒  ⟨a, a⟩ * ⟨b, b⟩ >= ⟨a, b⟩ * ⟨a, b⟩   "Cauchy-Schwarz for b = 0"
+proof
+    assume b = 0
+        ⟨b, b⟩ = ⟨0, b⟩
+               = 0
+        ⟨a, b⟩ = ⟨b, a⟩
+               = ⟨0, a⟩
+               = 0
+        ⟨a, a⟩ * ⟨b, b⟩ = ⟨a, a⟩ * 0
+                        = 0
+        ⟨a, b⟩ * ⟨a, b⟩ = 0 * ⟨a, b⟩
+                        = 0
+        0 >= 0
+        ⟨a, a⟩ * ⟨b, b⟩ >= 0
+        ⟨a, a⟩ * ⟨b, b⟩ >= ⟨a, b⟩ * ⟨a, b⟩
+qed
+
+show ⟨a, a⟩ * ⟨b, b⟩ >= ⟨a, b⟩ * ⟨a, b⟩   "Cauchy-Schwarz inequality"
+proof
+    b = 0 ∨ ¬(b = 0)                                 ; excluded-middle
+    assume ¬(b = 0)
+        b ≠ 0
+        ⟨a, a⟩ * ⟨b, b⟩ >= ⟨a, b⟩ * ⟨a, b⟩
+    ⟨a, a⟩ * ⟨b, b⟩ >= ⟨a, b⟩ * ⟨a, b⟩              ; or-elim
+qed

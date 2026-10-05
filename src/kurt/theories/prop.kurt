@@ -94,4 +94,16 @@ use not not %A implies %A                                           "not-elim"
 use %A implies not not %A                                           "not-not-intro"
 use %A iff not not %A                                               "not-not"
 
-; for automatic testing we add the following line:
+; the excluded middle, proven (not an axiom): from "not-elim"
+show %A or not %A                                                   "excluded-middle"
+proof
+    assume not (%A or not %A)
+        assume %A
+            %A or not %A
+            false
+        not %A
+        %A or not %A
+        false
+    not not (%A or not %A)
+    %A or not %A
+qed

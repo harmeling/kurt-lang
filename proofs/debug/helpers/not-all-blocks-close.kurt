@@ -1,0 +1,4 @@
+; a block that is still open at the end of the file (see ../test-not-all-blocks-close.kurt)
+load prop
+show true
+proof

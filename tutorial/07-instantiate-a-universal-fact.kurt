@@ -1,0 +1,16 @@
+; 07-instantiate-a-universal-fact.kurt
+;
+; Instantiate a universal fact
+;
+; Load `logic` for quantifier inference rules. A universally quantified fact can be instantiated
+; at a particular value:
+
+load logic
+bool P
+arity P 1
+const P, c
+
+use forall $x P($x)
+P(c)
+
+; `$x` is the bound variable. `P(c)` follows by the `forall-elim` rule in `logic.kurt`.

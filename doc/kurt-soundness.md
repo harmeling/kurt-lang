@@ -870,7 +870,7 @@ unlabelled) were retrofitted with labels. `natural.kurt` turned out to
 have been silently broken independently of this feature — see the next
 paragraph — and was rewritten while fixing it. Confirmed via an explicit
 audit (grep every `use`/`def` across `src/kurt/theories/`, cross-check
-against every `load` site in `proofs/`/`tutorial/`) that no currently
+against every `load` site in `proofs/`/`keywords/`) that no currently
 passing test relied on anything that stopped being exported.
 
 **A genuinely separate, pre-existing bug found along the way, unrelated to
@@ -889,7 +889,7 @@ the file's own commented-out "alternative" definition already used) and
 declared its own `+` with a binding power (10) weaker than `in`'s (25),
 so `$n+1 in Nat` would have parsed as `$n + (1 in Nat)` even if everything
 else had worked. None of this was ever caught because `natural.kurt` isn't
-`load`ed by anything in `proofs/`/`tutorial/` — nothing ever exercised it.
+`load`ed by anything in `proofs/`/`keywords/` — nothing ever exercised it.
 Rewritten to declare `Nat` as a plain `const`, `load set`, and use a
 correctly-binding `+`; regression coverage in `proofs/soundness/`
 (`load-export-*.kurt`) and confirmed by direct standalone loading.
@@ -1326,9 +1326,11 @@ packaged theories. What they found, and what was fixed (each with its regression
   bare `todo` as a block's last line gave broken formulas, and a line that closed blocks by
   dedenting and then failed left `read_eval_loop` in a closed block (so `expect` missed the
   error, and the shell continued inside the closed block). (`block-rules.kurt`,
-  `empty-expect-is-not-confirmed.kurt`, `load-not-in-proof-blocks.kurt`)
+  `helpers/empty-expect.kurt`, checked by tests/test_expect.py, `load-not-in-proof-blocks.kurt`)
 - set.kurt's "function-extensionality" was false for mappings as opaque objects (every object is
-  in `∅ → B`, so `0 = 1`); removed. (`no-function-extensionality.kurt`)
+  in `∅ → B`, so `0 = 1`); removed. Since 2026-10-05 mappings are sets of pairs (`f ⊂ A × B`, one
+  pair for each `a ∈ A`), and "function-extensionality" is a theorem, from the extensionality of
+  sets. (`function-extensionality-needs-pairs.kurt`)
 - `.kurtc` forgeries (a file with the right hash, but made-up certificates): a value could be given
   to a *constant* of a rule (`not ($x ∈ ∅)` with `∅ := Nat`), and `direction` let the kernel read
   any rule backwards, not only an `iff` (`false ⇒ %A` as `%A ⇒ false`). Both proved `0 = 1`. Now
@@ -1388,6 +1390,28 @@ constant. Found while translating `proofs/natural-deduction/lemma.kurt` to Lean
 (`scripts/kurt2lean.py`): Lean's kernel didn't accept the step.
 (`let-constant-stays-constant-in-nested-blocks.kurt`)
 
+### 8.20 Conditional rewriting (2026-10-05)
+
+A rewriting step may use a rule with conditions (`$a ∈ K ⇒ 1 · $a = $a`): when the goal differs
+from one of the latest facts at a place `s`/`t`, and no fact `s = t` is known, the search derives
+the instance `s = t` with a rule with a specific conclusion whose conditions are facts (one
+`impl_elim`, as for any line), adds it as a step of its own (line `17a`) with its certificate,
+and then rewrites with it ("equal-elim", or "iff-subst" for `⇔`). The kernel checks both steps as
+usual -- nothing new in the kernel. A derived instance with a fixed variable of an assumption
+stays in the block like every fact there; one with free variables outside a block holds for all
+values, since it was derived for arbitrary ones (blocked as domain).
+(`conditional-rewriting-needs-the-conditions.kurt`, `proofs/debug/conditional-rewriting.kurt`)
+
+### 8.19 The scope of a binder's middle arguments
+
+Every argument of a binder used to be inside the scope of its variable: in `sum x (0, n) (sum x
+(0, x) x)`, the inner range `(0, x)` was the inner `x` -- not what it means in mathematics -- and
+the kernel was inconsistent about it (`k_dependencies` treated the middle arguments as outside,
+`k_instantiate` as inside). Since 2026-10-05, only the condition and the last argument (the body)
+are inside (`binder_scope`), in the search (free and bound variables, renaming, substitution,
+alpha-equivalence, matching of binders) and in the kernel (`k_equal`, `k_free`, `k_instantiate`,
+`k_replace`, `k_constants`). (`binder-middle-arguments-outside-scope.kurt`)
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,
@@ -1409,10 +1433,34 @@ without any search:
 - the eigen condition: the fresh names of `∀` premises get no value, and no non-boolean variable of
   the rule depends on them (§0, §8.9); the free variables of the goal get no value.
 
-Besides its own code, the kernel trusts the parser, `unpack_condition` (which variable a binder
-binds), `normalize_expr` (`flat`, `sym`, `calc`), and `equal_expr` (renaming of bound variables;
-for the kernel, `=` and `iff` compare in either order, since they are `sym` but keep their order
-for `def`). Also `top-intro`, `calc` steps, and `todo` have certificates.
+**What the kernel trusts** (since 2026-10-05), besides its own code (`kernel_verify`,
+`kernel_verify_block`, the `k_*` functions):
+
+- the parser, which turns the text into terms;
+- the normal forms, `normalize_expr`: `flatten_all` (`flat`), `symmetrize_all` with
+  `sort_exprs`/`canonical_key` (`sym`), and `calculate`/`calculate_normalized`/`number_value`/
+  `numeric_comparison_holds` (`calc`). These are the meaning of those declarations -- they define
+  when two terms are the same (the order of the arguments of a declared operator, literal
+  arithmetic), like the definitional equality of a type theory. Decided not to make them checked
+  steps: certificates would get much bigger, and the kernel would still need the same normal form
+  to compare terms. The code is small and separate from the search;
+- plain helpers (`is_forall`, `is_sub`, `deepcopy_expr`, `get_token_set`, ...), and `expr_str`,
+  only for messages.
+
+Nothing of the search: its own alpha-equivalence (`k_equal`; for the kernel, `=` and `iff` compare
+in either order, since they are `sym` but keep their order for `def`), its own substitution
+(`k_replace`), and its own reading of a binder's condition (`k_bound`: the one variable of the
+condition, a renamed bound variable or a name unknown on that level, or the left one of a
+relation) -- also in the block rules, for the conditions of `let` and the guard that compares a
+block's readings inside and outside of it (`k_reading_changes`). `tests/test_kernel_boundary.py`
+checks which functions of the module the kernel calls: none of the search, and a new one only
+with a reason. `tests/test_kernel_differential.py` compares `k_equal` and `k_replace` with the
+search's `equal_expr` and `capture_avoiding_replace` on generated terms.
+
+The kernel sees the knowledge base only through `KernelEnv`: a read-only view with the lookups it
+needs (symbols, declarations, the theory), each answer remembered for the whole check, so nothing
+can change while a step is checked, and nothing can be changed through it
+(`tests/test_kernel_env.py`). Also `top-intro`, `calc` steps, and `todo` have certificates.
 
 The kernel checks every step, always. A step it rejects doesn't count: `KernelError` stops a file
 (in the shell, only that line fails), and no `expect` can catch it. A rejection means that the
@@ -1448,7 +1496,7 @@ distinct-variable conditions.
 
 New adversarial cases belong in `proofs/soundness/`, following the existing
 files' pattern: a comment explaining what property is being tested and why
-it matters, then either a `;;; ` marker (required for anything that fails
-while *closing* a block — `expect`, per its documented limitation in
-`kurt-doc.md` §9.6, cannot observe that) or `expect "KIND"` (for a failure
-from an ordinary statement). Update this file alongside any new finding.
+it matters, then `expect "KIND" "TEXT"` around the failure -- or around a
+`load` of a helper file in `proofs/soundness/helpers/` for a failure only a
+whole file can make (see `tests/how-to-write-test-proofs.md`). Update this
+file alongside any new finding.

@@ -1,7 +1,5 @@
 ; `load` is not allowed inside a proof block, like `use`: `assume A` / `load helper` (with `use B`)
 ; used to give `A implies B` (soundness review of 2026-09-29, §8.17)
-load prop
-bool A
-assume A
-    load modal
-;;; EvalError: `load` is not allowed inside `assume`
+; (in a helper file: inside `expect`, whose content is discarded, `load` is allowed)
+expect "EvalError" "`load` is not allowed inside `assume`"
+    load "helpers/load-in-assume.kurt"

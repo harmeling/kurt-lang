@@ -1,0 +1,23 @@
+; function extensionality (set.kurt) needs mappings as sets of pairs: with mappings as opaque
+; objects, every object was in `∅ → B` (there was nothing to check), so extensionality gave any
+; two objects equal -- here `0 = 1` (soundness review of 2026-09-29, §8.17). Now a mapping from ∅
+; is a subset of ∅ × B, which a number isn't known to be, so the attack fails at its first step.
+load natural
+let a
+    assume a ∈ ∅
+        not (a ∈ ∅)
+        false
+        (0 a) ∈ Nat
+∀ a (a ∈ ∅ implies (0 a) ∈ Nat)
+expect "ProofError" "can not derive `0 ∈ (∅ → Nat)`"
+    0 ∈ (∅ → Nat)
+expect "ProofError" "can not derive `1 ∈ (∅ → Nat)`"
+    1 ∈ (∅ → Nat)
+let a
+    assume a ∈ ∅
+        not (a ∈ ∅)
+        false
+        (0 a) = (1 a)
+∀ a (a ∈ ∅ implies (0 a) = (1 a))
+expect "ProofError"
+    0 = 1

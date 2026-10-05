@@ -3,7 +3,7 @@
 ; covers: separation (`{$z ∈ $A | P($z)}`, the subset of `$A` of the elements with property P),
 ; extensionality, empty set, intersection, union, subset, power set, ordered pairs and tuples
 ; (`(a, b)`, `fst`, `snd`), Cartesian products (`A × B`), and mappings (`:`/`→`,
-; `f : A → B` for "f is a function from A to B", without function extensionality) -- see
+; `f : A → B` for "f is a function from A to B", as sets of pairs, with function extensionality) -- see
 ; proofs/mafi1/001-two-equal-sets.kurt for a real distributive-law proof and
 ; proofs/set-theory/ for more.
 ;
@@ -26,7 +26,6 @@ infix    ∪  30 30        ; union
 infix    ∩  40 40        ; intersection
 bool     in 0
 bool     ⊂ 0
-bool     ∈ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
 ; `A → B` is the *set* of all mappings from A to B; `f : A → B` reads as `f ∈ (A → B)` --
@@ -34,6 +33,8 @@ brackets { }             ; curly brackets
 ; `in`
 infix    → 30 30         ; for mappings
 alias    : in
+; `calc on` decides `3 ∈ Nat` for a set that is bound to the calculator (natural.kurt's `calc Nat naturals`)
+calc     in element
 infix    × 45 45         ; Cartesian product
 
 ; we assume that all objects are sets
@@ -80,17 +81,85 @@ use snd($a, $b) = $b                                              "snd"
 use ($a, $b) ∈ $A × $B  ≡  $a ∈ $A ∧ $b ∈ $B                      "product"
 use $p ∈ $A × $B  implies  $p = (fst $p, snd $p)                  "product-pairs"
 
-; axioms for mappings
-;
-; a mapping is modelled as an opaque, applicable set object, not (as in ZF set theory) a set
-; of ordered pairs -- building the full ZF machinery (relations as sets of pairs,
-; single-valuedness) would be a much bigger, separate undertaking. Application uses kurt's ordinary space-application (`$f $a`), and `A → B` is
-; the set of all objects that behave like an A→B mapping when applied.
-use $f ∈ ($A → $B)  ≡  ∀ $a  ($a ∈ $A implies ($f $a) ∈ $B)        "function-space"
+; mappings, as in ZF set theory: a mapping f from A to B is a set of pairs, f ⊂ A × B, with
+; exactly one pair (a, b) for each a ∈ A -- and `f a` is that b. So the mapping is its graph, and
+; two mappings from A that agree on A are equal ("function-extensionality", from the
+; extensionality of sets); only ∅ is a mapping from ∅. (Application `f a` is kurt's ordinary
+; space-application, also written `f(a)`.)
+use $f ∈ ($A → $B)  ≡  $f ⊂ $A × $B ∧ (∀ $a ∈ $A ∃ $b (($a, $b) ∈ $f)) ∧ ∀ $a ∀ $b ∀ $c (($a, $b) ∈ $f ∧ ($a, $c) ∈ $f  implies  $b = $c)   "function-space"
+use $f ∈ ($A → $B) ∧ ($a, $b) ∈ $f  implies  $f $a = $b              "apply"
 
-; no function extensionality: in this model it would be false -- every object is in `∅ → B`
-; (nothing to check), so any two objects would be equal (`0 = 1`); and in general, knowing the
-; values `f a` for `a ∈ A` doesn't determine the object `f`. It needs mappings as sets of pairs
-; (with their domain), see dev/todo.md.
+; the pair of a and f a is in f, and f a ∈ B
+show $f ∈ ($A → $B) ∧ $a ∈ $A  implies  ($a, $f $a) ∈ $f ∧ $f $a ∈ $B     "apply-in"
+proof
+    assume $f ∈ ($A → $B) ∧ $a ∈ $A
+        $f ∈ ($A → $B)
+        $a ∈ $A
+        $f ⊂ $A × $B ∧ (∀ $x ∈ $A ∃ $y (($x, $y) ∈ $f)) ∧ ∀ $x ∀ $y ∀ $z (($x, $y) ∈ $f ∧ ($x, $z) ∈ $f  implies  $y = $z)
+        $f ⊂ $A × $B
+        ∀ $x ∈ $A ∃ $y (($x, $y) ∈ $f)
+        ∃ $y (($a, $y) ∈ $f)
+        pick b with ($a, b) ∈ $f
+            $f $a = b                                  ; apply
+            ($a, $f $a) ∈ $f
+            ∀ $c ($c ∈ $f  implies  $c ∈ $A × $B)
+            ($a, b) ∈ $f  implies  ($a, b) ∈ $A × $B
+            ($a, b) ∈ $A × $B
+            $a ∈ $A ∧ b ∈ $B                           ; product
+            b ∈ $B
+            $f $a ∈ $B
+            ($a, $f $a) ∈ $f ∧ $f $a ∈ $B
+qed
 
-; for automatic testing we add the following line:
+; two mappings from A to B that agree on A are equal
+show $f ∈ ($A → $B) ∧ $g ∈ ($A → $B) ∧ (∀ $a ∈ $A ($f $a = $g $a))  implies  $f = $g     "function-extensionality"
+proof
+    assume $f ∈ ($A → $B) ∧ $g ∈ ($A → $B) ∧ (∀ $a ∈ $A ($f $a = $g $a))
+        $f ∈ ($A → $B)
+        $g ∈ ($A → $B)
+        ∀ $a ∈ $A ($f $a = $g $a)
+        $f ⊂ $A × $B ∧ (∀ $x ∈ $A ∃ $y (($x, $y) ∈ $f)) ∧ ∀ $x ∀ $y ∀ $z (($x, $y) ∈ $f ∧ ($x, $z) ∈ $f  implies  $y = $z)
+        $g ⊂ $A × $B ∧ (∀ $x ∈ $A ∃ $y (($x, $y) ∈ $g)) ∧ ∀ $x ∀ $y ∀ $z (($x, $y) ∈ $g ∧ ($x, $z) ∈ $g  implies  $y = $z)
+        $f ⊂ $A × $B
+        $g ⊂ $A × $B
+        ∀ $c ($c ∈ $f  implies  $c ∈ $A × $B)
+        ∀ $c ($c ∈ $g  implies  $c ∈ $A × $B)
+        ; f ⊂ g: a pair (a, b) of f is (a, f a) = (a, g a), which is in g
+        let c
+            assume c ∈ $f
+                c ∈ $A × $B
+                c = (fst c, snd c)                     ; product-pairs
+                (fst c, snd c) ∈ $f
+                (fst c, snd c) ∈ $A × $B
+                fst c ∈ $A ∧ snd c ∈ $B                ; product
+                fst c ∈ $A
+                $f (fst c) = snd c                     ; apply
+                $f (fst c) = $g (fst c)
+                (fst c, $g (fst c)) ∈ $g ∧ $g (fst c) ∈ $B      ; apply-in
+                (fst c, $g (fst c)) ∈ $g
+                snd c = $g (fst c)
+                (fst c, snd c) ∈ $g
+                c ∈ $g
+        ∀ $c ($c ∈ $f  implies  $c ∈ $g)
+        $f ⊂ $g
+        ; g ⊂ f, the same way
+        let c
+            assume c ∈ $g
+                c ∈ $A × $B
+                c = (fst c, snd c)                     ; product-pairs
+                (fst c, snd c) ∈ $g
+                (fst c, snd c) ∈ $A × $B
+                fst c ∈ $A ∧ snd c ∈ $B                ; product
+                fst c ∈ $A
+                $g (fst c) = snd c                     ; apply
+                $f (fst c) = $g (fst c)
+                (fst c, $f (fst c)) ∈ $f ∧ $f (fst c) ∈ $B      ; apply-in
+                (fst c, $f (fst c)) ∈ $f
+                snd c = $f (fst c)
+                (fst c, snd c) ∈ $f
+                c ∈ $f
+        ∀ $c ($c ∈ $g  implies  $c ∈ $f)
+        $g ⊂ $f
+        $f ⊂ $g ∧ $g ⊂ $f
+        $f = $g                                        ; eq-def
+qed

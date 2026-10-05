@@ -1,0 +1,24 @@
+; 10-use-exact-arithmetic-with-calc.kurt
+;
+; Use exact arithmetic with `calc`
+;
+; `calc on` enables exact computation for the symbols bound by `arith.kurt`. Integers, finite
+; decimals, and fractions are represented exactly; Kurt does not use binary floating-point
+; approximations for proof steps.
+
+load arith
+calc on
+
+2 + 3 = 5
+0.1 + 0.2 = 0.3
+2 ^ 10 = 1024
+7 / 2 = 3.5
+
+; `calc` computes when all required values are known. It does not solve equations for unknowns.
+; For example, matching `$b / 3` against `0` does not infer `$b = 0`; state or prove that
+; algebraic step using theory rules.
+;
+; Turn calculation off when you need an unreduced expression as a rewrite target:
+
+;     calc off
+;     use 8 = 2 ^ 3

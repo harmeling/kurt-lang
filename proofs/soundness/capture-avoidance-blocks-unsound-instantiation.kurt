@@ -9,5 +9,5 @@
 load logic
 load equality
 use forall x (exists y (not (x = y)))
-exists y (not (y = y))
-;;; ProofError: can not derive
+expect "ProofError" "can not derive"
+    exists y (not (y = y))

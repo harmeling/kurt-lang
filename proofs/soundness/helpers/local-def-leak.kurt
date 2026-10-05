@@ -1,0 +1,6 @@
+; a `local` def required by an exported fact (see ../load-export-local-def-leak-rejected.kurt)
+load prop
+bool P
+use P  local "p-holds"
+def Q iff P  local "hidden"
+use Q implies P  "exported-leak"

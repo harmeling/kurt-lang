@@ -1,0 +1,23 @@
+; three gaps found with the mafi1 proofs (2026-10-04), fixed 2026-10-05:
+load set
+const P, Perp, M, Q, A, B, inv, det
+arity P 1, Perp 1, Q 1
+
+; (a) ⊥ from a `∀` fact and its negation, without stating the conjunction first ("bottom-intro"'s
+; `%A` used to be tried first, against the facts stored without their `∀`)
+assume ¬(∀ x P(x))
+    assume ∀ x P(x)
+        ⊥
+    ¬(∀ x P(x))
+
+; (b) a `∀` formula out of a conjunction ("and-elim" used to see the goal only without its `∀`)
+assume (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))
+    ∀ x (x ∈ A ⇒ x ∈ B)
+    ∀ x (x ∈ B ⇒ x ∈ A)
+
+; (c) `f(x)` without a space is one term, also in the condition of a binder: `∀ $x ∈ Perp(M) ...`
+; used to read the condition as `$x ∈ Perp`; and `inv det(A)` is `inv (det A)`
+use ∀ $x ∈ Perp(M) Q($x)
+∀ ($x ∈ Perp(M)) Q($x)
+use inv det(A) = A
+inv (det A) = A

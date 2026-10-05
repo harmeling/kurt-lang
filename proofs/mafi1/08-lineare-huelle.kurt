@@ -1,0 +1,107 @@
+; lineare Hülle -- the span (lecture "Mathematik für Informatik 1" (mafi1), deck
+; 08-lineare-unabhaengigkeit), for two vectors: L(v, w) = { λ v + μ w | λ, μ ∈ K }
+; (the slides take r vectors, which needs sums with indices)
+load 06-untervektorraeume
+arity L 2
+def L($v, $w) = { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   "span"
+
+; Satz: L(v, w) is a subspace of V
+show $v ∈ V ∧ $w ∈ V  ⇒  subspace(L($v, $w))                         "span-subspace"
+proof
+    assume $v ∈ V ∧ $w ∈ V
+        $v ∈ V
+        $w ∈ V
+        ; L(v, w) ⊂ V
+        let c
+            assume c ∈ L($v, $w)
+                c ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; span
+                c ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ c = $a · $v + $b · $w)            ; separation
+                c ∈ V
+        ∀ $c ($c ∈ L($v, $w)  implies  $c ∈ V)
+        L($v, $w) ⊂ V
+        ; (U1): 0 = 0 v + 0 w
+        0 · $v = 0                                      ; zero-times-vector
+        0 ∈ V
+        0 · $v + 0 · $w = 0 + 0 · $w
+                        = 0 + 0
+                        = 0
+        0 ∈ K ∧ 0 ∈ K ∧ 0 = 0 · $v + 0 · $w
+        ∃ $b (0 ∈ K ∧ $b ∈ K ∧ 0 = 0 · $v + $b · $w)
+        ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ 0 = $a · $v + $b · $w)
+        0 ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ 0 = $a · $v + $b · $w)
+        0 ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; separation
+        0 ∈ L($v, $w)
+        ∃ $x ($x ∈ L($v, $w))
+        ; (U2): (a v + b w) + (c v + d w) = (a + c) v + (b + d) w
+        let x ∈ L($v, $w)
+            let y ∈ L($v, $w)
+                x ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }
+                y ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }
+                x ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
+                y ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ y = $a · $v + $b · $w)
+                x ∈ V
+                y ∈ V
+                ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
+                ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ y = $a · $v + $b · $w)
+                x + y ∈ V
+                pick a with ∃ $b (a ∈ K ∧ $b ∈ K ∧ x = a · $v + $b · $w)
+                    pick b with a ∈ K ∧ b ∈ K ∧ x = a · $v + b · $w
+                        pick c with ∃ $d (c ∈ K ∧ $d ∈ K ∧ y = c · $v + $d · $w)
+                            pick d with c ∈ K ∧ d ∈ K ∧ y = c · $v + d · $w
+                                a ∈ K
+                                b ∈ K
+                                c ∈ K
+                                d ∈ K
+                                x = a · $v + b · $w
+                                y = c · $v + d · $w
+                                a · $v ∈ V
+                                b · $w ∈ V
+                                c · $v ∈ V
+                                d · $w ∈ V
+                                (a · $v + b · $w) + (c · $v + d · $w) = (a · $v + c · $v) + (b · $w + d · $w)   ; V-shuffle
+                                x + y = (a · $v + b · $w) + y
+                                      = (a · $v + b · $w) + (c · $v + d · $w)
+                                      = (a · $v + c · $v) + (b · $w + d · $w)
+                                      = (a + c) · $v + (b · $w + d · $w)
+                                      = (a + c) · $v + (b + d) · $w
+                                a + c ∈ K
+                                b + d ∈ K
+                                a + c ∈ K ∧ b + d ∈ K ∧ x + y = (a + c) · $v + (b + d) · $w
+                                ∃ $q (a + c ∈ K ∧ $q ∈ K ∧ x + y = (a + c) · $v + $q · $w)
+                                ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ x + y = $p · $v + $q · $w)
+                ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ x + y = $p · $v + $q · $w)
+                x + y ∈ V ∧ ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ x + y = $p · $v + $q · $w)
+                x + y ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; separation
+                x + y ∈ L($v, $w)
+        ∀ ($x ∈ L($v, $w)) ∀ ($y ∈ L($v, $w)) ($x + $y ∈ L($v, $w))
+        ; (U3): k (a v + b w) = (k a) v + (k b) w
+        let k ∈ K
+            let x ∈ L($v, $w)
+                x ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }
+                x ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
+                x ∈ V
+                ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
+                k · x ∈ V
+                pick a with ∃ $b (a ∈ K ∧ $b ∈ K ∧ x = a · $v + $b · $w)
+                    pick b with a ∈ K ∧ b ∈ K ∧ x = a · $v + b · $w
+                        a ∈ K
+                        b ∈ K
+                        x = a · $v + b · $w
+                        a · $v ∈ V
+                        b · $w ∈ V
+                        k · x = k · (a · $v + b · $w)
+                              = k · (a · $v) + k · (b · $w)
+                              = (k · a) · $v + k · (b · $w)
+                              = (k · a) · $v + (k · b) · $w
+                        k · a ∈ K
+                        k · b ∈ K
+                        k · a ∈ K ∧ k · b ∈ K ∧ k · x = (k · a) · $v + (k · b) · $w
+                        ∃ $q (k · a ∈ K ∧ $q ∈ K ∧ k · x = (k · a) · $v + $q · $w)
+                        ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ k · x = $p · $v + $q · $w)
+                ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ k · x = $p · $v + $q · $w)
+                k · x ∈ V ∧ ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ k · x = $p · $v + $q · $w)
+                k · x ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; separation
+                k · x ∈ L($v, $w)
+        ∀ $a ∈ K ∀ ($x ∈ L($v, $w)) ($a · $x ∈ L($v, $w))
+        subspace(L($v, $w))
+qed

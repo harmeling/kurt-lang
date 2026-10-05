@@ -1,11 +1,11 @@
 ; `use` inside a proof-like block would make the result look proven although it relies on an
 ; unproven axiom: here `assume A` + `use B` would give `A implies B` "by impl-intro".  So `use`
 ; is only allowed at the top level of a file, or inside a `sandbox` or `expect` (whose content
-; is discarded anyway).  This can't use `expect` itself, since inside `expect` `use` is allowed.
+; is discarded anyway).  The `assume` with the `use` is in a helper file, since inside `expect`,
+; `use` is allowed.
 bool A, B
 sandbox
     assume A
         use B        ; fine: the sandbox is discarded
-assume A
-    use B
-;;; EvalError: `use` is not allowed inside `assume`
+expect "EvalError" "`use` is not allowed inside `assume`"
+    load "helpers/use-in-assume.kurt"

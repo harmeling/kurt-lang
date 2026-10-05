@@ -1,0 +1,27 @@
+; argmax and argmin over a set (analysis.kurt): *some* element where the values are largest
+; (smallest) -- the rules say something only if such an element exists
+load analysis
+const A, a, b
+arity f 1, g 1
+
+use a ∈ A
+use ∀ ($w ∈ A) (f $w <= f a)
+(argmax $v ∈ A (f $v)) ∈ A                              ; by argmax-in
+∀ ($w ∈ A) (f $w <= f (argmax $v ∈ A (f $v)))           ; by argmax-max
+
+; so the maximum is the value at the argmax ("max-intro")
+max $v ∈ A (f $v) = f (argmax $v ∈ A (f $v))
+
+; but nothing says it is `a`: there can be several maximizers
+expect "ProofError"
+    (argmax $v ∈ A (f $v)) = a
+
+; without a maximizer, nothing about `argmax`
+expect "ProofError"
+    (argmax $v ∈ A (g $v)) ∈ A
+
+; argmin the same way
+use b ∈ A
+use ∀ ($w ∈ A) (g $w >= g b)
+(argmin $v ∈ A (g $v)) ∈ A
+∀ ($w ∈ A) (g $w >= g (argmin $v ∈ A (g $v)))

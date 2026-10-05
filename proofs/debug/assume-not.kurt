@@ -7,6 +7,6 @@ bool   not     0 1       ; `not` and its inputs have type bool
 use %A iff %A                                                       "iff-reflexive"
 use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
 
-assume not a
-    a
-;;; ProofError: can not derive `a`
+expect "ProofError" "can not derive `a`"
+    assume not a
+        a

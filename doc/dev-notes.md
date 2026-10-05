@@ -8,7 +8,7 @@
 This is a running, chronological diary of design decisions, dead ends, and
 open questions while inventing and implementing Kurt -- not user-facing
 documentation. For the current language reference, see `kurt-doc.md`; for
-learning Kurt, see `tutorial/`. There are many more older notes in the
+learning Kurt, see `keywords/`. There are many more older notes in the
 previous git repo.
 
 Formerly `kurt-notes.md`; the dated design-decision section that used to
@@ -2181,3 +2181,71 @@ possible problems:
 - strict exact indentation
 - allow continuation with `\`
 - allow chains with indentation
+
+## 2026-10-05: speed of the search -- what helped, what didn't
+
+Measured on the login node, `kurt --no-kurtc FILE` and the full test suite. All of it only
+changes the order and the amount of the search; what it accepts, and the certificates the kernel
+checks, stay the same.
+
+**Where the time goes.** In `natural.kurt` (12.6 s) the search tries about 43,000 rule
+applications, of which 407 succeed. The cheap first-order attempts are spread thin (about 2 s in
+all); most of the time is in a few rules:
+- the rules whose conclusion is a schema, `sub $x $b %A` ("equal-elim", "iff-subst") or `%A`
+  ("or-elim", "forall-elim"): matching the goal against `sub` cuts a hole into it at every
+  subterm (second-order matching), and for each, the premises are searched in the whole theory
+  -- about 50 ms per call of "equal-elim";
+- lemmas with a general conclusion like `$a = $b` (the uniqueness of an inverse,
+  `... ∧ $l + $a = 0 ∧ $l + $b = 0 ⇒ $a = $b` in proofs/mafi1/): they fit every equation, and
+  then their premise of five conjuncts is searched; in `28-selbstadjungiert.kurt` they took 17 of
+  34 s.
+
+**What helped:**
+- `cannot_unify` in `match_all_theory` (2026-10-04): skip a formula that can't unify with the
+  premise (different constants or operators, not below `flat`/`sym`/binders; variables, operator
+  variables and `sub` count as "may unify"). Tests 179 s → 115 s.
+- `guided_rewrite` (2026-10-05): for "equal-elim" and "iff-subst", first try as `$b` the subterms
+  where the goal differs from one of the 3 latest facts -- a rewriting step mostly changes the
+  line before it in one place, so the hole is known, and only the equation `$a = $b` has to be
+  found. Without a result, the full search follows. `natural.kurt` 11.4 s → 7.6 s, tests 180 s →
+  144 s. The order matters: the shortcut first, then the other generic rules, then the full
+  search for rewriting -- with the other generic rules first, the mafi1 files got 60 % slower
+  (most of their generic steps *are* rewriting steps).
+- The proof files in parallel (`KURT_TEST_JOBS`, default 4): tests 144 s → 83 s.
+- `.kurtc` certificates: a file whose certificates fit is checked without search
+  (`koerper.kurt` 9.7 s → 0.3 s) -- for running Kurt, not for the tests, which test the search.
+
+**Tried and dropped -- don't try again without a new idea:**
+- Counting a rule with a conclusion of only variables (`$a = $b`) as "generic" (tried after the
+  specific rules and the shortcut): slower, `28-selbstadjungiert.kurt` 35 s → 45 s. These lemmas
+  are often the step that is needed, and finding them early is cheaper.
+- Matching the most determined conjunct of a premise first (fewest variables without a value,
+  e.g. `$a ∈ K` before `$l ∈ K`): much slower, `koerper.kurt` 5 s → 21 s,
+  `28-selbstadjungiert.kurt` 35 s → 112 s, and `natural.kurt` failed (a step wasn't found). The
+  conjuncts in their written order bind the variables early through the facts, which seems to
+  matter more than checking a determined conjunct first. (The kernel would have allowed any
+  order: it compares each part of the premise with each fact.)
+
+- Conditional rewriting (`conditional_rewrite`, 2026-10-05): last in the order at first, the
+  shortened mafi1 files got very slow (`28-selbstadjungiert.kurt` 35 s → 125 s), since a step
+  whose instance line was gone went through the whole generic search first. Right after the
+  shortcut it is 74 s; without the rules whose conclusion is only variables (`$a = $b`, the
+  uniqueness lemmas -- but with the transitivity of `chain`) 54 s. The tests: 84 s → 92 s, for
+  168 fewer lines in proofs/mafi1/.
+
+**Where to pick it up again:**
+- An index of the theory (a discrimination tree: by the head symbol and the symbols below it,
+  per level of the `KnowledgeBase`; `flat`/`sym` operators only by their head, and `sub`,
+  operator variables and schema variables in a bucket that is always tried, no index with `calc
+  on`). It would speed up the many cheap attempts and the premise search of `match_all_theory`,
+  less the second-order matching of the generic rules -- moderate today (10-20 %?), more with
+  bigger theories.
+- The lemmas with a general conclusion: they search their whole premise for every equation goal.
+  Better ideas than reordering: check the conjuncts that are already determined *cheaply* (as a
+  filter, without changing the order of the search), or remember failed premises within a line.
+- Remembering the failures of a line: the same subgoal is searched again (after splitting a
+  conjunction, in the alternatives of "or-elim"); a cache by (goal, size of the theory), only
+  within one line. Measure first how often it hits.
+- The guided rewrite only looks at the 3 latest facts and the goal's subterms; a rewrite of an
+  older fact, or of `a = a` ("equal-intro", the first line of a chain), still needs the full
+  search.

@@ -1,0 +1,28 @@
+; 08-prove-a-universal-fact.kurt
+;
+; Prove a universal fact
+;
+; Use `let` to introduce a fresh, arbitrary object. Prove the body for that object, then close the
+; block. Kurt applies universal introduction.
+
+load logic, equality
+
+show forall $x ($x = $x)
+proof
+    let x
+        x = x
+qed
+
+; The introduced name must be fresh. The conclusion may not depend on an unrelated local constant
+; from inside the block.
+;
+; For a conditioned quantifier, put the condition in the `let` line. The condition is available as
+; an assumption inside the block:
+
+load logic, arith
+
+show forall $x > 0 ($x > 0)
+proof
+    let x > 0
+        x > 0
+qed

@@ -1,0 +1,6 @@
+; an `expect` block without any error in it is not confirmed -- it used to be, by the error that
+; the block had no proof step (soundness review of 2026-09-29, §8.17); `ExpectationError` is no
+; kind `expect` can catch, so tests/test_expect.py checks this file
+expect "ProofError"
+    bool B
+true

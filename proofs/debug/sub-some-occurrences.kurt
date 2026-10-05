@@ -1,0 +1,14 @@
+; instantiating `∀ $k ($k R x ⇒ ¬($k ∈ S))` with `x` itself: the matcher has to make two of the
+; three occurrences of `x` in the goal the hole -- it used to try only one, or all of them
+; (found in the proof of "well-ordering", natural.kurt)
+load set
+const R, A, S, x
+infix R 20 20
+bool R 0
+use ∀ $k ∈ A ($k R x ⇒ ¬($k ∈ S))
+use x ∈ A
+x R x ⇒ ¬(x ∈ S)
+
+; and with a plain ∀
+use ∀ $k ($k R x ⇒ ¬($k ∈ S) ∧ x R $k)
+x R x ⇒ ¬(x ∈ S) ∧ x R x
