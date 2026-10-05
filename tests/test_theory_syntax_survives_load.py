@@ -3,7 +3,7 @@ import re
 import unittest
 import importlib.resources as res
 
-import kurt
+import kurt.kurt as kurt
 
 # Regression test for a real class of bug found auditing the `local`/selective-export
 # feature (doc/kurt-soundness.md #7): a symbol can have full syntax declared (`infix`,

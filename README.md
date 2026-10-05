@@ -9,11 +9,9 @@ Harmeling (TU Dortmund) since 2016.
 **Status: 0.7, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
 proof written for 0.7 may need small changes for 1.0.
 
-Website: [www.kurt-lang.org](https://www.kurt-lang.org) (it leads here).
-
 **Try it in your browser**, without installing anything:
-[harmeling.github.io/kurt-web](https://harmeling.github.io/kurt-web/). The playground runs the same
-Kurt in the browser, with the tutorial lessons and examples.
+[www.kurt-lang.org](https://www.kurt-lang.org), the playground. It runs the same Kurt in the
+browser, with the tutorial lessons and examples.
 
 ## A first proof
 
@@ -91,6 +89,19 @@ It has all the theories embedded (`load prop` and so on work right away) and nee
 Python: `python3 kurt.py proof.kurt`. You can also build it from this repository yourself, with
 `python3 scripts/build_standalone.py` (writes `dist/kurt.py`). To keep the theories as separate, editable files instead,
 copy `src/kurt/kurt.py` together with the directory `src/kurt/theories/`.
+
+**From Python**, e.g. for a grader or an editor:
+
+    import kurt
+    result = kurt.check_text('load prop\nbool A, B\nuse A implies B\nuse A\nB\n')
+    result.ok, result.complete, result.error, result.output     # complete: also no `todo` left
+
+    session = kurt.new_session(kurt.RunConfig(strict=True, paths=('teacher/',)))
+    session.check_file('proof.kurt')
+
+Each session has its own options and state (fresh names, certificates, the cache of checked
+theories), so checks in one process don't influence each other -- one check at a time; for checks
+in parallel, use processes.
 
 ## Documentation
 

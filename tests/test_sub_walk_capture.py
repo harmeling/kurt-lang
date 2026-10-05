@@ -2,7 +2,7 @@
 import unittest
 import copy
 
-from kurt import (
+from kurt.kurt import (
     Token, State, Expr,
     initial_kb,
     # your functions under test:

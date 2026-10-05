@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-import kurt
+import kurt.kurt as kurt
 import kurt.kurt as kurt_module   # `file_fingerprint` closes over module globals defined
                                    # here, not over `kurt`'s one-time `from .kurt import *`
 

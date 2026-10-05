@@ -7,7 +7,7 @@
 ; by closing the case blocks.
 
 load prop
-bool A, B, C
+bool A, B, C, E
 
 use A or B
 use A implies C
@@ -25,6 +25,21 @@ qed
 ; A `case` block behaves like `assume` when it closes: the first block produces `A implies C`, and
 ; the second produces `B implies C`. The final `C` is the explicit `or-elim` step.
 ;
-; For more than two alternatives, combine the cases in stages. `or` is flat and symmetric, but the
-; current search is deliberately single-hop; an intermediate implication or conclusion is often
-; needed.
+; Three or four alternatives work the same way, with a `case` for each ("or-elim-3", "or-elim-4"
+; in prop.kurt):
+
+bool G
+use A or B or E
+use A implies G
+use B implies G
+use E implies G
+case A
+    G
+case B
+    G
+case E
+    G
+G
+
+; For more alternatives, combine the cases in stages: a `case B or E or ...` block around the cases
+; of the rest, which closes with its own conclusion.

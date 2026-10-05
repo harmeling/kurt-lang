@@ -3,7 +3,7 @@ import os
 import copy
 import unittest
 import concurrent.futures
-import kurt
+import kurt.kurt as kurt
 import contextlib
 import pathlib
 import importlib.resources as res

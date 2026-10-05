@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.3 (2026-10-05)
+
+- Three or four `case` blocks in a row for `A or B or C` (or four alternatives): "or-elim-3" and
+  "or-elim-4" in prop.kurt, proven from "or-elim".
+- Kurt as a library: `kurt.check_text`, `kurt.check_file`, and sessions with their own options
+  (`RunConfig`: strict, paths, kurtc) and state, so that checks in one process don't influence
+  each other. `import kurt` gives only this API now; the internals are in `kurt.kurt`.
+- "iff-true-elim" and "iff-true-intro" in prop.kurt: what is equivalent to `true` holds, and
+  what holds is equivalent to `true`.
+- A comma list prints as written: `⟨a, b⟩`, `(a, b)`, `{a, b}` (was `⟨ (a , b) ⟩`, `(a , b)`).
+- doc/kurt-doc.md §3.1: Kurt doesn't curry, `(f x) y` and `f x y` are different terms.
+- `cert 12-15` shows the certificate of the result of the block of lines 12 to 15.
+- Fix: inside an `expect`, a line that closed a nested block and then failed wasn't caught by the
+  `expect` (proofs/debug/expect-after-a-nested-block.kurt).
+- The result of a block is numbered by the lines of the block, `; 11-13 by impl-intro`, not by
+  the next line (which has a step of its own): `by or-elim(14-15, 11-13, 25)` names the blocks.
+
 ## 0.7.2 (2026-10-05)
 
 - `pick` from an existential with a condition: `pick c with c > 0 ∧ P c` from `∃ $y > 0 P $y`.

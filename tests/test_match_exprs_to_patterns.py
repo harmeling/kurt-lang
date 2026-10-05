@@ -1,7 +1,7 @@
 import unittest
 import copy
 
-from kurt import (
+from kurt.kurt import (
     Token, Expr, State,
     initial_kb,
     unify_exprs_with_patterns,

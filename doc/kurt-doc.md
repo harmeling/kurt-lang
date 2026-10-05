@@ -163,9 +163,11 @@ to be boolean (§5).
 
 Space is a built-in infix operator (declared in the hard-coded
 `minimal.kurt`, see §8.1), so `f x` means "`f` applied to `x`", and `f x y`
-means `f` applied to `x` and then to `y` (i.e. curried, unless `f` has a
-declared `arity`, see §4.3, in which case `f x y` is one call with two
-arguments). This is also why you can write `not A` even though `not` is
+is one term, `f` with the two arguments `x` and `y` (with a declared `arity`,
+§4.3, `f` takes exactly that many, and further arguments apply to the result).
+Kurt doesn't curry: `(f x) y` is a different term, `f x` applied to `y`, and
+neither follows from the other -- in `(f x) y`, `f x` is a subterm that can be
+rewritten, in `f x y` it isn't. This is also why you can write `not A` even though `not` is
 declared as a `prefix` operator elsewhere — a bare `symbol symbol`
 juxtaposition is space-application regardless.
 
@@ -264,8 +266,9 @@ symbols — there is no separate binding-power argument.
 
 Declares that `SYMBOL` is a plain (non-infix/prefix/postfix) function or
 predicate symbol taking exactly `N` arguments by space-application: `f a b`
-parses as one call `(f a b)`, not curried. A symbol with no declared arity
-defaults to arity 0 and behaves as ordinary curried space-application. You
+parses as one call `(f a b)`. A symbol with no declared arity defaults to
+arity 0: it takes all the arguments that follow it, `f a b` is `(f a b)` too
+(§3.1). You
 cannot set an `arity` on a symbol that's already `infix`/`prefix`/`postfix`
 or a bracket (their arities — 2, 1, 1 — are implicit and fixed), and you
 cannot re-set an arity once declared.
@@ -533,9 +536,11 @@ Each checked line is logged with the short form of its certificate (§6.5):
 the rule, applied to the facts it was used with -- `by 13(14)` is the
 (unlabelled) implication of line 13 applied to the fact of line 14,
 `by equal-elim(11, 10)` the rule "equal-elim" applied to lines 11 and 10,
-`by 3` an instance of the fact of line 3, `by impl-intro(15-23)` the closing
-of the block of lines 15 to 23, `by and-intro(12a, 12b)` a conjunction
-checked conjunct by conjunct. If the line has a comment of its own, the
+`by 3` an instance of the fact of line 3, `by and-intro(12a, 12b)` a
+conjunction checked conjunct by conjunct. The result of a block that closes
+is numbered by the lines of the block, `; 15-23 by impl-intro` (the block of
+lines 15 to 23; with `false` at its end also `; 15-23 by not-intro`), and a
+step that uses it names them: `by or-elim(15-23, 24-30, 14)`. If the line has a comment of its own, the
 comment stays on the line, and the reason goes on the next line:
 
     B                                         ; modus ponens
@@ -623,6 +628,7 @@ Read-only introspection; changes nothing.
 
     cert 17             ; the certificates of line 17 of this file (or of the shell)
     cert 17, 18
+    cert 12-15          ; the result of the block of lines 12 to 15 (`; 12-15 by impl-intro`)
     cert                ; those of the last line with a step
 
 The comment after a checked line, e.g. `by forall-cond-elim(8, 9)`, is a short form of the
@@ -908,7 +914,9 @@ the block generalizes again: `P $x implies ...` holds for every `$x`. `case` is 
 a disjunction, each producing its own `EXPR implies <goal>`; actually
 concluding the goal from all the cases (or-elim) then needs **two** things
 already in scope, not just the sequence of `case` blocks itself: the `or`
-theory's `or-elim` axiom (from `load prop`), *and* the disjunction fact
+theory's `or-elim` axiom (from `load prop`; for three or four alternatives,
+`A or B or C` with three `case`s, its versions `or-elim-3` and `or-elim-4`;
+for more, nest them: `case B or C or …` around the inner cases), *and* the disjunction fact
 itself (`%A or %B`, covering exactly the case expressions used) as its own
 derivable/`use`d line — Kurt never checks that your `case`s are actually
 exhaustive, it just needs the real disjunction to exist. Forgetting either

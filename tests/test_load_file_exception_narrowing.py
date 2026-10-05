@@ -2,7 +2,7 @@ import io
 import copy
 import unittest
 
-import kurt
+import kurt.kurt as kurt
 
 class _NoNamePath:
     # a minimal stand-in for a `Path`/`Traversable` whose `.open()` succeeds but returns a

@@ -1,0 +1,40 @@
+; three or four `case` blocks in a row combine into "or-elim-3" / "or-elim-4" (prop.kurt); with
+; only two of three alternatives, they don't
+load prop
+bool A, B, C, E, G, H, K
+use A or B or C
+use A implies G
+use B implies G
+use C implies G
+case A
+    G
+case B
+    G
+case C
+    G
+G                       ; by or-elim-3
+
+use A or B or C or E
+use A implies H
+use B implies H
+use C implies H
+use E implies H
+case A
+    H
+case B
+    H
+case C
+    H
+case E
+    H
+H                       ; by or-elim-4
+
+use A implies K
+use B implies K
+case A
+    K
+case B
+    K
+expect "ProofError" "can not derive"
+    K
+true

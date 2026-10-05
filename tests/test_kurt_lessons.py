@@ -1,7 +1,7 @@
 import io
 import copy
 import unittest
-import kurt
+import kurt.kurt as kurt
 import contextlib
 
 from tests.utils import PROJECT_ROOT

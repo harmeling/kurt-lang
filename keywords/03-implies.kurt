@@ -8,9 +8,9 @@
 bool A, B
 
 ; `B` below is derived automatically via "impl-elim" (modus ponens), logged as e.g.
-; `by 13(14)` -- the implication of line 13 applied to the fact of line 14. (If the
+; `by 14(15)` -- the implication of line 14 applied to the fact of line 15. (If the
 ; implication has a label, e.g. `use A implies B "my-rule"`, the log shows the label
-; instead, since the label names the rule: `by my-rule(14)`.)
+; instead, since the label names the rule: `by my-rule(15)`.)
 use A implies B
 use A
 B

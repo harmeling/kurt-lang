@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from kurt import Token, Expr, initial_kb, cannot_unify, SUB_SYMBOL
+from kurt.kurt import Token, Expr, initial_kb, cannot_unify, SUB_SYMBOL
 
 # `match_all_theory` skips a formula of the theory that `cannot_unify` with a premise -- only for
 # speed, so `cannot_unify` must never say so for two expressions that do unify: a variable, an

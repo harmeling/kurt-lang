@@ -1,6 +1,6 @@
 import unittest
 import copy
-from kurt import Token, generate_all_combinations, initial_kb
+from kurt.kurt import Token, generate_all_combinations, initial_kb
 
 # each example looks like this:
 #   [expr,

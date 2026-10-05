@@ -1,0 +1,9 @@
+; what is equivalent to `true` holds ("iff-true-elim"), and what holds is equivalent to `true`
+; ("iff-true-intro"), prop.kurt -- e.g. after a chain of equivalences that ends in `⊤`
+load prop
+bool A, B
+use A iff true
+A                               ; by iff-true-elim
+use B
+B iff true                      ; by iff-true-intro
+true iff B                      ; `iff` is symmetric

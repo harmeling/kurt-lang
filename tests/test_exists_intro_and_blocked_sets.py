@@ -4,7 +4,7 @@ import unittest
 import copy
 from typing import Optional
 
-from kurt import (
+from kurt.kurt import (
     Token, Expr, State,
     initial_kb,
     unify_exprs_with_patterns,

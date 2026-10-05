@@ -76,6 +76,34 @@ use %A  and  %B   implies   %A                                      "and-elim"  
 use %A   implies   %A or %B                                         "or-intro"   ; `or` is symmetric and flat
 use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"
 
+; "or-elim" for three and four alternatives, proven from "or-elim": then three or four `case`
+; blocks in a row combine, `A or B or C` with `case A`, `case B`, `case C` (`or` is flat, so
+; "or-elim" itself only splits off one alternative from the others)
+; TODO: any number of alternatives (a step of its own in the search, with a certificate)
+show (%A or %B or %C) and (%A implies %D) and (%B implies %D) and (%C implies %D) implies %D   "or-elim-3"
+proof
+    assume (%A or %B or %C) and (%A implies %D) and (%B implies %D) and (%C implies %D)
+        %A or %B or %C
+        %A implies %D
+        %B implies %D
+        %C implies %D
+        case %B or %C
+            %D
+        %D
+qed
+show (%A or %B or %C or %E) and (%A implies %D) and (%B implies %D) and (%C implies %D) and (%E implies %D) implies %D   "or-elim-4"
+proof
+    assume (%A or %B or %C or %E) and (%A implies %D) and (%B implies %D) and (%C implies %D) and (%E implies %D)
+        %A or %B or %C or %E
+        %A implies %D
+        %B implies %D
+        %C implies %D
+        %E implies %D
+        case %B or %C or %E
+            %D
+        %D
+qed
+
 use (%A invimplies %B) iff (%B implies %A)                         "invimplies-def"
 
 use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"
@@ -85,6 +113,24 @@ use %A iff %A                                                       "iff-reflexi
 use (sub %x %a %A) and (%a iff %b)  implies  (sub %x %b %A)         "iff-subst"
 
 use (true implies %A) implies %A                                    "top-elim"
+
+; a formula equivalent to `true` holds, and a formula that holds is equivalent to `true` (e.g.
+; after a chain of equivalences that ends in `⊤`)
+show (%A iff true) implies %A                                       "iff-true-elim"
+proof
+    assume %A iff true
+        true implies %A
+        %A
+qed
+show %A implies (%A iff true)                                       "iff-true-intro"
+proof
+    assume %A
+        assume %A
+            true
+        assume true
+            %A
+        %A iff true
+qed
 
 use %A and not %A implies false                                     "bottom-intro"
 use false implies %A                                                "bottom-elim"

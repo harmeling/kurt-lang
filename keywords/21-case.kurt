@@ -8,7 +8,7 @@
 ; two things must already be in scope for that combination to actually fire -- `case` itself
 ; does NOT check either one, or that your cases are exhaustive at all:
 ;   1. the disjunction fact itself (`A or B` below, `use`d up front)
-;   2. an explicit restatement of the goal *after* the case blocks close (line 20 below) --
+;   2. an explicit restatement of the goal *after* the case blocks close (line 28 below) --
 ;      closing the last `case` does not automatically finish the or-elim for you
 ; forgetting either one just fails with an ordinary "can not derive" on that final line, not
 ; a `case`-specific error.

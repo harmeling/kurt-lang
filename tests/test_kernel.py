@@ -248,6 +248,13 @@ class TestCertCommand(unittest.TestCase):
         self.assertIn('; values:    $a := `a`', out)
         self.assertNotIn('$$', out.split('cert 6')[-1])     # no internal names
 
+    def test_the_result_of_a_block_by_its_lines(self):
+        # the result of a block is numbered by the lines of the block, so `cert` takes them too
+        out = self.output('bool P\nassume P\n    P\ncert 2-3\ncert 7-8')
+        self.assertIn('; lines 2-3:', out)
+        self.assertIn('"impl-intro", closing the block `assume P`', out)
+        self.assertIn('; lines 7-8: no certificate', out)
+
     def test_a_failed_line_has_no_certificate(self):
         out = self.output('load prop\nbool A, B\nuse A\nexpect "ProofError"\n    A ∧ B\ncert 5')
         self.assertIn('; line 5: no certificate', out)
@@ -266,8 +273,22 @@ class TestShortForm(unittest.TestCase):
         self.assertIn('; 10 by equal-elim(8, 9)', out)
         out_and = self.output('bool A, B\nuse A\nuse B implies B\nuse B\nA ∧ B\n')
         self.assertIn('; 5 by and-intro(5a, 5b)', out_and)
-        self.assertIn('; 14 by impl-intro(12-13)', out)
+        self.assertIn('; 12-13 by impl-intro', out)          # numbered by its block, not by line 14
         self.assertIn('; 14 by top-intro', out)
+
+    def test_the_result_of_a_block_is_numbered_by_its_lines(self):
+        # the result of a closed block used to have the number of the next line, which has a step
+        # of its own: `or-elim(14, ...)` meant the block 11-13, not line 14
+        out = self.output('\n'.join(['load prop', 'bool A, B', 'use A ∨ B',
+                                      'assume A', '    A ∨ B', 'assume B', '    A ∨ B',
+                                      'assume ¬A', '    assume A', '        contradiction', '    ¬A',
+                                      'A ∨ B']))
+        self.assertIn('; 4-5 by impl-intro', out)
+        self.assertIn('; 6-7 by impl-intro', out)
+        self.assertIn('; 9-10 by not-intro', out)              # an inner block
+        self.assertIn('; 8-11 by impl-intro', out)             # the outer one, to the end of its last line
+        self.assertIn('; 11 by 9-10', out)                     # used by its lines
+        self.assertNotIn('; 6 by impl-intro', out)
 
     def test_comments_stay(self):
         out = self.output('bool A, B\nuse A implies B   ; the rule\nuse A\nB   ; modus ponens\nA\n')

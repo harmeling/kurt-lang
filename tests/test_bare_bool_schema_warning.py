@@ -1,7 +1,7 @@
 import unittest
 import copy
 
-from kurt import (
+from kurt.kurt import (
     Token, Expr,
     initial_kb,
     bare_bool_schema_axiom_warning,

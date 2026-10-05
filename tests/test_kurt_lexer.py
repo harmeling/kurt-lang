@@ -1,5 +1,5 @@
 import unittest
-import kurt
+import kurt.kurt as kurt
 from .examples import examples
 
 class Test_Lexing(unittest.TestCase):
