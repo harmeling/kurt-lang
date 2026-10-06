@@ -30,6 +30,7 @@ quantifier?", or "Why did this step fail?" Every lesson is a Kurt file: run it
 - [`22-prove-a-law-of-logic.kurt`](22-prove-a-law-of-logic.kurt): Prove a law of logic (contraposition)
 - [`23-work-with-pairs-and-tuples.kurt`](23-work-with-pairs-and-tuples.kurt): Work with pairs and tuples
 - [`24-use-a-structure-groups.kurt`](24-use-a-structure-groups.kurt): Use a structure: groups
+- [`25-compute-with-vectors-and-matrices.kurt`](25-compute-with-vectors-and-matrices.kurt): Compute with vectors and matrices
 
 The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one by one, and
 [`doc/kurt-doc.md`](../doc/kurt-doc.md) is the complete language reference. More examples:

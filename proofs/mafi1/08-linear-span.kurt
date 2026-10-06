@@ -1,11 +1,11 @@
-; lineare Hülle -- the span (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 08-lineare-unabhaengigkeit), for two vectors: L(v, w) = { λ v + μ w | λ, μ ∈ K }
+; the span (course "Mathematik für Informatik 1" (mafi1), lecture 08: linear independence),
+; for two vectors: L(v, w) = { λ v + μ w | λ, μ ∈ K }
 ; (the slides take r vectors, which needs sums with indices)
 load 06-subspaces
 arity L 2
 def L($v, $w) = { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   "span"
 
-; Satz: L(v, w) is a subspace of V
+; Theorem: L(v, w) is a subspace of V
 show $v ∈ V ∧ $w ∈ V  ⇒  subspace(L($v, $w))                         "span-subspace"
 proof
     assume $v ∈ V ∧ $w ∈ V

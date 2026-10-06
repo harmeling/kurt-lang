@@ -6,8 +6,8 @@
 #
 # A session has its own options (`RunConfig`: strict, paths, kurtc) and state; checks in one
 # process don't influence each other. The internals are in `kurt.kurt` (not a stable API).
-from .kurt import (version, RunConfig, CheckResult, Session, new_session, check_text, check_file,
+from .kurt import (version, RunConfig, CheckResult, Session, Shell, new_session, check_text, check_file,
                    KurtException, main)
 
-__all__ = ['version', 'RunConfig', 'CheckResult', 'Session', 'new_session', 'check_text', 'check_file',
+__all__ = ['version', 'RunConfig', 'CheckResult', 'Session', 'Shell', 'new_session', 'check_text', 'check_file',
            'KurtException', 'main']

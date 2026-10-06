@@ -65,7 +65,7 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
     hashlib = None
 
 # config: general information
-version        = '0.7.4'     # the only place of the version (pyproject.toml reads it from here)
+version        = '0.7.5'     # the only place of the version (pyproject.toml reads it from here)
 made_by        = 'made by Stefan Harmeling, 2016-2026'
 
 def file_fingerprint() -> str:
@@ -124,7 +124,10 @@ SYM_KEEP_ORDER = [EQUAL_SYMBOL, IFF_SYMBOL]
 # into a string, and powers of such numbers would take forever
 MAX_NUMBER_DIGITS = 1000
 MAX_NUMBER_BITS = int(MAX_NUMBER_DIGITS * 3.32)
-CALCULATOR_OPERATIONS = ('add', 'subtract', 'negate', 'multiply', 'divide', 'power')
+CALCULATOR_OPERATIONS = ('add', 'subtract', 'negate', 'multiply', 'divide', 'power', 'transpose', 'determinant')
+# a bracket pair bound to `matrix` makes literals of vectors and matrices (matrix.kurt's `calc [ matrix`):
+# `[1, 2, 3]` a row, `[[1, 2], [3, 4]]` rows, `[[1], [3]]` a column -- computed exactly by the operations
+CALCULATOR_LITERALS = ('matrix',)
 CALCULATOR_RELATIONS: dict[str, Callable[[Fraction, Fraction], bool]] = {
     'eq': lambda a, b: a == b,
     'ne': lambda a, b: a != b,
@@ -384,6 +387,18 @@ def replace_latex_syntax(line: str) -> str:
         return REPLACEMENTS.get(command) or command
     return COMMAND_RE.sub(command_replacer, line)
 
+class BreakpointReached(Exception):
+    # `breakpoint` in a file: with the state there (`read_eval_loop` adds the lexer state and the
+    # line), for the shell to continue with -- no `KurtException`, so no `expect` catches it
+    def __init__(self, kb: 'KnowledgeBase') -> None:
+        super().__init__('breakpoint')
+        self.kb = kb
+        self.lexer_state: Optional['LexerState'] = None
+        self.line = 0
+
+# whether `breakpoint` opens the shell (`kurt` at a terminal, or with `-i`): otherwise it shows the state
+breakpoint_shell: list[bool] = [False]
+
 class KurtException(Exception):
     # every raise site still just writes its `kind` as a conventional string prefix
     # inside `msg` (e.g. `f'EvalError: ...'`), rather than passing `kind=` explicitly --
@@ -471,7 +486,7 @@ keywords: dict[str, str] = {
     'break':       'discard the current block immediately (no proof step, no dedent needed)',
 
     # inspection for files
-    'inspect':     'stop executing a file and start the shell',
+    'breakpoint':  'stop checking the file here and continue in the shell (at a terminal, or with `kurt -i`), otherwise show the state',
     }
 helper_keywords = ['with']     # for keyword `pick`, e.g., `pick y with F(y)`
 
@@ -810,6 +825,119 @@ def number_value(e: Expr, kb: 'KnowledgeBase') -> Optional[int | Fraction]:
             return Fraction(a, b)
     return None
 
+Matrix: TypeAlias = list[list[Fraction]]
+
+def comma_items(e: Expr) -> list[Expr]:
+    # `a, b, c` (right-associative: `(a, (b, c))`, or flat) as a list
+    if isinstance(e, list) and len(e) >= 3 and isinstance(e[0], Token) and e[0].value == COMMA_SYMBOL:
+        return [x for part in e[1:] for x in comma_items(part)]
+    return [e]
+
+def matrix_value(e: Expr, kb: 'KnowledgeBase') -> Optional[Matrix]:
+    # the rows of a literal: `[1, 2, 3]` one row, `[[1, 2], [3, 4]]` two, `[[1], [3]]` a column --
+    # `None` if `e` is no literal of numbers (or the rows have different lengths)
+    if not (isinstance(e, list) and len(e) == 2 and isinstance(e[0], Token) and isinstance(e[0].value, str)
+            and 'matrix' in kb.get_calc_ops(e[0].value)):
+        return None
+    items = comma_items(e[1])
+    numbers = [number_value(x, kb) for x in items]
+    if all(n is not None for n in numbers):
+        return [[Fraction(n) for n in numbers]]          # a row
+    rows = [matrix_value(x, kb) for x in items]
+    if any(r is None or len(r) != 1 for r in rows):
+        return None
+    result = [r[0] for r in rows if r is not None]
+    return result if len({len(r) for r in result}) == 1 else None
+
+def matrix_expr(m: Matrix, bracket: Token, kb: 'KnowledgeBase') -> Optional[Expr]:
+    # a literal again: one row as `[a, b]`, several as `[[a, b], [c, d]]`
+    def listing(items: list[Expr]) -> Expr:
+        return items[0] if len(items) == 1 else [Token('SYMBOL', COMMA_SYMBOL), items[0], listing(items[1:])]
+    def row(r: list[Fraction]) -> Optional[Expr]:
+        numbers = [number_expr(v, kb) for v in r]
+        if any(n is None for n in numbers):
+            return None
+        return [bracket.clone(bracket.value), listing([n for n in numbers if n is not None])]
+    rows = [row(r) for r in m]
+    if any(r is None for r in rows):
+        return None
+    if len(rows) == 1:
+        return rows[0]
+    return [bracket.clone(bracket.value), listing([r for r in rows if r is not None])]
+
+def matrix_product(a: Matrix, b: Matrix) -> Optional[Matrix]:
+    if len(a[0]) != len(b):
+        return None                                      # the shapes don't fit: no value
+    return [[sum((a[i][k] * b[k][j] for k in range(len(b))), Fraction(0)) for j in range(len(b[0]))] for i in range(len(a))]
+
+def determinant(m: Matrix) -> Optional[Fraction]:
+    # exactly, by elimination (fractions)
+    n = len(m)
+    if any(len(r) != n for r in m):
+        return None
+    a = [list(r) for r in m]
+    det = Fraction(1)
+    for col in range(n):
+        pivot = next((r for r in range(col, n) if a[r][col] != 0), None)
+        if pivot is None:
+            return Fraction(0)
+        if pivot != col:
+            a[col], a[pivot] = a[pivot], a[col]
+            det = -det
+        det *= a[col][col]
+        for r in range(col + 1, n):
+            f = a[r][col] / a[col][col]
+            a[r] = [x - f * y for x, y in zip(a[r], a[col])]
+    return det
+
+def calculate_matrices(e: list, ops: list[str], kb: 'KnowledgeBase') -> Optional[Expr]:
+    # an operation with a literal among its arguments (`calculate`): `None` if there is nothing to
+    # compute -- every argument must be a literal or a number, and the shapes must fit
+    args = e[1:]
+    mats = [matrix_value(a, kb) for a in args]
+    if all(m is None for m in mats):
+        return None
+    nums = [number_value(a, kb) if m is None else None for a, m in zip(args, mats)]
+    if any(m is None and n is None for m, n in zip(mats, nums)):
+        return None
+    bracket = next(a[0] for a, m in zip(args, mats) if m is not None)
+    def shape(m: Matrix) -> tuple[int, int]:
+        return len(m), len(m[0])
+    result: Optional[Matrix] = None
+    if 'add' in ops and len(args) >= 2 and all(m is not None for m in mats):
+        if len({shape(m) for m in mats if m is not None}) != 1:
+            return None
+        result = [[sum((m[i][j] for m in mats if m is not None), Fraction(0)) for j in range(len(mats[0][0]))] for i in range(len(mats[0]))]
+    elif 'subtract' in ops and len(args) == 2 and mats[0] is not None and mats[1] is not None:
+        if shape(mats[0]) != shape(mats[1]):
+            return None
+        result = [[x - y for x, y in zip(r, s)] for r, s in zip(mats[0], mats[1])]
+    elif 'negate' in ops and len(args) == 1 and mats[0] is not None:
+        result = [[-x for x in r] for r in mats[0]]
+    elif 'multiply' in ops and len(args) >= 2:
+        acc: Matrix | Fraction = mats[0] if mats[0] is not None else Fraction(nums[0])
+        for m, n in zip(mats[1:], nums[1:]):
+            if isinstance(acc, Fraction):
+                acc = [[acc * x for x in r] for r in m] if m is not None else acc * Fraction(n)
+            elif m is None:
+                acc = [[x * Fraction(n) for x in r] for r in acc]
+            else:
+                product = matrix_product(acc, m)
+                if product is None:
+                    return None
+                acc = product
+        if isinstance(acc, Fraction):
+            return number_expr(acc, kb)
+        result = acc
+    elif 'transpose' in ops and len(args) == 1 and mats[0] is not None:
+        result = [list(c) for c in zip(*mats[0])]
+    elif 'determinant' in ops and len(args) == 1 and mats[0] is not None:
+        d = determinant(mats[0])
+        return None if d is None else number_expr(d, kb)
+    if result is None:
+        return None
+    return matrix_expr(result, bracket, kb)
+
 def calculate(e: Expr, kb: 'KnowledgeBase') -> Expr:
     # compute the operations on numbers whose symbols are bound to the calculator (`calc`), exactly
     if isinstance(e, Token):
@@ -821,6 +949,9 @@ def calculate(e: Expr, kb: 'KnowledgeBase') -> Expr:
             ops = kb.get_calc_ops(op)
             if not ops:
                 return e
+            computed = calculate_matrices(e, ops, kb)       # vectors and matrices
+            if computed is not None:
+                return computed
             values = [number_value(a, kb) for a in args]
             numbers = [v for v in values if v is not None]
             others = [a for a, v in zip(args, values) if v is None]
@@ -910,6 +1041,9 @@ def exported_formulas_and_symbols(child: 'KnowledgeBase') -> tuple[list['Formula
     symbols: set[str] = set()
     for f in exported:
         symbols |= free_symbols(f.expr, child)
+    # a symbol bound to the calculator (`calc + add`) is exported like an axiom about it -- e.g.
+    # matrix.kurt's literals `[ ]`, `det`, `transpose`, which no fact of its own mentions
+    symbols |= set(child.calc_ops)
     # custom brackets are special: what actually shows up in a parsed expression is the synthetic
     # combined token (`{lbracket}$$${rbracket}`), but the pair's own const/nud/lbp entries are
     # keyed by the raw bracket characters -- pull those in too once the pair is needed
@@ -2113,7 +2247,7 @@ def expr_normal(expr: Expr, kb: KnowledgeBase, rbp: int=0) -> str:          # cr
             assert len(parts) == 2, f'BUG: bracket placeholder must contain `$$$`'
             left, right = parts
             if len(tail) == 1 and is_comma_separated_list(tail[0]):
-                inner = ', '.join(expr_normal(e, kb) for e in tail[0][1:])     # `⟨a, b⟩`, not `⟨ (a , b) ⟩`
+                inner = ', '.join(expr_normal(e, kb) for e in comma_items(tail[0]))     # `⟨a, b, c⟩`, not `⟨ (a , (b, c)) ⟩`
             else:
                 inner = ' '.join(expr_normal(e, kb) for e in tail)
             # no space next to a bracket made of signs (`⟨a, b⟩`, `{x}`), but next to one of letters
@@ -3451,7 +3585,7 @@ accepted_lines: dict[str, list[str]] = {}
 
 # statements that only show something: not saved
 SHOWING_KEYWORDS = {'save', 'cert', 'help', 'hint', 'theory', 'syntax', 'level', 'mode', 'context', 'trail',
-                    'tokenize', 'parse', 'inspect', 'verbose', 'format'}
+                    'tokenize', 'parse', 'breakpoint', 'verbose', 'format'}
 # ... and those that only list something when they come without arguments
 LISTING_KEYWORDS = {'load', 'use', 'def', 'show', 'prefix', 'infix', 'postfix', 'brackets', 'arity', 'bindop',
                     'flat', 'sym', 'bool', 'chain', 'var', 'const', 'alias'}
@@ -3507,9 +3641,13 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                 for arg in args:
                     match arg:
                         case [Token(label='SYMBOL', value=symbol), Token(label='SYMBOL', value=operation)] if isinstance(symbol, str) and isinstance(operation, str):
-                            known = CALCULATOR_OPERATIONS + tuple(CALCULATOR_RELATIONS) + (CALCULATOR_MEMBERSHIP,) + tuple(CALCULATOR_SETS)
+                            known = CALCULATOR_OPERATIONS + tuple(CALCULATOR_RELATIONS) + (CALCULATOR_MEMBERSHIP,) + tuple(CALCULATOR_SETS) + CALCULATOR_LITERALS
                             if operation not in known:
                                 raise KurtException(f'EvalError: `{operation}` is not an operation of the calculator, one of {", ".join(known)}', keyword_token.column)
+                            if kb.is_lbracket(symbol):
+                                # `calc [ matrix`: the bracket pair, whose terms are `[$$$]` nodes
+                                right = next(r for node in kb.levels() for r, l in node.brackets.items() if l == symbol)
+                                symbol = f'{symbol}$$${right}'
                             bindings.append((symbol, operation))
                         case _:
                             msg = create_usage(keyword, [[], ['on'], ['off'], ['SYMBOL', 'OPERATION']])
@@ -4021,11 +4159,8 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         assert False, '`break` should have been handled in `scan_parse_check_eval`'
         pass    # do nothing, it was already handled in `scan_parse_check_eval`
 
-    elif keyword == 'inspect':
-        raise NotImplementedError('`inspect` keyword is not yet implemented')
-        # implementation idea:
-        # raise some special exception that is caught in the main loop
-        # that exception would open an interactive shell with access to the current knowledgebase
+    elif keyword == 'breakpoint':
+        raise BreakpointReached(kb)        # `read_eval_loop` decides: the shell, or show the state
 
     elif keyword == 'show':
         if len(args) == 0:
@@ -6964,6 +7099,10 @@ def numeric_comparison_holds(expr: Expr, kb: 'KnowledgeBase') -> bool:
                 return False
             return any(CALCULATOR_SETS[c](Fraction(va)) for c in kb.get_calc_ops(name) if c in CALCULATOR_SETS)
         case [Token(label='SYMBOL', value=op), a, b] if isinstance(op, str):
+            ma, mb = matrix_value(a, kb), matrix_value(b, kb)
+            if ma is not None and mb is not None:              # vectors and matrices: equal or not
+                ops = kb.get_calc_ops(op)
+                return ('eq' in ops and ma == mb) or ('ne' in ops and ma != mb)
             va, vb = number_value(a, kb), number_value(b, kb)
             if va is None or vb is None:
                 return False
@@ -7716,7 +7855,7 @@ def load_file(filename: str, kb: KnowledgeBase, search_paths: Optional[list] = N
 RUN_STATE_NAMES = ('strict_mode', 'trusted_paths', 'theory_path', 'kurtc_enabled', 'comment_indent',
                    'new_symbols', 'space_suspended', 'accepted_lines', 'current_comment', 'origin_names',
                    'dependent_vars', 'certificates_by_line', 'current_line', 'replay_hints',
-                   'load_dependencies', '_loading_in_progress', '_checked_exports', 'event_sink')
+                   'load_dependencies', '_loading_in_progress', '_checked_exports', 'event_sink', 'shell_start')
 RUN_STATE_COUNTERS = (new_var_name, new_bool_var_name)      # their `counter` attribute
 
 @dataclasses.dataclass(frozen=True)
@@ -7763,7 +7902,7 @@ def _fresh_run_state(config: RunConfig) -> dict:
             'comment_indent': config.comment_indent, 'new_symbols': [], 'space_suspended': [False],
             'accepted_lines': {}, 'current_comment': [None], 'origin_names': {}, 'dependent_vars': {},
             'certificates_by_line': {}, 'current_line': [None], 'replay_hints': {},
-            'load_dependencies': {}, '_loading_in_progress': set(), '_checked_exports': {}, 'event_sink': None,
+            'load_dependencies': {}, '_loading_in_progress': set(), '_checked_exports': {}, 'event_sink': None, 'shell_start': [None],
             'counters': [0 for _ in RUN_STATE_COUNTERS]}
 
 class Session:
@@ -7790,6 +7929,7 @@ class Session:
         events: list[dict] = []
         with self._active(), contextlib.redirect_stdout(out):
             event_sink = events
+            shell_start[0] = None
             try:
                 kb = run(kb)
                 log_summary(kb)
@@ -7812,13 +7952,75 @@ class Session:
             kurtc_enabled = False                     # no `.kurtc` for a text without a file
             stream = io.StringIO(text)
             stream.name = name
-            bundle = checked_exports(name, stream, None, kb, mainstream=True)
+            _loading_in_progress.add(name)        # (the main file: the files it loads are below it)
+            try:
+                bundle = checked_exports(name, stream, None, kb, mainstream=True)
+            finally:
+                _loading_in_progress.discard(name)
             validate_against_loader(bundle, kb, name)
             apply_exports(kb, bundle)
             for todo in bundle.todos:
                 kb.todo_add(todo)
             return kb
         return self._check(run)
+
+def hello() -> str:
+    # the first line Kurt prints
+    return f'This is Kurt, v{version} ({made_by}), file {file_fingerprint()}'
+
+class Shell:
+    # Kurt's shell as an object, for the playground and editors: `start_text`/`start_file` check a
+    # proof (as `check_text`, `check_file`) and continue where it stopped -- at its first
+    # `breakpoint`, at its failing line, or after its last line (`stopped` says which); `feed`
+    # checks more lines there, as the shell does (an error is shown, the next line is read)
+    def __init__(self, config: Optional[RunConfig] = None) -> None:
+        self.session = Session(config)
+        self.kb: KnowledgeBase = copy.deepcopy(initial_kb)
+        self.lexer_state = LexerState()
+        self.line = 1
+        self.stopped = 'start'                 # 'breakpoint', 'error', 'end', or 'start' (nothing checked)
+        self.accepted: list[str] = []          # the lines `feed` accepted (to copy into the file)
+
+    def _continue_from_check(self, result: CheckResult) -> CheckResult:
+        state = self.session._state['shell_start'][0]
+        if state is not None:
+            self.kb, self.lexer_state, self.line, self.stopped = state
+        self.accepted = []
+        return result
+
+    def start_text(self, text: str, name: str = 'proof.kurt') -> CheckResult:
+        return self._continue_from_check(self.session.check_text(text, name))
+
+    def start_file(self, path: str) -> CheckResult:
+        return self._continue_from_check(self.session.check_file(path))
+
+    def feed(self, text: str) -> str:
+        # check `text` (a line, or several) in the current state; returns what Kurt prints
+        out = io.StringIO()
+        stream = io.StringIO(text if text.endswith('\n') else text + '\n')
+        stream.name = '<shell>'
+        with self.session._active(), contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            self.kb = read_eval_loop(stream, self.kb, mainstream=True, lexer_state=self.lexer_state,
+                                     first_line=self.line, shell=True)
+            self.accepted += accepted_lines.get('<shell>', [])
+        self.line += text.rstrip('\n').count('\n') + 1
+        return out.getvalue()
+
+    def next_steps(self) -> list[str]:
+        with self.session._active():
+            return next_steps(self.kb, self.lexer_state)
+
+    def completions(self, line: str, word: str) -> list[str]:
+        with self.session._active():
+            return completions(line, word, self.kb, self.lexer_state)
+
+    def indentation(self) -> int:
+        # the indentation the next line starts with (as the shell offers it)
+        return next_indentation(self.lexer_state)
+
+    def summary(self) -> str:
+        with self.session._active():
+            return state_summary(self.kb, self.lexer_state)
 
 def new_session(config: Optional[RunConfig] = None) -> Session:
     return Session(config)
@@ -7841,6 +8043,152 @@ def log_summary(kb: KnowledgeBase) -> None:
         log(kb, f'Proof almost checked: {len(todos)} todos.')
     for todo in todos:
         log(kb, f'  {todo}')
+
+#####################
+## language server ##
+#####################
+
+# `kurt --lsp`: the Language Server Protocol over stdin/stdout (JSON-RPC 2.0 with Content-Length
+# headers), for VS Code, Emacs (eglot), Neovim, ... -- a file is checked when it is opened and
+# saved (`Session.check_text`, `load` finds the files next to it): its error and its `todo`s as
+# diagnostics, the reason of each checked line as an inlay hint at its end and on hover, and
+# completion with the state at the cursor (`Shell` on the lines before it)
+
+def lsp_uri_path(uri: str) -> str:
+    from urllib.parse import unquote, urlparse
+    return unquote(urlparse(uri).path) if uri.startswith('file:') else uri
+
+class LanguageServer:
+    def __init__(self, reader, writer) -> None:
+        self.reader, self.writer = reader, writer
+        self.texts: dict[str, str] = {}               # uri -> the text in the editor
+        self.results: dict[str, CheckResult] = {}     # uri -> the last check of the saved/opened text
+        self.running = True
+
+    def send(self, message: dict) -> None:
+        body = json.dumps(message, ensure_ascii=False).encode('utf-8')
+        self.writer.write(f'Content-Length: {len(body)}\r\n\r\n'.encode('ascii') + body)
+        self.writer.flush()
+
+    def read(self) -> Optional[dict]:
+        length = None
+        while True:
+            line = self.reader.readline()
+            if not line:
+                return None
+            line = line.decode('ascii').strip()
+            if not line:
+                break
+            if line.lower().startswith('content-length:'):
+                length = int(line.split(':', 1)[1])
+        return json.loads(self.reader.read(length or 0).decode('utf-8'))
+
+    def session_for(self, uri: str) -> Session:
+        folder = os.path.dirname(lsp_uri_path(uri)) or '.'
+        return Session(RunConfig(paths=(folder,)))
+
+    def check(self, uri: str) -> None:
+        text = self.texts.get(uri, '')
+        result = self.session_for(uri).check_text(text, os.path.basename(lsp_uri_path(uri)) or 'proof.kurt')
+        self.results[uri] = result
+        diagnostics = []
+        if result.error is not None:
+            line = max(0, (result.error_line or 1) - 1)
+            message = result.error.split('\n')[-1] if result.error_kind else result.error
+            diagnostics.append({'range': {'start': {'line': line, 'character': 0}, 'end': {'line': line, 'character': 1000}},
+                                'severity': 1, 'source': 'kurt', 'message': message})
+        for todo in result.todos:
+            found = re.search(r':(\d+)', todo)
+            line = int(found.group(1)) - 1 if found else 0
+            diagnostics.append({'range': {'start': {'line': line, 'character': 0}, 'end': {'line': line, 'character': 1000}},
+                                'severity': 2, 'source': 'kurt', 'message': f'todo: {todo}'})
+        self.send({'jsonrpc': '2.0', 'method': 'textDocument/publishDiagnostics', 'params': {'uri': uri, 'diagnostics': diagnostics}})
+
+    def line_events(self, uri: str) -> dict[int, list[dict]]:
+        # the reasons of the checked lines, by their line (0-based)
+        events: dict[int, list[dict]] = {}
+        result = self.results.get(uri)
+        for e in (result.events if result else []):
+            if e.get('reason') and e.get('line'):
+                events.setdefault(e['line'] - 1, []).append(e)
+        return events
+
+    def hover(self, params: dict) -> Optional[dict]:
+        events = self.line_events(params['textDocument']['uri']).get(params['position']['line'])
+        if not events:
+            return None
+        text = '\n'.join(f'{e["text"]}   ; {e["reason"]}' for e in events)
+        return {'contents': {'kind': 'markdown', 'value': f'```kurt\n{text}\n```'}}
+
+    def inlay_hints(self, params: dict) -> list[dict]:
+        uri = params['textDocument']['uri']
+        lines = self.texts.get(uri, '').split('\n')
+        first, last = params['range']['start']['line'], params['range']['end']['line']
+        hints = []
+        for n, events in sorted(self.line_events(uri).items()):
+            if first <= n <= last and n < len(lines):
+                reason = '; '.join(e['reason'] for e in events)
+                hints.append({'position': {'line': n, 'character': len(lines[n])}, 'label': f'  ; {reason}',
+                              'paddingLeft': True})
+        return hints
+
+    def completion(self, params: dict) -> list[dict]:
+        uri = params['textDocument']['uri']
+        lines = self.texts.get(uri, '').split('\n')
+        n, col = params['position']['line'], params['position']['character']
+        prefix = lines[n][:col] if n < len(lines) else ''
+        word = re.search(r'[^\s()\[\]{},=]*$', prefix).group(0)
+        shell = Shell(RunConfig(paths=(os.path.dirname(lsp_uri_path(uri)) or '.',)))
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            shell.start_text('\n'.join(lines[:n]) + '\n', os.path.basename(lsp_uri_path(uri)) or 'proof.kurt')
+            items = shell.completions(prefix, word)
+        start = col - len(word)
+        return [{'label': item, 'kind': 14 if item in keywords else 1,
+                 'textEdit': {'range': {'start': {'line': n, 'character': start}, 'end': {'line': n, 'character': col}},
+                              'newText': item}} for item in items]
+
+    def handle(self, message: dict) -> None:
+        method, params, ident = message.get('method'), message.get('params') or {}, message.get('id')
+        result: object = None
+        if method == 'initialize':
+            result = {'capabilities': {'textDocumentSync': {'openClose': True, 'change': 1, 'save': True},
+                                       'hoverProvider': True, 'inlayHintProvider': True,
+                                       'completionProvider': {'triggerCharacters': ['\\', '=', ' ']}},
+                      'serverInfo': {'name': 'kurt', 'version': version}}
+        elif method == 'textDocument/didOpen':
+            uri = params['textDocument']['uri']
+            self.texts[uri] = params['textDocument']['text']
+            self.check(uri)
+        elif method == 'textDocument/didChange':
+            self.texts[params['textDocument']['uri']] = params['contentChanges'][-1]['text']
+        elif method == 'textDocument/didSave':
+            uri = params['textDocument']['uri']
+            if 'text' in params:
+                self.texts[uri] = params['text']
+            self.check(uri)
+        elif method == 'textDocument/didClose':
+            self.texts.pop(params['textDocument']['uri'], None)
+        elif method == 'textDocument/hover':
+            result = self.hover(params)
+        elif method == 'textDocument/inlayHint':
+            result = self.inlay_hints(params)
+        elif method == 'textDocument/completion':
+            result = self.completion(params)
+        elif method == 'exit':
+            self.running = False
+        if ident is not None:
+            self.send({'jsonrpc': '2.0', 'id': ident, 'result': result})
+
+    def serve(self) -> None:
+        while self.running:
+            message = self.read()
+            if message is None:
+                break
+            try:
+                self.handle(message)
+            except Exception as e:          # a request that fails must not stop the server
+                if message.get('id') is not None:
+                    self.send({'jsonrpc': '2.0', 'id': message['id'], 'error': {'code': -32603, 'message': f'{type(e).__name__}: {e}'}})
 
 ###########################
 ## commandline interface ##
@@ -7880,29 +8228,194 @@ def open_block_depth(kb: KnowledgeBase) -> int:
         node = node.parent
     return depth
 
-def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=False) -> KnowledgeBase:
-    is_file   = (input_stream.name != '<stdin>')   # for non files we have a fancy prompt and we don't stop if an KurtException comes
-    line       = 1
+def theory_names() -> list[str]:
+    # the theories that come with Kurt (for Tab after `load`), without the core reference minimal.kurt
+    names: set[str] = set()
+    for path in packaged_theory_paths:
+        if isinstance(path, EmbeddedTheories):
+            names |= {n[:-5] for n in path._files if n.endswith('.kurt')}
+        else:
+            try:
+                names |= {p.name[:-5] for p in path.iterdir() if p.name.endswith('.kurt')}
+            except (OSError, AttributeError):
+                pass
+    return sorted(names - {'minimal'})
+
+def calculated_value(text: str, kb: KnowledgeBase) -> Optional[str]:
+    # the value of `text` with `calc on` (a number or a literal), for Tab after `17*42=` -- `None`
+    # if it doesn't compute to one; nothing is changed
+    try:
+        ts = PeekableGenerator(t for t in list(scan_string(text, kb)) + [end_token])
+        expr, _, _ = post_process(kb, parse_expression(ts, kb, begin_rbp))
+    except Exception:
+        return None
+    if is_numeric(expr) or number_value(expr, kb) is not None or matrix_value(expr, kb) is not None:
+        return expr_str(expr, kb)
+    return None
+
+def next_steps(kb: KnowledgeBase, lexer_state: 'LexerState') -> list[str]:
+    # what could come next on an empty line (Tab, `hint on`): `proof` after a `show`, in a proof
+    # its goal and then `qed`, in a chain its relation, after `case` the other alternatives
+    steps: list[str] = []
+    if lexer_state.chained_ops:
+        steps.append(f'{lexer_state.chained_ops[-1].value} ')
+    if kb.show:
+        steps.append('proof')
+    if kb.mode_str == 'proof' and kb.parent is not None and kb.parent.show:
+        goal = kb.parent.show[-1].expr
+        if kb.theory and equal_expr(kb.theory[-1].expr, goal, kb):
+            steps.append('qed')
+        else:
+            steps.append(expr_str(goal, kb))
+    # in a `case A` block that reached its goal `G` (its last fact): the other alternatives of the
+    # disjunction with `A` that have no case yet (`A ⇒ G` before), or `G` itself when all have one
+    if kb.mode_str in ('case', 'assume') and kb.parent is not None and kb.theory and kb.mode_args:   # (`case` runs as `assume`)
+        done, goal, parent = kb.mode_args[0], kb.theory[-1].expr, kb.parent
+        cased = [done] + [f.expr[1] for f in parent.theory if is_implication(f.expr) and equal_expr(f.expr[2], goal, kb)
+                          and 'by impl-intro' in f.reason]                      # (the results of closed cases)
+        for f in parent.all_theory():
+            if is_op_expr(f.expr, 'or') and any(equal_expr(d, done, kb) for d in f.expr[1:]):
+                rest = [d for d in f.expr[1:] if not any(equal_expr(d, c, kb) for c in cased)]
+                steps += [f'case {expr_str(d, kb)}' for d in rest] or [expr_str(goal, kb)]
+                break
+    return steps
+
+def completions(line: str, word: str, kb: KnowledgeBase, lexer_state: Optional['LexerState'] = None) -> list[str]:
+    # what Tab offers in the shell for `word` (the text before the cursor back to a separator)
+    # in `line`: the next step on an empty line, the value after `=` (with `calc on`), a LaTeX
+    # shortcut's symbol, a theory after `load`, a keyword, symbol or label -- it only inserts text
+    stripped = line.strip()
+    if not stripped and lexer_state is not None:
+        return next_steps(kb, lexer_state)
+    if word == '' and stripped.endswith('=') and kb.calc:
+        value = calculated_value(stripped[:-1], kb)
+        return [value] if value is not None else []
+    if word.startswith('\\'):
+        if word in REPLACEMENTS:
+            return [REPLACEMENTS[word]]
+        return sorted(c for c in REPLACEMENTS if c.startswith(word))
+    if not word:
+        return []
+    if stripped.split(' ', 1)[0] == 'load' and stripped != 'load':
+        here = [p.name[:-5] for p in Path('.').iterdir() if p.name.endswith('.kurt')] if Path('.').is_dir() else []
+        return sorted({n for n in theory_names() + here if n.startswith(word)})
+    if word.startswith('"'):
+        labels = {f'"{f.label}"' for f in kb.all_theory() if f.label}
+        return sorted(l for l in labels if l.startswith(word))
+    names = set(keywords) | {s for node in kb.levels() for s in node.declared_symbols() | node.used}
+    names |= {f.label for f in kb.all_theory() if f.label}
+    return sorted(n for n in names if n.startswith(word) and '$$$' not in n)
+
+def matrix_brackets(kb: KnowledgeBase) -> list[tuple[str, str]]:
+    # the bracket pairs bound to the calculator's `matrix` (matrix.kurt's `calc [ matrix`)
+    pairs = []
+    for symbol, ops in kb.all_calc_ops.items():
+        if 'matrix' in ops and kb.is_bracket_placeholder(symbol):
+            left, right = symbol.split('$$$')
+            pairs.append((left, right))
+    return pairs
+
+def rows_by_line(text: str, pairs: list[tuple[str, str]]) -> str:
+    # a statement over several lines: the line breaks are spaces -- except inside a bracket pair
+    # bound to `matrix` (`pairs`, see `matrix_brackets`) without another one inside, where each
+    # line is a row, as on paper (matrix.kurt):
+    #     [1, 2, 3                     is   [[1, 2, 3], [4, 5, 6]]
+    #      4, 5, 6]
+    # (a comment ends at the end of its line). Without such a binding, `[` is no different.
+    if '\n' not in text:
+        return text
+    out: list[str] = []
+    i = 0
+    while i < len(text):
+        pair = next(((l, r) for l, r in pairs if text.startswith(l, i)), None)
+        if pair is not None:
+            left, right = pair
+            depth, j = 0, i
+            while j < len(text):
+                if text.startswith(left, j):
+                    depth += 1
+                elif text.startswith(right, j):
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            inner = text[i + len(left):j]
+            if j < len(text) and '\n' in inner and left not in inner:
+                rows = [r.split(';')[0].strip().rstrip(',').strip() for r in inner.split('\n')]
+                out.append(left + ', '.join(f'{left}{r}{right}' for r in rows if r) + right)
+                i = j + len(right)
+                continue
+        out.append(' ' if text[i] == '\n' else text[i])
+        i += 1
+    return ''.join(out)
+
+def state_summary(kb: KnowledgeBase, lexer_state: Optional['LexerState'] = None) -> str:
+    # where a proof is (for `breakpoint`, and `kurt -i` after an error): the open blocks, the
+    # claims still to prove, the latest facts, what could come next
+    lines: list[str] = []
+    blocks = [node for node in reversed(list(kb.levels())) if node.mode_str not in ('root',) and not node.is_load_boundary and not node.tmp or node.mode_str in ('assume', 'case', 'let', 'pick', 'proof')]
+    for node in blocks:
+        if node.mode_str in ('assume', 'case', 'let', 'pick', 'proof', 'sandbox', 'expect'):
+            args = ', '.join(expr_str(a, kb) for a in node.mode_args)
+            lines.append(f'; open: {node.mode_str} {args}'.rstrip())
+    for node in kb.levels():
+        for f in node.show:
+            lines.append(f'; to prove: {expr_str(f.expr, kb)}')
+    for f in kb.theory[-3:]:
+        lines.append(f'; fact: {f.formula_str(kb)}   (line {f.line})')
+    if lexer_state is not None:
+        steps = next_steps(kb, lexer_state)
+        if steps:
+            lines.append(f'; next, e.g.: {"  or  ".join(steps)}')
+    return '\n'.join(lines) if lines else '; (the top level, nothing open)'
+
+# where the main file of a check stopped, for a `Shell` to continue there: (kb, lexer state, next
+# line, why: 'breakpoint' | 'error' | 'end') -- its first `breakpoint`, else its error, else its end
+shell_start: list[Optional[tuple]] = [None]
+
+def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=False,
+                   lexer_state: Optional['LexerState'] = None, first_line: int = 1, shell: bool = False) -> KnowledgeBase:
+    # `shell`: read the lines from `input_stream`, but as the shell does -- an error is shown, and
+    # the next line is read (`Shell.feed`)
+    from_stream = (input_stream.name != '<stdin>')
+    is_file   = from_stream and not shell              # for non files we have a fancy prompt and we don't stop if an KurtException comes
+    line       = first_line
     continued  = False
-    lexer_state = LexerState()   # lexer state for indentation management
+    lexer_state = lexer_state or LexerState()   # lexer state for indentation management (the one of a breakpoint)
     input_line = ''
     skip_deeper_than: Optional[int] = None   # skip the rest of an `expect` block after its error
     accepted_lines[input_stream.name] = []   # the accepted lines, for `save`
     pending: list[str] = []                  # the lines of the statement being read
     replay: Optional[str] = None             # a line to evaluate again (after an `expect` closed)
-    if not is_file and readline:
+    if not from_stream and readline:
         readline.parse_and_bind("tab: complete")    # enable tab completion
+        # Tab: `completions` (the next step, a value after `=`, a LaTeX shortcut, a name), with
+        # this loop's current `kb` and `lexer_state`
+        offered: list[str] = []
+        def complete(word: str, state: int) -> Optional[str]:
+            if state == 0:
+                try:
+                    offered[:] = completions(readline.get_line_buffer(), word, kb, lexer_state)
+                except Exception:
+                    offered[:] = []
+            return offered[state] if state < len(offered) else None
+        readline.set_completer(complete)
+        readline.set_completer_delims(' \t\n()[]{},=')
     while True:
         try:
             if replay is not None:
                 new_line, replay = replay, None
-            elif not is_file:
+            elif not from_stream:
                 # indentation is significant here exactly like in a file (see `scan_parse_check_eval`):
                 # with readline, the line starts with the indentation of the current block (one level
                 # deeper after a line that opened one), a backspace dedents and closes the block;
                 # without readline, type the leading spaces yourself. `qed`/`break` close a block
                 # without relying on that.
                 fill_in = readline is not None and sys.stdin.isatty()   # readline is used only at a terminal
+                if kb.hint and not continued:
+                    steps = next_steps(kb, lexer_state)
+                    if steps:
+                        print(f'; hint: next, e.g. {"  or  ".join(steps)}  (Tab writes it)')
                 prompt_text = kurt_prompt(kb.level, line, continued, show_level=not fill_in)
                 if fill_in:
                     indent = next_indentation(lexer_state)
@@ -7951,11 +8464,25 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
             input_line += new_line
             pending.append(new_line)
             try:
-                kb, lexer_state = scan_parse_check_eval(input_line, lexer_state, kb, line, input_stream.name, mainstream)
+                kb, lexer_state = scan_parse_check_eval(rows_by_line(input_line, matrix_brackets(kb)), lexer_state, kb, line, input_stream.name, mainstream)
                 accept_statement(input_stream.name, pending)
                 pending = []
+            except BreakpointReached as b:
+                accept_statement(input_stream.name, pending)
+                pending = []
+                b.lexer_state, b.line = lexer_state, line
+                main_file = len(_loading_in_progress) <= 1          # not in a file it loads
+                if is_file and main_file and breakpoint_shell[0]:
+                    raise                          # `main` continues in the shell with this state
+                if is_file and main_file and mainstream:
+                    log(b.kb, 'breakpoint', f'{line} the state here', b.kb.level)
+                    print(state_summary(b.kb, lexer_state))
+                if is_file and main_file and shell_start[0] is None:
+                    # (copies: checking goes on after it)
+                    shell_start[0] = (copy.deepcopy(b.kb), copy.deepcopy(lexer_state), line + 1, 'breakpoint')
+                kb = b.kb
             except StopIteration:  # while parsing: need more input, i.e., `kb` has not changed yet, `lexer_state` has not changed either
-                input_line += ' '  # add a space to the input line
+                input_line += '\n'  # the line break (a space, except in a matrix, see `rows_by_line`)
                 continued = True
                 line += 1
                 continue
@@ -8014,7 +8541,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                 if e.filename is None:
                     e.filename = input_stream.name
                     e.line     = line
-                    if e.filename == '<stdin>':
+                    if e.filename in ('<stdin>', '<shell>'):
                         msg = f'\n'
                     else:
                         msg = f'\nFile `{e.filename}`, line {e.line}:\n'
@@ -8022,6 +8549,9 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
                     msg += f'{" " * e.column + "^"}\n'
                     e.msg = msg + e.msg
                 if is_file:
+                    e.state = (kb, lexer_state, line)   # where it stopped, for `kurt -i` to continue there
+                    if len(_loading_in_progress) <= 1 and shell_start[0] is None:
+                        shell_start[0] = (kb, lexer_state, line, 'error')
                     raise e    # reraise the error, since we were called by `load_file`
                 else:
                     print(e.msg, file=sys.stderr)  # show the error and go on
@@ -8032,6 +8562,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase, mainstream: bool=Fal
         except EOFError:
             log(kb, "\nBye!")      # this only happens when Ctrl-d is pressed in the interactive session
             break
+    if is_file and len(_loading_in_progress) <= 1 and shell_start[0] is None:
+        shell_start[0] = (kb, lexer_state, line, 'end')
     return kb
 
 def parse_args() -> argparse.Namespace:
@@ -8045,6 +8577,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
     parser.add_argument('--no-kurtc',           action='store_true', help=f'neither write nor use `.kurtc` files (the certificates of a checked file, see doc/kurt-doc.md)')
     parser.add_argument('--json',               action='store_true', help=f'check the file and print the result as JSON: each line as an event (its id, kind, rule, the lines it uses), the error, the todos -- for graders and editors')
+    parser.add_argument('--lsp',                action='store_true', help=f'run as a language server (the Language Server Protocol over stdin/stdout), for editors')
     parser.add_argument('--deps',               action='store_true', help=f'show the files that `filename` loads, with the state of their certificates, without checking anything')
     return parser.parse_args()
 
@@ -8092,6 +8625,11 @@ def main() -> None:
         print(text)
         sys.exit(0 if ok else 1)
 
+    # a language server for editors
+    if args.lsp:
+        LanguageServer(sys.stdin.buffer, sys.stdout.buffer).serve()
+        sys.exit(0)
+
     # the result as JSON (with the options of the command line, in a session of its own)
     if args.json:
         if args.filename is None:
@@ -8103,7 +8641,7 @@ def main() -> None:
         sys.exit(0 if result.ok else 1)
 
     # say hello
-    log(kb, f'This is Kurt, v{version} ({made_by}), file {file_fingerprint()}')
+    log(kb, hello())
 
     # readline history
     if readline:
@@ -8143,6 +8681,7 @@ def main() -> None:
         log(kb, f'Using theory path: {theory_path}')
 
     had_error = False
+    breakpoint_shell[0] = (sys.stdin.isatty() or args.interactive) and not args.json
     try:
         # if there is a filename run the file
         if args.filename is not None:
@@ -8155,9 +8694,21 @@ def main() -> None:
         else:
             args.interactive = True
 
+    except BreakpointReached as b:
+        # `breakpoint`: the shell continues with the state there (Ctrl-D ends it)
+        log(kb, f'; breakpoint at line {b.line}: the shell continues here (Ctrl-D ends it)\n{state_summary(b.kb, b.lexer_state)}')
+        read_eval_loop(sys.stdin, b.kb, mainstream=True, lexer_state=b.lexer_state, first_line=b.line + 1)
+        exit(0)
     except KurtException as e:
         print(e.msg, file=sys.stderr)
         had_error = True
+        state = getattr(e, 'state', None)
+        if args.interactive and state is not None:
+            # `kurt -i`: the shell continues at the failing line, with the state there
+            kb_there, lexer_there, line_there = state
+            log(kb, f'; the shell continues at line {line_there}, with the state there (Ctrl-D ends it)\n{state_summary(kb_there, lexer_there)}')
+            read_eval_loop(sys.stdin, kb_there, mainstream=True, lexer_state=lexer_there, first_line=line_there)
+            exit(1)
 
     # read-eval-print loop with exception handling
     if args.interactive:

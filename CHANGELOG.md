@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.5 (2026-10-06)
+
+- `kurt --lsp`: a language server for editors (VS Code, Emacs, Neovim): errors and `todo`s as
+  diagnostics, the reason of each checked line as an inlay hint and on hover, completion with the
+  state at the cursor.
+- `kurt.Shell`: the shell as an object, for the playground and editors -- it checks a proof and
+  continues where it stopped (its first `breakpoint`, its failing line, or its end); `feed`
+  checks more lines there, with `next_steps`, `completions`, `summary`.
+- `breakpoint` (instead of `inspect`, which was never implemented): checking stops there and the
+  shell continues with the state (at a terminal, or with `kurt -i`); otherwise it shows the state.
+  After an error, `kurt -i FILE` continues in the shell at the failing line.
+- Tab in the shell: the next step on an empty line, the value after `=` with `calc on`
+  (`17*42=` gives `714`), a LaTeX shortcut's symbol, a theory after `load`, keywords, symbols,
+  labels. `hint on` prints the next step before each prompt (it did nothing before).
+- Vectors and matrices as literals (`load matrix`): `[1, 2, 3]`, `[[1, 2], [3, 4]]`, or one row
+  per line; with `calc on`, `+`, `-`, `·`, `transpose`, `det`, `=`, `≠` compute them exactly.
+- A symbol bound to the calculator is exported by `load` like an axiom, also without a fact that
+  mentions it.
+- New theories: `field` (a field `K`, every axiom with its memberships; subtraction and its laws)
+  and `vectorspace` (vector spaces over `K`), from proofs/mafi1/, with English labels instead of
+  (K1)-(K9), (V1)-(V8).
+- One row per line in a matrix only inside a bracket pair bound to `matrix` (`calc [ matrix`).
+- proofs/mafi1/ in English: lectures instead of decks, English titles; minimal.kurt's comments up
+  to date.
+
 ## 0.7.4 (2026-10-06)
 
 - The lessons: the tutorial has 25 lessons now -- new: 20 constants, variables and declarations,

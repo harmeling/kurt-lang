@@ -1,4 +1,4 @@
-; Formeln -- formulas (lecture "Mathematik für Informatik 1" (mafi1), deck 03-formeln)
+; formulas (course "Mathematik für Informatik 1" (mafi1), lecture 03)
 ;
 ; Kontraposition and the five equivalences are in 11a-proofs.kurt and tautologies.kurt.
 load 11a-proofs, set

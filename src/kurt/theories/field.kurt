@@ -1,0 +1,347 @@
+; field -- the axioms of a field `K` with `+`, `·` (`\cdot`), `-`, `inv`, `0`, `1`
+;
+; Every axiom holds for the elements of `K`, so each one has its membership conditions
+; (`$a ∈ K`): the scalars are the elements of `K`, nothing else. A step that uses an axiom on a
+; subterm needs the memberships as lines; the instance itself Kurt derives (a step `17a`).
+;
+; A structure with its own operators: not together with numbers.kurt, whose laws hold for
+; everything written with `+` -- a symbol is declared by one file only (doc/kurt-doc.md, `load`).
+; For vectors over `K`: vectorspace.kurt.
+;
+; The axioms are the (K1)-(K9) of the course "Mathematik für Informatik 1" (mafi1, lecture
+; 07): plus-associative (K1), plus-commutative (K2), plus-zero (K3), plus-minus (K4),
+; times-associative (K5), times-commutative (K6), one-times and zero-not-one (K7), inv-times (K8),
+; distributive (K9). The existential axioms are given by names, as the slides do after proving
+; uniqueness: `0` and `1`, `- λ` and `inv λ`. proofs/mafi1/ uses this theory.
+load set
+infix + 60 60
+infix · 70 70
+infix - 60 60
+prefix - 72
+const K, inv
+
+use 0 ∈ K                                                           "zero-in-field"
+use 1 ∈ K                                                           "one-in-field"
+use $a ∈ K ∧ $b ∈ K  ⇒  $a + $b ∈ K                                 "plus-closed"
+use $a ∈ K ∧ $b ∈ K  ⇒  $a · $b ∈ K                                 "times-closed"
+use $a ∈ K  ⇒  - $a ∈ K                                             "minus-closed"
+use $a ∈ K ∧ $a ≠ 0  ⇒  inv $a ∈ K                                  "inv-closed"
+
+use $a ∈ K ∧ $b ∈ K ∧ $c ∈ K  ⇒  ($a + $b) + $c = $a + ($b + $c)    "plus-associative"
+use $a ∈ K ∧ $b ∈ K  ⇒  $a + $b = $b + $a                           "plus-commutative"
+use $a ∈ K  ⇒  $a + 0 = $a                                          "plus-zero"
+use $a ∈ K  ⇒  $a + (- $a) = 0                                      "plus-minus"
+use $a ∈ K ∧ $b ∈ K ∧ $c ∈ K  ⇒  ($a · $b) · $c = $a · ($b · $c)    "times-associative"
+use $a ∈ K ∧ $b ∈ K  ⇒  $a · $b = $b · $a                           "times-commutative"
+use 0 ≠ 1                                                           "zero-not-one"
+use $a ∈ K  ⇒  1 · $a = $a                                          "one-times"
+use $a ∈ K ∧ $a ≠ 0  ⇒  (inv $a) · $a = 1                           "inv-times"
+use $a ∈ K ∧ $b ∈ K ∧ $c ∈ K  ⇒  $a · ($b + $c) = $a · $b + $a · $c   "distributive"
+
+; (distributive) is distributivity from the left only; the slides also use it from the right, which
+; needs (times-commutative) as well
+show $a ∈ K ∧ $b ∈ K ∧ $c ∈ K  ⇒  ($a + $b) · $c = $a · $c + $b · $c   "distributive-right"
+proof
+    assume $a ∈ K ∧ $b ∈ K ∧ $c ∈ K
+        $a ∈ K
+        $b ∈ K
+        $c ∈ K
+        $a + $b ∈ K
+        ($a + $b) · $c = $c · ($a + $b)                       ; times-commutative
+                    = $c · $a + $c · $b
+                    = $a · $c + $c · $b
+                    = $a · $c + $b · $c
+qed
+
+; Theorem 2.25
+show 0 = 0 + 0                                                      "zero-plus-zero"
+proof
+    0 + 0 = 0                                           ; plus-zero
+qed
+
+; Theorem 2.26
+show $l ∈ K  ⇒  0 = 0 · $l                                          "zero-times"
+proof
+    assume $l ∈ K
+        0 · $l ∈ K
+        - (0 · $l) ∈ K
+        0 · $l + 0 · $l ∈ K
+        0 = 0 · $l + (- (0 · $l))
+          = (0 + 0) · $l + (- (0 · $l))                   ; Theorem 2.25
+          = (0 · $l + 0 · $l) + (- (0 · $l))
+          = 0 · $l + (0 · $l + (- (0 · $l)))
+          = 0 · $l + 0
+          = 0 · $l
+qed
+
+; λ 0 = 0 (from zero-times and times-commutative)
+show $a ∈ K  ⇒  $a · 0 = 0                                           "times-zero"
+proof
+    assume $a ∈ K
+        0 = 0 · $a                                      ; zero-times
+        $a · 0 = 0 · $a                                 ; times-commutative
+        $a · 0 = 0
+qed
+
+; Theorem 2.24 (1): the zero is unique
+show $z ∈ K ∧ (∀ $x ∈ K ($x + $z = $x))  ⇒  $z = 0                 "zero-unique"
+proof
+    assume $z ∈ K ∧ (∀ $x ∈ K ($x + $z = $x))
+        $z ∈ K
+        ∀ $x ∈ K ($x + $z = $x)
+        0 + $z = 0                                      ; the property of $z for x = 0
+        $z = $z + 0
+           = 0 + $z
+           = 0
+qed
+
+; Theorem 2.24 (2): the one is unique
+show $e ∈ K ∧ (∀ $x ∈ K ($e · $x = $x))  ⇒  $e = 1                 "one-unique"
+proof
+    assume $e ∈ K ∧ (∀ $x ∈ K ($e · $x = $x))
+        $e ∈ K
+        ∀ $x ∈ K ($e · $x = $x)
+        $e · 1 = 1                                      ; the property of $e for x = 1
+        $e = 1 · $e
+           = $e · 1
+           = 1
+qed
+
+; Theorem 2.24 (3): the additive inverse is unique (as for vectors, lecture 04)
+show $l ∈ K ∧ $a ∈ K ∧ $b ∈ K ∧ $l + $a = 0 ∧ $l + $b = 0  ⇒  $a = $b   "minus-unique"
+proof
+    assume $l ∈ K ∧ $a ∈ K ∧ $b ∈ K ∧ $l + $a = 0 ∧ $l + $b = 0
+        $l ∈ K
+        $a ∈ K
+        $b ∈ K
+        $l + $a = 0
+        $l + $b = 0
+        $a = $a + 0
+           = $a + ($l + $b)
+           = ($a + $l) + $b
+           = ($l + $a) + $b
+           = 0 + $b
+           = $b + 0
+           = $b
+qed
+
+; Theorem 2.24 (4): the multiplicative inverse is unique
+show $l ∈ K ∧ $a ∈ K ∧ $b ∈ K ∧ $a · $l = 1 ∧ $b · $l = 1  ⇒  $a = $b   "inv-unique"
+proof
+    assume $l ∈ K ∧ $a ∈ K ∧ $b ∈ K ∧ $a · $l = 1 ∧ $b · $l = 1
+        $l ∈ K
+        $a ∈ K
+        $b ∈ K
+        $a · $l = 1
+        $b · $l = 1
+        $a = 1 · $a
+           = ($b · $l) · $a
+           = $b · ($l · $a)
+           = $b · ($a · $l)
+           = $b · 1
+           = 1 · $b
+           = $b
+qed
+
+; Theorem 2.24 (5): (-1) λ = - λ
+show $l ∈ K  ⇒  (- 1) · $l = - $l                                   "minus-one-times"
+proof
+    assume $l ∈ K
+        - 1 ∈ K
+        (- 1) · $l ∈ K
+        - $l ∈ K
+        1 + (- 1) ∈ K
+        1 · $l = $l                                     ; one-times
+        $l + (- 1) · $l = 1 · $l + (- 1) · $l
+                        = (1 + (- 1)) · $l
+                        = 0 · $l
+                        = 0
+        $l + (- $l) = 0                                 ; plus-minus
+        (- 1) · $l = - $l                               ; minus-unique
+qed
+
+; Theorem 2.24 (6): (-1)(-1) = 1
+show (- 1) · (- 1) = 1                                              "minus-one-squared"
+proof
+    - 1 ∈ K
+    - (- 1) ∈ K
+    (- 1) · (- 1) = - (- 1)                             ; minus-one-times
+    (- 1) + (- (- 1)) = 0                               ; plus-minus
+    (- 1) + 1 = 1 + (- 1)                               ; plus-commutative
+    1 + (- 1) = 0                                       ; plus-minus
+    (- 1) + 1 = 0
+    (- (- 1)) = 1                                       ; minus-unique
+    (- 1) · (- 1) = 1
+qed
+
+; Theorem 2.24 (7): a field has no zero divisors, λ μ = 0 ⇔ λ = 0 ∨ μ = 0
+show $l ∈ K ∧ $m ∈ K ∧ $l · $m = 0  ⇒  $l = 0 ∨ $m = 0              "no-zero-divisors"
+proof
+    assume $l ∈ K ∧ $m ∈ K ∧ $l · $m = 0
+        $l ∈ K
+        $m ∈ K
+        $l · $m = 0
+        case $l = 0
+            $l = 0 ∨ $m = 0
+        case ¬($l = 0)
+            ; as on the slide: from λ ≠ 0 we show μ = 0
+            $l ≠ 0
+            inv $l ∈ K                                  ; inv-closed
+            $m = 1 · $m
+               = ((inv $l) · $l) · $m
+               = (inv $l) · ($l · $m)
+               = (inv $l) · 0
+               = 0 · (inv $l)
+               = 0
+            $l = 0 ∨ $m = 0
+        $l = 0 ∨ $m = 0
+qed
+
+; the other direction, which the slides don't prove
+show $l ∈ K ∧ $m ∈ K ∧ ($l = 0 ∨ $m = 0)  ⇒  $l · $m = 0             "zero-divisors-back"
+proof
+    assume $l ∈ K ∧ $m ∈ K ∧ ($l = 0 ∨ $m = 0)
+        $l ∈ K
+        $m ∈ K
+        $l = 0 ∨ $m = 0
+        case $l = 0
+            $l · $m = 0 · $m
+                    = 0
+        case $m = 0
+            $l · $m = $l · 0
+                    = 0 · $l
+                    = 0
+        $l · $m = 0
+qed
+
+; λ - μ = 0 only for λ = μ
+show $l ∈ K ∧ $m ∈ K ∧ $l + (- $m) = 0  ⇒  $l = $m                   "minus-zero"
+proof
+    assume $l ∈ K ∧ $m ∈ K ∧ $l + (- $m) = 0
+        $l ∈ K
+        $m ∈ K
+        $l + (- $m) = 0
+        - $m ∈ K
+        (- $m) + $l = $l + (- $m)                       ; plus-commutative
+        (- $m) + $l = 0
+        (- $m) + $m = $m + (- $m)                       ; plus-commutative
+        $m + (- $m) = 0                                 ; plus-minus
+        (- $m) + $m = 0
+        $l = $m                                         ; minus-unique, with -μ
+qed
+
+; x² = 1 only for x = 1 and x = -1, since x² - 1 = (x + 1)(x - 1) (used in lecture 25)
+show $x ∈ K ∧ $x · $x = 1  ⇒  $x = 1 ∨ $x = - 1                       "square-one"
+proof
+    assume $x ∈ K ∧ $x · $x = 1
+        $x ∈ K
+        $x · $x = 1
+        - 1 ∈ K
+        - $x ∈ K
+        $x + 1 ∈ K
+        $x + (- 1) ∈ K
+        $x · $x ∈ K
+        ($x + 1) · $x ∈ K
+        ($x + 1) · (- 1) ∈ K
+        (- $x) + (- 1) ∈ K
+        ; (x + 1)(x - 1) = x x - 1 = 0
+        ($x + 1) · ($x + (- 1)) = ($x + 1) · $x + ($x + 1) · (- 1)   ; distributive
+                                = ($x · $x + 1 · $x) + ($x + 1) · (- 1)
+                                = ($x · $x + $x) + ($x + 1) · (- 1)
+                                = ($x · $x + $x) + ($x · (- 1) + 1 · (- 1))
+                                = ($x · $x + $x) + ((- 1) · $x + 1 · (- 1))
+                                = ($x · $x + $x) + ((- $x) + 1 · (- 1))
+                                = ($x · $x + $x) + ((- $x) + (- 1))
+                                = $x · $x + ($x + ((- $x) + (- 1)))
+                                = $x · $x + (($x + (- $x)) + (- 1))
+                                = $x · $x + (0 + (- 1))
+                                = $x · $x + ((- 1) + 0)
+                                = $x · $x + (- 1)
+                                = 1 + (- 1)
+                                = 0
+        $x + 1 = 0 ∨ $x + (- 1) = 0                     ; no-zero-divisors
+        case $x + 1 = 0
+            1 + $x = $x + 1                             ; plus-commutative
+            1 + $x = 0
+            $x = - 1                                    ; minus-unique, with 1
+            $x = 1 ∨ $x = - 1
+        case $x + (- 1) = 0
+            $x = 1                                      ; minus-zero
+            $x = 1 ∨ $x = - 1
+        $x = 1 ∨ $x = - 1
+qed
+
+; subtraction: `λ - μ` is `λ + (- μ)`, and its laws
+use $a ∈ K ∧ $b ∈ K  ⇒  $a - $b = $a + (- $b)                       "minus-def"
+
+show $a ∈ K ∧ $b ∈ K  ⇒  $a - $b ∈ K                                "difference-closed"
+proof
+    assume $a ∈ K ∧ $b ∈ K
+        $a ∈ K
+        $b ∈ K
+        - $b ∈ K
+        $a + (- $b) ∈ K
+        $a - $b = $a + (- $b)                           ; minus-def
+        $a - $b ∈ K
+qed
+
+show $a ∈ K  ⇒  - (- $a) = $a                                       "minus-minus"
+proof
+    assume $a ∈ K
+        - $a ∈ K
+        - (- $a) ∈ K
+        (- $a) + (- (- $a)) = 0                         ; plus-minus
+        (- $a) + $a = $a + (- $a)                       ; plus-commutative
+        $a + (- $a) = 0                                 ; plus-minus
+        (- $a) + $a = 0
+        - (- $a) = $a                                   ; minus-unique
+qed
+
+show $a ∈ K  ⇒  $a - $a = 0                                         "minus-self"
+proof
+    assume $a ∈ K
+        $a - $a = $a + (- $a)                           ; minus-def
+                = 0                                     ; plus-minus
+qed
+
+show $a ∈ K ∧ $b ∈ K  ⇒  - ($a + $b) = (- $a) + (- $b)              "minus-of-plus"
+proof
+    assume $a ∈ K ∧ $b ∈ K
+        $a ∈ K
+        $b ∈ K
+        - $a ∈ K
+        - $b ∈ K
+        $a + $b ∈ K
+        - ($a + $b) ∈ K
+        (- $a) + (- $b) ∈ K
+        $b + (- $b) ∈ K
+        (- $a) + ($b + (- $b)) ∈ K
+        $a + $b = $b + $a                               ; plus-commutative
+        ($a + $b) + ((- $a) + (- $b)) = ($b + $a) + ((- $a) + (- $b))
+                                      = $b + ($a + ((- $a) + (- $b)))
+                                      = $b + (($a + (- $a)) + (- $b))
+                                      = $b + (0 + (- $b))
+                                      = $b + ((- $b) + 0)
+                                      = $b + (- $b)
+                                      = 0
+        ($a + $b) + (- ($a + $b)) = 0                   ; plus-minus
+        - ($a + $b) = (- $a) + (- $b)                   ; minus-unique
+qed
+
+show $a ∈ K ∧ $b ∈ K ∧ $c ∈ K  ⇒  $a - ($b - $c) = ($a - $b) + $c   "minus-of-minus"
+proof
+    assume $a ∈ K ∧ $b ∈ K ∧ $c ∈ K
+        $a ∈ K
+        $b ∈ K
+        $c ∈ K
+        - $b ∈ K
+        - $c ∈ K
+        $b - $c ∈ K
+        $a - $b ∈ K
+        $a - ($b - $c) = $a + (- ($b - $c))             ; minus-def
+                       = $a + (- ($b + (- $c)))         ; minus-def
+                       = $a + ((- $b) + (- (- $c)))     ; minus-of-plus
+                       = $a + ((- $b) + $c)             ; minus-minus
+                       = ($a + (- $b)) + $c             ; plus-associative
+                       = ($a - $b) + $c                 ; minus-def
+qed

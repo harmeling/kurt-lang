@@ -20,7 +20,7 @@ the source.
 
     kurt                        # start the interactive shell (a REPL)
     kurt path/to/proof.kurt     # check a proof file, then exit
-    kurt -i path/to/proof.kurt  # check the file, then drop into the shell
+    kurt -i path/to/proof.kurt  # check the file, then drop into the shell (after an error: at the failing line)
     kurt -d path/to/proof.kurt  # also print debug information
     kurt -v path/to/proof.kurt  # also print verbose matching information
     kurt -p DIR path/to/proof.kurt   # also search DIR for `load`ed theories
@@ -30,6 +30,7 @@ the source.
     kurt path/to/proof.kurtc             # the certificates of proof.kurt, readable (see below)
     kurt --deps path/to/proof.kurt       # the files it loads, and their certificates (see below)
     kurt --json path/to/proof.kurt       # the result as JSON, for graders and editors (see below)
+    kurt --lsp                           # a language server for editors (see below)
 
 If no filename is given, Kurt starts the shell directly. If a filename is
 given without `-i`, Kurt checks the whole file, prints `Proof checked` (or,
@@ -72,6 +73,14 @@ its `kind` (`step`, `claim`, `open`, `assumed`, `load`, `declaration`, `expect`,
 
 From Python, the same comes from `kurt.check_file(path)` or `kurt.check_text(text)` (a
 `CheckResult`, with `.events` and `.to_json()`).
+
+`kurt --lsp` is a language server (the Language Server Protocol, over
+stdin/stdout) for editors -- VS Code (the extension of kurt-syntax), Emacs
+(eglot), Neovim: a file is checked when it is opened and saved, its error
+and its `todo`s appear as diagnostics at their lines, the reason of each
+checked line at its end (an inlay hint) and on hover, and completion knows
+the state at the cursor (the next step, the value after `=` with `calc on`,
+LaTeX shortcuts, theories, names).
 
 `kurt --deps foo.kurt` shows the tree of the files that `foo.kurt` loads (read from their `load`
 lines, without checking anything), each with the state of its certificates and the dates of the
@@ -863,7 +872,7 @@ matrices that declares its own `·` or `+` must not get those laws. So:
 - numbers (ℕ, ℤ, ℚ, ℝ): `load numbers` (or `natural`, `integer`, `rational`,
   `analysis`, which load it);
 - linear algebra: a structure that declares its own operators, like
-  `proofs/mafi1/field.kurt`, `vectorspace.kurt`, `matrices.kurt` -- not
+  `field.kurt`, `vectorspace.kurt` (and `proofs/mafi1/matrices.kurt`) -- not
   together with numbers.kurt;
 - `group.kurt` takes its operation as an argument (`group(G, (∘), e, inv)`),
   so it goes with either.
@@ -887,6 +896,9 @@ declaring their own prerequisites via their own `load` lines:
 | `integer.kurt` | integers `Int`: the natural numbers and their negatives, closed under `+`, `-`, `*` | `natural` |
 | `rational.kurt` | rationals `Rat`: m / n with m ∈ `Int`, n ∈ `Nat`, n ≠ 0; closed under `+`, `-`, `*`, `/`; "lowest-terms": a positive rational is m / n with coprime m, n (proven from the well-ordering) | `integer` |
 | `group.kurt` | groups: `group(G, (∘), e, inv)` defined by `closed`, `associative`, `identity`, `inverse`; rules for single steps ("group-associative", "group-right-inverse", ...); theorems: the identity and the inverse are unique, `inv (inv a) = a`. `∘` is an operator variable, so it all holds for any group, e.g. `group(R, (+), 0, (-))` | `set` |
+| `field.kurt` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1`: every axiom for the elements of `K` (`$a ∈ K`), the (K1)-(K9) of the mafi1 lecture with English names ("plus-commutative", "distributive", ...); theorems: the identities and inverses are unique, `0 · λ = 0`, no zero divisors, `x² = 1` only for `±1`; subtraction `λ - μ` with "minus-def", "minus-minus", "minus-of-plus", "minus-of-minus". Its own `+`: not together with numbers.kurt | `set` |
+| `vectorspace.kurt` | vector spaces over `K`: `vectorspace($V)`, the (V1)-(V8) for the elements of `$V`; `+`, `·`, `-`, `0` shared with the scalars; theorems: the zero vector and the inverse are unique, `0 · x = 0`, `(-1) · x = - x` | `field` |
+| `matrix.kurt` | vectors and matrices as literals (`[1, 2]`, `[[1, 2], [3, 4]]`, one row per line), computed exactly with `calc on`: `+`, `-`, `·`, `transpose`, `det`, `=`, `≠`. Its own `+`: not together with numbers.kurt | `equality` |
 | `analysis.kurt` | `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, `argmax`/`argmin` over a set (*some* place of the maximum, `argmax $v ∈ A T`), limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |
 
 `modal.kurt` is an **experimental example**, rather than one of the mature theories above. It
@@ -908,7 +920,10 @@ when some exported fact actually mentions it (its arity, fixity, boolean
 signature, and so on all travel along with it, so the fact can still be
 parsed and type-checked downstream); a symbol that only ever appears in
 local facts is invisible from outside too, freeing up its name for
-something else entirely unrelated in whatever file loads this one. An
+something else entirely unrelated in whatever file loads this one. A
+symbol bound to the calculator (`calc + add`, §10) is exported too, even
+without a fact that mentions it: the binding is an axiom about it (`1 + 1 =
+2`, ...) -- e.g. matrix.kurt's literals `[ ]`, `det`, `transpose`. An
 alias (`alias`) travels automatically with whatever symbol it names, since
 an alias never itself appears written out in a formula — axioms are always
 written with the canonical name.
@@ -1159,7 +1174,30 @@ and a symbol that isn't bound is never computed. Sets of numbers, too: the
 calculator knows `naturals`, `integers` and `rationals`, natural.kurt does
 `calc Nat naturals` (integer.kurt and rational.kurt likewise for `Int` and
 `Rat`), and set.kurt `calc in element`; then `calc on` proves `3 ∈ Nat` and
-`-3 ∈ Int`, but not `-3 ∈ Nat`. A binding is like an axiom
+`-3 ∈ Int`, but not `-3 ∈ Nat`.
+
+**Vectors and matrices** (matrix.kurt, `load matrix`): a bracket pair bound
+to `matrix` (`calc [ matrix`) makes literals of numbers -- `[1, 2, 3]` a row,
+`[[1, 2, 3], [4, 5, 6]]` a 2x3 matrix row by row, `[[1], [3], [5]]` a column
+-- and the operations `add`, `subtract`, `negate`, `multiply` (a number times
+a matrix, or a matrix times a matrix), `transpose`, `determinant` and the
+comparisons `eq`, `ne` compute them exactly. Shapes that don't fit give no
+value. Written over several lines, each line inside the brackets is a row,
+as on paper:
+
+    A = [1, 2, 3
+         4, 5, 6]          ; is [[1, 2, 3], [4, 5, 6]]
+
+(a line break inside a bracket pair bound to `matrix` -- `calc [ matrix` --
+without another one in it ends a row; elsewhere it is a space, also inside a
+`[ ]` that isn't bound: the theory makes the brackets special, not Kurt). matrix.kurt has its own `+`, `-`, `·`, so it isn't loaded together
+with numbers.kurt (§8.2); it computes with literals and has no laws for
+matrices written with variables (for those: proofs/mafi1/matrices.kurt, over
+a field). As everywhere with `calc on`, a name defined as a matrix
+(`def A = ...`) isn't computed in the same line: replace it first, one step
+per line.
+
+A binding is like an axiom
 (`1 + 1 = 2`, `2 + 1 = 3`, ...), so `--strict` rejects it outside the trusted
 theories, and the symbols of a trusted theory can't be bound anew. Numbers
 are exact: integers, decimals (`0.1` is exactly one tenth, so `0.1 + 0.2 =
@@ -1192,8 +1230,26 @@ step. Since `calc` also
 simplifies what you type, a fact like `8 = 2^3` can't be stated with `calc
 on` (it would become `8 = 8`); switch it on only where you need it, as in
 `proofs/arithmetic/solve-math-equation.kurt` — it is a single global toggle,
-not scoped to the current block. `hint` exists
-and can be toggled but, as of this writing, nothing reads its value yet.
+not scoped to the current block. With `hint on`, the shell prints before each
+prompt what could come next (`; hint: next, e.g. proof`): `proof` after a
+`show`, in a proof its goal and then `qed`, in a chain its relation, in a
+`case` block the other alternatives -- Tab on an empty line writes it.
+
+**`breakpoint`**, a line in a proof file: at a terminal (or with `kurt -i
+FILE`), checking stops there and the shell continues with that state -- the
+open blocks, the facts, what is still to prove; try steps there, then write
+the one that works into the file (Ctrl-D ends the shell). Without a terminal
+(the playground, Kurt from Python), it shows that state and checking goes on.
+In a file that another one loads, it is skipped. After an error, `kurt -i
+FILE` likewise continues in the shell at the failing line, with the state
+there (`keywords/46-breakpoint.kurt`).
+
+**Tab in the shell** (with `readline`, i.e. at a terminal on Linux and macOS)
+completes: on an empty line the next step (as `hint`); after `=` with `calc
+on` the value (`17*42=` and Tab gives `17*42=714`); a LaTeX shortcut its
+symbol (`\forall` and Tab gives `∀`); after `load` a theory or a `.kurt` file
+here; otherwise keywords, symbols and labels (`"and-` gives `"and-elim"`).
+It only writes text; every line is checked as usual.
 
 `help` prints Kurt's own one-line description of every keyword.
 
@@ -1210,9 +1266,6 @@ and can be toggled but, as of this writing, nothing reads its value yet.
 - A custom `brackets` pair does not disappear the way `(` `)` does — it
   stays a real operator, printed as e.g. `[]`/`{}` in s-expression form
   (§4.2).
-- `inspect` is listed by `help` but not implemented yet (raises
-  `NotImplementedError` if used) — it's meant to eventually stop a running
-  file and drop into the interactive shell at that point.
 
 ### 11.1 Not implemented, maybe never
 

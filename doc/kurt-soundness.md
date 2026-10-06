@@ -910,7 +910,7 @@ genuinely multi-char operators untouched by this change (`<=`, `>=`, `!=`,
 
 A theory's laws hold for every term written with its operators: numbers.kurt (formerly
 arith.kurt) has `$a * $b = $b * $a` for all `$a`, `$b`. A structure that declares its own `+`,
-`·` (proofs/mafi1/field.kurt, and through it matrices.kurt) used to be loadable together with it,
+`·` (field.kurt, and through it vectorspace.kurt and proofs/mafi1/matrices.kurt) used to be loadable together with it,
 since two declarations of a symbol only had to not contradict each other (and `flat`, `sym`
 missing on one side was fine) -- then numbers' laws applied to matrices, and `A · B = B · A`
 would have been provable in a file that loaded both. Now each declaration (`infix`, `prefix`,
@@ -919,6 +919,11 @@ would have been provable in a file that loaded both. Now each declaration (`infi
 `validate_against_loader` refuses a symbol declared by two different files; the same file
 reached twice is one declaration. This is a check on what theories are combined, not a proof
 that a theory is consistent. (tests/test_load_isolation.py)
+
+A symbol bound to the calculator (`calc`) is exported even if no exported fact mentions it
+(2026-10-06): the binding is an axiom about it, like `1 + 1 = 2`, and it travels with its
+declarations, so the rule above sees it (matrix.kurt's `[ ]`, `det`, `transpose`).
+(tests/test_export_bundle.py)
 
 ### 7.1 Bug found and fixed: a labelled bare/conjunction claim silently lost its label
 

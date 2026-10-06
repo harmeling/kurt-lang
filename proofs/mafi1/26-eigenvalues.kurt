@@ -1,5 +1,4 @@
-; Eigenwerte und Eigenvektoren -- eigenvalues and eigenvectors (lecture "Mathematik für
-; Informatik 1" (mafi1), deck 26-eigenwerte-vektoren)
+; eigenvalues and eigenvectors (course "Mathematik für Informatik 1" (mafi1), lecture 26)
 ;
 ; "Sei f: V → V ein Endomorphismus."
 load 06-subspaces
@@ -17,7 +16,7 @@ def eigenvector($v, $l)  ⇔  f($v) = $l · $v ∧ $v ≠ 0                 "eig
 arity E 1
 def E($l) = { $v ∈ V | f($v) = $l · $v }                             "eigenspace"
 
-; Satz: λ ≠ μ ⇒ E_λ ∩ E_μ = {0} -- "⊂": f(v) = λ v and f(v) = μ v give v = 0
+; Theorem: λ ≠ μ ⇒ E_λ ∩ E_μ = {0} -- "⊂": f(v) = λ v and f(v) = μ v give v = 0
 show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ f($v) = $l · $v ∧ f($v) = $m · $v  ⇒  $v = 0   "eigenspaces-meet"
 proof
     assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ f($v) = $l · $v ∧ f($v) = $m · $v

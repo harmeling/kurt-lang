@@ -1,4 +1,4 @@
-; Beweise -- proof techniques (lecture "Mathematik für Informatik 1" (mafi1), deck 11a-beweise):
+; proof techniques (course "Mathematik für Informatik 1" (mafi1), lecture 11a):
 ; the laws that the slides derive from the tautologies by chains of equivalences
 load tautologies
 

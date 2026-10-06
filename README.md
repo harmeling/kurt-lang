@@ -144,6 +144,9 @@ line. The design of the language, and the responsibility for it, remain the auth
 
 ## Editor support
 
+`kurt --lsp` is a language server for editors: the errors and `todo`s at their lines, the reason
+of each checked line at its end and on hover, and completion with the state at the cursor.
+
 The [kurt-syntax](https://github.com/harmeling/kurt-syntax) repository has editor support for
 `.kurt` files: highlighting, comments and indentation, and, in VS Code and Emacs, LaTeX-style
 shortcuts such as `\forall` → `∀`.

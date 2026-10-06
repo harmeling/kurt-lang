@@ -1,0 +1,9 @@
+; a line break inside brackets is a space -- one row per line only inside a pair bound to
+; `matrix` (matrix.kurt's `calc [ matrix`, proofs/linear-algebra/matrix-literals.kurt); here `[ ]`
+; is a pair of its own, not bound
+load equality
+brackets [ ]
+const a, b, c, d
+use [a, b
+     c, d] = [a, b c, d]
+[a, b c, d] = [a, b c, d]

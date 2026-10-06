@@ -18,7 +18,7 @@ FILES = {
     'group': 'src/kurt/theories/group.kurt',               # a flat operator variable
     'set': 'src/kurt/theories/set.kurt',
     'rational': 'src/kurt/theories/rational.kurt',
-    'field': 'proofs/mafi1/field.kurt',                # many memberships, conditional rewriting
+    'field': 'src/kurt/theories/field.kurt',           # many memberships, conditional rewriting
     'self-adjoint': 'proofs/mafi1/28-self-adjoint.kurt',   # lemmas with a general conclusion
     'contraposition': 'proofs/natural-deduction/contraposition.kurt',
     'cauchy-schwarz': 'proofs/linear-algebra/cauchy-schwarz.kurt',

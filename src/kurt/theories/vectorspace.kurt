@@ -1,0 +1,136 @@
+; vectorspace -- vector spaces over the field `K` of field.kurt: `vectorspace($V)` for each one
+;
+; `+`, `·`, `-` and `0` are used for scalars and vectors alike, as in mathematics: which axiom
+; applies is decided by the memberships (`$a ∈ K`, `$x ∈ $V`). That is sound -- there is a model
+; for each real one, in which the zero scalar and the zero vector are the same object (all the
+; operations agree on it: `0 + 0 = 0`, `- 0 = 0`, `λ · 0 = 0`, `0 · 0 = 0`).
+;
+; The axioms hold for every vector space `$V` over `K` (`vectorspace($V)`), so that there can be
+; several, e.g. for a linear map from `V` to `W`. The zero vector `0` and the inverse `- x` are
+; given by names, as the slides do after proving uniqueness (below).
+;
+; The axioms are the (V1)-(V8) of the course "Mathematik für Informatik 1" (mafi1, lectures
+; 04 and 05): vector-plus-associative (V1),
+; vector-plus-commutative (V2), vector-plus-zero (V3), vector-plus-minus (V4),
+; vector-times-associative (V5), vector-one-times (V6), vector-distributive (V7),
+; vector-distributive-scalars (V8). proofs/mafi1/ uses this theory.
+load field
+arity vectorspace 1
+
+use vectorspace($V)  ⇒  0 ∈ $V                                                       "zero-vector-in"
+use vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $x + $y ∈ $V                             "vector-plus-closed"
+use vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V  ⇒  $a · $x ∈ $V                              "vector-times-closed"
+use vectorspace($V) ∧ $x ∈ $V  ⇒  - $x ∈ $V                                          "vector-minus-closed"
+
+use vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $z ∈ $V  ⇒  ($x + $y) + $z = $x + ($y + $z) "vector-plus-associative"
+use vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $x + $y = $y + $x                        "vector-plus-commutative"
+use vectorspace($V) ∧ $x ∈ $V  ⇒  $x + 0 = $x                                        "vector-plus-zero"
+use vectorspace($V) ∧ $x ∈ $V  ⇒  $x + (- $x) = 0                                    "vector-plus-minus"
+use vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V  ⇒  $a · ($b · $x) = ($a · $b) · $x  "vector-times-associative"
+use vectorspace($V) ∧ $x ∈ $V  ⇒  1 · $x = $x                                        "vector-one-times"
+use vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $a · ($x + $y) = $a · $x + $a · $y "vector-distributive"
+use vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V  ⇒  ($a + $b) · $x = $a · $x + $b · $x "vector-distributive-scalars"
+
+; lecture 04: the zero vector is unique
+show vectorspace($V) ∧ $o ∈ $V ∧ (∀ $x ∈ $V ($x + $o = $x))  ⇒  $o = 0                 "zero-vector-unique"
+proof
+    assume vectorspace($V) ∧ $o ∈ $V ∧ (∀ $x ∈ $V ($x + $o = $x))
+        vectorspace($V)
+        $o ∈ $V
+        ∀ $x ∈ $V ($x + $o = $x)
+        0 ∈ $V                                          ; zero-vector-in
+        0 + $o = 0                                      ; (vector-plus-zero) for 0'  with x = 0
+        $o = $o + 0
+           = 0 + $o
+           = 0
+qed
+
+; lecture 04: the inverse is unique
+show vectorspace($V) ∧ $x ∈ $V ∧ $a ∈ $V ∧ $b ∈ $V ∧ $x + $a = 0 ∧ $x + $b = 0  ⇒  $a = $b   "vector-minus-unique"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V ∧ $a ∈ $V ∧ $b ∈ $V ∧ $x + $a = 0 ∧ $x + $b = 0
+        vectorspace($V)
+        $x ∈ $V
+        $a ∈ $V
+        $b ∈ $V
+        $x + $a = 0
+        $x + $b = 0
+        0 ∈ $V                                          ; zero-vector-in
+        $a = $a + 0
+           = $a + ($x + $b)                             ; hypothesis on b
+           = ($a + $x) + $b                             ; vector-plus-associative
+           = ($x + $a) + $b                             ; vector-plus-commutative
+           = 0 + $b                                     ; hypothesis on a
+           = $b + 0                                     ; vector-plus-commutative
+           = $b                                         ; vector-plus-zero
+qed
+
+; lecture 06 (in the proof that 0 ∈ U): 0 x = 0
+show vectorspace($V) ∧ $x ∈ $V  ⇒  0 · $x = 0                                          "zero-times-vector"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V
+        vectorspace($V)
+        $x ∈ $V
+        0 · $x ∈ $V
+        - (0 · $x) ∈ $V
+        0 · $x + 0 · $x ∈ $V
+        0 = 0 · $x + (- (0 · $x))                       ; vector-plus-minus
+          = (0 + 0) · $x + (- (0 · $x))                 ; 0 = 0 + 0 in K
+          = (0 · $x + 0 · $x) + (- (0 · $x))            ; vector-distributive-scalars
+          = 0 · $x + (0 · $x + (- (0 · $x)))            ; vector-plus-associative
+          = 0 · $x + 0                                  ; vector-plus-minus
+          = 0 · $x                                      ; vector-plus-zero
+qed
+
+; lecture 06 (in the proof that -x ∈ U): (-1) x = -x
+show vectorspace($V) ∧ $x ∈ $V  ⇒  (- 1) · $x = - $x                                   "minus-one-times-vector"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V
+        vectorspace($V)
+        $x ∈ $V
+        - 1 ∈ K
+        (- 1) · $x ∈ $V
+        - $x ∈ $V
+        0 = 0 · $x
+          = (1 + (- 1)) · $x                            ; 0 = 1 + (-1) in K
+          = 1 · $x + (- 1) · $x                         ; vector-distributive-scalars
+          = $x + (- 1) · $x                             ; vector-one-times
+        $x + (- $x) = 0                                 ; vector-plus-minus
+        (- 1) · $x = - $x                               ; vector-minus-unique
+qed
+
+; (-λ) x = -(λ x)
+show vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V  ⇒  (- $a) · $x = - ($a · $x)   "minus-times-vector"
+proof
+    assume vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V
+        vectorspace($V)
+        $a ∈ K
+        $x ∈ $V
+        - 1 ∈ K
+        $a · $x ∈ $V
+        (- 1) · $a = - $a                               ; minus-one-times
+        (- $a) · $x = ((- 1) · $a) · $x
+                    = (- 1) · ($a · $x)
+                    = - ($a · $x)
+qed
+
+; regrouping a sum of four: (x + y) + (z + u) = (x + z) + (y + u), from (vector-plus-associative) and (vector-plus-commutative)
+show vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $z ∈ $V ∧ $u ∈ $V  ⇒  ($x + $y) + ($z + $u) = ($x + $z) + ($y + $u)   "vector-shuffle"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $z ∈ $V ∧ $u ∈ $V
+        vectorspace($V)
+        $x ∈ $V
+        $y ∈ $V
+        $z ∈ $V
+        $u ∈ $V
+        $x + $y ∈ $V
+        $z + $u ∈ $V
+        $y + $z ∈ $V
+        $z + $y ∈ $V
+        $y + $u ∈ $V
+        ($x + $y) + ($z + $u) = $x + ($y + ($z + $u))
+                              = $x + (($y + $z) + $u)
+                              = $x + (($z + $y) + $u)
+                              = $x + ($z + ($y + $u))
+                              = ($x + $z) + ($y + $u)
+qed

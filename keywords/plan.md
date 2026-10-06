@@ -82,13 +82,16 @@ TRUST -- certificates
     45-cert      `cert N`: the certificate of a line, checked by the kernel;
                  `.kurtc` files and `kurt --deps`
 
+DEBUGGING
+---------
+    46-breakpoint  stop in a file and continue in the shell with its state
+
 Moved (2026-10-06): the worked proof is tutorial/21-worked-proof.kurt; the
 lessons on tuples and groups are tutorial/23-work-with-pairs-and-tuples.kurt and
 tutorial/24-use-a-structure-groups.kurt -- this folder has one lesson per keyword.
 
 Not covered (deliberately)
 ---------------------------
-    inspect      raises `NotImplementedError` in `kurt.py` -- not usable yet
     fix          old name for what is now the `let` keyword (see `19-let.kurt`)
     indent       removed -- the shell's indentation handling used to differ
                  from a file's (see below); once unified, the toggle (and

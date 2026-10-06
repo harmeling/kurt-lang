@@ -1,7 +1,7 @@
-; Gruppen -- groups (lecture "Mathematik für Informatik 1" (mafi1), deck 07-koerper)
+; groups (course "Mathematik für Informatik 1" (mafi1), lecture 07)
 ;
 ; A group needs (G1), (G3) and (G4) only, where (G3) and (G4) give a neutral element and inverses
-; from the right; Satz a shows that they also work from the left (after Bosch, Algebra, p. 286).
+; from the right; Theorem a shows that they also work from the left (after Bosch, Algebra, p. 286).
 ; As in field.kurt, the existential axioms come with names: `e` and `inv a`.
 load set
 infix ∘ 70 70
@@ -15,7 +15,7 @@ use $a ∈ G ∧ $b ∈ G ∧ $c ∈ G  ⇒  ($a ∘ $b) ∘ $c = $a ∘ ($b ∘
 use $a ∈ G  ⇒  $a ∘ e = $a                                           "G3"
 use $a ∈ G  ⇒  $a ∘ (inv $a) = e                                     "G4"
 
-; Satz a (iii): a right inverse is a left inverse, a b = e ⇒ b a = e
+; Theorem a (iii): a right inverse is a left inverse, a b = e ⇒ b a = e
 show $a ∈ G ∧ $b ∈ G ∧ $a ∘ $b = e  ⇒  $b ∘ $a = e                   "left-inverse"
 proof
     assume $a ∈ G ∧ $b ∈ G ∧ $a ∘ $b = e
@@ -35,7 +35,7 @@ proof
                 = e                                     ; (ii)
 qed
 
-; Satz a (iv): the neutral element is neutral from the left too, e a = a
+; Theorem a (iv): the neutral element is neutral from the left too, e a = a
 show $a ∈ G  ⇒  e ∘ $a = $a                                          "left-neutral"
 proof
     assume $a ∈ G
@@ -47,7 +47,7 @@ proof
                = $a                                     ; G3
 qed
 
-; Satz b: cancellation from the right, b a = c a ⇒ b = c
+; Theorem b: cancellation from the right, b a = c a ⇒ b = c
 show $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $b ∘ $a = $c ∘ $a  ⇒  $b = $c        "cancel-right"
 proof
     assume $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $b ∘ $a = $c ∘ $a
@@ -65,7 +65,7 @@ proof
            = $c                                         ; G3
 qed
 
-; Satz b: cancellation from the left, a b = a c ⇒ b = c ("analog", with Satz a)
+; Theorem b: cancellation from the left, a b = a c ⇒ b = c ("analog", with Theorem a)
 show $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $a ∘ $b = $a ∘ $c  ⇒  $b = $c        "cancel-left"
 proof
     assume $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $a ∘ $b = $a ∘ $c

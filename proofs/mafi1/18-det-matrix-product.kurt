@@ -1,5 +1,4 @@
-; Determinante und Matrixprodukt (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 18-det-matrixproduct), from det(A B) = det(A) det(B) and det(E) = 1
+; the determinant of a matrix product (course "Mathematik für Informatik 1" (mafi1), lecture 18), from det(A B) = det(A) det(B) and det(E) = 1
 load matrices
 
 ; det(A⁻¹) = det(A)⁻¹ -- and det(A) ≠ 0, which the formula needs

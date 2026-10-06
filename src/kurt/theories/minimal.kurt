@@ -6,6 +6,8 @@ false ; never load this theory, this file is just for reference
 brackets ( )                                 ; for grouping during parsing
 infix    ,    5  4                           ; for lists and tuples, right associative: `(a, b, c)` is `(a, (b, c))`
 infix    " " 90 90                           ; space for function applications, binds most tightly
+                                             ; (`f(x)` without a space binds more tightly still, 95:
+                                             ; `inv det(A)` is `inv (det A)`)
 
 const true                                   ; declare constant symbol
 bool  true                                   ; true has type bool
@@ -19,6 +21,9 @@ alias ⇒ implies
 alias ∧ and
 ; `EXPR local "label"` marks a label as not exported by `load` -- a special parse rule, no
 ; declaration (see `local_led` in `kurt.py`)
+;
+; the symbols declared here are frozen: no file can change them (e.g. `sym implies`), and every
+; symbol starting with `$` or `%` is a variable by its name (`$x` a term, `%A` a formula)
 
 ;; inference rules genuinely hard-coded in `kurt.py` (not `use` axioms you could remove)
 ;
@@ -32,6 +37,12 @@ alias ∧ and
 ; - "impl-intro" / "not-intro": *not* standalone axioms here -- they are the effect of
 ;   closing an `assume` block (see `eval_done`'s 'assume' case): assuming `$A` and
 ;   deriving `$B` gives `$A implies $B`; additionally deriving `false` gives `not $A`
+; - "forall-intro" / "exists-elim": the effect of closing a `let` / `pick` block (see
+;   `eval_done`, `eval_pick`)
+; - "by calc": with `calc on`, a comparison of numbers that computes to true, or a claim
+;   that computes to a fact -- for the symbols a theory binds to the calculator
+;
+; every step is checked again by the kernel (`kernel_verify`, doc/kurt-soundness.md §9)
 ;
 ; NOT hard-coded, despite once being drafted here: a general "restatement" schema
 ; (`$A implies $A`) and a general "impl-intro" schema
@@ -48,7 +59,9 @@ alias ∧ and
 ; - `not`, `false`: closing an `assume` block whose last line is `false` also gives `not A`
 ; - `=`, `iff`: the only relations `def` accepts (and only from the packaged `equality.kurt` /
 ;   `prop.kurt`); their two sides are never reordered, although both are `sym`
-; - `+ - * / ^` and `= ≠ < <= > >=` on numbers: computed with `calc on`
+; - nothing is computed by its name: with `calc on`, the calculator computes the symbols a
+;   theory binds to it (numbers.kurt: `calc + add, * multiply, ...`; matrix.kurt: `calc [ matrix`)
+; - `or`: only for Tab and `hint` in the shell (the other alternatives of a `case`)
 ; - `sub`, `forall`, `exists`: see below, and the rules behind `let` ("forall-intro") and
 ;   `pick` ("exists-elim")
 
@@ -62,7 +75,9 @@ bindop sub                                   ; first arg must be a variable that
 ;; it crashing the theory-storage machinery the moment anyone uses the word -- see
 ;; `theory_append`/`remove_outer_forall_quantifiers` in `kurt.py`)
 arity  forall 2, exists 2
-bindop forall, exists
+bindop forall, exists                        ; with a condition, `∀ x > 0 ...` binds the first symbol of
+                                             ; the condition that is new or a variable, decided (and
+                                             ; stored) when the line is read
 bool   forall 0 2, exists 0 2                ; position 2 (the body) must be boolean
 const  forall, exists
 alias  ∀ forall

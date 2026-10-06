@@ -1,5 +1,5 @@
-; Tautologien -- the tautologies that the lecture "Mathematik für Informatik 1" (mafi1) takes as
-; given, checked "by truth tables" (decks 03-formeln and 11a-beweise); Kurt has no truth tables,
+; tautologies -- the tautologies that the course "Mathematik für Informatik 1" (mafi1) takes as
+; given, checked "by truth tables" (lectures 03 and 11a); Kurt has no truth tables,
 ; so they are proven here by natural deduction.  03-formulas.kurt and 11a-proofs.kurt then
 ; derive the other laws from them, as the slides do.
 load logic
@@ -159,7 +159,7 @@ proof
         ¬(%A ⇒ %B)
 qed
 
-; true and false (deck 11a)
+; true and false (lecture 11a)
 show ¬⊤  ⇔  ⊥                                                         "not-top"
 proof
     assume ¬⊤

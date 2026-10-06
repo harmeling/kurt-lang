@@ -1,5 +1,4 @@
-; Hauptachsentransformation (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 30-principal-axes): from D = Pᵀ A P with P ∈ O(n) follows A = P D Pᵀ
+; the principal axis transformation (course "Mathematik für Informatik 1" (mafi1), lecture 30): from D = Pᵀ A P with P ∈ O(n) follows A = P D Pᵀ
 load matrices
 
 show $A ∈ Mat ∧ $P ∈ Mat ∧ $D ∈ Mat ∧ $D = (T($P) · $A) · $P ∧ $P · T($P) = E  ⇒  $A = ($P · $D) · T($P)   "eigendecomposition"

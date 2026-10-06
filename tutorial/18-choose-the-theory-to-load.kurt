@@ -14,11 +14,14 @@
 ; | `rational` | the rationals `Rat`, every positive rational in lowest terms |
 ; | `analysis` | absolute value, finite sums, extrema, suprema/infima, limits |
 ; | `group` | reusable group structure and derived group theorems |
+; | `field` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1`: every axiom for the elements of `K`, subtraction |
+; | `vectorspace` | vector spaces over `K`: `vectorspace($V)`, the axioms for its elements |
+; | `matrix` | vectors and matrices as literals, computed exactly with `calc on` (lesson 25) |
 ;
 ; Numbers or structures: `numbers` (and `natural`, `integer`, `rational`, `analysis`, which load
 ; it) is about numbers -- its laws hold for everything written with `+`, `*`, ... For linear
-; algebra, use a structure that declares its own operators, like `proofs/mafi1/field.kurt` or
-; `vectorspace.kurt`, not together with `numbers`: a symbol is declared by one file only, and
+; algebra, use a structure that declares its own operators, like `field` or
+; `vectorspace`, not together with `numbers`: a symbol is declared by one file only, and
 ; loading two files that both declare `+` is an error (doc/kurt-doc.md, `load`). `group` takes
 ; its operation as an argument, so it goes with either. (`numbers` used to be called `arith`.)
 ;

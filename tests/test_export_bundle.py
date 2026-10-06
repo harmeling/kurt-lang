@@ -22,7 +22,6 @@ CASES = {
     'flat':     ('infix S 50 50\nflat S', 'use a S a',  lambda kb, s: kb.is_flat(s)),
     'sym':      ('infix S 50 50\nsym S', 'use a S a',   lambda kb, s: kb.is_sym(s)),
     'bool':     ('bool S',        'use S',              lambda kb, s: len(kb.bool_sig(s)) > 0),
-    'calc':     ('infix S 50 50\ncalc S add', 'use P (1 S 1)', lambda kb, s: 'add' in kb.get_calc_ops(s)),
     'alias':    ('const cS\nalias S cS', 'use P cS',    lambda kb, s: kb.get_alias(s) == f'c{s}'),
     'brackets': ('brackets Sl Sr', 'use P (Sl a Sr)',   lambda kb, s: kb.is_bracket(f'{s}l')),
 }
@@ -48,6 +47,14 @@ class TestExportBundle(unittest.TestCase):
                 kb = load({'helper.kurt': helper, 'main.kurt': 'load helper\n'}, 'main.kurt')
                 self.assertTrue(seen(kb, 'X'), f'`{kind}` of X, needed by an exported fact, got lost')
                 self.assertFalse(seen(kb, 'Y'), f'`{kind}` of Y, only in an unlabelled fact, crossed')
+
+    def test_a_calc_binding_crosses_like_an_axiom(self):
+        # `calc S add` says what `S` computes, an axiom about it: it crosses also without a fact
+        # that mentions `S` (matrix.kurt's `[ ]`, `det`, `transpose` are in none)
+        helper = PRELUDE + 'infix S 50 50\ncalc S add\n'
+        kb = load({'helper.kurt': helper, 'main.kurt': 'load helper\n'}, 'main.kurt')
+        self.assertIn('add', kb.get_calc_ops('S'))
+        self.assertTrue(kb.is_infix('S'))
 
     def test_a_new_field_stays_in_the_file(self):
         parent = copy.deepcopy(kurt.initial_kb)

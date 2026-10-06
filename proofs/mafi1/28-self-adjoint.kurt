@@ -1,5 +1,4 @@
-; selbstadjungierte Endomorphismen -- self-adjoint maps (lecture "Mathematik für Informatik 1"
-; (mafi1), deck 28-selbstadjungierte-endomorphismen)
+; self-adjoint maps (course "Mathematik für Informatik 1" (mafi1), lecture 28)
 load 26-eigenvalues, scalar-product
 
 ; f is self-adjoint

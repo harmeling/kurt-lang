@@ -1,12 +1,11 @@
-; orthogonale Vektoren -- the orthogonal complement (lecture "Mathematik für Informatik 1"
-; (mafi1), deck 24-orthogonale-vektoren); orthogonality and Pythagoras are in scalar-product.kurt
+; orthogonal vectors, the orthogonal complement (course "Mathematik für Informatik 1" (mafi1), lecture 24); orthogonality and Pythagoras are in scalar-product.kurt
 load scalar-product
 arity Perp 1
 
 ; M^⊥ = { v ∈ V | ∀ u ∈ M : v ⊥ u }
 def Perp($M) = { $v ∈ V | ∀ $u ∈ $M (⟨$v, $u⟩ = 0) }                 "Perp"
 
-; Satz: M^⊥ is a subspace of V (for M ⊂ V)
+; Theorem: M^⊥ is a subspace of V (for M ⊂ V)
 show $M ⊂ V  ⇒  subspace(Perp($M))                                   "Perp-subspace"
 proof
     assume $M ⊂ V
@@ -79,7 +78,7 @@ proof
         subspace(Perp($M))
 qed
 
-; Satz: M ∩ M^⊥ = {0} if 0 ∈ M -- "⊂": only 0 is in both
+; Theorem: M ∩ M^⊥ = {0} if 0 ∈ M -- "⊂": only 0 is in both
 show $v ∈ $M ∧ $v ∈ Perp($M)  ⇒  $v = 0                              "Perp-meet"
 proof
     assume $v ∈ $M ∧ $v ∈ Perp($M)

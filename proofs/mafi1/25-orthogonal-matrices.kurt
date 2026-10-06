@@ -1,5 +1,4 @@
-; orthogonale Abbildungen (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 25-orthogonale-abbildungen): A ∈ O(n), i.e. Aᵀ A = E, gives det A = ±1
+; orthogonal maps (course "Mathematik für Informatik 1" (mafi1), lecture 25): A ∈ O(n), i.e. Aᵀ A = E, gives det A = ±1
 load matrices
 
 show $A ∈ Mat ∧ T($A) · $A = E  ⇒  det($A) = 1 ∨ det($A) = - 1          "det-orthogonal"

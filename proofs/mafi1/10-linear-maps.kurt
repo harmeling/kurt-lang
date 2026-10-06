@@ -1,7 +1,6 @@
-; lineare Abbildungen -- linear maps (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 10-linear-maps)
+; linear maps (course "Mathematik für Informatik 1" (mafi1), lecture 10)
 ;
-; "Seien V, W, Y Vektorräume über K und f: V → W, g: W → Y linear."
+; "Let V, W, Y be vector spaces over K, and f: V → W, g: W → Y linear."
 load vectorspace
 const V, W, Y, f, g
 arity f 1, g 1
@@ -48,7 +47,7 @@ proof
                        = f($x) + (- f($y))
 qed
 
-; Satz: g ∘ f is linear
+; Theorem: g ∘ f is linear
 arity h 1
 def h($x) = g(f($x))                                                 "h"     ; h = g ∘ f
 
@@ -87,7 +86,7 @@ proof
                    = $a · h($x)                         ; definition of g ∘ f
 qed
 
-; Satz: Kern f = {0} ⇔ f injective
+; Theorem: Kern f = {0} ⇔ f injective
 def Kern = { $x ∈ V | f($x) = 0 }                                    "Kern"
 def Null = { $x ∈ V | $x = 0 }                                       "Null"  ; {0} ⊂ V
 
@@ -169,7 +168,7 @@ proof
         Kern = Null
 qed
 
-; Satz: Bild f = W ⇔ f surjective
+; Theorem: Bild f = W ⇔ f surjective
 def Bild = { $y ∈ W | ∃ $x ($x ∈ V ∧ f($x) = $y) }                   "Bild"
 
 show Bild = W  ⇔  ∀ $y ∈ W ∃ $x ($x ∈ V ∧ f($x) = $y)                "image-surjective"

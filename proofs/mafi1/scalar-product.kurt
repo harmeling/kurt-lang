@@ -1,5 +1,4 @@
-; Skalarprodukte -- inner products (lecture "Mathematik für Informatik 1" (mafi1), decks
-; 23-skalarprodukte and 24-orthogonale-vektoren)
+; inner products (course "Mathematik für Informatik 1" (mafi1), lectures 23 and 24)
 ;
 ; V is a real vector space (the subspaces of 06-subspaces.kurt) with an inner product
 ; ⟨x, y⟩ ∈ K, given by (S1)-(S3).  For (S3) the scalars need an order: only `$a > 0 ⇒ $a ≠ 0` is
@@ -21,7 +20,7 @@ use $x ∈ V ∧ $y ∈ V  ⇒  ⟨$x, $y⟩ = ⟨$y, $x⟩                     
 ; (S3) positive definite
 use $x ∈ V ∧ $x ≠ 0  ⇒  ⟨$x, $x⟩ > 0                                 "S3"
 
-; deck 23: ⟨x, 0⟩ = 0 and ⟨0, x⟩ = 0, from the bilinearity
+; lecture 23: ⟨x, 0⟩ = 0 and ⟨0, x⟩ = 0, from the bilinearity
 show $x ∈ V  ⇒  ⟨$x, 0⟩ = 0                                          "S-zero-right"
 proof
     assume $x ∈ V
@@ -59,7 +58,7 @@ proof
         $v = 0
 qed
 
-; deck 24: orthogonal vectors
+; lecture 24: orthogonal vectors
 arity orthogonal 2
 def orthogonal($x, $y)  ⇔  ⟨$x, $y⟩ = 0                              "orthogonal"
 

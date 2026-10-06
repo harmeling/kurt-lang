@@ -1,5 +1,5 @@
-; Matrizen -- the rules for n × n matrices that the lecture "Mathematik für Informatik 1" (mafi1)
-; uses in decks 12-30 (some are exercises, some "ohne Beweis" there); here they are axioms, so
+; matrices -- the rules for n × n matrices that the course "Mathematik für Informatik 1" (mafi1)
+; uses in lectures 12-30 (some are exercises, some "without proof" there); here they are axioms, so
 ; that the derivations on the slides can be checked: 15-inverse-matrix.kurt and the ones after.
 ;
 ; `Mat` is the set of n × n matrices over K, `GL` the invertible ones; `·` is the matrix product
@@ -19,16 +19,16 @@ use $A ∈ Mat ∧ $B ∈ Mat ∧ $C ∈ Mat  ⇒  ($A · $B) · $C = $A · ($B 
 use $A ∈ Mat  ⇒  E · $A = $A                                         "E-left"
 use $A ∈ Mat  ⇒  $A · E = $A                                         "E-right"
 
-; the inverse (deck 15: regulär)
+; the inverse (lecture 15: regulär)
 use $A ∈ GL  ⇒  inv $A ∈ Mat                                         "inv-in"
 use $A ∈ GL  ⇒  $A · (inv $A) = E                                    "inv-right"
 use $A ∈ GL  ⇒  (inv $A) · $A = E                                    "inv-left"
 
-; the transposed matrix (deck 15, "Übungsaufgabe")
+; the transposed matrix (lecture 15, "Übungsaufgabe")
 use $A ∈ Mat ∧ $B ∈ Mat  ⇒  T($A · $B) = T($B) · T($A)              "T-times"
 use T(E) = E                                                         "T-E"
 
-; the determinant (decks 17 and 18, "ohne Beweis" there)
+; the determinant (lectures 17 and 18, "without proof" there)
 use $A ∈ Mat  ⇒  det($A) ∈ K                                         "det-in"
 use $A ∈ Mat ∧ $B ∈ Mat  ⇒  det($A · $B) = det($A) · det($B)         "det-times"
 use det(E) = 1                                                       "det-E"

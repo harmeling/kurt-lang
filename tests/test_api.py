@@ -97,5 +97,31 @@ class TestApi(unittest.TestCase):
         self.assertEqual(json.loads(bad.stdout)['error_line'], 3)
 
 
+    def test_a_shell_continues_where_the_check_stopped(self):
+        failing = 'load prop\nbool A, B\nuse A\nuse A implies B\nshow A and B\nproof\n    B\n    A and C\nqed\n'
+        shell = kurt.Shell()
+        result = shell.start_text(failing)
+        self.assertFalse(result.ok)
+        self.assertEqual((shell.stopped, shell.line, shell.indentation()), ('error', 8, 4))   # at the failing line
+        self.assertIn('; to prove: A and B', shell.summary())
+        self.assertIn('; 8 by and-intro', shell.feed('    A and B'))
+        self.assertEqual(shell.next_steps(), ['qed'])
+        self.assertIn('; 9 by 8', shell.feed('qed'))
+        self.assertEqual(shell.accepted, ['    A and B', 'qed'])
+        self.assertIn('can not derive', shell.feed('C'))                 # an error is shown, the shell goes on
+        self.assertIn('; 11 by proof.kurt:3', shell.feed('A'))
+
+    def test_a_shell_after_the_end_and_at_a_breakpoint(self):
+        shell = kurt.Shell()
+        shell.start_text('load numbers\ncalc on\nconst x\nuse x = 3\n')
+        self.assertEqual(shell.stopped, 'end')
+        self.assertEqual(shell.completions('17*42=', ''), ['714'])
+        self.assertIn('; 5 by proof.kurt:4', shell.feed('x = 3'))
+        shell = kurt.Shell()
+        shell.start_text('load prop\nbool A\nuse A\nshow A and A\nproof\n    breakpoint\n    A and A\nqed\n')
+        self.assertEqual((shell.stopped, shell.line), ('breakpoint', 7))
+        self.assertEqual(shell.next_steps(), ['A and A'])               # inside the proof, as it was there
+
+
 if __name__ == '__main__':
     unittest.main()

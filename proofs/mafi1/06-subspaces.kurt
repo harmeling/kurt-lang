@@ -1,5 +1,4 @@
-; Untervektorräume -- subspaces (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 06-subspaces)
+; subspaces (course "Mathematik für Informatik 1" (mafi1), lecture 06)
 load vectorspace
 const V
 use vectorspace(V)                                                  "V-vectorspace"
@@ -71,7 +70,7 @@ proof
         - $x ∈ $U
 qed
 
-; Satz: a subspace is a vector space -- (V3) and (V4) hold in U by the two lemmas, and the other
+; Theorem: a subspace is a vector space -- (V3) and (V4) hold in U by the two lemmas, and the other
 ; axioms hold since they hold for all elements of V; e.g. (V1) and (V8):
 show subspace($U)  ⇒  0 ∈ $U ∧ (∀ $x ∈ $U ($x + 0 = $x ∧ - $x ∈ $U ∧ $x + (- $x) = 0))   "U-V3-V4"
 proof

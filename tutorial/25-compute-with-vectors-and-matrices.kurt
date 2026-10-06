@@ -1,0 +1,31 @@
+; 25-compute-with-vectors-and-matrices.kurt
+;
+; Compute with vectors and matrices
+;
+; `load matrix` gives literals of numbers: `[1, 2, 3]` is a row, `[[1, 2], [3, 4]]` a matrix
+; written row by row, `[[1], [3]]` a column. With `calc on`, Kurt computes them exactly, like
+; numbers (lesson 10): `+`, `-`, `·` (`\cdot`), `transpose`, `det`.
+
+load matrix
+calc on
+
+[1, 2] + [3, 4] = [4, 6]
+2 · [1, 2, 3] = [2, 4, 6]
+[[1, 2], [3, 4]] · [[1], [1]] = [[3], [7]]
+transpose [[1, 2, 3], [4, 5, 6]] = [[1, 4], [2, 5], [3, 6]]
+det [[1, 2], [3, 4]] = -2
+
+; Written over several lines, each line inside the brackets is a row -- as on paper:
+
+[1, 2
+ 3, 4] · [1
+          1] = [[3], [7]]
+
+; If the shapes don't fit, there is no value: `[1, 2] + [1, 2, 3]` stays as it is, and a claim
+; about its value can't be derived.
+expect "ProofError"
+    [1, 2] + [1, 2, 3] = [2, 4, 3]
+
+; matrix.kurt has its own `+` and `·`, so it isn't loaded together with `numbers` (lesson 18). It
+; computes with literals; for laws about matrices written with variables, see
+; proofs/mafi1/matrices.kurt.

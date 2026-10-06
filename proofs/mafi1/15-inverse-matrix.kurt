@@ -1,7 +1,7 @@
-; inverse Matrix (lecture "Mathematik für Informatik 1" (mafi1), deck 15-inverse-matrix)
+; the inverse matrix (course "Mathematik für Informatik 1" (mafi1), lecture 15)
 load matrices
 
-; the inverse is unique: B A = E gives B = A⁻¹ (deck 12, Satz 10)
+; the inverse is unique: B A = E gives B = A⁻¹ (lecture 12, Theorem 10)
 show $A ∈ GL ∧ $B ∈ Mat ∧ $B · $A = E  ⇒  $B = inv $A                 "inv-unique-left"
 proof
     assume $A ∈ GL ∧ $B ∈ Mat ∧ $B · $A = E
