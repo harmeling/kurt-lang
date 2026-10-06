@@ -19,7 +19,7 @@ qed
 ; For a conditioned quantifier, put the condition in the `let` line. The condition is available as
 ; an assumption inside the block:
 
-load logic, arith
+load logic, numbers
 
 show forall $x > 0 ($x > 0)
 proof

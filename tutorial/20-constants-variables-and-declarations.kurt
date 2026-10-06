@@ -1,0 +1,71 @@
+; 20-constants-variables-and-declarations.kurt
+;
+; Constants, variables, and what declares them
+;
+; Most symbols are declared by using them: the first time a symbol appears in a formula, it
+; becomes a constant, one fixed object. The rules in one place are in doc/kurt-doc.md §3.4; here
+; they are one at a time.
+
+load logic
+load numbers
+
+; 1. A symbol used for the first time is a constant. Kurt says so (often it's a typo), and its
+;    `bool` signature comes from where it stands: `P` is boolean, `a` not.
+
+use P a
+
+; 2. `$x` and `%A` are variables by their name alone: `$x` for a term, `%A` for a formula.
+;    They are never declared and never constants.
+
+use $x = $x     "eq-refl"
+
+; 3. Declaring a symbol first avoids the note, and catches typos. `const`, `brackets`, `def`,
+;    `let` and `pick` make constants; `var` makes a variable.
+
+const b
+var y
+use y = y
+
+; 4. Declarations of the grammar (`infix`, `prefix`, `postfix`, `arity`, `bool`, `bindop`, ...)
+;    only give properties. The symbol becomes a constant at its first use -- or a variable, an
+;    operator variable, with `var` before that use:
+
+infix ∘ 50 50
+const c
+use c ∘ c = c                   ; `∘` is a constant now
+
+infix · 50 50
+var ·
+use b · b = b · b               ; `·` is a variable: this holds for every operator `·`
+
+; 5. Declare before the first use: afterwards, the formulas were already read with what was known
+;    then, so a declaration would change what they mean.
+
+use Q
+expect "EvalError" "already used in a formula"
+    bool Q
+
+; 6. The variable of a binder. Without a condition, the name after the binder is bound:
+;    `∀ z (z = z)`. With a condition, it is the first symbol of the condition, as written, that is
+;    new or a variable (not a constant, a predicate, or bound outside): `z` in `∀ z > 0 ...`, `z`
+;    in `∀ c < z ...` (`c` is a constant), `z` in `∀ (P(z)) ...`. Kurt decides this when it reads
+;    the line, and keeps it: the binder binds the same variable later, also when a block closes.
+
+∀ z (z = z)                     ; from `use y = y`: a fact with the variable `y` holds for every `y`
+∀ $z ($z = $z)
+show ∀ z > 0 (z ≠ 0)
+proof
+    let z > 0
+        z ≠ 0
+qed
+
+; Inside a `let` block, the new name is a constant: one arbitrary object. When the block closes,
+; Kurt generalizes over it, and the name is free again.
+
+let w
+    w = w
+∀ w (w = w)
+
+; With `kurt --strict` (for grading), the same rules hold, but the first use of a symbol that
+; wasn't declared at all is an error instead of a new constant: `use P a` above would be refused
+; (`use` too, with `--strict`). Declarations like `bool Q` or `infix ∘ 50 50` count.

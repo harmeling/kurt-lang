@@ -1,4 +1,4 @@
-; 12-my-theory.kurt
+; my-theory.kurt
 ;
 ; the theory that lesson 12 (12-write-and-load-a-reusable-theory.kurt) loads: its labelled facts
 ; are exported, the `local` one is not

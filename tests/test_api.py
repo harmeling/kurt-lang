@@ -1,3 +1,6 @@
+import json
+import subprocess
+import sys
 import unittest
 
 import kurt.kurt as kurt
@@ -57,6 +60,42 @@ class TestApi(unittest.TestCase):
         self.assertEqual(one._state['counters'], alone._state['counters'])
         self.assertEqual(sorted(one._state['certificates_by_line']), sorted(alone._state['certificates_by_line']))
         self.assertNotEqual(other._state['counters'], alone._state['counters'])
+
+    def test_events(self):
+        # each printed line as a record: its line, id, kind, rule and the lines it uses
+        result = kurt.check_text('load prop\nbool A, B\nuse A implies B   "rule"\nuse A\nB    ; modus ponens\n'
+                                 'assume A\n    B\nshow B\nproof\n    B\nqed\nC\n')
+        events = {(e['id'], e['kind']): e for e in result.events}
+        self.assertEqual(events[('3', 'assumed')]['label'], 'rule')
+        step = events[('5', 'step')]
+        self.assertEqual((step['line'], step['rule'], step['uses'], step['comment']), (5, 'rule', ['4'], 'modus ponens'))
+        self.assertEqual(events[('6-7', 'step')]['rule'], 'impl-intro')       # the result of the block
+        self.assertEqual(events[('6', 'open')]['text'], 'assume A')
+        self.assertEqual(events[('8', 'claim')]['text'], 'show B')
+        self.assertEqual(events[('7', 'step')]['level'], 1)
+        self.assertEqual(result.events[-1]['kind'], 'error')
+        self.assertEqual((result.error_line, result.error_kind), (12, 'ProofError'))
+        done = kurt.check_text(PROOF)
+        self.assertEqual(done.events[-1], {'line': None, 'id': None, 'kind': 'text', 'level': 0, 'text': 'Proof checked', 'reason': ''})
+
+    def test_json_on_the_command_line(self):
+        def run(text):
+            path = PROJECT_ROOT / 'tests' / 'json-test.kurt'
+            path.write_text(text)
+            try:
+                return subprocess.run([sys.executable, str(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'), '--json', '--no-kurtc', str(path)],
+                                      capture_output=True, text=True, cwd=PROJECT_ROOT)
+            finally:
+                path.unlink()
+        good = run(PROOF)
+        self.assertEqual(good.returncode, 0)
+        data = json.loads(good.stdout)
+        self.assertTrue(data['ok'] and data['complete'])
+        self.assertIn({'rule': '3', 'uses': ['4']}, [{'rule': e.get('rule'), 'uses': e.get('uses')} for e in data['events']])
+        bad = run('load prop\nbool A\nA\n')
+        self.assertEqual(bad.returncode, 1)
+        self.assertEqual(json.loads(bad.stdout)['error_line'], 3)
+
 
 if __name__ == '__main__':
     unittest.main()

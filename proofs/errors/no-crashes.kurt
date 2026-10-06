@@ -1,6 +1,6 @@
 ; lines that used to crash Kurt (a Python traceback instead of an error), found in the soundness
 ; review of 2026-09-29 -- each is an error now
-load logic, arith
+load logic, numbers
 const a, b, c
 use a < b
 use b = c

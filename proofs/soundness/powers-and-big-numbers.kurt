@@ -1,9 +1,9 @@
-; arith.kurt and `calc` on powers (soundness review of 2026-09-29): each of these used to give `0 = 1`
+; numbers.kurt and `calc` on powers (soundness review of 2026-09-29): each of these used to give `0 = 1`
 ; or `1 = -1`, crash Kurt, or hang it
-load arith
+load numbers
 calc on
 
-; `calc` doesn't compute `0 ^ 0` (arith.kurt leaves it open, "pow-zero" needs `$a ≠ 0`): with
+; `calc` doesn't compute `0 ^ 0` (numbers.kurt leaves it open, "pow-zero" needs `$a ≠ 0`): with
 ; "pow-add", `0 = 0 ^ 1 * 0 ^ (-1) = 0 ^ 0 = 1`
 const x
 use x = 0 ^ 0

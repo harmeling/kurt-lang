@@ -11,7 +11,7 @@
 ;
 ; The axioms hold for every vector space `$V` over `K` (`vectorspace($V)`), so that there can be
 ; several of them, e.g. for a linear map from `V` to `W`.
-load koerper
+load field
 arity vectorspace 1
 
 use vectorspace($V)  ⇒  0 ∈ $V                                                       "V-zero"

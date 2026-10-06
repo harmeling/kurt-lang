@@ -1,4 +1,4 @@
-; regression test for a real parsing bug found while writing keywords/45-worked-proof.kurt: a
+; regression test for a real parsing bug found while writing tutorial/21-worked-proof.kurt: a
 ; blank line inside an indented block used to be read literally by the indentation tracker as
 ; "dedent all the way back to column 0" (a blank line's own leading-space count is always 0),
 ; incorrectly closing every currently open block instead of being ignored -- either raising a

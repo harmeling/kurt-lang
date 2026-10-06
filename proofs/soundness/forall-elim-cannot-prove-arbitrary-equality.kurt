@@ -1,5 +1,5 @@
 ; regression test for the most severe soundness bug found this session: `load logic,
-; equality` alone (nothing else -- no set.kurt, no arith.kurt, unrelated to any specific
+; equality` alone (nothing else -- no set.kurt, no numbers.kurt, unrelated to any specific
 ; theory) let ANY two constants be proven equal, with no premise connecting them at all.
 ; Confirmed the minimal reproduction directly before fixing it -- this exact file, unchanged,
 ; used to print `Proof checked.` instead of failing.

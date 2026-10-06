@@ -1,6 +1,6 @@
 ; selbstadjungierte Endomorphismen -- self-adjoint maps (lecture "Mathematik für Informatik 1"
 ; (mafi1), deck 28-selbstadjungierte-endomorphismen)
-load 26-eigenwerte, skalarprodukt
+load 26-eigenvalues, scalar-product
 
 ; f is self-adjoint
 use $v ∈ V ∧ $w ∈ V  ⇒  ⟨f($v), $w⟩ = ⟨$v, f($w)⟩                    "self-adjoint"

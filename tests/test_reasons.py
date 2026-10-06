@@ -35,15 +35,15 @@ def reasons(text: str) -> dict[str, str]:
 
 class TestReasons(unittest.TestCase):
     def test_reflexivity_is_equal_intro(self):
-        # it was "by chain-trans-0-0(pow-identity, pow-identity)" with arith.kurt, and
+        # it was "by chain-trans-0-0(pow-identity, pow-identity)" with numbers.kurt, and
         # "by equal-elim(equal-intro, equal-intro)" with equality.kurt
-        for theory in ('equality', 'arith'):
+        for theory in ('equality', 'numbers'):
             with self.subTest(theory=theory):
                 self.assertEqual(reasons(f'load {theory}\nconst a\na = a\n')['a = a'], '3 by equal-intro')
 
     def test_a_conjunction_is_and_intro(self):
         # it was "by equal-elim(5, 7, 7)", then "by iff-reflexive(7, 7)"
-        r = reasons('load arith\nbool A\nuse A\nA and A\n')
+        r = reasons('load numbers\nbool A\nuse A\nA and A\n')
         self.assertEqual(r['A and A'], '4 by and-intro(3, 3)')
 
     def test_modus_ponens(self):

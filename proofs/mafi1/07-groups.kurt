@@ -2,7 +2,7 @@
 ;
 ; A group needs (G1), (G3) and (G4) only, where (G3) and (G4) give a neutral element and inverses
 ; from the right; Satz a shows that they also work from the left (after Bosch, Algebra, p. 286).
-; As in koerper.kurt, the existential axioms come with names: `e` and `inv a`.
+; As in field.kurt, the existential axioms come with names: `e` and `inv a`.
 load set
 infix ∘ 70 70
 const G, e, inv

@@ -1,6 +1,8 @@
-; 45-worked-proof.kurt
+; 21-worked-proof.kurt
 ;
-; Every earlier lesson taught one keyword in isolation. This one is different: it walks
+; A worked proof
+;
+; The earlier lessons answered one question each. This one walks
 ; through actually writing a non-trivial proof from a blank file, the way you'd really do
 ; it -- including a mistake and how to read the error it produces. The goal is one direction
 ; of de Morgan's law: ¬(p ∧ q) ⇒ ¬p ∨ ¬q. (Both directions, and the second law, are proved in

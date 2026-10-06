@@ -187,9 +187,9 @@ class TestForgedCertificates(KurtcTestCase):
 
     def test_direction_only_of_an_iff(self):
         # "bottom-elim" `false ⇒ %A` read backwards would give `false` from any fact
-        path = self.write('h.kurt', 'load arith\nfalse\n')
+        path = self.write('h.kurt', 'load numbers\nfalse\n')
         file, line = theory_line('prop', 'bottom-elim')
-        fact_file, fact_line = theory_line('arith', 'factorial-base')
+        fact_file, fact_line = theory_line('numbers', 'factorial-base')
         S = lambda v: ['SYMBOL', v]
         E = lambda *c: {'e': list(c)}
         fact = E(S('='), E(S('!'), ['INT', 0]), ['INT', 1])

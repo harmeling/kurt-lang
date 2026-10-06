@@ -8,7 +8,7 @@
 ; `∘` is a *variable* here (`var ∘`), an operator that stands for any operation: the rules and
 ; theorems hold for every group -- the numbers with `(+)`, `0`, `(-)` just as well as an abstract
 ; group `G` with its own `∘` (which a file loading this one can use as an operation, since only
-; the `infix ∘` is exported, not the `var`). See proofs/algebra/groups.kurt.
+; the `infix ∘` is exported, not the `var`). See tutorial/24-use-a-structure-groups.kurt.
 load set
 var ∘
 infix ∘ 70 70           ; like `*`: `a ∘ b ∈ G` is `(a ∘ b) ∈ G`

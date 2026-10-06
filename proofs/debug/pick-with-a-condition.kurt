@@ -1,6 +1,6 @@
 ; `pick` from an existential with a condition: the witness gets the condition and the body, as
 ; logic.kurt's "exists-cond-def" says (`∃ (sub $x $v %C) %P` is `∃ $w ((sub $x $w %C) and (sub $v $w %P))`)
-load logic, arith
+load logic, numbers
 bool P, Q
 arity P 1, Q 1
 use ∃ $y > 0 P $y

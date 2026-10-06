@@ -15,7 +15,7 @@ class TestKurtcText(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'p.kurt')
             with open(path, 'w', encoding='utf-8') as f:
-                f.write('load arith\nconst a, b\nuse a = b\na + 1 = b + 1\nassume a = 0\n    0 = a\nb = a\n')
+                f.write('load numbers\nconst a, b\nuse a = b\na + 1 = b + 1\nassume a = 0\n    0 = a\nb = a\n')
             subprocess.run([sys.executable, '-m', 'kurt', path], env=env, capture_output=True, check=True)
             run = subprocess.run([sys.executable, '-m', 'kurt', path + 'c'], env=env, capture_output=True, text=True)
             self.assertEqual(run.returncode, 0)

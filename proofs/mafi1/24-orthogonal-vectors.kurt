@@ -1,6 +1,6 @@
 ; orthogonale Vektoren -- the orthogonal complement (lecture "Mathematik für Informatik 1"
-; (mafi1), deck 24-orthogonale-vektoren); orthogonality and Pythagoras are in skalarprodukt.kurt
-load skalarprodukt
+; (mafi1), deck 24-orthogonale-vektoren); orthogonality and Pythagoras are in scalar-product.kurt
+load scalar-product
 arity Perp 1
 
 ; M^⊥ = { v ∈ V | ∀ u ∈ M : v ⊥ u }

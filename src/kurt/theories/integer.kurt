@@ -1,7 +1,7 @@
 ; integers
 ;
 ; covers: `Int`, the integers -- the natural numbers and their negatives -- closed under `+`, `-`
-; and `*`. As for natural.kurt, they are numbers of arith.kurt, so its laws (and `calc`) apply.
+; and `*`. As for natural.kurt, they are numbers of numbers.kurt, so its laws (and `calc`) apply.
 load natural
 const Int
 calc Int integers                   ; `calc on` proves `-3 ∈ Int`

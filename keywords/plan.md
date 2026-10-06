@@ -77,18 +77,14 @@ MISC -- REPL/output behaviour and self-documentation
     43-verbose   toggle: show extra detail while matching formulas
     44-calc      toggle: automatic arithmetic simplification (`+`, `*`)
 
-PUTTING IT ALL TOGETHER -- writing a proof from scratch, not just one keyword
-------------------------------------------------------------------------------
-    45-worked-proof   a full worked example (de Morgan's law, one direction),
-                      narrating the actual process: state the goal, sketch a
-                      strategy, hit "can not derive" at least once, and fix it
-
-TRUST AND THEORIES -- certificates, and two theories that come with Kurt
-------------------------------------------------------------------------
-    46-cert      `cert N`: the certificate of a line, checked by the kernel;
+TRUST -- certificates
+---------------------
+    45-cert      `cert N`: the certificate of a line, checked by the kernel;
                  `.kurtc` files and `kurt --deps`
-    47-tuples    set.kurt's pairs and tuples, `fst`, `snd`, `A × B`, `f(a, b)`
-    48-groups    group.kurt, operator variables, operators as arguments `(+)`
+
+Moved (2026-10-06): the worked proof is tutorial/21-worked-proof.kurt; the
+lessons on tuples and groups are tutorial/23-work-with-pairs-and-tuples.kurt and
+tutorial/24-use-a-structure-groups.kurt -- this folder has one lesson per keyword.
 
 Not covered (deliberately)
 ---------------------------

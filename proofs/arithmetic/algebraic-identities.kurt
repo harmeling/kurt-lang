@@ -1,7 +1,7 @@
-; coverage for arith.kurt's basic algebraic identity axioms -- these had never been exercised
+; coverage for numbers.kurt's basic algebraic identity axioms -- these had never been exercised
 ; by any proof file before this one (see doc/kurt-soundness.md's precedent for this kind of
 ; "declared but never actually used" gap with syntax; this is the same idea applied to axioms).
-load arith
+load numbers
 const a, b
 
 ; identities and inverses, restated generically (schema variables unify directly onto the

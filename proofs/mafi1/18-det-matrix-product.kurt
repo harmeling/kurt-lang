@@ -1,6 +1,6 @@
 ; Determinante und Matrixprodukt (lecture "Mathematik für Informatik 1" (mafi1), deck
 ; 18-det-matrixproduct), from det(A B) = det(A) det(B) and det(E) = 1
-load matrizen
+load matrices
 
 ; det(A⁻¹) = det(A)⁻¹ -- and det(A) ≠ 0, which the formula needs
 show $A ∈ GL  ⇒  det($A) ≠ 0 ∧ det(inv $A) = inv det($A)              "det-inv"

@@ -1,9 +1,9 @@
-; coverage test for arith.kurt's exponent laws ("pow-zero", "pow-add", "pow-mul"), added
+; coverage test for numbers.kurt's exponent laws ("pow-zero", "pow-add", "pow-mul"), added
 ; alongside "pow-identity" (previously the only real axiom about `^`, kept minimal originally
 ; just to stop `^`'s own syntax from being silently dropped by selective export -- see
 ; doc/kurt-soundness.md #7.3). "pow-zero" is guarded by `$a != 0` since 0^0 is conventionally
 ; left undefined.
-load arith
+load numbers
 use 5 ≠ 0
 use 2 > 0
 

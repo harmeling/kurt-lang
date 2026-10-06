@@ -1,5 +1,5 @@
 ; inverse Matrix (lecture "Mathematik für Informatik 1" (mafi1), deck 15-inverse-matrix)
-load matrizen
+load matrices
 
 ; the inverse is unique: B A = E gives B = A⁻¹ (deck 12, Satz 10)
 show $A ∈ GL ∧ $B ∈ Mat ∧ $B · $A = E  ⇒  $B = inv $A                 "inv-unique-left"

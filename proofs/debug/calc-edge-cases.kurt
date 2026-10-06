@@ -1,6 +1,6 @@
 ; `calc` doesn't compute what has no (real) value: `1 / 0`, `0 ^ -1`, a root of a negative
 ; number -- they stay as they are, instead of crashing Kurt or giving a complex number
-load arith
+load numbers
 calc on
 const x, y, z
 use x = 1 / 0
@@ -27,6 +27,6 @@ expect "ProofError"
     P (0 * x)
 P (1 * x)
 
-; the symbols of arith.kurt can't be bound anew
+; the symbols of numbers.kurt can't be bound anew
 expect "EvalError"
     calc + multiply

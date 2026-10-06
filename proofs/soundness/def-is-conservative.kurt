@@ -2,7 +2,7 @@
 ; symbol applied to distinct variables on the left, no other variables on the right, not for an
 ; operator declared `sym` or `flat`, and not inside a proof block (found in the soundness review
 ; of 2026-09-29, doc/kurt-soundness.md §8.17) -- each of these used to give `1 = 2` or `false`
-load arith
+load numbers
 expect "EvalError"
     def c = $y                      ; `c = 1` and `c = 2`
 expect "EvalError"

@@ -11,12 +11,12 @@ import kurt.kurt as kurt
 # in that same file ever mentions it, its syntax is silently dropped when the theory is
 # `load`ed -- even though the file's own source clearly intends the symbol to be usable
 # (declaring `infix ^ 75 75` is not an accident). Found two real casualties this way: `^` in
-# arith.kurt and `invimplies` in prop.kurt, both fixed by adding a genuine axiom that
+# numbers.kurt and `invimplies` in prop.kurt, both fixed by adding a genuine axiom that
 # mentions the symbol. This test declares every `infix`/`prefix`/`postfix` symbol found in
 # each shipped theory's own source text and asserts each one survived that file's `load`, so
 # a future edit can't reintroduce this silently.
 
-THEORIES = ['prop', 'equality', 'logic', 'set', 'arith', 'natural', 'modal', 'analysis', 'group']
+THEORIES = ['prop', 'equality', 'logic', 'set', 'numbers', 'natural', 'modal', 'analysis', 'group']
 
 # genuinely, deliberately unaxiomatized syntax -- `:` is only ever used as an alias for `in`
 # (see set.kurt's `alias : in`), never as its own standalone operator, so it never appears as

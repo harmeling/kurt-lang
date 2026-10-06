@@ -42,7 +42,7 @@ class TestShellErrors(unittest.TestCase):
         self.assertIn('A implies A', out.splitlines()[-3])      # the session went on (before `Bye!`)
 
     def test_failed_chain_step_can_be_typed_again(self):
-        out, err = shell(['load arith', 'const a, b, c', 'use a < b', 'use b = c', 'a < b',
+        out, err = shell(['load numbers', 'const a, b, c', 'use a < b', 'use b = c', 'a < b',
                           '  = a', '  = c', 'a < c'])
         self.assertEqual(err.count('Error'), 1, err)             # only `= a`
         self.assertIn('by chain', out)

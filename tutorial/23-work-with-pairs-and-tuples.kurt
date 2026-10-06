@@ -1,0 +1,38 @@
+; 23-work-with-pairs-and-tuples.kurt
+;
+; Work with pairs and tuples
+;
+; Ordered pairs and tuples (set.kurt): `(a, b) = (c, d)` exactly when `a = c` and `b = d`
+; ("pair-eq"), and `fst`, `snd` give the parts back. The comma is right-associative, so a triple
+; `(a, b, c)` is the pair `(a, (b, c))`, and comparing triples takes two steps. `A × B` is the set
+; of the pairs with the first part in `A` and the second in `B` ("product"), and every element of
+; `A × B` is such a pair ("product-pairs").
+load set
+const a, b, c, d, u, v, w, A, B
+
+; pairs
+use (a, b) = (c, d)
+a = c ∧ b = d                    ; by pair-eq
+a = c
+(a, b) = (a, b)                  ; by equal-intro
+fst(a, b) = a
+snd(c, d) = d
+
+; triples: two steps
+use (a, b, c) = (u, v, w)
+a = u ∧ (b, c) = (v, w)          ; by pair-eq
+(b, c) = (v, w)
+b = v ∧ c = w
+c = w
+
+; Cartesian products
+use a ∈ A
+use b ∈ B
+(a, b) ∈ A × B                   ; by product
+use d ∈ A × B
+d = (fst d, snd d)               ; by product-pairs
+
+; for a function of two arguments, `f(a, b)` is the same as `f a b`, as usual in mathematics
+arity f 2
+use f a b = c
+f(a, b) = c

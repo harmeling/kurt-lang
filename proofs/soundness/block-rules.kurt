@@ -1,6 +1,6 @@
 ; the rules of the blocks, from the soundness review of 2026-09-29 (§8.17) -- each of these
 ; used to give `false`, `P d` from `P c`, or `a = b`
-load arith, logic
+load numbers, logic
 bool P, Q
 arity P 1
 arity Q 1
@@ -40,12 +40,16 @@ expect "ProofError"
         pick D with D iff P x
             D iff P x
 
-; a condition must bind the same variable outside its block: here `a < x` would bind `a`
+; a condition binds the same variable outside its block: `e < x` binds `x` (stored when it is
+; read, proofs/soundness/binder-variable-stored.kurt) -- it was a `ProofError` before, since `e`,
+; a constant inside the block, is free outside it, and `e < x` would have bound `e` there
 var x
-expect "ProofError"
+sandbox
     let (0 < e)
         let (e < x)
             0 < x
+    ∀ (0 < e) (∀ (e < x) (0 < x))
+    break
 
 ; a bare `todo` is not the last line of a block
 expect "ProofError"

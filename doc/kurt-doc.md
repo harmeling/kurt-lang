@@ -29,6 +29,7 @@ the source.
     kurt --no-kurtc path/to/proof.kurt   # neither write nor use `.kurtc` files (see below)
     kurt path/to/proof.kurtc             # the certificates of proof.kurt, readable (see below)
     kurt --deps path/to/proof.kurt       # the files it loads, and their certificates (see below)
+    kurt --json path/to/proof.kurt       # the result as JSON, for graders and editors (see below)
 
 If no filename is given, Kurt starts the shell directly. If a filename is
 given without `-i`, Kurt checks the whole file, prints `Proof checked` (or,
@@ -59,6 +60,18 @@ up to five times). A `.kurtc` can't make Kurt accept anything the kernel doesn't
 or outdated one only costs the time of the search -- so it is also used with `--strict`. Kurt
 only writes and uses `.kurtc` files when run as `kurt` (the command line or shell), not when used
 as a Python module.
+
+`kurt --json foo.kurt` checks the file and prints the result as JSON (exit code as above): `ok`,
+`complete` (also no `todo` left), `error`, `error_kind`, `error_line`, `todos`, the text `output`,
+and `events`, each printed line as a record -- the source `line`, its `id` (`5`, `5a`, `11-13`),
+its `kind` (`step`, `claim`, `open`, `assumed`, `load`, `declaration`, `expect`, `error`, `text`),
+`level`, `text`, the `rule` and the lines it `uses`, its `label`, and the user's `comment`:
+
+    {"line": 5, "id": "5", "kind": "step", "level": 0, "text": "B", "reason": "5 by rule(4)",
+     "comment": "modus ponens", "rule": "rule", "uses": ["4"]}
+
+From Python, the same comes from `kurt.check_file(path)` or `kurt.check_text(text)` (a
+`CheckResult`, with `.events` and `.to_json()`).
 
 `kurt --deps foo.kurt` shows the tree of the files that `foo.kurt` loads (read from their `load`
 lines, without checking anything), each with the state of its certificates and the dates of the
@@ -217,6 +230,46 @@ Because there's no separate declaration step for most symbols, `const`/
 same symbol raises an error), and to control what "new" means for keywords
 that require a genuinely fresh symbol (`def`, `let`, `pick`, `brackets`).
 
+### 3.4 Who declares what: the rules in one place
+
+Most symbols are declared by using them. What each kind of line does to a symbol:
+
+| line | the symbol is then |
+|---|---|
+| `$x`, `%A` anywhere | a variable, by its name alone: `$x` for a term, `%A` for a formula (never declared, never a constant) |
+| `var x` | a variable (also an operator: `infix ∘ 50 50` and then `var ∘`) |
+| `const x` | a constant |
+| `brackets ⟨ ⟩` | both brackets constants |
+| `def g = ...` | `g` a new constant (a new symbol on the right side is introduced as on any line) |
+| `let x`, `pick x` | a constant inside the block (one arbitrary object); after the block, `x` is free again |
+| `assume P $x` | `$x` fixed inside the block (not a variable there) |
+| `bool`, `arity`, `infix`, `prefix`, `postfix`, `bindop`, `flat`, `sym`, `chain`, `alias` | declared, but not yet a constant: these only give properties (the grammar, the bool signature) |
+| the first use in a formula of a symbol that isn't a variable | a constant (if it wasn't declared at all: `; new constants ..., not declared before`) |
+
+Further rules:
+- **The bool signature comes from the first use** (§5), unless declared with `bool`: a symbol
+  at a boolean position is boolean (`use P a` makes `P` boolean, `a` not), an operator whose
+  arguments are boolean gets these positions.
+- **Declare before the first use.** After it, `const`, `var`, `bool`, `arity`, `infix`,
+  `prefix`, `postfix` for that symbol are errors ("already used in a formula"): the formula was
+  read with what was known then.
+- **The variable of a binder.** Without a condition, `∀ x (...)` binds `x` (a new name or a
+  variable; it doesn't become a constant). With a condition, it binds the first symbol of the
+  condition, as written, that is new or a variable and not bound by an enclosing binder:
+  `x` in `∀ x > 0 (...)`, `x` in `∀ c < x (...)` with a constant `c`, `$x` in `∀ (P $x) (...)`
+  with a predicate `P`, `x` in `∀ (0 < e) (∀ (e < x) ...)`. Kurt decides it when it reads the
+  line and stores it with the condition (§4.4), so the binder binds the same variable for the
+  rest of the file -- also when a block closes and its constants are free again. A condition
+  without such a symbol is an error ("has no variable to bind").
+- **`load`** brings only the symbols that the exported facts need (§8.2), with their
+  declarations.
+- **`--strict`** (§1) keeps all these rules but one: the first use of a symbol that wasn't
+  declared at all (neither by a line of the table nor by an earlier use) is an error, not a new
+  constant. A declaration like `bool Q` or `infix ∘ 50 50` counts. (It also refuses `use`,
+  `todo` and `chain` outside the trusted theories.)
+
+`tutorial/20-constants-variables-and-declarations.kurt` shows these rules, one at a time.
+
 ## 4. Building the grammar
 
 Kurt's grammar is not fixed — the fixity, precedence, and arity of every
@@ -235,7 +288,7 @@ Each accepts a comma-separated list to declare several operators in one
 line (e.g. `infix "+" 20 20, "-" 20 20`). Binding powers control precedence
 and associativity: for `infix`, `lbp > rbp` makes the operator *right*-
 associative (as `implies` is: `infix implies 13 12`, so `A implies B
-implies C` parses as `A implies (B implies C)`; and arith.kurt's `infix ^
+implies C` parses as `A implies (B implies C)`; and numbers.kurt's `infix ^
 75 74`, so `2 ^ 3 ^ 2` is `2 ^ 9`); `lbp == rbp` (as with `+` above) makes
 it left-associative (`a - b - c` is `(a - b) - c`), and a `flat` operator
 (§4.5) collects all its arguments anyway. Declaring the same symbol both `infix` and `prefix` is
@@ -326,7 +379,13 @@ the *whole* body of binders over the same variable, or as the body of a
 `sub` for it, as in the sum axioms `(sum $i ($a, $a) $T) = sub $i $a $T`
 and `(sum $i ($a, $b+1) $T) = (sub $i ($b+1) $T) + (sum $i ($a, $b) $T)`
 (see `analysis.kurt`) — such a `$T` stands for any summand, which the
-axioms only ever use with something substituted for `$i`.
+axioms only ever use with something substituted for `$i`. This is decided by
+the form of the rule alone: there is no way to declare a dependence
+(`$T[$i]`, as in Isabelle) or a distinct-variable condition ("`$x` doesn't
+occur in `$T`", as in Metamath) -- a decision (2026-10-06): the form shows
+where a dependence is meant, the kernel checks it, and no theory has needed
+more. Anywhere else, `$T` can't depend on the bound variable, and a rule
+that would need it can't be written.
 
 **Conditions.** The "bound variable" position may instead be a condition on
 it: `∀ $n ∈ Nat P $n`, `∃ $d > 0 ...`, `lim $x > 0 0 (f $x)`. Unbracketed,
@@ -334,15 +393,21 @@ it is a relation whose left-hand side is the variable; its right-hand side
 extends over infix operators (`∀ $x ∈ A ∪ B ...`) but stops at the first
 function application, which is where the body starts -- except for `f(x)`
 written without a space, which stays in the condition (`∀ $x ∈ Perp(M) ...`).
-In a formula outside of a block, write the variable of a condition with `$`
-(`∀ $x ∈ M ...`): a plain name there is a new constant, and then the
-condition has no variable to bind ("first arg must ... contain at least one
-free variable"); `∀ x (...)` without a condition and `let x ∈ M` are fine. In parentheses, any
-condition works, `∀ ($x > 0 ∧ $x < 1) (P $x)`, as long as it contains
-exactly one variable (a `$`-variable or one declared `var`), which is the
-one being bound — it may occur more than once. A relation may contain
-more variables; then, as without parentheses, the one on its left is bound:
-`∀ ($a ∈ $G) ...` in a rule binds `$a`, and `∀ ($x < $y) ...` binds `$x`.
+In parentheses, any condition works, `∀ ($x > 0 ∧ $x < 1) (P $x)`. **Which
+variable is bound:** the first symbol of the condition, in the order it is
+written, that is new or a variable and not bound by an enclosing binder --
+constants, predicates and operators are skipped. So `∀ x ∈ M ...` binds a
+new `x` (also a plain name outside of a block), `∀ ($a ∈ $G) ...` in a rule
+binds `$a`, `∀ ($x < $y) ...` binds `$x`, `∀ c < x ...` with a constant `c`
+binds `x`, `∀ (P $x) ...` with a predicate `P` binds `$x`, and in
+`∀ (0 < e) (∀ (e < x) ...)` the inner binder binds `x` (`e` is bound
+outside). Kurt decides this when it reads the line, before anything is
+reordered (a `sym` operator sorts its arguments), and stores the variable
+with the condition: the binder binds the same variable whenever the formula
+is used later, whatever is a constant then (when a block closes, its
+constants are free again -- this used to change the reading, and Kurt
+refused such a block). A printed formula reads back the same way. A
+condition without such a symbol is an error ("has no variable to bind").
 
 A condition is part of the formula: `∀ $x > 0 P $x` is not the same
 formula as `∀ $x ($x > 0 ⇒ P $x)`, and the engine doesn't treat it as an
@@ -420,7 +485,7 @@ $b < $c implies $a < $c` ("lt-trans"), but also every *mixed* pair like
 two separately-proven facts (not written as one continuation-line chain),
 `x < z` really is now a single derivation step, citing the
 auto-generated fact — you don't need to hand-write these per theory
-(`arith.kurt` used to; it no longer does). This only combines *two*
+(`numbers.kurt` used to; it no longer does). This only combines *two*
 facts in one hop, the same as every other inference rule — three or more
 links in a chain of relations still need an explicit intermediate step,
 same as any other multi-hop reasoning (§6.1's single-hop limitation still
@@ -597,9 +662,13 @@ constant via an equation (`=`) or equivalence (`iff`) — the only two
 top-level operators `def` accepts. Exactly one new symbol must appear on
 the **left-hand side** (e.g. `def x = 18`, or `def $a ∩ $b = { $c ∈ $a | $c ∈
 $b }` — the new symbol doesn't have to be the very first token, just
-somewhere on the left); the right-hand side must contain no new symbols at
-all (only already-declared constants/variables, or `$`/`%` schema
-variables). A definition is safe (it can't make the theory contradictory)
+somewhere on the left). On the right-hand side, a symbol that wasn't
+declared is introduced as on any line (§3.4: a constant, with the note
+`; new constant ...`; an error with `--strict`): `def r = g b` with a new `g`
+only names the term `g b`, whatever `g` is, so the definition stays
+conservative. A declared operator isn't new even before its first use, e.g.
+the comma of `def q = ⟨b, b⟩`. The right-hand side has no variables besides
+those of the left-hand side. A definition is safe (it can't make the theory contradictory)
 only if `=` and `iff` have their usual meaning, so `def` requires them to
 come from the theories that come with Kurt: `load equality` (for `=`) or
 `load prop` (for `iff`) first — an `iff` or `=` declared some other way is
@@ -771,12 +840,36 @@ library can't use a fact without loading the file it comes from, and the
 order of two `load`s doesn't change what either of them proves. What the file
 exports (below) is then added to the loading file. A symbol that both know
 must mean the same there: its declarations may not contradict each other
-(one side may have more, e.g. arith.kurt binds `=` of equality.kurt to the
+(one side may have more, e.g. numbers.kurt binds `=` of equality.kurt to the
 calculator), and if it is defined by a `def`, it must be the same `def` on
 both sides -- a `def` is only conservative for a new symbol, so
 `const f` / `use f = 1` here and `def f = 2` in the loaded file is an error.
 A fact that two loaded files both pass on (from a file both of them load)
-is added once. In one run of Kurt, a file is checked once and its exports
+is added once.
+
+**A symbol is declared by one file only.** The declarations of a symbol --
+`infix`, `prefix`, `postfix`, `arity`, `brackets`, `bindop`, `flat`, `sym` --
+come from the one file that declares it; Kurt remembers which (it travels
+with the exports). If two different files declare the same symbol, they
+can't be loaded together, in either order, directly or through other files:
+
+    EvalError: `+` is declared in `numbers.kurt` and in `field.kurt` -- a symbol
+    is declared by one file only, so these two can't be loaded together
+
+The reason: a theory's laws hold for everything written with its operators.
+numbers.kurt says `$a * $b = $b * $a` for every `$a`, `$b`; a theory of
+matrices that declares its own `·` or `+` must not get those laws. So:
+
+- numbers (ℕ, ℤ, ℚ, ℝ): `load numbers` (or `natural`, `integer`, `rational`,
+  `analysis`, which load it);
+- linear algebra: a structure that declares its own operators, like
+  `proofs/mafi1/field.kurt`, `vectorspace.kurt`, `matrices.kurt` -- not
+  together with numbers.kurt;
+- `group.kurt` takes its operation as an argument (`group(G, (∘), e, inv)`),
+  so it goes with either.
+
+The same file reached twice (two files both load numbers.kurt) is one
+declaration, not two. (numbers.kurt used to be called `arith.kurt`.) In one run of Kurt, a file is checked once and its exports
 are reused, as long as neither it nor a file it loads changed; only the
 file you check itself is always checked again (it prints its steps).
 
@@ -789,8 +882,8 @@ declaring their own prerequisites via their own `load` lines:
 | `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
 | `logic.kurt` | forall-elim, exists-intro, the rules for quantifiers with a condition (§4.4), and rewriting under a quantifier ("forall-iff", "exists-iff": from `∀ x (A ⇔ B)`, `(∀ x A) ⇔ (∀ x B)`) (`forall`/`∀`/`exists`/`∃` themselves are hard-coded, §8.1) | `prop` |
 | `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings as sets of pairs (`f ∈ (A → B)`: `f ⊂ A × B` with one pair `(a, f a)` for each `a ∈ A`), "apply-in", "function-extensionality" | `equality`, `logic` |
-| `arith.kurt` | arithmetic; the order (`<`, `<=`, `>`, `>=` and how they relate) | `equality` |
-| `natural.kurt` | natural numbers, induction; `0 <= n`, the predecessor, no number between n and n + 1, the well-ordering principle (proven from induction); `even` and `odd` (every number is one of them, none both); divisibility `∣` (`\mid`), `coprime` | `set`, `arith`, `logic` |
+| `numbers.kurt` | arithmetic; the order (`<`, `<=`, `>`, `>=` and how they relate) | `equality` |
+| `natural.kurt` | natural numbers, induction; `0 <= n`, the predecessor, no number between n and n + 1, the well-ordering principle (proven from induction); `even` and `odd` (every number is one of them, none both); divisibility `∣` (`\mid`), `coprime` | `set`, `numbers`, `logic` |
 | `integer.kurt` | integers `Int`: the natural numbers and their negatives, closed under `+`, `-`, `*` | `natural` |
 | `rational.kurt` | rationals `Rat`: m / n with m ∈ `Int`, n ∈ `Nat`, n ≠ 0; closed under `+`, `-`, `*`, `/`; "lowest-terms": a positive rational is m / n with coprime m, n (proven from the well-ordering) | `integer` |
 | `group.kurt` | groups: `group(G, (∘), e, inv)` defined by `closed`, `associative`, `identity`, `inverse`; rules for single steps ("group-associative", "group-right-inverse", ...); theorems: the identity and the inverse are unique, `inv (inv a) = a`. `∘` is an operator variable, so it all holds for any group, e.g. `group(R, (+), 0, (-))` | `set` |
@@ -1057,7 +1150,7 @@ changing it.
 **What `calc` computes** is said by the theories: they bind their symbols to
 Kurt's built-in calculator, whose operations are `add`, `subtract`, `negate`,
 `multiply`, `divide`, `power` and the comparisons `eq`, `ne`, `lt`, `le`, `gt`,
-`ge`. arith.kurt does
+`ge`. numbers.kurt does
 
     calc + add, - subtract, - negate, * multiply, / divide, ^ power
     calc = eq, ≠ ne, < lt, <= le, > gt, >= ge
@@ -1072,9 +1165,9 @@ theories, and the symbols of a trusted theory can't be bound anew. Numbers
 are exact: integers, decimals (`0.1` is exactly one tenth, so `0.1 + 0.2 =
 0.3` holds), and fractions, which stay fractions (`1 / 3 + 1 / 3` is `2 / 3`).
 What has no exact value isn't computed: `1 / 0`, `0 ^ -1`, `2 ^ 0.5`, and
-`0 ^ 0` (which arith.kurt leaves open). Neither is a result with more than
+`0 ^ 0` (which numbers.kurt leaves open). Neither is a result with more than
 1000 digits, and a longer number literal is a `SyntaxError`.
-`0 + x` and `1 * x` are `x`, `0 * x` is `0`. In arith.kurt, `^` is
+`0 + x` and `1 * x` are `x`, `0 * x` is `0`. In numbers.kurt, `^` is
 right-associative and binds more tightly than the prefix `-`: `- 2 ^ 2` is
 `- 4`, and `2 ^ 3 ^ 2` is `2 ^ 9`. A decimal with an integer value is that
 integer: `1.0` is `1`.
@@ -1090,7 +1183,12 @@ values: with `$n := 3`, the `($n - 1)!` of "factorial-step" matches `2!`, and
 after `def f($x) = $x * $x`, `f(3) = 9` follows in one step. But `calc` doesn't
 *solve*: the `$b / $c` of "gt-div-pos" doesn't match `0` while `$b` is still
 unknown -- state such steps as their own lines, or use a rule that fits
-(like "div-pos"). Since `calc` also
+(like "div-pos"). Nor does it combine a rewrite with a calculation: `1! = 1`
+doesn't follow in one step from `1! = 1 * 0!` and `0! = 1` -- write
+`1! = 1 * 1` in between. **Not implemented on purpose:** solving for an
+unknown while matching, or several steps at once, doesn't fit the idea that
+each line is one step a reader can check (§6.1); the line in between is the
+step. Since `calc` also
 simplifies what you type, a fact like `8 = 2^3` can't be stated with `calc
 on` (it would become `8 = 8`); switch it on only where you need it, as in
 `proofs/arithmetic/solve-math-equation.kurt` — it is a single global toggle,
@@ -1116,3 +1214,29 @@ and can be toggled but, as of this writing, nothing reads its value yet.
   `NotImplementedError` if used) — it's meant to eventually stop a running
   file and drop into the interactive shell at that point.
 
+### 11.1 Not implemented, maybe never
+
+Features that were considered and left out, at least until after 1.0 -- some on purpose:
+
+- **`calc` that solves** (§10): matching `$b / 3` against `0` while `$b` is
+  still unknown, or a rewrite and a calculation in one step (`1! = 1` from
+  `1! = 1 * 0!` and `0! = 1`). On purpose: each line is one step a reader can
+  check; write the step in between (`1! = 1 * 1`).
+- **`def` by pattern matching on constructors**: `constructors Nat 0, s`
+  (`Nat` is built freely from `0` and `s`: every element is `0` or `s n`,
+  `s n ≠ 0`, `s` injective), then `def fact 0 = 1` and
+  `def fact (s $n) = (s $n) * fact $n` -- a recursive definition that is a
+  definition, not an axiom. It would need the patterns to be constructors
+  only, not to overlap, and the recursion to be structural (otherwise
+  `def f (s $n) = f (s $n) + 1` gives `0 = 1`), and `constructors` is itself
+  a claim about `Nat` (to be proven, or allowed only in trusted theories).
+  Until then, recursive definitions are `use` axioms with a label (like
+  "factorial-step" in numbers.kurt).
+- **A normalizer for ring expressions** (like Lean's `ring`): a line "by
+  ring" holding if both sides are equal as polynomials, e.g. the `ad - bc`
+  computations of 2×2 determinants in one line. It would need a declaration
+  of which operators form a commutative ring and a large piece of trusted
+  code, and a reader couldn't check such a line by one rule -- the same
+  reason as for `calc` that solves. Instead: each rearrangement is a line,
+  with the laws of the theory (proofs/mafi1/ does so); missing laws, like
+  `$a - ($b - $c) = $a - $b + $c`, belong into the theory.

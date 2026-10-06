@@ -1,8 +1,8 @@
 ; lineare Abbildungen -- linear maps (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 10-lineare-abbildungen)
+; 10-linear-maps)
 ;
 ; "Seien V, W, Y Vektorräume über K und f: V → W, g: W → Y linear."
-load vektorraum
+load vectorspace
 const V, W, Y, f, g
 arity f 1, g 1
 

@@ -3,9 +3,9 @@
 ; that the derivations on the slides can be checked: 15-inverse-matrix.kurt and the ones after.
 ;
 ; `Mat` is the set of n × n matrices over K, `GL` the invertible ones; `·` is the matrix product
-; (and the product in K, decided by the memberships as in vektorraum.kurt), `E` the identity
+; (and the product in K, decided by the memberships as in vectorspace.kurt), `E` the identity
 ; matrix, `T(A)` the transposed matrix, `inv A` the inverse.
-load koerper
+load field
 const Mat, GL, E, T, det
 arity T 1, det 1
 

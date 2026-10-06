@@ -1,6 +1,6 @@
 ; Beweise -- proof techniques (lecture "Mathematik für Informatik 1" (mafi1), deck 11a-beweise):
 ; the laws that the slides derive from the tautologies by chains of equivalences
-load tautologien
+load tautologies
 
 ; tertium non datur, as an equivalence with ⊤
 show (%A ∨ ¬%A)  ⇔  ⊤                                                "tertium"

@@ -1,10 +1,10 @@
 ; Skalarprodukte -- inner products (lecture "Mathematik für Informatik 1" (mafi1), decks
 ; 23-skalarprodukte and 24-orthogonale-vektoren)
 ;
-; V is a real vector space (the subspaces of 06-untervektorraeume.kurt) with an inner product
+; V is a real vector space (the subspaces of 06-subspaces.kurt) with an inner product
 ; ⟨x, y⟩ ∈ K, given by (S1)-(S3).  For (S3) the scalars need an order: only `$a > 0 ⇒ $a ≠ 0` is
 ; used here.  The norm is left out (it needs the square root); Pythagoras is about ⟨x, x⟩.
-load 06-untervektorraeume
+load 06-subspaces
 brackets ⟨ ⟩
 infix > 20 20
 bool > 0

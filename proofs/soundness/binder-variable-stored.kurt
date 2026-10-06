@@ -1,0 +1,37 @@
+; which variable a binder with a condition binds is decided when the formula is read, and stored
+; with it: the first symbol of the condition (as written) that is new or a variable, and not bound
+; by an enclosing binder (doc/kurt-doc.md §3.4). Before, it was read again and again from which
+; symbols were constants at the time -- so it could change when a block closed (its constants are
+; free again), and `∀ x > 0 ...` with a new plain `x` was rejected.
+load logic
+load numbers
+
+; a new plain name is bound, as without a condition
+show ∀ x > 0 (x ≠ 0)
+proof
+    let x > 0
+        x ≠ 0
+qed
+
+; the binding survives the end of a block, and the printed formula reads back the same
+var y
+sandbox
+    let 0 < e
+        let e < y
+            0 < y
+    ∀ (0 < e) (∀ (e < y) (0 < y))
+    break
+
+; a constant before the variable is skipped (`a < z` binds `z`); a predicate too (`P(z)`)
+const a
+bool P
+arity P 1
+use ∀ a < z (a ≤ z)
+use ∀ (P(z)) (z = z)
+const b
+use a < b
+a ≤ b
+
+; no variable at all is an error
+expect "TypeError" "no variable to bind"
+    use ∀ (a < b) (a = a)

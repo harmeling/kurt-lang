@@ -1,0 +1,66 @@
+; 22-prove-a-law-of-logic.kurt
+;
+; Prove a law of logic
+;
+; Contraposition, (A ⇒ B) ≡ (¬B ⇒ ¬A), from the rules of prop.kurt alone. First a lemma,
+; (A ⇒ B) ≡ (¬A ∨ B): an equivalence is proven as two implications (`iff-intro`), each in a
+; `show` / `proof` / `qed` of its own. Inside, the lessons so far come together: an implication by
+; `assume` (lesson 02), cases (`or-elim`, lesson 04), a contradiction (lesson 03) -- and the
+; excluded middle, A ∨ ¬A, which is proven here as well: assuming its negation leads to a
+; contradiction, and `not-elim` removes the double negation. Then the theorem is a chain of
+; equivalences, each line one rewrite with a law (`iff-subst`).
+;
+; `var A, B` makes the two propositions variables: the theorem holds for every A and B, and
+; another file that loads this one can use it with any formulas for them.
+
+load prop
+var A, B
+
+; lemma
+show A ⇒ B  ≡  ¬A ∨ B
+proof
+    show (A ⇒ B)  ⇒  (¬A ∨ B)
+    proof
+        assume A ⇒ B
+            assume A
+                B
+                ¬A ∨ B
+            assume ¬A
+                ¬A ∨ B
+            ; the excluded middle, A ∨ ¬A: otherwise A, and also ¬A, would give A ∨ ¬A
+            assume ¬(A ∨ ¬A)
+                assume A
+                    A ∨ ¬A
+                    contradiction
+                ¬A
+                A ∨ ¬A
+                contradiction
+            ¬¬(A ∨ ¬A)
+            A ∨ ¬A                ; by not-elim
+            ¬A ∨ B                ; by or-elim
+    qed
+    show (¬A ∨ B)  ⇒  (A ⇒ B)
+    proof
+        assume ¬A ∨ B
+            assume A
+                assume ¬A
+                    contradiction
+                    B
+                assume B
+                    B
+                B
+    qed
+    A ⇒ B  ≡  ¬A ∨ B
+qed
+
+; theorem
+show (A ⇒ B)  ≡  (¬B ⇒ ¬A)   "contraposition"
+proof
+    A ⇒ B  ≡  ¬A ∨ B
+           ≡  B ∨ ¬A
+           ≡  ¬¬B ∨ ¬A
+           ≡  ¬B ⇒ ¬A
+qed
+
+; The same proofs, and the other laws of the natural deduction (double negation, de Morgan, the
+; excluded middle on its own), are in proofs/natural-deduction/.

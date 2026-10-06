@@ -1,6 +1,6 @@
 ; the keywords that only print something -- the declarations without arguments list what is
 ; declared so far, and the inspection keywords show the state -- and their wrong uses
-load arith
+load numbers
 const c
 use c > 0 "c-pos"
 show c + 1 > 1

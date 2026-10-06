@@ -10,10 +10,10 @@
 ; n and n + 1; the well-ordering principle (from induction); even and odd numbers (every number is
 ; one of them, none is both); divisibility `∣` (`\mid`) and `coprime`.
 ;
-; arithmetic comes from arith.kurt: natural numbers are real numbers, so all of its laws
+; arithmetic comes from numbers.kurt: natural numbers are real numbers, so all of its laws
 ; (and `calc`) apply to them as well.
 load set
-load arith
+load numbers
 load logic
 
 ;; inference rules
@@ -23,7 +23,7 @@ calc Nat naturals                   ; `calc on` proves `3 ∈ Nat`
 use 0 in Nat  "nat-zero"
 use $n in Nat  implies  $n+1 in Nat  "nat-succ"
 ; sums and products of natural numbers are natural numbers (by induction from a recursive
-; definition of `+` and `*`; arith.kurt states their laws instead)
+; definition of `+` and `*`; numbers.kurt states their laws instead)
 use $a in Nat ∧ $b in Nat  implies  $a + $b in Nat  "nat-add"
 use $a in Nat ∧ $b in Nat  implies  $a * $b in Nat  "nat-mul"
 ; natural numbers aren't negative

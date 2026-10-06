@@ -4,7 +4,7 @@
 ; 0 <= ⟨u, u⟩ = q (q p - r r) with p = ⟨a, a⟩, and for q > 0 that gives q p >= r r. For b = 0
 ; both sides are 0. (Vectors and numbers share `+` and `*` here -- see "scalars vs. vectors" in
 ; the todo list; every axiom below holds in each real inner product space.)
-load arith
+load numbers
 brackets ⟨ ⟩
 const a, b
 

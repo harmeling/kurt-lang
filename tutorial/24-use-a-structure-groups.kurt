@@ -1,6 +1,18 @@
-; the theorems of group.kurt hold for every group: here for the numbers with `+`, and for an
-; abstract group `G` with the operation `∘`
-load group, arith
+; 24-use-a-structure-groups.kurt
+;
+; Use a structure: groups
+;
+; The theorems of group.kurt hold for every group: here for the numbers with `+`, and for an
+; abstract group `G` with the operation `∘`. group.kurt defines what a group is,
+; `group(G, (∘), e, inv)`: a set `G`, an operation `∘` on it, the identity `e`, and the inverse
+; `inv`. There, `∘` is an *operator variable* -- declared with `var ∘` and `infix ∘` -- so its
+; rules and theorems hold for every operation. To pass an operator as an argument, put it into
+; parentheses: `(∘)`, `(+)`, `(-)`.
+;
+; A structure like this takes its operation as an argument, so it goes together with numbers.kurt
+; (`(+)` here). A structure that declares its own `+` (a field, a vector space) does not: a symbol is
+; declared by one file only (lesson 18).
+load group, numbers
 
 ; the numbers (a set `R` of them) with `+`, `0` and `-`
 const R, x, y

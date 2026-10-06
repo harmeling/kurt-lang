@@ -2,7 +2,7 @@
 ;
 ; relations chained on one line, `a = b ≤ c`, mean `a = b and b ≤ c` -- and chained
 ; across continuation lines, each continuation line concludes from the first line's LHS
-load arith
+load numbers
 calc on                     ; `calc` checks comparisons of literal numbers, e.g. `3 ≤ 4`
 
 2 + 1 = 3 ≤ 4

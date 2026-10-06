@@ -6,7 +6,7 @@
 ; need intermediate lines. When a line fails:
 ;
 ; 1. Check that the required theory is loaded. `not`/`or` need `prop`, equality needs `equality`,
-;    quantifier rules need `logic`, and arithmetic rules need `arith`.
+;    quantifier rules need `logic`, and arithmetic rules need `numbers`.
 ; 2. Check the exact parsed form with `parse EXPRESSION`, especially around precedence, function
 ;    application, and custom operators.
 ; 3. Use `theory` or `theory OPERATOR` to see which facts are currently available.
@@ -28,4 +28,4 @@
 ;     qed
 
 ; The complete version of this workflow, including a deliberate failed attempt and repair, is
-; `keywords/45-worked-proof.kurt`.
+; `21-worked-proof.kurt`.

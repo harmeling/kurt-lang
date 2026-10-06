@@ -1,4 +1,8 @@
-; arithmetic
+; numbers -- the laws of numbers (N, Z, Q, R: an ordered field), formerly arith.kurt
+;
+; Its laws hold for everything written with its operators (`$a * $b = $b * $a` for any `$a`, `$b`):
+; for vectors or matrices, use a structure with its own operators instead (a field, a vector
+; space) -- a symbol is declared by one file only, so the two can't be loaded together.
 ;
 ; covers: +, -, *, /, ^ (with real algebraic identities: distributivity, inverses, identities,
 ; the exponent laws), <, >, <=, >= (with transitivity, antisymmetry, trichotomy), and

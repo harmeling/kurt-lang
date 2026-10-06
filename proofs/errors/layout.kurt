@@ -1,6 +1,6 @@
 ; errors in the layout of a file: indentation, chains across lines, `qed` -- raised while
 ; reading the lines, and still caught by `expect`
-load prop, arith
+load prop, numbers
 const c, d
 bool Q
 const Q

@@ -16,7 +16,7 @@ class TestPrinting(unittest.TestCase):
         self.assertIn('use ⟨a⟩ = b ', out)
 
     def test_negative_numbers(self):
-        out = self.output('load arith\ncalc on\nconst x\nuse x = 0 - 8\n')
+        out = self.output('load numbers\ncalc on\nconst x\nuse x = 0 - 8\n')
         self.assertIn('use x = (-8)', out)             # not `-8`, which could read as `- 8`
 
 

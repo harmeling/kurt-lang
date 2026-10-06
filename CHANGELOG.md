@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.4 (2026-10-06)
+
+- The lessons: the tutorial has 25 lessons now -- new: 20 constants, variables and declarations,
+  21 a worked proof, 22 a law of logic, 23 pairs and tuples, 24 a structure (groups); `keywords/`
+  has one lesson per keyword; helper files have no number (`my-theory.kurt`, `local-helper.kurt`).
+- `proofs/mafi1/` has English file names (`vectorspace.kurt`, `field.kurt`, ...).
+- kurt-doc §11.1: features not implemented, maybe never (`calc` that solves, `def` by pattern
+  matching, a ring normalizer), and why.
+- `def` introduces a new symbol on its right side as any line does (`def r = g b` with a new `g`),
+  and a declared operator isn't new: `def q = ⟨b, b⟩` failed when `,` wasn't used before.
+- `arith.kurt` is now `numbers.kurt`: write `load numbers`.
+- A symbol is declared by one file only: two theories that both declare `+` (numbers.kurt and a
+  structure like a field) can't be loaded together -- the laws of one would hold for the other.
+- The variable of a binder with a condition is decided when the line is read -- the first symbol
+  of the condition, as written, that is new or a variable -- and kept: `∀ x > 0 ...` works with a
+  new plain `x`, and a binder binds the same variable after a block closes.
+- doc/kurt-doc.md §3.4 and tutorial lesson 20: which line declares what (constants, variables,
+  the automatic declarations, `--strict`).
+- Faster: the search is about a quarter faster (natural.kurt 7.9 s → 4.9 s), with the same
+  results and reasons -- an index of the theory, remembered answers about symbols, and a
+  prefilter of the rules (doc/dev-notes.md).
+- `kurt --json FILE` and `CheckResult.events`: each printed line as a record (its line, id, kind,
+  rule, the lines it uses, label, comment), the error with its line, the todos -- for graders and
+  editors.
+
 ## 0.7.3 (2026-10-05)
 
 - Three or four `case` blocks in a row for `A or B or C` (or four alternatives): "or-elim-3" and

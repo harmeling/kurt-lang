@@ -5,7 +5,7 @@
 ; 12-def.kurt): a labelled fact is *exported*, an unlabelled one -- or one
 ; explicitly labelled `local` -- stays inside the file that wrote it.
 
-load 17-local-helper
+load local-helper
 
 P                      ; fine -- "exported" was labelled, so it travelled here
 

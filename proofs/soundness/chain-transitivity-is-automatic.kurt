@@ -1,14 +1,14 @@
 ; coverage test for automatic chain transitivity: declaring `chain OP1 OP2 ...` now generates
 ; a real, directly-usable transitivity axiom for every ordered pair of the chain's operators
 ; (`generate_chain_transitivity` in kurt.py), not just parsing sugar for writing one
-; continuation-line chain expression. `arith.kurt`'s `chain = <= <` used to need 8 separate
+; continuation-line chain expression. `numbers.kurt`'s `chain = <= <` used to need 8 separate
 ; hand-written transitivity lemmas ("lt-trans", "le-lt-trans", ...) -- they're gone now,
 ; generated automatically from the `chain` declaration alone.
 ;
 ; this is a single derivation *step* citing the auto-generated fact directly -- unlike the
 ; older manual style (see proofs/arithmetic/order-transitivity-chain.kurt), no explicit
 ; `and`-combining step is needed to get from two separate facts to their combined conclusion.
-load arith
+load numbers
 var a, b, c
 
 use a < b

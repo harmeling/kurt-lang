@@ -1,6 +1,6 @@
 ; wrong uses of the proof keywords and blocks, of `def`, and wrongly typed formulas are
 ; rejected -- each with its own error (see doc/kurt-doc.md §6, §7, §9)
-load logic, arith
+load logic, numbers
 const c, d
 bool P, Q
 arity P 1
@@ -52,11 +52,10 @@ expect "EvalError"
     assume c + 1
         c > 0
 
-; `def`: one new constant on the left, nothing new on the right, and only with `=` or `⇔`
+; `def`: one new constant on the left (on the right, a new symbol is introduced as on any line,
+; proofs/debug/def-new-symbols-on-the-right.kurt), and only with `=` or `⇔`
 expect "EvalError"
     def e + f = c
-expect "EvalError"
-    def e = f + c
 expect "EvalError"
     def e > c
 def e = c + d

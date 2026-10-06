@@ -1,6 +1,6 @@
 ﻿; small fixes from the soundness review of 2026-09-29 (this file starts with a byte order
 ; mark, invisible in most editors, which used to be a "scanning error" on line 1)
-load logic, equality, arith
+load logic, equality, numbers
 bool P
 arity P 1
 

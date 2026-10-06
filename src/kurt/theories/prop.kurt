@@ -7,7 +7,7 @@
 ; what) -- this file only adds `not`, `or`, `invimplies`, `iff`, and the rules relating them.
 ;
 ; loaded (directly or transitively) by nearly every other theory here -- logic.kurt,
-; equality.kurt, set.kurt, arith.kurt, and modal.kurt all `load prop` first.
+; equality.kurt, set.kurt, numbers.kurt, and modal.kurt all `load prop` first.
 
 ;; builtin syntax
 ; infix  implies 13 12  ; logical implies, right associative (since 13>12)

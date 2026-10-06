@@ -31,7 +31,7 @@ class TestGuidedRewrite(unittest.TestCase):
         self.assertNotIn('and-elim', labels)
 
     def test_differing_subterms(self):
-        kb = kb_after('load arith\n')
+        kb = kb_after('load numbers\n')
         parse = lambda t: kurt.post_process(kb, kurt.parse_expression(kurt.PeekableGenerator(kurt.scan_string(t, kb)), kb, kurt.begin_rbp))[0]
         found = [kurt.expr_str(e, kb) for e in kurt.differing_subterms(parse('x = a * (b + c)'), parse('x = a * (b + d)'), kb)]
         self.assertEqual(found[0], 'd')               # the smallest difference first
@@ -46,7 +46,7 @@ class TestGuidedRewrite(unittest.TestCase):
             return found
         kurt.guided_rewrite = counting
         try:
-            kb_after('load arith\nconst a, b, c\nuse b = c\na * (b + 1) = a * (c + 1)\nuse c = 7\na * (b + 1) = a * (7 + 1)\n')
+            kb_after('load numbers\nconst a, b, c\nuse b = c\na * (b + 1) = a * (c + 1)\nuse c = 7\na * (b + 1) = a * (7 + 1)\n')
         finally:
             kurt.guided_rewrite = original
         self.assertTrue(any(hits))      # the step was found by the shortcut

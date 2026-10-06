@@ -1,7 +1,7 @@
 ; Formeln -- formulas (lecture "Mathematik für Informatik 1" (mafi1), deck 03-formeln)
 ;
-; Kontraposition and the five equivalences are in 11a-beweise.kurt and tautologien.kurt.
-load 11a-beweise, set
+; Kontraposition and the five equivalences are in 11a-proofs.kurt and tautologies.kurt.
+load 11a-proofs, set
 const P
 arity P 1
 

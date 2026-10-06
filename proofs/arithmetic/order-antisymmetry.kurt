@@ -1,5 +1,5 @@
-; coverage test: arith.kurt's "le-ge-antisym" axiom, never exercised by any real proof before.
-load arith
+; coverage test: numbers.kurt's "le-ge-antisym" axiom, never exercised by any real proof before.
+load numbers
 var a, b
 
 use a <= b

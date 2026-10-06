@@ -1,4 +1,4 @@
-; 17-local-helper.kurt
+; local-helper.kurt
 ;
 ; small helper theory for 17-local.kurt, demonstrating what `load` does and doesn't
 ; make available. Not a lesson on its own -- but it's discovered and loaded like any

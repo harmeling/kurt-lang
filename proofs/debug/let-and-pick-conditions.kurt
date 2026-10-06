@@ -1,7 +1,7 @@
 ; `let` and `pick` take their conditions the same way: `let x with C` is `let C` (if C is about x),
 ; and `pick C` is `pick x with C` (x is the one C is about); a `pick` without a matching `∃
 ; points to `let`
-load arith, logic
+load numbers, logic
 bool P
 arity P 1
 let x with P(x)

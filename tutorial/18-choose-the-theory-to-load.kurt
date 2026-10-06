@@ -8,15 +8,22 @@
 ; | `logic` | `forall`, `exists`, conditioned quantifier rules; loads `prop` |
 ; | `equality` | `=`, `!=`/`≠`, reflexivity and substitution; loads `prop` |
 ; | `set` | membership, subsets, separation, union/intersection, products, tuples, mappings |
-; | `arith` | exact calculation bindings, algebraic laws, order, powers, factorial |
+; | `numbers` | exact calculation bindings, algebraic laws, order, powers, factorial |
 ; | `natural` | natural numbers: induction, the predecessor, well-ordering, even and odd, divisibility `∣`, `coprime` |
 ; | `integer` | the integers `Int` |
 ; | `rational` | the rationals `Rat`, every positive rational in lowest terms |
 ; | `analysis` | absolute value, finite sums, extrema, suprema/infima, limits |
 ; | `group` | reusable group structure and derived group theorems |
 ;
+; Numbers or structures: `numbers` (and `natural`, `integer`, `rational`, `analysis`, which load
+; it) is about numbers -- its laws hold for everything written with `+`, `*`, ... For linear
+; algebra, use a structure that declares its own operators, like `proofs/mafi1/field.kurt` or
+; `vectorspace.kurt`, not together with `numbers`: a symbol is declared by one file only, and
+; loading two files that both declare `+` is an error (doc/kurt-doc.md, `load`). `group` takes
+; its operation as an argument, so it goes with either. (`numbers` used to be called `arith`.)
+;
 ; Dependencies are loaded transitively. For example, `load natural` brings in `set`, `logic`,
-; `equality`, `prop`, and `arith` as required. Use `kurt --deps FILE` to inspect the actual tree.
+; `equality`, `prop`, and `numbers` as required. Use `kurt --deps FILE` to inspect the actual tree.
 ;
 ; The packaged `modal` file is an experimental example, not a mature theory. It demonstrates
 ; box/diamond syntax and several sound modal axiom schemata, but it is not a complete proof system

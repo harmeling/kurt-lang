@@ -5,11 +5,11 @@
 ;
 ; with y = 2^x the equation becomes y + y^3 = 130, and y = 5 is its only solution, since
 ; y + y^3 is strictly increasing: y < 5 would give y + y^3 < 5 + 5^3 = 130, and y > 5 the
-; opposite.  so 2^x = 5, i.e., x = log_2(5) (logarithms are not part of arith.kurt, yet).
+; opposite.  so 2^x = 5, i.e., x = log_2(5) (logarithms are not part of numbers.kurt, yet).
 ;
 ; `calc` is switched on only for the steps with concrete numbers, since it would also
 ; turn the `2^3` needed below back into `8`
-load arith
+load numbers
 const x
 use 2^x + 8^x = 130            "given"
 use 8 = 2^3                    "eight"   ; a numeric fact, stated since `calc on` would store it as `8 = 8`

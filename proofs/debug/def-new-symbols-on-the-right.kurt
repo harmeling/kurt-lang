@@ -1,0 +1,13 @@
+; on the right side of `def`, a declared operator isn't new before its first use (the comma is
+; declared in the core), and a symbol that wasn't declared is introduced as on any line -- the
+; definition only names the term, so it stays conservative; the left side keeps exactly one new
+; symbol, and the right side no other variables
+load equality
+brackets ⟨ ⟩
+const b
+def q = ⟨b, b⟩
+q = ⟨b, b⟩
+def r = g b
+r = g b
+expect "EvalError" "variable"
+    def s = $y

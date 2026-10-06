@@ -26,7 +26,7 @@ proof
 qed                    ; since `x` was arbitrary, this generalises back to `∀ x A x`
 
 ; `let` can also attach a condition to the new constant, e.g. `let x > 0` --
-; once you have a theory (like `arith.kurt`) with `>` in it.  Closing the block
+; once you have a theory (like `numbers.kurt`) with `>` in it.  Closing the block
 ; then gives a quantifier with a condition, `∀ x > 0 ...`; the rules of
 ; `logic.kurt` say what it means, e.g. "forall-cond-def" turns it into
 ; `∀ x (x > 0 ⇒ ...)`, which is what `let x` followed by `assume x > 0` gives.

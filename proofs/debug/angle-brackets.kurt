@@ -1,6 +1,6 @@
 ; `⟨ ⟩` are symbols (in the shell: `\langle`, `\rangle`), usable as a bracket pair, e.g. for a
 ; scalar product `⟨a, b⟩` -- which doesn't clash with the relations `<` and `>`
-load arith
+load numbers
 brackets ⟨ ⟩
 const a, b
 use ⟨a, b⟩ = ⟨b, a⟩ "symmetry"

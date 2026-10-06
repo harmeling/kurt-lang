@@ -1,6 +1,6 @@
 ; with `calc on`, a part of a rule is computed as soon as its variables have values: matching
 ; `3! = 3 * 2!` against "factorial-step" (`$n! = $n * ($n - 1)!`) computes `3 - 1` to `2`
-load arith
+load numbers
 calc on
 
 3 > 0

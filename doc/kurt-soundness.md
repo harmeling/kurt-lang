@@ -146,7 +146,7 @@ doesn't apply to them.
   `proofs/soundness/forall-elim-still-works-legitimately.kurt` (confirms the
   fix doesn't overcorrect into breaking genuine `forall`-instantiation).
 - Adversarially retried the same exploit shape against several other theory
-  combinations (`arith`+`logic`, `modal`+`logic`, bare `logic`+`equality`
+  combinations (`numbers`+`logic`, `modal`+`logic`, bare `logic`+`equality`
   with different constant names) — all correctly rejected post-fix.
 
 ## 0b. A second, narrower instance of the same eigenvariable class of bug: `impl_elim`'s `is_iff` direct-match path
@@ -738,7 +738,7 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   completeness, not because it looks dangerous.
 - ~~**`equal-elim`-driven substitution can't replace a multi-argument chunk of
   a `flat` operator's argument list**~~ — **fixed, see §8.2.** Original diagnosis:
-  Found while writing a real test proof for `arith.kurt`'s factorial
+  Found while writing a real test proof for `numbers.kurt`'s factorial
   recursion (`proofs/arithmetic/factorial-recursion.kurt`): chaining a
   *second* application of "factorial-step" (to go on from `1! = 1` to prove
   `2! = 2`) reliably failed to substitute `1! = 1 * 1` into `2 * 1!`.
@@ -864,7 +864,7 @@ missing).
 **Retrofitting note:** every shipped theory needed auditing for this
 change, since an unlabelled `use`/`def` (previously always exported)
 silently stops being exported. `prop.kurt`/`logic.kurt`/`equality.kurt`
-were already fully labelled. `arith.kurt` (previously all ~50 rules
+were already fully labelled. `numbers.kurt` (previously all ~50 rules
 unlabelled), `set.kurt` (one unlabelled rule), and `modal.kurt` (5 of 6
 unlabelled) were retrofitted with labels. `natural.kurt` turned out to
 have been silently broken independently of this feature — see the next
@@ -905,6 +905,20 @@ genuinely multi-char operators untouched by this change (`<=`, `>=`, `!=`,
 ...) still merge as before. This closes the "known gap" that used to be in
 `doc/kurt-doc.md` §11 and the matching `dev/todo-claude.md` item. Regression:
 `proofs/soundness/bracket-adjacency-lexes-correctly.kurt`.
+
+### 7.0 One file declares a symbol (2026-10-06)
+
+A theory's laws hold for every term written with its operators: numbers.kurt (formerly
+arith.kurt) has `$a * $b = $b * $a` for all `$a`, `$b`. A structure that declares its own `+`,
+`·` (proofs/mafi1/field.kurt, and through it matrices.kurt) used to be loadable together with it,
+since two declarations of a symbol only had to not contradict each other (and `flat`, `sym`
+missing on one side was fine) -- then numbers' laws applied to matrices, and `A · B = B · A`
+would have been provable in a file that loaded both. Now each declaration (`infix`, `prefix`,
+`postfix`, `arity`, `brackets`, `bindop`, `flat`, `sym`) records the file it comes from
+(`declare_origin`, `KnowledgeBase.declared_in`, exported with the symbol), and
+`validate_against_loader` refuses a symbol declared by two different files; the same file
+reached twice is one declaration. This is a check on what theories are combined, not a proof
+that a theory is consistent. (tests/test_load_isolation.py)
 
 ### 7.1 Bug found and fixed: a labelled bare/conjunction claim silently lost its label
 
@@ -949,10 +963,10 @@ Regression: `proofs/soundness/eof-mid-statement-rejected.kurt`.
 ### 7.3 Bug found and fixed: syntax-only symbols silently dropped by the retrofit itself
 
 Found by a fresh-eyes review pass over the docs, spot-checking `calc`'s
-documented operator coverage against reality: `2 ^ 3` (after `load arith`)
+documented operator coverage against reality: `2 ^ 3` (after `load numbers`)
 parsed as bare space-application, `[2, ^, 3]`, not an infix expression —
 `^`'s own `infix ^ 75 75` declaration had silently stopped surviving
-`load arith`. Root cause: every axiom in `arith.kurt` that ever mentioned
+`load numbers`. Root cause: every axiom in `numbers.kurt` that ever mentioned
 `^` ("laws of exponents") was already commented out before selective
 export existed, so once export was implemented, nothing exported ever
 needed `^` — its syntax fell out of the closure entirely. This is exactly
@@ -973,7 +987,7 @@ Fixed both the same way: added a genuine, unconditionally-true axiom that
 actually mentions the symbol (`$a ^ 1 = $a` for `^`, chosen over
 `$a ^ 0 = 1` specifically to dodge the 0^0-undefined edge case; the
 natural `(%A invimplies %B) iff (%B implies %A)` for `invimplies`).
-Regression: `proofs/soundness/load-arith-power-syntax-survives.kurt` and
+Regression: `proofs/soundness/load-numbers-power-syntax-survives.kurt` and
 `load-prop-invimplies-syntax-and-def-survive.kurt`.
 
 **Also added a general safeguard**, since "check whether every retrofitted
@@ -1120,13 +1134,13 @@ it holds, (b) a claim is proven from a fact when both compute to the same normal
 (`calculate_normalized`), and (c) substitution results are computed as well (§8.2). Each
 step only replaces literal arithmetic by its value, so it preserves truth under the intended
 meaning of the numerals and `+ - * / ^ < <= …`; like `calc` itself, it presumes these symbols
-carry that meaning (`load arith`). A false comparison (`2 = 3`) is simply not derivable.
+carry that meaning (`load numbers`). A false comparison (`2 = 3`) is simply not derivable.
 
 ### 8.5 Bug found and fixed: declarations could change the meaning of packaged operators
 
 `flat`, `sym` and `chain` are claims (associativity, commutativity, transitivity), but they
 checked neither whether the operator was already used nor where it came from: after `load
-arith`, `sym -` made `a - b = b - a` derivable, and `chain ≠` generated the "transitivity"
+numbers`, `sym -` made `a - b = b - a` derivable, and `chain ≠` generated the "transitivity"
 `$a ≠ $b and $b ≠ $c implies $a ≠ $c`, which derives `a ≠ a` from the true facts `a ≠ b` and
 `b ≠ a`. Now (a) `flat`/`sym` are rejected for an operator already used in a formula (like
 `bool`/`brackets` already were), and (b) the symbols declared by a trusted theory file (packaged,
@@ -1292,7 +1306,7 @@ Regression: `proofs/soundness/assumption-variables-are-fixed.kurt`.
 they meant in the file, with Python floats (`0.1 + 0.2 = 0.3` failed). And for `*` with a
 numeric part `0` it dropped the `0`, as for `+`: `0 * x` became `x`, so `P (0 * a)` followed from
 `P a`. It also crashed on `1 / 0`, and put complex numbers into formulas (`(0 - 8) ^ 0.5`). Now
-a theory binds its symbols to the built-in calculator (arith.kurt: `calc + add, ...`), which
+a theory binds its symbols to the built-in calculator (numbers.kurt: `calc + add, ...`), which
 computes exactly (`int`, `Fraction`), and doesn't compute what has no exact value. The calculator
 is part of what the kernel trusts; a binding is like an axiom, so `--strict` rejects it outside
 the trusted theories, and the symbols of a trusted theory can't be bound anew.
@@ -1337,7 +1351,7 @@ packaged theories. What they found, and what was fixed (each with its regression
   the kernel gives values only to variables and reads only an `iff` in one direction, and the
   replay aligns only canonical names and resolves `direction` only on an `iff`.
   (`tests/test_kurtc.py`, `TestForgedCertificates`)
-- Powers: `calc` computed `0 ^ 0` to `1` (arith.kurt leaves it open), and "pow-add"/"pow-mul"
+- Powers: `calc` computed `0 ^ 0` to `1` (numbers.kurt leaves it open), and "pow-add"/"pow-mul"
   held for every base (`((-1) ^ 2) ^ (1 / 2) = (-1) ^ 1` gave `1 = -1`); now they need `$a > 0`
   and `0 ^ 0` stays as it is. Big numbers crashed Kurt (Python prints no integer with more than
   4300 digits) or hung it (`(3 ^ 10000) ^ 10000`): `calc` computes no result with more than 1000
@@ -1412,6 +1426,29 @@ are inside (`binder_scope`), in the search (free and bound variables, renaming, 
 alpha-equivalence, matching of binders) and in the kernel (`k_equal`, `k_free`, `k_instantiate`,
 `k_replace`, `k_constants`). (`binder-middle-arguments-outside-scope.kurt`)
 
+### 8.21 The variable of a binder with a condition is stored (2026-10-06)
+
+Which variable `∀ C ...` binds was read from the condition `C` again whenever it was needed --
+in matching, substitution, renaming, the block rules, the kernel (`unpack_condition`,
+`k_bound`): the symbol of `C` that is new or a variable on the current level. That depends on the
+level: a block's constants are free again when it closes (§8.17: `let (0 < a)` / `let (a < x)`
+gives `∀ (0 < a) (∀ (a < x) ...)`, where `a < x` outside the block would bind `a`), so a guard
+refused such blocks. And `∀ x > 0 ...` with a new plain `x` was rejected outside of blocks.
+
+Now the variable is decided once, when the line is read (`mark_bound_variables`, in
+`post_process`, before the normal form reorders `sym` operators): the first symbol of the
+condition, as written, that is new or a variable and not bound by an enclosing binder. It is
+stored with the condition, as the internal node `[bound:, x, C]` (`bound_condition`;
+`BOUND_SYMBOL` can't be written), which every reading takes as it is: `unpack_condition`, the
+kernel's `k_bound`. The block rules build the same node for `let` (with the block's own names,
+`let_names`), and a rule's `∀ (sub $x $v %C)` gives `[bound:, $v, ...]` when its condition is
+computed (`trigger_sub_core`, `k_evaluate`). So a binder binds the same variable for the rest of
+the file; the guard for blocks (`binder_reading_changes`, `k_reading_changes`) stays as a check
+that can't fail any more. A printed formula reads back the same: the variable skips the symbols
+bound outside (`e` in `∀ (0 < e) (∀ (e < x) ...)`). All 299 proof, theory and lesson files were
+written with the variable first already; their output is unchanged. (`binder-variable-stored.kurt`,
+`block-rules.kurt`)
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,
@@ -1449,9 +1486,9 @@ without any search:
 
 Nothing of the search: its own alpha-equivalence (`k_equal`; for the kernel, `=` and `iff` compare
 in either order, since they are `sym` but keep their order for `def`), its own substitution
-(`k_replace`), and its own reading of a binder's condition (`k_bound`: the one variable of the
-condition, a renamed bound variable or a name unknown on that level, or the left one of a
-relation) -- also in the block rules, for the conditions of `let` and the guard that compares a
+(`k_replace`), and its own reading of a binder's condition (`k_bound`: the variable stored with
+it, §8.21; for an older form, the one variable of the condition, a renamed bound variable or a
+name unknown on that level, or the left one of a relation) -- also in the block rules, for the conditions of `let` and the guard that compares a
 block's readings inside and outside of it (`k_reading_changes`). `tests/test_kernel_boundary.py`
 checks which functions of the module the kernel calls: none of the search, and a new one only
 with a reason. `tests/test_kernel_differential.py` compares `k_equal` and `k_replace` with the
@@ -1488,9 +1525,10 @@ with the current goal, rule and facts), and has to pass the kernel; otherwise th
 A forged `.kurtc` (`tests/test_kurtc.py`: the right hash, a certificate claiming `B` from `A` and
 `B ⇒ A`) is rejected by the kernel, and the claim then fails as it should.
 
-Open design question: when may a schema variable depend on a bound variable -- today by the criterion of
-§8.10; the alternatives are to declare it in the rule (like Isabelle's `?T i`) or Metamath's
-distinct-variable conditions.
+Decided (2026-10-06): when a schema variable may depend on a bound variable is decided by the
+form of the rule, by the criterion of §8.10 -- not declared in the rule (like Isabelle's `?T i`),
+nor by Metamath's distinct-variable conditions. It is conservative, the kernel checks it, and no
+theory has needed more; a theory that does would reopen the question.
 
 ## How to extend this
 

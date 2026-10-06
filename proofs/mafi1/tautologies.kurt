@@ -1,6 +1,6 @@
 ; Tautologien -- the tautologies that the lecture "Mathematik für Informatik 1" (mafi1) takes as
 ; given, checked "by truth tables" (decks 03-formeln and 11a-beweise); Kurt has no truth tables,
-; so they are proven here by natural deduction.  03-formeln.kurt and 11a-beweise.kurt then
+; so they are proven here by natural deduction.  03-formulas.kurt and 11a-proofs.kurt then
 ; derive the other laws from them, as the slides do.
 load logic
 

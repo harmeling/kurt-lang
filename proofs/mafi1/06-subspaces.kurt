@@ -1,6 +1,6 @@
 ; Untervektorräume -- subspaces (lecture "Mathematik für Informatik 1" (mafi1), deck
-; 06-untervektorraeume)
-load vektorraum
+; 06-subspaces)
+load vectorspace
 const V
 use vectorspace(V)                                                  "V-vectorspace"
 arity subspace 1

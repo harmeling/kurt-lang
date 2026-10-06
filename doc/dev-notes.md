@@ -2249,3 +2249,33 @@ all); most of the time is in a few rules:
 - The guided rewrite only looks at the 3 latest facts and the goal's subterms; a rewrite of an
   older fact, or of `a = a` ("equal-intro", the first line of a chain), still needs the full
   search.
+
+## 2026-10-05 (evening): speed, the second round -- caches and an index (−27 %)
+
+`scripts/bench.py` checks nine representative files (no `.kurtc`) and prints the seconds of each:
+102.6 s before, 74.7 s after (natural 7.9 → 4.9, analysis 8.2 → 4.9, rational 13.9 → 7.8, koerper
+10.2 → 8.1, 28-selbstadjungiert 50 → 38). The output of all 299 proof, theory and lesson files is
+unchanged, line by line (every reason the same): all three only skip work whose result is known.
+
+**What helped:**
+- `is_var`, `is_const`, `is_bindop`, `is_flat`, `is_sym` remember their answers per level (they
+  climbed the levels each time: 20 million calls of `is_var` in natural.kurt, 28 % of the time). The
+  memory is emptied when anything they depend on changes, counted by `symbol_version`
+  (`symbols_changed()` in `add_var`, `add_const`, `add_bindop`, `add_flat`, `add_sym`,
+  `apply_exports`, and where the fixed variables grow) -- a new place that changes these sets must
+  call it. natural 7.9 → 5.1 s.
+- An index of the theory per level (`theory_candidates`, `index_key`): the formulas by the
+  constant operator at their top, plus a bucket `any` (variables, operator variables, `sub`, plain
+  symbols); a premise with a constant operator only looks at its bucket and `any`, in the order of
+  `all_theory`. It is a filter before `cannot_unify`, rebuilt when a level's theory or the symbols
+  change; not with `calc on`. natural 5.96 → 5.5 s (with the memory).
+- `cannot_conclude` before `impl_elim` in `derive_expr`'s `search`: a formula whose conclusion
+  can't unify with the goal is skipped -- but also the formula as a whole (a restatement of an
+  implication), and for an `iff` both sides, the whole, and with an implication as the goal
+  always (one of its directions as a whole). The first version forgot the restatements and the
+  directions: then the search fell into the generic rules (28-selbstadjungiert 39 → 67 s) and one
+  reason changed. tests/test_theory_index.py checks every skip against `impl_elim`.
+
+**Where to go on:** `unify_exprs_with_patterns` is now the largest part (11 of 17 s of natural.kurt
+under the profiler), mostly from the generic rules ("equal-elim", "iff-subst") -- see the first
+round above (the lemmas with a general conclusion, remembering failures within a line).

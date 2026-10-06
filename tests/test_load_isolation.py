@@ -104,9 +104,31 @@ class TestConflicts(LoadTestCase):
         self.check('main.kurt')
 
     def test_declarations_must_agree(self):
-        self.write('lib.kurt', 'bool P\narity P 2\nuse P $x $y "p"\n')
-        self.write('main.kurt', 'bool P\narity P 1\nuse P $x "q"\nload lib\n')
+        self.write('lib.kurt', 'bool P 0 1\nuse P (A and B) "p"\n')
+        self.write('main.kurt', 'bool P\nuse P "q"\nload lib\n')
         self.assertIn('declared differently', self.fails('main.kurt'))
+
+    def test_a_symbol_is_declared_by_one_file_only(self):
+        # the same declaration from two files is an error too (numbers.kurt and field.kurt both
+        # declare `+`, with laws for different things), in both orders, directly or via a `load`
+        self.write('lib.kurt', 'bool P\narity P 2\nuse P $x $y "p"\n')
+        self.write('main.kurt', 'bool P\narity P 2\nuse P $x $x "q"\nload lib\n')
+        self.assertIn('declared by one file only', self.fails('main.kurt'))
+        self.write('ops.kurt', 'load equality\ninfix ∘ 50 50\nuse $a ∘ $b = $b ∘ $a "comm"\n')
+        self.write('other.kurt', 'load equality\ninfix ∘ 50 50\nuse $a ∘ $a = $a "idem"\n')
+        self.write('both.kurt', 'load ops\nload other\n')
+        self.assertIn('declared in `ops.kurt` and in `other.kurt`', self.fails('both.kurt'))
+        self.write('via.kurt', 'load other\n')
+        self.write('both2.kurt', 'load via\nload ops\n')
+        self.assertIn('declared in `other.kurt` and in `ops.kurt`', self.fails('both2.kurt'))
+
+    def test_the_same_file_twice_is_fine(self):
+        # a diamond: two files load the same theory, a third loads both
+        self.write('ops.kurt', 'load equality\ninfix ∘ 50 50\nuse $a ∘ $b = $b ∘ $a "comm"\n')
+        self.write('left.kurt', 'load ops\nconst a\na ∘ a = a ∘ a "l"\n')
+        self.write('right.kurt', 'load ops\nconst b\nb ∘ b = b ∘ b "r"\n')
+        self.write('main.kurt', 'load left\nload right\na ∘ b = b ∘ a\n')
+        self.check('main.kurt')
 
 
 class TestCache(LoadTestCase):

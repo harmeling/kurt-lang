@@ -25,6 +25,11 @@ quantifier?", or "Why did this step fail?" Every lesson is a Kurt file: run it
 - [`17-grade-student-proofs-with-strict-mode.kurt`](17-grade-student-proofs-with-strict-mode.kurt): Grade student proofs with strict mode
 - [`18-choose-the-theory-to-load.kurt`](18-choose-the-theory-to-load.kurt): Choose the theory to load
 - [`19-common-mistakes.kurt`](19-common-mistakes.kurt): Common mistakes
+- [`20-constants-variables-and-declarations.kurt`](20-constants-variables-and-declarations.kurt): Constants, variables, and what declares them
+- [`21-worked-proof.kurt`](21-worked-proof.kurt): A worked proof, from a blank file
+- [`22-prove-a-law-of-logic.kurt`](22-prove-a-law-of-logic.kurt): Prove a law of logic (contraposition)
+- [`23-work-with-pairs-and-tuples.kurt`](23-work-with-pairs-and-tuples.kurt): Work with pairs and tuples
+- [`24-use-a-structure-groups.kurt`](24-use-a-structure-groups.kurt): Use a structure: groups
 
 The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one by one, and
 [`doc/kurt-doc.md`](../doc/kurt-doc.md) is the complete language reference. More examples:
@@ -33,7 +38,6 @@ The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one
 - `proofs/arithmetic/`: calculation, algebraic rewriting, order, exponents, and factorial.
 - `proofs/natural-numbers/`: induction, Peano-style examples, √2 is irrational.
 - `proofs/set-theory/`: membership, products, powersets, tuples, and mappings.
-- `proofs/algebra/groups.kurt`: definitions and derived results for an abstract operation.
 - `proofs/analysis/`: maxima, suprema, and epsilon-delta limit proofs.
 - `proofs/mafi1/`: the proofs of a linear algebra lecture.
 - `proofs/soundness/`: adversarial examples showing what Kurt must reject.

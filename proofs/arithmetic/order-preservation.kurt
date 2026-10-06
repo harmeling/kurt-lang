@@ -1,9 +1,9 @@
-; coverage for arith.kurt's order-preservation axioms (lt-/le-/gt-/ge-* for +, -, *, /) and the
+; coverage for numbers.kurt's order-preservation axioms (lt-/le-/gt-/ge-* for +, -, *, /) and the
 ; trichotomy/contradiction axioms -- none of these had ever been exercised by any proof file
 ; before this one. Each group is wrapped in its own `sandbox` so its assumptions don't
 ; accumulate into later, unrelated groups (several groups deliberately assume things that would
 ; contradict each other if they were all in scope at once).
-load arith
+load numbers
 const a, b, c
 
 ; addition/subtraction preserve every order relation regardless of sign

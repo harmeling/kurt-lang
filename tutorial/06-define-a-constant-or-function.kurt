@@ -3,9 +3,9 @@
 ; Define a constant or function
 ;
 ; `def` gives one new symbol a conservative definition. Load `prop` for definitions with `iff`, or
-; `equality`/`arith` for definitions with `=`.
+; `equality`/`numbers` for definitions with `=`.
 
-load arith
+load numbers
 calc on
 
 def four = 2 + 2

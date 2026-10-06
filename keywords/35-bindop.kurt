@@ -1,9 +1,8 @@
 ; 35-bindop.kurt
 
 ; `bindop` marks a symbol as a *variable-binding operator*: its first
-; argument must be a variable (or a boolean expression whose first part is a
-; variable, e.g. `forall x>0 F(x)`) that is then considered bound inside the
-; rest of the expression.  `forall` and `exists` (used already in lessons
+; argument is the variable (or a condition on it, e.g. `forall x>0 F(x)`) that
+; is then considered bound inside the rest of the expression.  `forall` and `exists` (used already in lessons
 ; 19-let.kurt and 20-pick.kurt) are declared exactly this way -- as of this
 ; writing, directly as part of Kurt's hard-coded core, not by `logic.kurt`
 ; (only their axioms, "forall-elim" etc., still come from there):
@@ -22,6 +21,20 @@ const P
 arity P 1
 
 parse myforall x (P x)   ; (myforall x (P x)) -- `x` is bound in `(P x)`
+
+; With a condition, the binder binds the first symbol of the condition, as
+; written, that is new or a variable -- constants, predicates and the variables
+; of enclosing binders are skipped. Kurt decides it when it reads the line and
+; keeps it: the binder binds the same variable for the rest of the file (also
+; when a block closes and its constants are free again; doc/kurt-doc.md §4.4).
+
+const c
+load numbers
+use myforall (c < y) (P y)          ; binds `y`: `c` is a constant
+use myforall (P z) (z = z)          ; binds `z`: `P` is a predicate
+use myforall (0 < e) (myforall (e < w) (0 < w))   ; the inner one binds `w`: `e` is bound outside
+expect "TypeError" "no variable to bind"
+    use myforall (c < 1) (P c)      ; every symbol is a constant
 
 ; As with the other syntax keywords, `bindop` only sets up grammar (and the
 ; check that the first argument really is an unbound variable) -- the actual

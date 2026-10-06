@@ -1,6 +1,6 @@
 ; orthogonale Abbildungen (lecture "Mathematik für Informatik 1" (mafi1), deck
 ; 25-orthogonale-abbildungen): A ∈ O(n), i.e. Aᵀ A = E, gives det A = ±1
-load matrizen
+load matrices
 
 show $A ∈ Mat ∧ T($A) · $A = E  ⇒  det($A) = 1 ∨ det($A) = - 1          "det-orthogonal"
 proof

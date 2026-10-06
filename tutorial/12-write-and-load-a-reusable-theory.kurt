@@ -5,7 +5,7 @@
 ; A theory is an ordinary `.kurt` file. Facts cross a `load` boundary only when they have a label
 ; and are not marked `local`.
 ;
-; The theory of this lesson is the file `12-my-theory.kurt` next to this one:
+; The theory of this lesson is the file `my-theory.kurt` next to this one:
 ;
 ;     load prop
 ;     bool P, Q
@@ -16,7 +16,7 @@
 ;
 ; This file uses it:
 
-load 12-my-theory
+load my-theory
 
 P
 P implies Q

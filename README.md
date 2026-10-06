@@ -95,6 +95,7 @@ copy `src/kurt/kurt.py` together with the directory `src/kurt/theories/`.
     import kurt
     result = kurt.check_text('load prop\nbool A, B\nuse A implies B\nuse A\nB\n')
     result.ok, result.complete, result.error, result.output     # complete: also no `todo` left
+    result.events      # each line: its id, kind, rule, the lines it uses (also `kurt --json FILE`)
 
     session = kurt.new_session(kurt.RunConfig(strict=True, paths=('teacher/',)))
     session.check_file('proof.kurt')
