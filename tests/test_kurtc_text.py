@@ -32,5 +32,27 @@ class TestKurtcText(unittest.TestCase):
             missing = subprocess.run([sys.executable, '-m', 'kurt', os.path.join(tmp, 'q.kurtc')], env=env, capture_output=True, text=True)
             self.assertEqual(missing.returncode, 1)
 
+    def test_the_options_hold_for_a_kurtc_too(self):
+        # `kurt --strict p.kurtc` checks p.kurt as `kurt --strict p.kurt` does (dev/astra-suggestions.md, 3)
+        env = dict(os.environ, PYTHONPATH=str(PROJECT_ROOT / 'src'))
+        def run(*args):
+            return subprocess.run([sys.executable, '-m', 'kurt', *args], env=env, capture_output=True, text=True)
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as teacher:
+            bad = os.path.join(tmp, 'bad.kurt')
+            with open(bad, 'w', encoding='utf-8') as f:
+                f.write('use false\nfalse\n')
+            self.assertEqual(run('--strict', bad).returncode, 1)
+            self.assertEqual(run('--strict', bad + 'c').returncode, 1)
+            self.assertEqual(run(bad + 'c').returncode, 0)
+            # `-p`: a theory found there, also for the `.kurtc`
+            with open(os.path.join(teacher, 'axioms.kurt'), 'w', encoding='utf-8') as f:
+                f.write('bool C\nuse C "c"\n')
+            good = os.path.join(tmp, 'good.kurt')
+            with open(good, 'w', encoding='utf-8') as f:
+                f.write('load axioms\nC\n')
+            self.assertEqual(run('--strict', '-p', teacher, good).returncode, 0)
+            self.assertEqual(run('--strict', '-p', teacher, good + 'c').returncode, 0)
+            self.assertEqual(run('--json', good + 'c').returncode, 1)    # --json is for the `.kurt`
+
 if __name__ == '__main__':
     unittest.main()

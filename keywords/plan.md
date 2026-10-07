@@ -74,17 +74,17 @@ MISC -- REPL/output behaviour and self-documentation
     40-format    how formulas are printed (`sexpr` vs `normal`)
     41-help      list of all keywords, straight from Kurt itself
     42-hint      toggle: hints for the next input (shell only)
-    43-verbose   toggle: show extra detail while matching formulas
-    44-calc      toggle: automatic arithmetic simplification (`+`, `*`)
+    43-calc      toggle: automatic arithmetic simplification (`+`, `*`)
 
 TRUST -- certificates
 ---------------------
-    45-cert      `cert N`: the certificate of a line, checked by the kernel;
+    44-cert      `cert N`: the certificate of a line, checked by the kernel;
                  `.kurtc` files and `kurt --deps`
 
 DEBUGGING
 ---------
-    46-breakpoint  stop in a file and continue in the shell with its state
+    45-breakpoint  stop in a file and continue in the shell with its state
+    46-list        inspect the retained exports of loaded theories
 
 Moved (2026-10-06): the worked proof is tutorial/21-worked-proof.kurt; the
 lessons on tuples and groups are tutorial/23-work-with-pairs-and-tuples.kurt and

@@ -1,4 +1,4 @@
-; 46-breakpoint.kurt
+; 45-breakpoint.kurt
 
 ; `breakpoint` is a line in a proof file where you want to look around --
 ; like `breakpoint()` in Python. Run the file at a terminal (or with

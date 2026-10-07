@@ -2,21 +2,19 @@
 load logic
 load equality
 
-; 1.  f is injective, use def
+; 1.  injective(f), use def
 ; 2.  free vars not blocked, but different style, then again check for contain_blocked
 ; 3.  before going through all sub, just match the current formula with the previous ones, to find the correct sub
 ; 4. s.lookup(v) is None 
 
 ; task: prove that the composition of two injective functions is injective
 
-infix is 30 30                 ; as in "f is injective"
 infix ∘ 40 40                  ; composition
 
 use (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)    "lemma"
 
-const is   ; must be introduced already for the definition
 def ($f ∘ $g)($x) = $f($g($x))                                    "def of composition"
-def $f is injective  iff  ∀$x ∀$y ($f($x) = $f($y)  ⇒  $x = $y)   "def of injective"
+def injective($f)  iff  ∀$x ∀$y ($f($x) = $f($y)  ⇒  $x = $y)   "def of injective"
 
 show ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))  "composition rule"
 proof
@@ -29,17 +27,17 @@ const f, g
 arity f 1, g 1
 
 ; theorem
-show f is injective ∧ g is injective ⇒ (f ∘ g) is injective
+show injective(f) ∧ injective(g) ⇒ injective(f ∘ g)
 proof
-    assume f is injective
+    assume injective(f)
         ∀x ∀y (f(x)=f(y) ⇒ x=y)
-        assume g is injective
+        assume injective(g)
             ∀x ∀y (g(x)=g(y) ⇒ x=y)
             let x, y
                 assume (f∘g)(x) = (f∘g)(y)
                     f(g(x)) = f(g(y))             ; def of composition
                     g(x) = g(y)                   ; f injective
                     x = y                         ; g injective
-            (f ∘ g) is injective
-    f is injective ∧ g is injective  implies  (f ∘ g) is injective
+            injective(f ∘ g)
+    injective(f) ∧ injective(g)  implies  injective(f ∘ g)
 qed

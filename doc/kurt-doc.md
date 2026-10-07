@@ -22,7 +22,7 @@ the source.
     kurt path/to/proof.kurt     # check a proof file, then exit
     kurt -i path/to/proof.kurt  # check the file, then drop into the shell (after an error: at the failing line)
     kurt -d path/to/proof.kurt  # also print debug information
-    kurt -v path/to/proof.kurt  # also print verbose matching information
+    kurt -v                     # show the version (also `-V`, `--version`)
     kurt -p DIR path/to/proof.kurt   # also search DIR for `load`ed theories
     kurt -s path/to/proof.kurt       # strict, for grading (see below)
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
@@ -59,8 +59,9 @@ the facts as they are now, and checked by the kernel; only if that doesn't work,
 as usual. So the output is the same, it is just faster (for the proof files of this repository,
 up to five times). A `.kurtc` can't make Kurt accept anything the kernel doesn't check -- a wrong
 or outdated one only costs the time of the search -- so it is also used with `--strict`. Kurt
-only writes and uses `.kurtc` files when run as `kurt` (the command line or shell), not when used
-as a Python module.
+writes and uses `.kurtc` files when run as `kurt` (the command line or shell); from Python, only
+in a session with `kurt.RunConfig(kurtc=True)`, and never for a text (`check_text`). `kurt
+--strict foo.kurtc` checks `foo.kurt` with the same options as `kurt --strict foo.kurt`.
 
 `kurt --json foo.kurt` checks the file and prints the result as JSON (exit code as above): `ok`,
 `complete` (also no `todo` left), `error`, `error_kind`, `error_line`, `todos`, the text `output`,
@@ -72,7 +73,9 @@ its `kind` (`step`, `claim`, `open`, `assumed`, `load`, `declaration`, `expect`,
      "comment": "modus ponens", "rule": "rule", "uses": ["4"]}
 
 From Python, the same comes from `kurt.check_file(path)` or `kurt.check_text(text)` (a
-`CheckResult`, with `.events` and `.to_json()`).
+`CheckResult`, with `.events` and `.to_json()`). A text is never trusted (under `strict`, it may
+not `use`), whatever name it is given -- trust comes from where a file is read. Like the command
+line, the module refuses to check under `python -O` (which removes Kurt's internal checks).
 
 `kurt --lsp` is a language server (the Language Server Protocol, over
 stdin/stdout) for editors -- VS Code (the extension of kurt-syntax), Emacs
@@ -210,11 +213,10 @@ Every symbol is exactly one of:
   the first time an otherwise-undeclared symbol is used in a formula (e.g.
   after `use P c`, both `P` and `c` are constants; `bool` only records that
   a symbol is boolean, see §5, not whether it is a constant). Such a
-  symbol that wasn't declared in any way before (by `const`, `var`,
-  `bool`, `arity`, an operator declaration, ...) is noted in the output
-  (`; new constants `P`, `c`, not declared before`), and a claim that
-  can't be derived mentions it (often it's a typo). With `--strict` (§1),
-  it's an error instead. Or
+  first use is shown as an ordinary declaration in the output (`const P ;
+  added constant`), including when the symbol already had a syntax or
+  type declaration such as `infix P ...` or `bool P`. A wholly undeclared
+  symbol is often a typo; with `--strict` (§1), it is an error instead. Or
 - a **variable** — may stand for arbitrary objects, declared with `var x`.
 
 Once a symbol's role is fixed *on a given level* (see §9 on blocks/levels),
@@ -253,12 +255,13 @@ Most symbols are declared by using them. What each kind of line does to a symbol
 | `let x`, `pick x` | a constant inside the block (one arbitrary object); after the block, `x` is free again |
 | `assume P $x` | `$x` fixed inside the block (not a variable there) |
 | `bool`, `arity`, `infix`, `prefix`, `postfix`, `bindop`, `flat`, `sym`, `chain`, `alias` | declared, but not yet a constant: these only give properties (the grammar, the bool signature) |
-| the first use in a formula of a symbol that isn't a variable | a constant (if it wasn't declared at all: `; new constants ..., not declared before`) |
+| the first use in a formula of a symbol that isn't a variable | a constant, reported as `const SYMBOL ; added constant` |
 
 Further rules:
 - **The bool signature comes from the first use** (§5), unless declared with `bool`: a symbol
   at a boolean position is boolean (`use P a` makes `P` boolean, `a` not), an operator whose
-  arguments are boolean gets these positions.
+  arguments are boolean gets these positions. Each inferred signature is reported as a valid
+  declaration, for example `bool P 0 ; added boolean signature`.
 - **Declare before the first use.** After it, `const`, `var`, `bool`, `arity`, `infix`,
   `prefix`, `postfix` for that symbol are errors ("already used in a formula"): the formula was
   read with what was known then.
@@ -305,7 +308,14 @@ allowed (useful for something like unary/binary `-`); declaring it as more
 than one of `infix`/`prefix`/`postfix`/a bracket otherwise is an error.
 
 Called with no arguments (`infix`, `prefix`, `postfix`), each prints every
-currently-declared operator of that kind, across all open levels.
+currently-declared operator of that kind, across all open levels. The other
+property keywords (`const`, `var`, `bool`, `arity`, `brackets`, `bindop`,
+`chain`, `flat`, `sym`, and `alias`) work the same way. Every listed entry's
+comment gives both its scope level and the source location that established
+that exact property, for example `; level 1, natural.kurt:20`. A basename is
+shown normally; if two loaded files have the same basename, Kurt shows their
+paths to keep the locations unambiguous. Hard-coded core declarations have no
+source line and therefore show only their level.
 
 ### 4.2 `brackets`
 
@@ -544,11 +554,48 @@ not translated yet (`sorry`, listed at the end of the file).
 `syntax` (with no argument) prints every declared piece of syntax at every
 open level; `syntax SYMBOL` prints just what's known about one symbol.
 `parse EXPR` parses `EXPR` without checking it and prints both its
-s-expression form and the same per-symbol syntax info as `syntax`.
+s-expression form -- in the normal form Kurt stores and matches (`flat`
+operators flattened, the arguments of `sym` ones sorted: `parse c + 1 + c`
+gives `(+ 1 c c)`) -- and the same per-symbol syntax info as `syntax`.
 `tokenize EXPR` shows the raw token stream before parsing. Each of
 `infix`/`prefix`/`postfix`/`brackets`/`arity`/`bindop`/`flat`/`sym`/
 `chain`/`bool`/`var`/`const`/`alias`, called with no
 arguments, also prints its own currently-declared table.
+
+### 4.9 Inspecting loaded theories
+
+`list` shows which theory files are loaded. `list files` is the explicit spelling of the same
+command. Give it a loaded theory's stem or filename to see all declarations and formulas retained
+from that source:
+
+    list
+    list files
+    list natural
+    list natural.kurt
+
+A category before the optional source narrows the result:
+
+    list const                 ; every known constant
+    list const natural         ; constants originating in natural.kurt
+    list infix natural.kurt    ; infix declarations originating there
+    list theory natural        ; all retained formulas originating there
+    list use natural           ; retained axioms originating there
+    list def natural           ; retained definitions originating there
+    list syntax natural        ; every retained declaration originating there
+
+The declaration categories are `prefix`, `infix`, `postfix`, `brackets`, `arity`, `bindop`,
+`flat`, `sym`, `bool`, `chain`, `var`, `const`, and `alias`. `symbols` and `declarations` are
+synonyms for `syntax`. Locations in a source-filtered result refer to the original file and line.
+
+A source without `.kurt` matches the stem of a loaded file; a name ending in `.kurt` matches its
+basename; and a path selects that file. If two loaded files have the same stem or basename, Kurt
+asks for a path. Category names are reserved after `list`, so a theory called `const.kurt` is
+selected with `list const.kurt`.
+
+Loading retains a theory's exported declarations and labelled, non-`local` facts. Therefore
+`list natural` describes the part of `natural.kurt` present in the current knowledge base, rather
+than reproducing the source file. It cannot show local declarations, unlabelled facts, comments,
+or intermediate proof lines that were discarded during loading.
 
 ## 5. Boolean typing
 
@@ -571,6 +618,11 @@ as boolean" the first time it's mentioned in a position that needs one
 
 A boolean *variable* (as opposed to a boolean-valued *operator*) is written
 with a leading `%` inside a `use` schema (`%A`, `%B`, ...) — see §3.2.
+
+When first use infers a signature, Kurt prints the corresponding declaration,
+for example `bool P 0 ; added boolean signature`. Together with the matching
+`const P ; added constant` line, this makes every persistent declaration made
+implicitly by a formula visible in ordinary output.
 
 Only `use`/`show`/bare top-level claims are required to be boolean overall
 (the exact error is "must evaluate to boolean"); nested sub-terms are
@@ -670,10 +722,22 @@ every equivalent phrasing).
 constant via an equation (`=`) or equivalence (`iff`) — the only two
 top-level operators `def` accepts. Exactly one new symbol must appear on
 the **left-hand side** (e.g. `def x = 18`, or `def $a ∩ $b = { $c ∈ $a | $c ∈
-$b }` — the new symbol doesn't have to be the very first token, just
-somewhere on the left). On the right-hand side, a symbol that wasn't
-declared is introduced as on any line (§3.4: a constant, with the note
-`; new constant ...`; an error with `--strict`): `def r = g b` with a new `g`
+$b }` — infix notation puts the new operator between its arguments).
+The left-hand side must be the new symbol itself or that symbol applied to
+distinct variables, possibly curried. Defining a new symbol as an argument
+of an existing operator is not supported: write `def injective($f) iff ...`,
+not `def $f is injective iff ...`.
+
+The new symbol must not occur on its own right-hand side, even through an
+alias. It must not already have semantic declarations such as `calc`,
+`flat`, `sym`, `chain`, or `bindop`. Comma-separated definitions are checked
+left to right: `def p iff true, q iff p` is allowed, but defining the same
+symbol twice, or defining a symbol already used by an earlier entry, is
+not. A rejected batch adds no definitions or declarations.
+
+On the right-hand side, a symbol that wasn't
+declared is introduced as on any line (§3.4: a constant, reported as
+`const g ; added constant`; an error with `--strict`): `def r = g b` with a new `g`
 only names the term `g b`, whatever `g` is, so the definition stays
 conservative. A declared operator isn't new even before its first use, e.g.
 the comma of `def q = ⟨b, b⟩`. The right-hand side has no variables besides
@@ -992,7 +1056,9 @@ reads real leading whitespace exactly like a file does, so pasting file
 content into `kurt -i` behaves the same as running it as a file. To help
 with typing, the shell (at a terminal, with readline) starts each line with
 the indentation of the current block, one level (four spaces) deeper after a
-line that opens a block; a backspace dedents. Two
+line that opens a block; a backspace dedents. (With libedit instead of GNU
+readline, as in the Python of macOS, the shell can't start a line with text:
+there the prompt shows the level, and the spaces are typed.) Two
 keywords remain as *optional* alternatives to dedenting, and work
 identically in files and the shell: `qed` (§7 — still needs a real dedent,
 but also checks you're closing a `proof`) and `break` (§9.5 — needs no
@@ -1154,8 +1220,7 @@ level, ...) is checked by `expect` around a `load` of such a file (see
 ## 10. Session toggles and output
 
     format sexpr | normal | original   ; how formulas are printed: (and A B), or A and B, ...
-    verbose on | off              ; print extra detail about *why* a match succeeded
-    hint on | off                  ; reserved for future use — currently a no-op
+    hint on | off                  ; in the shell: before each prompt, what could come next
     calc on | off       ; compute with numbers before checking
     calc SYMBOL OPERATION, ...   ; bind symbols to the calculator, e.g. `calc + add`
 
@@ -1242,7 +1307,7 @@ the one that works into the file (Ctrl-D ends the shell). Without a terminal
 (the playground, Kurt from Python), it shows that state and checking goes on.
 In a file that another one loads, it is skipped. After an error, `kurt -i
 FILE` likewise continues in the shell at the failing line, with the state
-there (`keywords/46-breakpoint.kurt`).
+there (`keywords/45-breakpoint.kurt`).
 
 **Tab in the shell** (with `readline`, i.e. at a terminal on Linux and macOS)
 completes: on an empty line the next step (as `hint`); after `=` with `calc

@@ -1,9 +1,12 @@
 import json
+import io
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+
+import kurt.kurt as kurt
 
 from tests.utils import PROJECT_ROOT
 
@@ -49,6 +52,39 @@ class Client:
 
 
 class TestLanguageServer(unittest.TestCase):
+    def test_sibling_load_precedes_the_server_working_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            launch = os.path.join(tmp, 'launch')
+            document = os.path.join(tmp, 'document')
+            os.mkdir(launch)
+            os.mkdir(document)
+            def write(folder, name, text):
+                path = os.path.join(folder, name)
+                with open(path, 'w', encoding='utf-8') as stream:
+                    stream.write(text)
+                return path
+            write(launch, 'dep.kurt', 'bool P\nuse P "given"\n')
+            write(document, 'dep.kurt', 'bool P\nP "given"\n')
+            text = 'load dep\nP\n'
+            path = write(document, 'main.kurt', text)
+            uri = 'file://' + path
+            before = os.getcwd()
+            try:
+                os.chdir(launch)
+                server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
+                server.texts[uri] = text
+                server.check(uri)
+                self.assertFalse(server.results[uri].ok)
+                self.assertEqual(server.results[uri].error, kurt.check_file(path).error)
+                # Completion must use the same sibling source, not the launch directory's P.
+                write(document, 'dep.kurt', 'bool DocumentFact\nuse DocumentFact "given"\n')
+                server.texts[uri] = 'load dep\nDoc'
+                items = server.completion({'textDocument': {'uri': uri},
+                                           'position': {'line': 1, 'character': 3}})
+                self.assertIn('DocumentFact', [item['label'] for item in items])
+            finally:
+                os.chdir(before)
+
     def test_the_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
             uri = 'file://' + os.path.join(tmp, 'proof.kurt')

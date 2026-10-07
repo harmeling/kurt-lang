@@ -12,9 +12,8 @@
 ; separation, which forms subsets of a given set. The sets that can't be formed that way --
 ; the empty set, unions, power sets, function spaces -- are given by their own axioms.
 ;
-; mappings are modelled as opaque, applicable set objects (kurt's ordinary space-application,
-; `$f $a`), not as ZF-style sets of ordered pairs -- see the comment further down, right above
-; "function-space", for why.
+; mappings are ZF-style sets of ordered pairs (their graphs), applied with kurt's ordinary
+; space-application `$f $a` -- see the comment further down, right above "function-space".
 load equality, logic
 
 ; syntax

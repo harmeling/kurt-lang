@@ -1,5 +1,54 @@
 # Changelog
 
+## Unreleased
+
+## 0.7.6 (2026-10-07)
+
+- Add `list`: inspect all retained exports of a loaded theory (`list natural`), narrow them by
+  category (`list const natural`, `list theory natural.kurt`), or show loaded files (`list files`).
+  Source-filtered output includes original file and line locations; new tutorial and keyword
+  lessons document the command.
+- Make public publication refuse ignored destination files and exercise the candidate tree in a
+  disposable checkout before replacing the real public checkout.
+- Add a regression for substitution through a formula nested under another binder.
+- Declaration listings (`const`, `var`, `infix`, and the other property keywords without
+  arguments) now show the source filename and line alongside the scope level. If loaded files
+  have the same basename, the listing uses paths to distinguish them.
+- Show every declaration inferred by first formula use in the normal output. This includes a
+  constant whose syntax was declared already (`infix ∘ ...`, then `const ∘ ; added constant`)
+  and inferred Boolean signatures such as `bool P 0 ; added boolean signature`.
+- Fix definition soundness: reject self-reference (including aliases), duplicate definitions and
+  forward cycles within a batch, and new function heads with existing semantic declarations.
+  Validate the whole batch before adding any facts or declarations, including in strict mode.
+  Remove the unsafe “new symbol as argument” form; use `injective(f)` instead of `f is injective`
+  when defining a predicate. Complete contradiction regressions cover ordinary and strict checks.
+- Fix the language server using a dependency from its launch directory ahead of the document's
+  own sibling file; checking and completion now retain the full document source path.
+
+- `kurt -v` (also `-V`, `--version`) shows the version.
+- `verbose` is gone (the keyword `verbose on/off` and the option `-v`/`--verbose`): what it showed
+  is in the reason of each line and, in full, in `cert N`; the normal form of a term in `parse`
+  (and `theory`). The keyword lessons 44-46 are now 43-45.
+- Fixes from an external review (dev/astra-suggestions.md):
+  - `def` with the new symbol as an argument of an operator (`$f is injective`) was first
+    restricted after an operator bound to the calculator could prove `false`; the 2026-10-07
+    follow-up found the form itself unsound and removed it (doc/kurt-soundness.md §§8.22–8.23).
+  - `check_text` never trusts a text by its name (`<embedded>/...`, a file in a `-p`
+    directory): under `strict`, it may not `use`. The names `<stdin>` and `<shell>` are refused.
+  - `kurt --strict foo.kurtc` (and `-p`) checks `foo.kurt` with the options, as `kurt --strict
+    foo.kurt` does; `--json` with a `.kurtc` is an error.
+  - A session takes a loaded file from its cache only if each `load` of it still finds the same
+    file (not a new one earlier in the search path).
+  - `check_text` no longer turns `.kurtc` files off for the rest of its session.
+  - The Python API refuses `python -O`, as the command line does.
+  - Releases: the PyPI and standalone jobs run only after a common job with the tests.
+  - The shell with libedit (macOS): Tab works, and the indentation is typed (not filled in).
+  - CI: a job on macOS, and one that checks the Lean translation with the Lean of
+    `scripts/lean-toolchain` (the tests skip an older Lean, and test a false theorem against a
+    true one).
+  - Docs: set.kurt's header (mappings are sets of pairs), `.kurtc` from Python, the README's
+    lesson counts (checked by a test now).
+
 ## 0.7.5 (2026-10-06)
 
 - `kurt --lsp`: a language server for editors (VS Code, Emacs, Neovim): errors and `todo`s as

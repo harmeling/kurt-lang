@@ -9,8 +9,9 @@
 load logic
 load numbers
 
-; 1. A symbol used for the first time is a constant. Kurt says so (often it's a typo), and its
-;    `bool` signature comes from where it stands: `P` is boolean, `a` not.
+; 1. A symbol used for the first time is a constant. Kurt prints `const P` and `const a`, and its
+;    `bool` signature comes from where it stands: `P` is boolean, `a` not, so it also prints
+;    `bool P 0`. These are the persistent declarations that this line inferred.
 
 use P a
 
@@ -19,7 +20,7 @@ use P a
 
 use $x = $x     "eq-refl"
 
-; 3. Declaring a symbol first avoids the note, and catches typos. `const`, `brackets`, `def`,
+; 3. Declaring a symbol first avoids an implicit declaration, and catches typos. `const`, `brackets`, `def`,
 ;    `let` and `pick` make constants; `var` makes a variable.
 
 const b

@@ -18,7 +18,7 @@
 ;
 ; Useful command-line variants:
 
-;     kurt -v proof.kurt          # show extra matching information
+;     kurt -v                     # show the version (also -V, --version)
 ;     kurt -s proof.kurt          # strict grading mode
 ;     kurt --no-kurtc proof.kurt  # do not read or write certificate caches
 ;     kurt --deps proof.kurt      # show the load-dependency tree

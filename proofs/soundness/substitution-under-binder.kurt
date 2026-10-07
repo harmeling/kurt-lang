@@ -1,0 +1,10 @@
+; Regression: forall-elim substitutes through a formula nested under another binder. The inner
+; binder binds `$z`, while the outer binder's `$x` remains free in its body until instantiation.
+
+load logic
+arity P 2
+bool P 0
+const a
+
+use forall $x (forall $z (P $x $z)) "nested-forall"
+forall $z (P a $z)

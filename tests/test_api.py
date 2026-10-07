@@ -1,5 +1,7 @@
 import json
+import os
 import subprocess
+import tempfile
 import sys
 import unittest
 
@@ -60,6 +62,33 @@ class TestApi(unittest.TestCase):
         self.assertEqual(one._state['counters'], alone._state['counters'])
         self.assertEqual(sorted(one._state['certificates_by_line']), sorted(alone._state['certificates_by_line']))
         self.assertNotEqual(other._state['counters'], alone._state['counters'])
+
+    def test_a_text_is_never_trusted_by_its_name(self):
+        # trust comes from where a file was read: under `strict`, a text named like a theory of
+        # Kurt or like a file in a `-p` directory may still not `use` (dev/astra-suggestions.md, 2)
+        with tempfile.TemporaryDirectory() as teacher:
+            session = kurt.new_session(kurt.RunConfig(strict=True, paths=[teacher]))
+            names = ['<embedded>/student.kurt', '<embedded>/prop.kurt', '<chain transitivity for [<]>',
+                     os.path.join(teacher, 'student.kurt'), str(kurt.packaged_theory_file('prop.kurt'))]
+            for name in names:
+                with self.subTest(name=name):
+                    self.assertFalse(session.check_text('use false\nfalse\n', name=name).ok)
+            with open(os.path.join(teacher, 'axioms.kurt'), 'w') as f:
+                f.write('bool C\nuse C "c"\n')
+            self.assertTrue(session.check_text('load axioms\nC\n').ok)    # a file there still is
+        for name in ('<stdin>', '<shell>'):                                # the shell's names
+            self.assertRaises(ValueError, kurt.check_text, 'A\n', name=name)
+
+    def test_a_text_leaves_kurtc_on(self):
+        # `check_text` writes no `.kurtc`, but the next file of the session does (finding 5)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'p.kurt')
+            with open(path, 'w') as f:
+                f.write(PROOF)
+            session = kurt.new_session(kurt.RunConfig(kurtc=True))
+            self.assertTrue(session.check_text(PROOF).ok)
+            self.assertTrue(session.check_file(path).ok)
+            self.assertTrue(os.path.exists(path + 'c'))
 
     def test_events(self):
         # each printed line as a record: its line, id, kind, rule and the lines it uses

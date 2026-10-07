@@ -20,14 +20,10 @@ env:
   TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  pypi:
-    # only when switched on (GitHub: Settings, Secrets and variables, Actions, Variables:
-    # `PUBLISH_PYPI` = `true`) -- publishing on PyPI makes the package public
-    if: vars.PUBLISH_PYPI == 'true'
+  verify:
+    # before anything is published: the tag is the version in kurt.py, the tests pass, and the
+    # standalone kurt.py works -- both jobs below need it
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write          # for trusted publishing
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,6 +43,32 @@ jobs:
           pip install -e .
           python -m unittest
 
+      - name: Build and check the standalone kurt.py
+        run: |
+          python scripts/build_standalone.py
+          mkdir /tmp/check
+          printf 'load natural, analysis, group\n0 ∈ Nat\n' > /tmp/check/theories.kurt
+          (cd /tmp/check && python $GITHUB_WORKSPACE/dist/kurt.py --no-kurtc theories.kurt)
+          python dist/kurt.py --no-kurtc modus-ponens.kurt
+
+  pypi:
+    needs: verify
+    # only when switched on (GitHub: Settings, Secrets and variables, Actions, Variables:
+    # `PUBLISH_PYPI` = `true`) -- publishing on PyPI makes the package public
+    if: vars.PUBLISH_PYPI == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write          # for trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Build
         run: |
           pip install build
@@ -58,6 +80,7 @@ jobs:
     # the single-file `kurt.py` with all theories embedded, attached to a GitHub release of the
     # tag -- so `.../releases/latest/download/kurt.py` is a stable link to it (independent of
     # PyPI: this job runs also if the PyPI one fails)
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write          # to create the release
@@ -70,13 +93,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build and check the standalone kurt.py
-        run: |
-          python scripts/build_standalone.py
-          mkdir /tmp/check
-          printf 'load natural, analysis, group\n0 ∈ Nat\n' > /tmp/check/theories.kurt
-          (cd /tmp/check && python $GITHUB_WORKSPACE/dist/kurt.py --no-kurtc theories.kurt)
-          python dist/kurt.py --no-kurtc modus-ponens.kurt
+      - name: Build the standalone kurt.py
+        run: python scripts/build_standalone.py
 
       - name: Create the release with kurt.py (or update the file of an existing one)
         env:

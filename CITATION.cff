@@ -10,8 +10,8 @@ authors:
   - family-names: Harmeling
     given-names: Stefan
     affiliation: TU Dortmund
-version: 0.7.5
-date-released: 2026-10-06
+version: 0.7.6
+date-released: 2026-10-07
 license: MIT
 url: "https://www.kurt-lang.org"
 repository-code: "https://github.com/harmeling/kurt-lang"

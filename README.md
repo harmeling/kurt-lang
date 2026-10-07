@@ -11,7 +11,7 @@ proof written for 0.7 may need small changes for 1.0.
 
 **Try it in your browser**, without installing anything:
 [www.kurt-lang.org](https://www.kurt-lang.org), the playground. It runs the same Kurt in the
-browser, with the tutorial lessons and examples.
+browser, with the tutorial, the keyword lessons, and the proofs of a lecture (mafi1).
 
 ## A first proof
 
@@ -26,7 +26,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.7.0 (made by Stefan Harmeling, 2016-2026), file 014d63c1e32a
+    This is Kurt, v0.7.6 (made by Stefan Harmeling, 2016-2026), file c57cc53c5c5d
     use A implies B                           ; 3 without proof
     use A                                     ; 4 without proof
     B                                         ; 5 by 3(4)
@@ -106,10 +106,10 @@ in parallel, use processes.
 
 ## Documentation
 
-- [`tutorial/`](tutorial/): the tutorial, 20 lessons, task by task: prove an implication, argue by
+- [`tutorial/`](tutorial/): the tutorial, 27 lessons (00 to 26), task by task: prove an implication, argue by
   contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
   derive". Each one is a Kurt file you can run and change.
-- [`keywords/`](keywords/): 49 short lessons (00 to 48), one keyword or idea each
+- [`keywords/`](keywords/): 47 short lessons (00 to 46), one keyword or idea each
   ([plan](keywords/plan.md)).
 - [`doc/kurt-doc.md`](doc/kurt-doc.md): the language reference.
 - [`doc/kurt-soundness.md`](doc/kurt-soundness.md): what the checker's correctness rests on,

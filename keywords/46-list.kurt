@@ -1,0 +1,23 @@
+; 46-list.kurt
+
+; `list` inspects the exported content retained from loaded theories. With no
+; argument, or with `files`, it shows which files are loaded.
+
+load group
+
+list
+list files
+
+; Name a loaded theory by its stem or filename to see all of its retained
+; declarations and facts. Every entry includes its source line.
+
+list group
+list group.kurt
+
+; Put a category first to narrow the output. A category without a source
+; lists that category across the whole current knowledge base.
+
+list infix group
+list const group.kurt
+list theory group
+list const

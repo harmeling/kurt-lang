@@ -19,5 +19,4 @@ cert 4
 ; - premises and their source locations, and
 ; - the kernel's verdict.
 ;
-; `cert` without a line number shows the most recent line with a certificate. `verbose` prints
-; more matching information while checking, but `cert` is usually the clearer first tool.
+; `cert` without a line number shows the most recent line with a certificate.

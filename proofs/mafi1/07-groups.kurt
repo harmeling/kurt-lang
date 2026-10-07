@@ -4,7 +4,7 @@
 ; from the right; Theorem a shows that they also work from the left (after Bosch, Algebra, p. 286).
 ; As in field.kurt, the existential axioms come with names: `e` and `inv a`.
 load set
-infix ∘ 70 70
+infix ∘ 70 70                 ; syntax only; (G-closed) makes ∘ a constant and reports `const ∘`
 const G, e, inv
 
 use $a ∈ G ∧ $b ∈ G  ⇒  $a ∘ $b ∈ G                                  "G-closed"

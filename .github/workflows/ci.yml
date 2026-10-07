@@ -29,6 +29,45 @@ jobs:
           python scripts/build_standalone.py
           python dist/kurt.py modus-ponens.kurt
 
+  macos:
+    # macOS's Python has libedit instead of GNU readline: the shell must work there too (Tab,
+    # the indentation typed instead of filled in -- tests/test_shell_indentation.py)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install kurt (editable, with dev extras)
+        run: pip install -e .[dev]
+
+      - name: Run test suite
+        run: python -m unittest
+
+  lean:
+    # scripts/kurt2lean.py, checked again by the Lean of scripts/lean-toolchain (the tests are
+    # skipped without Lean elsewhere; here KURT_REQUIRE_LEAN makes a missing or older Lean fail)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Lean
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain "$(cat scripts/lean-toolchain)"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Translate and check with Lean
+        run: |
+          pip install -e .
+          lean --version
+          KURT_REQUIRE_LEAN=1 python -m unittest -v tests.test_kurt2lean
+
   package:
     # what users get from `pip install`: build the sdist and the wheel, install each into a clean
     # environment, and check a proof outside the checkout (so nothing comes from `src/`)

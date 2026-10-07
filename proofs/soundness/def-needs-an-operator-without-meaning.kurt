@@ -1,0 +1,30 @@
+; `def` with a new symbol as an argument of an existing operator is rejected (the 2026-10-07
+; review found a diagonal contradiction even for an unused operator). The 2026-10-06 review found: with
+; `plus` bound to the calculator's `add`, `def c plus $x = 0` was accepted, and then
+;     c plus 0 = 0,  c plus 1 = 0,  c = 0 (calc),  0 plus 1 = 0,  1 = 0 (calc),  false
+; -- a complete proof of `false` without `use` or `todo`. Now the `def` is refused.
+load numbers
+const plus
+infix plus 60 60
+calc plus add
+expect "EvalError"
+    def c plus $x = 0
+
+; so are the other ways to give an operator a meaning without a fact
+const tt
+infix tt 60 60
+flat tt
+expect "EvalError"
+    def d tt $x = 0
+expect "EvalError"
+    def e + $x = 0
+
+; even an operator without earlier meaning is not safe here (a diagonal RHS can contradict it)
+const rel
+infix rel 50 50
+expect "EvalError"
+    def p rel $x iff $x = $x
+
+; an ordinary fresh predicate is supported
+def p($x) iff $x = $x
+p(3)

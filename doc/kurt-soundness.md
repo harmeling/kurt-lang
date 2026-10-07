@@ -1328,7 +1328,7 @@ packaged theories. What they found, and what was fixed (each with its regression
   `def f ($x + $y) = $x`), a `def` of an operator declared `sym`/`flat`, and a `def` inside a
   proof block, which then depended on the block's constants. Now the left-hand side is the new
   symbol applied (possibly curried) to distinct variables -- or the new symbol as an argument of an
-  operator no formula mentions yet (`$f is injective`) --, the right-hand side has no other
+  operator no formula mentions yet (`$f is injective`, subsequently removed in §8.23) --, the right-hand side has no other
   variables, and `def` is not allowed in proof blocks. `--strict` also rejects `sym`/`flat`
   outside the trusted theories. (`def-is-conservative.kurt`, `def-not-in-proof-blocks.kurt`)
 - set.kurt's "separation" didn't bind its variable: `{ y ∈ Nat | y = y }` gave `(0 + 1) = y`.
@@ -1453,6 +1453,45 @@ that can't fail any more. A printed formula reads back the same: the variable sk
 bound outside (`e` in `∀ (0 < e) (∀ (e < x) ...)`). All 299 proof, theory and lesson files were
 written with the variable first already; their output is unchanged. (`binder-variable-stored.kurt`,
 `block-rules.kurt`)
+
+### 8.22 Bug found and fixed: `def` of an argument of an operator with a meaning (2026-10-06)
+
+Found by an external review (dev/astra-suggestions.md, finding 1). The special form of `def` with
+the new symbol as an argument of an operator (`$f is injective`) only checked that no fact mentions
+the operator. But an operator can have a meaning without a fact: with `plus` bound to the
+calculator's `add`, `def c plus $x = 0` was accepted, and then `c plus 0 = 0`, `c plus 1 = 0`,
+`c = 0` and `0 plus 1 = 0` by calc, `1 = 0`, `false` -- a complete proof of `false` without `use`
+or `todo`. The kernel can't see it: it trusts the definition as a fact. Now the form needs an
+operator without any meaning yet (`operator_meaning`): no fact mentions it, it isn't bound to the
+calculator, `flat`, `sym`, in a `chain`, a binder, or of the core or a trusted theory.
+(`def-needs-an-operator-without-meaning.kurt`). This restriction was insufficient; §8.23 removes
+the exceptional form entirely.
+
+### 8.23 Definitions: recursion, batches, and diagonalization (2026-10-07)
+
+The follow-up review found three complete proofs of `false` accepted even with `--strict`:
+
+- `def liar iff not liar` gave a contradictory recursive equivalence.
+- `def p iff true, p iff false` validated both entries before introducing either symbol.
+  Likewise, `def p iff q, q iff not p` admitted an indirect cycle.
+- `def c rel $x iff not ($x rel $x)` passed the new operator-meaning guard from §8.22:
+  substituting `c` for `$x` yielded `(c rel c) iff not (c rel c)`.
+
+Definitions now reject occurrences of their new symbol on the right (aliases are already
+resolved by parsing). A batch is validated left to right in a disposable declaration scope:
+all earlier names, including right-hand-side names, are visible to later entries. Only a fully
+validated batch adds facts and declarations to the actual knowledge base. Strict-mode
+undeclared-name checks also run before any definition is committed.
+
+The exceptional “new symbol as argument” form is removed; its absence-of-meaning check was
+not a conservativity argument. Write `injective($f)` instead of `$f is injective`. The fresh
+head itself must also have no semantic declarations: `infix plus 60 60; calc plus add` did not
+make `plus` a constant, so `def $x plus $y = 0` previously passed too in ordinary mode.
+
+`tests/test_definition_soundness.py` keeps the complete contradictions, checks strict and
+ordinary API calls and strict CLI JSON results, exercises aliases and failed-batch recovery,
+and retains positive controls for ordinary functions, predicates, and successive definitions.
+This closes these demonstrated defects, not a formal proof that the whole checker is sound.
 
 ## 9. The kernel: every step is checked again
 

@@ -26,13 +26,14 @@ flat #&
 expect "EvalError"
     def $a #& $b = $a - $b
 
-; the new symbol as an argument of an operator only if no formula mentions that operator yet:
-; `*` has laws ("mul-zero"), `is` has none
+; a new symbol must head the defined expression, not be an argument of an existing operator
 expect "EvalError"
     def $x * k = $x                 ; `0 * k` is `0` by "mul-zero", so `0 = $x` for every `$x`
 infix is 30 30
 const is
-def $f is injective  iff  ∀ $x ∀ $y ($f $x = $f $y  ⇒  $x = $y)
+expect "EvalError"
+    def $f is injective iff ∀ $x ∀ $y ($f $x = $f $y ⇒ $x = $y)
+def injective($f) iff ∀ $x ∀ $y ($f $x = $f $y ⇒ $x = $y)
 
 ; what a `def` is for still works
 def h($x) = $x * $x

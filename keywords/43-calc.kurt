@@ -1,4 +1,4 @@
-; 44-calc.kurt
+; 43-calc.kurt
 
 ; `calc` computes with numbers. A theory says which of its symbols mean
 ; which operation of Kurt's built-in calculator -- numbers.kurt does it for

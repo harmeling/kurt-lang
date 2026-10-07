@@ -1,0 +1,32 @@
+; Inspect a loaded theory
+;
+; A loaded theory contributes declarations and labelled facts to the current
+; knowledge base. `list` shows what was retained and where it came from.
+
+load natural
+
+; See all retained content whose source is natural.kurt. The short theory name
+; and the filename are equivalent here.
+
+list natural
+list natural.kurt
+
+; Ask for one kind of content. The category goes before the optional source.
+
+list const natural
+list infix natural
+list theory natural.kurt
+
+; Without a source, a category covers the whole current knowledge base.
+
+list const
+
+; With no argument, `list` shows the loaded files and their levels. The more
+; explicit spelling does the same thing.
+
+list
+list files
+
+; Only exported content survives loading. Local declarations, unlabelled
+; facts, and intermediate proof lines are absent; inspect the source file when
+; you need those lines too.

@@ -42,10 +42,8 @@ tokenize c + 1, -c
 format sexpr
 c > 0
 format normal
-verbose on
 c > 0
 theory
-verbose off
 cert 15
 cert
 cert 5, 999
