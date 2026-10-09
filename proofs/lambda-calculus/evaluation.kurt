@@ -1,0 +1,10 @@
+; Call-by-value evaluation chooses the function first, then the argument, then beta.
+load lambda
+
+(app (λ x x) unit) ⇝ unit
+
+; The outer beta step cannot fire yet: its argument is not a value. Reduce that argument first.
+value (λ x x)
+(app (λ y y) unit) ⇝ unit
+(app (λ x x) (app (λ y y) unit)) ⇝ (app (λ x x) unit)
+(app (λ x x) unit) ⇝ unit

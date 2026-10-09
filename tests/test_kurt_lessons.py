@@ -21,7 +21,7 @@ class TestLessons(unittest.TestCase):
                 out_buf, err_buf = io.StringIO(), io.StringIO()
                 try:
                     with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
-                        _ = kurt.load_file(str(path), kb, mainstream=False)
+                        _ = kurt.load_file(str(path), kb, main=False)
                 except kurt.KurtException as e:
                     self.fail(f'{path.name} no longer loads cleanly: {e.msg}')
 

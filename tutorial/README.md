@@ -26,12 +26,14 @@ quantifier?", or "Why did this step fail?" Every lesson is a Kurt file: run it
 - [`18-choose-the-theory-to-load.kurt`](18-choose-the-theory-to-load.kurt): Choose the theory to load
 - [`19-common-mistakes.kurt`](19-common-mistakes.kurt): Common mistakes
 - [`20-constants-variables-and-declarations.kurt`](20-constants-variables-and-declarations.kurt): Constants, variables, and what declares them
-- [`21-worked-proof.kurt`](21-worked-proof.kurt): A worked proof, from a blank file
-- [`22-prove-a-law-of-logic.kurt`](22-prove-a-law-of-logic.kurt): Prove a law of logic (contraposition)
+- [`21-worked-proof.kurt`](21-worked-proof.kurt): A worked proof
+- [`22-prove-a-law-of-logic.kurt`](22-prove-a-law-of-logic.kurt): Prove a law of logic
 - [`23-work-with-pairs-and-tuples.kurt`](23-work-with-pairs-and-tuples.kurt): Work with pairs and tuples
 - [`24-use-a-structure-groups.kurt`](24-use-a-structure-groups.kurt): Use a structure: groups
 - [`25-compute-with-vectors-and-matrices.kurt`](25-compute-with-vectors-and-matrices.kurt): Compute with vectors and matrices
 - [`26-inspect-a-loaded-theory.kurt`](26-inspect-a-loaded-theory.kurt): Inspect a loaded theory
+- [`27-type-and-reduce-lambda-terms.kurt`](27-type-and-reduce-lambda-terms.kurt): Type and reduce simply typed lambda terms
+- [`28-prove-with-modal-logic.kurt`](28-prove-with-modal-logic.kurt): Prove with modal logic
 
 The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one by one, and
 [`doc/kurt-doc.md`](../doc/kurt-doc.md) is the complete language reference. More examples:
@@ -41,5 +43,9 @@ The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one
 - `proofs/natural-numbers/`: induction, Peano-style examples, √2 is irrational.
 - `proofs/set-theory/`: membership, products, powersets, tuples, and mappings.
 - `proofs/analysis/`: maxima, suprema, and epsilon-delta limit proofs.
+- `proofs/linear-algebra/`: groups, injective maps, matrix literals, Cauchy-Schwarz.
 - `proofs/mafi1/`: the proofs of a linear algebra lecture.
+- `proofs/lambda-calculus/`: typing, evaluation, preservation, and confluence of lambda terms.
+- `proofs/modal-logic/`: necessitation, K, T, and the dualities of `□` and `◇`.
+- `proofs/logic-encodings/`: logics written as object terms: a sequent calculus, ordered resources.
 - `proofs/soundness/`: adversarial examples showing what Kurt must reject.

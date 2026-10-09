@@ -27,9 +27,13 @@ const b
 var y
 use y = y
 
-; 4. Declarations of the grammar (`infix`, `prefix`, `postfix`, `arity`, `bool`, `bindop`, ...)
-;    only give properties. The symbol becomes a constant at its first use -- or a variable, an
-;    operator variable, with `var` before that use:
+;    A declared name keeps the file readable, but a `use` stores each free variable as a fresh
+;    schema variable. Normal output shows that effective form after `schema:`. Boolean variables
+;    get `%` names; term, function, and operator variables get `$` names.
+
+; 4. Shape/type declarations (`infix`, `prefix`, `postfix`, `arity`, `bool`) do not choose
+;    constant or variable. Semantic declarations (`bindop`, `flat`, `sym`, `chain`, and a
+;    calculator binding) do choose a fixed operator and therefore imply `const`.
 
 infix ∘ 50 50
 const c
@@ -37,7 +41,11 @@ use c ∘ c = c                   ; `∘` is a constant now
 
 infix · 50 50
 var ·
-use b · b = b · b               ; `·` is a variable: this holds for every operator `·`
+use b · b = b · b               ; schema names the symbolic operator `$op`
+                                  ; `·` is a variable: this holds for every operator `·`
+
+infix plus 50 50
+flat plus                         ; prints `const plus`: associativity belongs to this operator
 
 ; 5. Declare before the first use: afterwards, the formulas were already read with what was known
 ;    then, so a declaration would change what they mean.
@@ -66,6 +74,21 @@ qed
 let w
     w = w
 ∀ w (w = w)
+
+; 7. A checker sort and a mathematical carrier are separate choices. `natural.kurt` supplies
+;    the object-level constant `Nat`; membership in it is a proposition. The lowercase `nat`
+;    below is optional checker metadata. It restricts positions declared with `nat`, but does
+;    not prove membership in `Nat`.
+
+sort nat
+const n
+nat n
+
+expect "ProofError"
+    n ∈ Nat
+
+; A theory may deliberately connect the two views with its own facts or rules. Kurt does not
+; silently identify them, and a theory may use only one view when that is clearer.
 
 ; With `kurt --strict` (for grading), the same rules hold, but the first use of a symbol that
 ; wasn't declared at all is an error instead of a new constant: `use P a` above would be refused

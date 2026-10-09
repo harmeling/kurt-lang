@@ -4,9 +4,9 @@ infix + 30 30
 calc on
 expect "ProofError"
     1 + 1 = 2                   ; `+` means nothing to the calculator yet
-calc + add
+builtin + add
 1 + 1 = 2
 expect "EvalError"
-    calc + frobnicate           ; not an operation of the calculator
-expect "ParseError"
-    calc + add multiply
+    builtin + frobnicate           ; not an operation of the calculator
+expect "EvalError"
+    builtin + add multiply

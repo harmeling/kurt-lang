@@ -9,14 +9,15 @@ bool A, B
 use A implies B  "modus-ponens"
 use A
 B
-cert 4
+cert 11
 
-; The certificate shows:
+; The certificate of line 11 shows:
 ;
-; - the goal,
-; - the rule or fact used,
-; - variable instantiations,
-; - premises and their source locations, and
-; - the kernel's verdict.
+; - the goal (`B`),
+; - the rule or fact used (`A implies B`, line 9, with its label "modus-ponens"),
+; - how the rule is read (premise ⇒ conclusion),
+; - the premises and their lines (`A`, line 10), and
+; - the kernel's verdict (checked).
 ;
-; `cert` without a line number shows the most recent line with a certificate.
+; A rule with variables also shows how they were instantiated. `cert` without a line number shows
+; the most recent line with a certificate.

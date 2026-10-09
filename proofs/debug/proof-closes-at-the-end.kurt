@@ -1,0 +1,9 @@
+; the end of a file closes the blocks still open, as a line at column 0 would: a `proof` whose goal
+; is reached needs no `qed` there (it was an error, "not all blocks closed", found 2026-10-09
+; while trying the editors)
+load prop
+bool A, B
+use A
+show A or B
+proof
+    A or B

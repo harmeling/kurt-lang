@@ -19,9 +19,10 @@ const R, x, y
 use group(R, (+), 0, (-))
 use x ∈ R
 use y ∈ R
-x + 0 = x                             ; by group-right-identity
--(-x) = x                             ; by inverse-inverse
 x + y ∈ R                             ; by group-closed
+; Facts about numbers alone come from numbers.kurt, even where a group theorem would also give them:
+x + 0 = x                             ; by add-identity (not group-right-identity)
+-(-x) = x                             ; by double-negation (not inverse-inverse)
 
 ; an abstract group: `∘` is an operation here (group.kurt declares it infix)
 const G, e, inv, a, b, c

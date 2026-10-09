@@ -1,17 +1,18 @@
 ; 21-case.kurt
 
 ; `case` is `assume` with case distinctions in mind: several `case` blocks in
-; a row, each assuming one alternative, combine into "or-elim" -- if you can
-; reach the same goal from every case of a disjunction, you've proved the
-; goal outright.
+; a row, each assuming one alternative, combine into a case distinction --
+; if you can reach the same goal from every case of a disjunction, you've
+; proved the goal outright.  Kurt logs that step as `case-elim`.
 ;
-; two things must already be in scope for that combination to actually fire -- `case` itself
-; does NOT check either one, or that your cases are exhaustive at all:
-;   1. the disjunction fact itself (`A or B` below, `use`d up front)
-;   2. an explicit restatement of the goal *after* the case blocks close (line 28 below) --
-;      closing the last `case` does not automatically finish the or-elim for you
-; forgetting either one just fails with an ordinary "can not derive" on that final line, not
-; a `case`-specific error.
+; For that to work, the disjunction itself (`A or B` below, `use`d up front)
+; must already be known -- `case` does NOT check it, or that your cases are
+; exhaustive at all; without it the goal just fails with an ordinary "can not
+; derive", not a `case`-specific error.
+; Restating the goal after the case blocks (the `C` before `qed` below) is
+; optional: without it, `qed` derives the goal by `case-elim` itself.
+; The loaded propositional theory's general binary `or-elim` rule gives `or` this meaning; the
+; spelling `or` by itself does not.
 
 load prop
 bool A, B, C

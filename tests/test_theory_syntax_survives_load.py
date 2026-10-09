@@ -16,7 +16,8 @@ import kurt.kurt as kurt
 # each shipped theory's own source text and asserts each one survived that file's `load`, so
 # a future edit can't reintroduce this silently.
 
-THEORIES = ['prop', 'equality', 'logic', 'set', 'numbers', 'natural', 'modal', 'analysis', 'group']
+THEORIES = ['prop', 'equality', 'logic', 'set', 'numbers', 'natural', 'modal', 'lambda',
+            'analysis', 'group']
 
 # genuinely, deliberately unaxiomatized syntax -- `:` is only ever used as an alias for `in`
 # (see set.kurt's `alias : in`), never as its own standalone operator, so it never appears as
@@ -45,7 +46,7 @@ class TestTheorySyntaxSurvivesLoad(unittest.TestCase):
         for theory in THEORIES:
             with self.subTest(theory=theory):
                 kb = copy.deepcopy(kurt.initial_kb)
-                kb = kurt.load_file(f'{theory}.kurt', kb, mainstream=False)
+                kb = kurt.load_file(f'{theory}.kurt', kb, main=False)
                 exempt = KNOWN_UNAXIOMATIZED.get(theory, set())
                 for op in declared_operators(theory) - exempt:
                     self.assertTrue(

@@ -1,0 +1,45 @@
+; 28-prove-with-modal-logic.kurt
+;
+; Prove with modal logic
+;
+; modal.kurt is the classical normal modal logic T: formulas built from
+; propositional letters with `¬`, `∧`, `∨`, `→`, `⇔`, `□` (necessarily) and
+; `◇` (possibly). A line `⊢ A` says that the formula A is a theorem of T --
+; each step below is one, by an axiom of T or by one of its rules, modus ponens
+; and necessitation.
+
+load modal
+
+const P, Q
+formula P, Q           ; P and Q are propositional letters
+
+; An axiom: `A → (B → A)`, here for P and Q.
+
+⊢ (P → (Q → P))
+
+; Necessitation: from a theorem A follows the theorem □A.
+
+⊢ □(P → (Q → P))
+
+; A theorem is what follows from no assumptions: `empty ⊢ A` says the same
+; as `⊢ A`.
+
+empty ⊢ □(P → (Q → P))
+
+; T is classical, and it has the axiom T, `□A → A` (what is necessary is
+; true), and its dual `A → ◇A`.
+
+⊢ (P ∨ ¬P)
+⊢ (□P → P)
+⊢ (P → ◇P)
+
+; □ distributes over ∧, and ◇ is ¬□¬.
+
+⊢ ((□P ∧ □Q) ⇔ □(P ∧ Q))
+⊢ (◇P ⇔ ¬□¬P)
+
+; Modus ponens: from the theorems A and A → B follows the theorem B. Here A is
+; the first theorem of this lesson, and A → B the axiom from above for it.
+
+⊢ ((P → (Q → P)) → (Q → (P → (Q → P))))
+⊢ (Q → (P → (Q → P)))

@@ -377,10 +377,10 @@ with a raw, uncaught `AssertionError` — reachable with nothing more than
 `use forall x A x` and no `load logic`, no `let` involved at all.
 
 **Fixed two ways:** (1) `forall`/`exists`'s syntax (arity, `bindop`, bool
-signature, `∀`/`∃` aliases) is now declared directly in `initial_kb`
+signature) is now declared directly in `initial_kb`
 (`kurt.py`) and documented in `minimal.kurt`, exactly like `and`/`implies`'s
-syntax already was — removed from `logic.kurt`, which now only supplies
-their *axioms* (`forall-elim`, `exists-intro`). This means `let`/`use
+syntax already was. The `∀`/`∃` aliases later moved to `logic.kurt`, together with their
+*axioms* (`forall-elim`, `exists-intro`). This means `let`/`use
 forall ...`/etc. all work correctly with no `load` at all now — and, as a
 side effect, forall-elim already happens "for free" via the always-on
 auto-stripping (§1), without needing `logic.kurt`'s axiom. (2) Independent
@@ -389,20 +389,13 @@ check no longer `assert` the expected shape — they raise a clean
 `KurtException` if it's ever wrong, as defense in depth in case this
 invariant is broken some other way in the future.
 
-This surfaced one more thing worth recording: `sub` (the other hard-coded
-`bindop`) is deliberately *not* registered `const` — only added to
-`.used` directly, so it's classified without being either `const` or `var`.
-Copying that exact pattern for `forall`/`exists` at first (add to `.used`
-without `const`) suppressed `_add_new_symbols`'s normal "first use of an
-unclassified symbol becomes `const`" fallback, which is what used to
-silently classify `forall` as `const` the moment `logic.kurt`'s own
-`forall-elim` axiom mentioned it. Without that, `extract_by_condition` (used
-by `def`'s left/right-hand-side scan, which has no bound-variable
-awareness at all) started treating the bare word `forall` as an
-unclassified "new symbol", breaking any `def ... iff ∀$x (...)` proof —
-e.g. `proofs/linear-algebra/injective2.kurt`. Fixed by registering
-`forall`/`exists` as `const` explicitly instead, matching `true`/`implies`/
-`and`'s pattern rather than `sub`'s.
+This surfaced one more thing worth recording. At the time, `sub` (the other hard-coded
+`bindop`) was only added to `.used`, without either a constant or variable role. Copying that
+pattern suppressed `_add_new_symbols`'s normal "first use becomes `const`" fallback and broke
+definitions whose right side contained `forall`. The immediate fix explicitly registered
+`forall`/`exists` as constants. The 2026-10-08 declaration audit made the invariant general:
+every `bindop`, including `sub`, implies `const`, because its fixed scoping behavior cannot
+belong to a variable operator.
 
 ### 2.2 Bug found and fixed: an explicitly-`forall`-quantified boolean variable lost its boolean classification
 
@@ -1074,6 +1067,11 @@ using `X`/`Y` rather than the file's own `p`/`q` example symbols so they
 would have caught this; confirmed by reverting the fix and re-running —
 all three fail.
 
+This section is historical. In October 2026 the shallow theory was removed after the minimal
+core's pretty aliases moved into their owning theories. The replacement, now named `modal.kurt`,
+represents formulas as sorted terms, so its variables are ordinary sorted schemata and
+necessitation is soundly stated over the Boolean theoremhood judgment `⊢`.
+
 
 ### 7.6 Each file in a fresh context (2026-09-29)
 
@@ -1150,7 +1148,7 @@ numbers`, `sym -` made `a - b = b - a` derivable, and `chain ≠` generated the 
 `b ≠ a`. Now (a) `flat`/`sym` are rejected for an operator already used in a formula (like
 `bool`/`brackets` already were), and (b) the symbols declared by a trusted theory file (packaged,
 or via `-p`) are frozen (`KnowledgeBase.frozen`, filled in `load_file`; the core's symbols are
-frozen in `initial_kb`): other files can't declare them `flat`/`sym`/`nonassoc`, and a `chain`
+frozen in `initial_kb`): other files can't declare them `flat`/`sym`, and a `chain`
 from another file may only put frozen operators first and in an order their theory already
 chains them in (`check_chain_not_frozen`) -- so its generated conclusions only ever use the
 file's own operators. In addition, packaged theories can't be shadowed by a local file of the
@@ -1493,6 +1491,128 @@ ordinary API calls and strict CLI JSON results, exercises aliases and failed-bat
 and retains positive controls for ordinary functions, predicates, and successive definitions.
 This closes these demonstrated defects, not a formal proof that the whole checker is sound.
 
+### 8.24 Syntax properties must preserve the expression tree (2026-10-08)
+
+Two declaration combinations changed a parsed term's meaning inside the normal form trusted by
+both search and the kernel:
+
+- A symbol could be prefix, infix and `flat`. Flattening `not f (A f B)` erased the unary node
+  and produced `not (A f B)`. The two consistent assumptions `not f (A f B)` and `A f B` could
+  therefore derive `false`.
+- An infix `bindop` could also be `sym`. Symmetric sorting exchanged its bound-variable operand
+  and its body, so `x q y` and `y q x` acquired the same normal form. Again, two consistent
+  assumptions could derive `false`.
+
+Kurt now rejects prefix/`flat` overlap and every binder combination whose normalization or fixed
+meaning conflicts with scope (`prefix`, `flat`, `sym`, `chain`, `calc`, or `var`). `flat`, `sym`,
+`chain`, `bindop`, and calculator bindings imply `const`; chain members also imply boolean
+output. Variable operators may still have fixity, arity, and a bool signature, but not fixed
+associativity, commutativity, binding, transitivity, or calculator semantics. This makes the
+distinction visible in ordinary output and keeps `group.kurt` intentional: its local `var ∘`
+is schematic and is not exported, while its exported `infix ∘ 70 70` still leaves a loader
+free to choose `var ∘` or let first formula use declare `const ∘`.
+
+The same audit made declaration categories order-independent: explicit `arity` cannot later be
+changed into fixity; brackets reject earlier arity/bool/calculator declarations; boolean
+positions must be distinct and within the known arity in either declaration order; and `bool [`
+applies to the combined bracket expression. Calculator relations/membership imply boolean
+output, while arithmetic and literal operations reject a boolean-output declaration.
+`tests/test_syntax_soundness.py` and
+`proofs/soundness/declaration-properties-do-not-change-meaning.kurt` retain the contradictions
+and both declaration orders.
+
+### 8.25 Failed declaration lines are atomic; independent theory checks (2026-10-08)
+
+Comma-separated declarations were applied one item at a time. In the shell and language server,
+`prefix f 10, f 20` reported an error for the second item but left the first `prefix f 10` in the
+live session; `const`, `bool`, and `arity` behaved likewise. Every declaration batch is now
+validated in a disposable child knowledge base before any part is committed. Tests continue in
+the same `Shell` after each rejected line and verify that no prefix leaked.
+
+The audit also added semantic checks independent of Kurt's search and certificate kernel.
+`tests/test_prop_semantics.py` exhaustively truth-table checks all 21 pure propositional
+rules/theorems exported by `prop.kurt`. `tests/test_numbers_semantics.py` evaluates all 76
+`numbers.kurt` axioms over small exact integer/rational samples, skipping only individual
+samples where an operation is mathematically outside that sampled interpretation. Both pass.
+These finite checks catch incorrect trusted axioms in their covered domains; they are evidence,
+not a consistency proof for the theories or the implementation.
+
+### 8.26 Optional sorts constrain schema instantiation (2026-10-08)
+
+Checking a sorted rule only when its source was parsed was insufficient. For example, after
+`nat n` and `vec v`, the rule `(P n) implies Q` could match the fact `P v` because the unifier
+still distinguished only Boolean from non-Boolean variables. That would erase the meaning of a
+sort precisely when a schema was used. Fresh internal schema variables now retain their declared
+sorts. Both directions of two-sided unification reject a value that lacks a variable's sort, and
+the certificate kernel repeats the check independently. The constraints survive `load` without
+exporting or occupying the source variable's local name. `tests/test_sorts.py` covers both local
+and imported cross-sort attempts.
+
+The same audit found an older asymmetry in the reverse unification branch: it compared an
+expression-side variable's Boolean kind with itself instead of with the proposed value. It could
+therefore bind a Boolean variable to a term, or a term variable to a Boolean formula, when that
+variable appeared on the less common side of two-sided matching. The comparison now uses the
+proposed pattern; `tests/test_match_exprs_to_patterns.py` covers both rejected directions.
+
+### 8.27 Follow-up adversarial sort audit (2026-10-08)
+
+After bare sort declarations became exportable, a second audit exercised declaration order,
+arity/fixity changes, aliases, duplicate and conflicting loads, flat/symmetric operators, binding
+scope, `sub`, schema freshening, both matching directions, independent certificate checking,
+cached replay, sessions, LSP state, and the standalone build. No further soundness defect was
+found.
+
+The permanent additions target boundaries that were previously covered only indirectly. A later
+grammar declaration must revalidate an existing sort signature; a sorted binding position gives
+the bound name that sort inside the body but does not admit an unsorted constant; and malformed
+paper-form lambda typing judgments are rejected. `tests/test_kernel.py` also changes a genuine
+certificate so a `nat` schema variable is instantiated by a `vec` constant and the supporting
+fact is changed consistently. The independent kernel rejects the forged step on the sort check,
+confirming that this guarantee does not depend only on search.
+
+### 8.28 Bug found and fixed: n-ary `case` assigned semantics by the name `or` (2026-10-09)
+
+The first general n-ary `case-elim` implementation treated every flat Boolean operator literally
+named `or` as logical disjunction. A file could declare a fresh operator with that spelling, add
+unrelated facts `A or B`, `A implies G`, and `B implies G`, and derive `G` without ever loading or
+axiomatizing disjunction elimination. The certificate kernel repeated the same name-based rule,
+so independent replay did not catch the mistake.
+
+N-ary case elimination is now a derived, bounded shortcut. Search first finds a known theorem of
+the exact general binary schema `(A or B) and (A implies C) and (B implies C) implies C`, with
+three distinct Boolean schema variables, and records that theorem in the certificate. The kernel
+independently checks that the theorem is in scope and has that general shape before checking the
+flat disjunction and one exact branch implication per alternative. Thus a theory may give its
+`or` this behavior explicitly, while the spelling alone has no logical force. Regressions cover
+the original false derivation and certificates with a missing or malformed supporting rule
+(`tests/test_nary_case.py`, `tests/test_kernel.py`).
+
+### 8.29 Bug found and fixed: an `alias` didn't count as a declaration of its name (2026-10-09)
+
+A symbol is declared by one file only (§7.0), but `alias` didn't record its file: prop.kurt's
+`alias ∧ and` and modal.kurt's `∧` (an object-level constructor, not Kurt's `and`) loaded together
+without an error, and afterwards `∧` read as prop's meta-level `and` -- a modal formula written
+with `∧` silently became a different statement. Now `alias` declares its name like `infix` or
+`const` (`declare_origin`), so the two theories can't be loaded together, as modal.kurt says.
+(`alias-declares-its-name.kurt`)
+
+### 8.30 Bug found and fixed: `iff`, `or`, `not`/`false`, `=` had their meaning by their name (2026-10-09)
+
+The engine gave several symbols a meaning by their name alone: a fact `A iff B` was used as two
+implications, `case` split an `or`, an `assume` block ending in `false` gave `not`, and `def`
+defined with `=`/`iff` (checked against the packaged theories only for `def`). A file without
+prop.kurt that declared its own `iff` -- meant as any relation -- got `A` from `A iff B` and `B`
+(§8.28 was the same for `or`). Now these meanings are roles that a trusted theory assigns with
+`builtin` (prop.kurt: `builtin iff equivalence, or disjunction, not negation, false falsum`,
+equality.kurt: `builtin = equality`), with the `bool` signature the role needs, one symbol per
+role; the search and the kernel ask for the role, never the name. The calculator's bindings
+(formerly `calc + add`) are `builtin` too. (`engine-roles-not-by-name.kurt`)
+
+The quantifiers followed: `forall`/`exists` are no longer part of the core, but declared in
+logic.kurt with `builtin forall universal, exists existential`; the stripping of outer `∀`s,
+`let` ("forall-intro") and `pick` ("exists-elim"), and the kernel's checks of them, ask for these
+roles. Without `load logic`, `forall` is an ordinary word (`forall-without-logic-is-a-word.kurt`).
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,
@@ -1507,7 +1627,8 @@ without any search:
   the variable occurs only if that is meant -- a boolean `%A` may, a non-boolean `$T` only its own
   bound variable (`k_dependencies`, the criterion of §8.10, written again) -- then `sub` is
   evaluated with the kernel's own capture-avoiding substitution, and a condition `sub $x $v C` in a
-  binder must not contain `$v` (§8.11);
+  binder must not contain `$v` (§8.11); every value also satisfies the optional sorts declared
+  for its schema variable (§8.26);
 - the instance of the conclusion is the goal, and the instance of the premise consists of instances
   of the facts (a conjunct, a group of flat conjuncts, or the body of a `∀` with a recorded fresh
   name);
@@ -1541,7 +1662,12 @@ search's `equal_expr` and `capture_avoiding_replace` on generated terms.
 The kernel sees the knowledge base only through `KernelEnv`: a read-only view with the lookups it
 needs (symbols, declarations, the theory), each answer remembered for the whole check, so nothing
 can change while a step is checked, and nothing can be changed through it
-(`tests/test_kernel_env.py`). Also `top-intro`, `calc` steps, and `todo` have certificates.
+(`tests/test_kernel_env.py`). Also `top-intro`, `calc` steps, `todo`, and n-ary `case-elim` have
+certificates. A `case-elim` certificate contains a known general binary `or-elim` rule, a flat
+disjunction, and exactly one implication from each alternative to the goal. The kernel checks the
+rule's schema independently, then checks membership, count, order, antecedents, and the common
+conclusion; search only selects this finite list and never asks the general unifier to combine n
+premises.
 
 The kernel checks every step, always. A step it rejects doesn't count: `KernelError` stops a file
 (in the shell, only that line fails), and no `expect` can catch it. A rejection means that the

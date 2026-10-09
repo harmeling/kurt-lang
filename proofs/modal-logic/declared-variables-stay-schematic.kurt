@@ -1,0 +1,10 @@
+; A theory's declared sorted variables are freshened in every stored formula. They remain
+; schematic after `load`, even if the loading file uses the same printed names as constants.
+const A, B
+load modal
+
+formula A, B
+use ⊢ □(A → B)
+use ⊢ □A
+⊢ (□A → □B)
+⊢ □B

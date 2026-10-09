@@ -2,9 +2,9 @@
 ;
 ; Split into cases
 ;
-; For a proof from `A or B`, prove the same conclusion in an `A` case and a `B` case. The
-; propositional theory's `or-elim` rule combines the disjunction and the two implications produced
-; by closing the case blocks.
+; For a proof from `A or B`, prove the same conclusion in an `A` case and a `B` case. The final
+; step combines the disjunction and the two implications produced by closing the case blocks; Kurt
+; prints it as `case-elim`, justified by the propositional theory's `or-elim` rule.
 
 load prop
 bool A, B, C, E
@@ -23,10 +23,12 @@ proof
 qed
 
 ; A `case` block behaves like `assume` when it closes: the first block produces `A implies C`, and
-; the second produces `B implies C`. The final `C` is the explicit `or-elim` step.
+; the second produces `B implies C`. The final `C` is the explicit `case-elim` step.
 ;
-; Three or four alternatives work the same way, with a `case` for each ("or-elim-3", "or-elim-4"
-; in prop.kurt):
+; Any finite number of alternatives works the same way, with a `case` for each. Kurt records one
+; kernel-checked `case-elim` step whose evidence includes `prop.kurt`'s general binary `or-elim`
+; rule, the disjunction, and the implication produced by every case block; it does not search
+; combinations of an n-premise rule.
 
 bool G
 use A or B or E
@@ -40,6 +42,3 @@ case B
 case E
     G
 G
-
-; For more alternatives, combine the cases in stages: a `case B or E or ...` block around the cases
-; of the rest, which closes with its own conclusion.

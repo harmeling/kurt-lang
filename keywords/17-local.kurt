@@ -10,11 +10,11 @@ load local-helper
 P                      ; fine -- "exported" was labelled, so it travelled here
 
 ; `Q` and `P implies Q` were never exported (one `local`, one unlabelled) --
-; try uncommenting either line below and you'll get an error, since neither
-; symbol nor fact ever arrived here:
-;
-;   Q
-;   use Q
+; neither the symbol `Q` nor a fact about it arrived here, so `Q` can't be
+; derived (the error even notes that `Q` was never declared):
+expect "ProofError" "never declared"
+    Q
+; (`use Q` would not be an error: it just adds `Q` as a new axiom of this file.)
 
 ; a symbol itself is exported exactly when some exported fact actually
 ; mentions it -- there's no separate "export this symbol" step. `P` came

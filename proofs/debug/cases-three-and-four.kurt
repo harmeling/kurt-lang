@@ -1,4 +1,4 @@
-; three or four `case` blocks in a row combine into "or-elim-3" / "or-elim-4" (prop.kurt); with
+; any finite number of `case` blocks combine through the kernel-checked `case-elim`; with
 ; only two of three alternatives, they don't
 load prop
 bool A, B, C, E, G, H, K
@@ -12,7 +12,7 @@ case B
     G
 case C
     G
-G                       ; by or-elim-3
+G                       ; by case-elim
 
 use A or B or C or E
 use A implies H
@@ -27,7 +27,7 @@ case C
     H
 case E
     H
-H                       ; by or-elim-4
+H                       ; by case-elim
 
 use A implies K
 use B implies K

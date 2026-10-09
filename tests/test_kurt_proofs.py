@@ -17,7 +17,7 @@ theories_root = res.files("kurt.theories")
 # is optional); an error that can only happen at the level of a whole file (a block still open at
 # its end, `break` at its top level, a circular `load`, ...) is in a helper file, in a directory
 # `helpers/`, which `expect` around a `load` checks -- the helper files aren't tests of their own.
-# minimal.kurt isn't one either: it is only for reference, and can't be loaded (tests/test_expect.py)
+# minimal.kurt isn't one either: it is the core, which Kurt reads when it starts, and can't be loaded
 
 def traversable_rglob(root, pattern=".kurt"):
     """Recursively yield all files ending with pattern from a Traversable root."""
@@ -41,7 +41,7 @@ def check_file(path_str: str):
     try:
         # (the kernel checks every step, and a `KernelError` makes the test fail)
         with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
-            _ = kurt.load_file(str(path), kb, mainstream=True)   # as when running the file, so the output is produced too
+            _ = kurt.load_file(str(path), kb, main=True)   # as when running the file, so the output is produced too
     except kurt.KurtException as e:
         return (err_buf.getvalue() or e.msg).strip().split('\n')[-1]
     return None

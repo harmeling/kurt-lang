@@ -14,7 +14,7 @@
 ;
 ; mappings are ZF-style sets of ordered pairs (their graphs), applied with kurt's ordinary
 ; space-application `$f $a` -- see the comment further down, right above "function-space".
-load equality, logic
+load prop, equality, logic
 
 ; syntax
 infix    in 25 25        ; element
@@ -33,7 +33,7 @@ brackets { }             ; curly brackets
 infix    → 30 30         ; for mappings
 alias    : in
 ; `calc on` decides `3 ∈ Nat` for a set that is bound to the calculator (natural.kurt's `calc Nat naturals`)
-calc     in element
+builtin in element
 infix    × 45 45         ; Cartesian product
 
 ; we assume that all objects are sets
@@ -48,7 +48,37 @@ use $a ∈ { $z ∈ $A | %F }  ≡  $a ∈ $A ∧ sub $z $a %F               "se
 
 ; subset
 def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)                    "subset"
-use $M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M                              "eq-def"
+; This is a characterization of two existing relations, hence not a conservative `def`; it is a
+; derived theorem of extensionality and the definition of subset.
+show ∀ $M ∀ $N ($M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M)                 "eq-def"
+proof
+    let M
+        let N
+            assume M = N
+                let c ∈ M
+                    c ∈ N
+                ∀ $c ($c ∈ M implies $c ∈ N)
+                M ⊂ N
+                let c ∈ N
+                    c ∈ M
+                ∀ $c ($c ∈ N implies $c ∈ M)
+                N ⊂ M
+                M ⊂ N ∧ N ⊂ M
+            assume M ⊂ N ∧ N ⊂ M
+                M ⊂ N
+                N ⊂ M
+                ∀ $c ($c ∈ M implies $c ∈ N)
+                ∀ $c ($c ∈ N implies $c ∈ M)
+                let c
+                    c ∈ M implies c ∈ N
+                    c ∈ N implies c ∈ M
+                    c ∈ M iff c ∈ N
+                ∀ $c ($c ∈ M iff $c ∈ N)
+                M = N
+            M = N  ≡  M ⊂ N ∧ N ⊂ M
+        ∀ $N (M = $N  ≡  M ⊂ $N ∧ $N ⊂ M)
+    ∀ $M ∀ $N ($M = $N  ≡  $M ⊂ $N ∧ $N ⊂ $M)
+qed
 
 ; the empty set, unions and power sets exist
 const ∅

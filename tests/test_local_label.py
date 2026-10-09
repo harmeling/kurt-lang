@@ -8,6 +8,7 @@ from kurt.kurt import (
     Formula,
     free_symbols,
 )
+from tests.utils import with_quantifiers
 
 def sym(name: str) -> Token:
     return Token(label="SYMBOL", value=name)
@@ -23,7 +24,7 @@ def forall(x: str, body: Expr) -> Expr:
 
 class TestCheckExprLabel(unittest.TestCase):
     def setUp(self):
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
 
     def test_bare_expression_no_label(self):
         expr = sym("P")
@@ -65,7 +66,7 @@ class TestFormulaIsExported(unittest.TestCase):
 
 class TestFreeSymbols(unittest.TestCase):
     def setUp(self):
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
 
     def test_simple_expression(self):
         expr = app("R", sym("a"), sym("b"))

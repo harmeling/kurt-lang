@@ -10,6 +10,7 @@ from kurt.kurt import (
     unify_exprs_with_patterns,
     trigger_sub
 )
+from tests.utils import with_quantifiers
 
 # Try to import your SUB symbol name; fall back to "sub"
 try:
@@ -37,7 +38,7 @@ def sub(x: str, a: Expr, A: Expr) -> Expr:
 class TestExistsIntroAndBlockedSets(unittest.TestCase):
     def setUp(self):
         # Fresh KB for each test; ensure required symbols are registered
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
         # `exists` is declared (arity + bindop) in `initial_kb` itself now, no need to
         # redeclare it here
         if hasattr(self.kb, "add_arity"):

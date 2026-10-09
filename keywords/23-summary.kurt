@@ -1,0 +1,24 @@
+; 23-summary.kurt
+
+; `summary` prints where the proof is: the open blocks with what opened them,
+; the claims still to prove, the latest facts, and what could come next.  It
+; is the same view that `breakpoint` (42-breakpoint.kurt) and `kurt -i` after
+; an error show, and that the playground and the editors use.
+
+load prop
+bool A, B, C
+use A or B
+use A implies C
+use B implies C
+
+summary                  ; nothing open yet: the latest facts
+
+show C "demo"
+proof
+    case A
+        summary          ; open: proof, case A -- to prove: C
+        C
+    case B
+        C
+    summary              ; both cases are done: next, e.g.: C
+qed

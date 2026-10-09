@@ -1,0 +1,35 @@
+; nothing has a meaning in the engine by its name alone: an `iff` is used as two implications,
+; an `or` split by `case`, a `false` at the end of an `assume` block gives `not`, and `def`
+; defines with `=` or `iff` -- only for the symbols a trusted theory gave that role with
+; `builtin` (prop.kurt: `builtin iff equivalence, or disjunction, not negation, false falsum`,
+; equality.kurt: `builtin = equality`). Before, a file's own `iff` was used as an equivalence
+; (found 2026-10-09, after the same bug for `or`, doc/kurt-soundness.md §8.28).
+
+; an `iff` of this file, without prop.kurt: just a relation
+infix iff 10 10
+bool iff 0 1 2
+bool A, B
+use A iff B
+use B
+expect "ProofError"
+    A
+
+; ... and a file can't give itself the role
+expect "EvalError" "can only be given by a theory that comes with Kurt"
+    builtin iff equivalence
+
+; `not` and `false` of this file: closing the block gives no `not A`
+prefix not 18
+bool not 0 1, false
+bool C
+use C implies false
+assume C
+    false
+expect "ProofError"
+    not C
+
+; `def` with an `=` of this file
+infix = 20 20
+bool = 0
+expect "EvalError" "needs the theory that gives `=` its meaning"
+    def c = 1

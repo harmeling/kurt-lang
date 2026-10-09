@@ -7,7 +7,7 @@
 
 load equality
 const a, b, f
-arity f 1
+arity f 1                       ; f takes one argument (lesson 20)
 
 use a = b
 use f(a) = a
@@ -26,7 +26,7 @@ f(b) = a
 
 load set
 const K, c
-infix · 70 70
+infix · 70 70                   ; `·` is written between its arguments (lesson 20)
 use $x ∈ K  ⇒  $x · 1 = $x      "one-right"
 use b ∈ K
 use c · (b · 1) = a

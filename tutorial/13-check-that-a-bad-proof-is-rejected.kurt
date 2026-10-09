@@ -14,7 +14,9 @@ expect "ProofError"
 
 true
 
-; Supported kinds are `ProofError`, `ParseError`, `EvalError`, `SyntaxError`, and `TypeError`. If
+; The kinds: `ScanError` (a symbol can't be scanned), `ParseError` (the line can't be read),
+; `EvalError` (readable, but not allowed -- e.g. wrong arguments of a keyword), `TypeError`
+; (boolean or not, sorts), `ProofError` (a claim can't be derived, a block can't close). If
 ; the block succeeds instead of raising the named error, the expectation itself fails.
 ;
 ; Use this pattern in teaching material and most negative regression proofs. Give the text only

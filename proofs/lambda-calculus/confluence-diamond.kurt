@@ -1,0 +1,13 @@
+; A finite local-confluence diamond for compatible beta reduction. This is evidence about the
+; encoding, not a proof of Church-Rosser: the general theorem requires induction and a transitive
+; closure (or parallel reduction) at the meta level.
+load lambda
+
+; Reducing the root first.
+(app (λ x x) (app (λ y y) unit)) ↦ (app (λ y y) unit)
+(app (λ y y) unit) ↦ unit
+
+; Reducing the argument first reaches a different intermediate term.
+(app (λ y y) unit) ↦ unit
+(app (λ x x) (app (λ y y) unit)) ↦ (app (λ x x) unit)
+(app (λ x x) unit) ↦ unit

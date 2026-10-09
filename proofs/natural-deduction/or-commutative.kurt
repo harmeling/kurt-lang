@@ -13,7 +13,7 @@ use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"
 ;; theorem
 bool p, q
 
-show (p ∨ q) ⇒ (q ∨ p)
+show (p ∨ q) implies (q ∨ p)
 proof
     assume p ∨ q
         assume p
@@ -23,7 +23,7 @@ proof
         q ∨ p
 qed
 
-show (p ∨ q) ⇒ (q ∨ p)
+show (p ∨ q) implies (q ∨ p)
 proof
     assume p
         q ∨ p

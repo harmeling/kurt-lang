@@ -7,9 +7,8 @@ import unittest
 from tests.utils import PROJECT_ROOT
 
 def run_kurt(kurt_source: str) -> str:
-    # `parse`'s output is only printed when `mainstream=True` (see kurt.py's `eval_keyword_
-    # expression`, the `parse` branch's `if mainstream: log(...)`), which the auto-discovered
-    # proofs/ test harness never exercises (it always calls `load_file` with `mainstream=
+    # `parse`'s output is only printed for the main file (see kurt.py's `printing`), which the
+    # auto-discovered proofs/ test harness never exercises (it always calls `load_file` with `main=
     # False`). So this display bug needs a real CLI run, not a `.kurt` proof file, to catch it.
     env = dict(os.environ)
     src_path = str(PROJECT_ROOT / "src")

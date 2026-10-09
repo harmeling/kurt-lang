@@ -18,13 +18,13 @@ class TestTodoDiscarded(unittest.TestCase):
             path = os.path.join(tmp, 'f.kurt')
             with open(path, 'w') as fh:
                 fh.write(text)
-            old = kurt.kurtc_enabled
-            kurt.kurtc_enabled = False
+            old = kurt.run_state.kurtc_enabled
+            kurt.run_state.kurtc_enabled = False
             try:
                 with contextlib.redirect_stdout(io.StringIO()), open(path, encoding='utf-8') as f:
                     bundle = kurt.checked_exports(path, f, Path(path), copy.deepcopy(kurt.initial_kb), False)
             finally:
-                kurt.kurtc_enabled = old
+                kurt.run_state.kurtc_enabled = old
         return bundle.todos
 
     def test_discarded(self):

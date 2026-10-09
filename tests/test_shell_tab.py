@@ -12,7 +12,8 @@ def shell(lines: list[str]):
     state = kurt.LexerState()
     with contextlib.redirect_stdout(io.StringIO()):
         for n, text in enumerate(lines, 1):
-            kb, state = kurt.scan_parse_check_eval(text, state, kb, n, '<test>', False)
+            with kurt.quietly():
+                kb, state = kurt.scan_parse_check_eval(text, state, kb, n, '<test>')
     return kb, state
 
 
@@ -30,6 +31,7 @@ class TestTab(unittest.TestCase):
     def test_latex_shortcuts(self):
         kb, state = shell([])
         self.assertEqual(kurt.completions('show \\forall', '\\forall', kb, state), ['∀'])
+        self.assertEqual(kurt.completions('M \\leadsto', '\\leadsto', kb, state), ['⇝'])
         self.assertIn('\\forall', kurt.completions('\\fo', '\\fo', kb, state))
 
     def test_theories_after_load(self):

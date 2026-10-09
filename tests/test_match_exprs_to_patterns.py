@@ -7,6 +7,7 @@ from kurt.kurt import (
     unify_exprs_with_patterns,
     trigger_sub
 )
+from tests.utils import with_quantifiers
 
 # Try to import your SUB symbol name; fall back to "sub"
 try:
@@ -37,7 +38,7 @@ def sub(x: str, a: Expr, A: Expr) -> Expr:
 class TestMatchExprsToPatterns(unittest.TestCase):
     def setUp(self):
         # fresh KB each test; add minimal binders used below
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
         # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
         # no need to redeclare them here
         if hasattr(self.kb, "add_arity"):
@@ -80,6 +81,18 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         # Your code orients to the pattern var first → {$y: $x}
         self.assertEqual(len(sols), 1)
         self.assertTrue(sols[0].lookup("$y") == sym("$x"))
+
+    def test_unify_var_on_expr_side_preserves_boolean_kind(self):
+        # Two-sided unification must apply the same Boolean/non-Boolean check when the variable
+        # is on the expression side. Otherwise a fact variable could be bound to the wrong kind.
+        self.assertEqual(
+            list(unify_exprs_with_patterns([(sym("%A"), sym("a"))], State.empty(), self.kb)),
+            [],
+        )
+        self.assertEqual(
+            list(unify_exprs_with_patterns([(sym("$x"), app("P", sym("a")))], State.empty(), self.kb)),
+            [],
+        )
 
     # --- 4) occurs-check blocks infinite terms ---
     def test_unify_occurs_check_blocks(self):
@@ -160,7 +173,7 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         self.assertEqual(sols[0].lookup("$v"), sym("$u"))
 
     def test_exists_intro_matching_allows_blocked_in_schema(self):
-        kb = copy.deepcopy(initial_kb)
+        kb = with_quantifiers(copy.deepcopy(initial_kb))
         kb.add_arity('prime', 1)
         kb.add_bool('prime', [0])
 

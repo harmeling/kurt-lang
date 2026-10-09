@@ -1,0 +1,25 @@
+; 36-sym.kurt
+
+; `sym OP` declares an infix operator symmetric: its arguments may be swapped
+; without changing the formula, as far as Kurt's matching is concerned.  This
+; matters when Kurt searches the theory for something to match against --
+; without it, `b + a` and `a + b` would be treated as unrelated formulas.
+; This is fixed semantic behavior, so `sym` also declares `+` constant.
+
+infix "+" 20 20
+sym "+"
+
+; `b + a` below is logged as `a + b`, a restatement of the axiom -- like an alias
+; (34-alias.kurt), a symmetric operator's argument order is normalised into a canonical form
+; while parsing, so `b + a` ends up the exact same stored formula as `a + b`.
+; Without `sym "+"` above, `b + a` would be a `ProofError` (can not derive).
+; (With `var a, b` instead, `use a + b` would be a schema, and `b + a` an
+; instance of it even without `sym` -- so we take constants.)
+const a, b
+use a + b
+b + a                 ; matches the axiom above even though the order differs (see above)
+
+; `=` (12-def.kurt, declared `sym` in `equality.kurt`) and `or` (declared
+; `sym` in `prop.kurt`) are both declared `sym` for exactly this reason.
+; `and` is *also* symmetric, but -- unlike `or` -- it's declared that way
+; hard-coded directly in `kurt.py`, not in `prop.kurt` (see `minimal.kurt`).

@@ -10,7 +10,7 @@ use A                  ; from now on `A` is an axiom
 A                       ; ...and so it can be checked
 
 ; `use` accepts an optional label describing where the axiom comes from; it
-; shows up in the log instead of the generic "without proof":
+; shows up in the log after "without proof", and later steps cite it by name:
 
 bool B
 use B  "our-second-axiom"

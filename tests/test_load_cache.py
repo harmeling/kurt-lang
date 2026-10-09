@@ -67,9 +67,9 @@ class TestLoadCache(unittest.TestCase):
     def test_an_unchanged_file_is_checked_once(self):
         session = kurt.new_session(kurt.RunConfig(paths=(self.teacher,)))
         self.assertTrue(self.check(session).ok)
-        self.assertTrue(len(session._state['_checked_exports']) >= 2)       # helper and dep
+        self.assertTrue(len(session._state._checked_exports) >= 2)       # helper and dep
         with session._active():
-            entries = list(kurt._checked_exports.values())
+            entries = list(kurt.run_state._checked_exports.values())
             self.assertTrue(all(kurt.same_load_resolutions(e[2]) for e in entries))
         self.assertTrue(self.check(session).ok)
 

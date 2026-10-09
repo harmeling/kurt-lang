@@ -6,7 +6,7 @@
 load numbers
 const plus
 infix plus 60 60
-calc plus add
+builtin plus add
 expect "EvalError"
     def c plus $x = 0
 

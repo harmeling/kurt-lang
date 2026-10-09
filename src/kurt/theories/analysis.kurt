@@ -16,7 +16,7 @@
 ; introduce them, from a proof that the maximum (supremum, limit) exists: a rule like
 ; `(lim $v $a $T) = $L ⇔ ...` would be wrong, since `lim v 0 (1 / v) = lim v 0 (1 / v)` would
 ; then say that this limit exists.
-load natural
+load prop, equality, logic, set, numbers, natural
 
 ;; absolute value
 const abs

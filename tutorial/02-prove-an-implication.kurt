@@ -23,12 +23,16 @@ proof
 qed
 
 ; The facts proved inside the block do not leak out individually. The result that leaves the block
-; is `A implies C`. The output shows it after the block, numbered by the lines of the block:
+; is `A implies C`. The output shows it after the block, numbered by the lines of the block (the
+; numbers in front are the lines of the file):
 ;
-;     assume A                              ; 14 open block with assumption
-;         B                                 ; 15 by 9(14)
-;         C                                 ; 16 by 10(15)
-;     A implies C                           ; 14-16 by impl-intro
+;   20      assume A                              ; open block with assumption
+;   21          B                                 ; by 15(20)
+;   22          C                                 ; by 16(21)
+;           A implies C                           ; 20-22 by impl-intro
+;   23  qed                                       ; by 20-22
+;
+; `qed` closes the proof of the claim of line 18 with the result of lines 20-22.
 ;
 ; A line indented more than the lines before it, without a line that opens a block, is an error
 ; ("unexpected increased indentation"), and so is a line that goes back to an indentation that no

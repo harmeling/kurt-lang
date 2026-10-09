@@ -26,16 +26,22 @@ def shell(lines: list[str]) -> tuple[str, str]:
     out, err = io.StringIO(), io.StringIO()
     try:
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            kurt.read_eval_loop(stdin, copy.deepcopy(kurt.initial_kb), mainstream=True)
+            kurt.read_eval_loop(stdin, copy.deepcopy(kurt.initial_kb))
     finally:
         builtins.input = old_input
     return out.getvalue(), err.getvalue()
 
 
+def at_the_top(out: str) -> bool:
+    # `summary` (the last line typed) shows no open block
+    summary = [line for line in out.splitlines() if line.startswith('; ')]
+    return bool(summary) and not any(line.startswith('; open:') for line in summary)
+
+
 class TestShellErrors(unittest.TestCase):
     def test_line_after_a_confirmed_expect_fails_again(self):
         # the line closing the `expect` is evaluated again, and fails again: an error, not a traceback
-        out, err = shell(['load prop', 'bool A, C', 'expect "ProofError"', '    let x', '        const h',
+        out, err = shell(['load logic', 'bool A, C', 'expect "ProofError"', '    let x', '        const h',
                           '        todo A h', 'C', 'A implies A'])
         self.assertIn('confirmed', out)
         self.assertIn('can not derive `C`', err)
@@ -48,31 +54,31 @@ class TestShellErrors(unittest.TestCase):
         self.assertIn('by chain', out)
 
     def test_failed_line_keeps_the_block(self):
-        out, err = shell(['load prop', 'bool A, B', 'assume A', '    B', '    A', 'A implies A', 'mode'])
+        out, err = shell(['load prop', 'bool A, B', 'assume A', '    B', '    A', 'A implies A', 'summary'])
         self.assertEqual(err.count('Error'), 1, err)             # only `B`
         self.assertIn('A implies A', out)
-        self.assertIn('root', out.splitlines()[-3])
+        self.assertTrue(at_the_top(out), out)
 
     def test_several_picks_on_one_line(self):
         out, err = shell(['load logic, equality', 'const a', 'exists y (y = a)',
-                          'pick c with c = a, d with d = a', 'a = a', 'mode'])
+                          'pick c with c = a, d with d = a', 'a = a', 'summary'])
         self.assertIn('one `pick` per line', err)
         self.assertEqual(err.count('Error'), 1, err)
-        self.assertIn('root', out.splitlines()[-3])
+        self.assertTrue(at_the_top(out), out)
 
     def test_failed_first_line_of_a_block(self):
         # the block is open, with the indentation of that line: the next line can close it
         # (the dedent can't close it, it has no `ProofError` -- so it stays open, until `break`)
-        out, err = shell(['load prop', 'expect "ProofError"', '    local', 'true', '    break', 'mode'])
-        self.assertIn('got a different error', err)                    # a `SyntaxError`
+        out, err = shell(['load prop', 'expect "ProofError"', '    local', 'true', '    break', 'summary'])
+        self.assertIn('got a different error', err)                    # a `ParseError`
         self.assertNotIn('expected increased indentation', err)
         self.assertEqual(err.count('ExpectationError'), 1, err)        # `true` can't close the block
-        self.assertIn('root', out.splitlines()[-3])
+        self.assertTrue(at_the_top(out), out)
 
 
 class TestLatexShortcuts(unittest.TestCase):
     def test_only_whole_commands(self):
-        # `\b` is the box of modal.kurt, but `\bot` was replaced by `□ot`
+        # `\b` is the modal box shortcut, but `\bot` was replaced by `□ot`
         self.assertEqual(kurt.replace_latex_syntax(r'\b A'), '□ A')
         self.assertEqual(kurt.replace_latex_syntax(r'\cap\cup'), '∩∪')
         for command in (r'\bot', r'\div', r'\bigcup'):

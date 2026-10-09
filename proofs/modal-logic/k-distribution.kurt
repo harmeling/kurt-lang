@@ -1,20 +1,11 @@
-; regression test for a real bug: modal.kurt's axioms used to be written with plain symbols
-; (`p`, `q`, `A`, `B`) instead of `%`-prefixed schema variables (unlike every other theory in
-; this repo), which silently pinned every axiom to those exact two hardcoded propositions --
-; `K` could only ever be applied to the literal `p`/`q` declared in the file, never to any other
-; boolean expression. Confirmed the bug directly before fixing it: `use □(X ⇒ Y)` + `use □X`
-; could never derive `□X ⇒ □Y`, only the literal `□(p ⇒ q)` + `□p` could. Fixed by rewriting the
-; axioms with `%p`/`%q`. This proof deliberately uses `X`/`Y`, not `p`/`q`, specifically so it
-; would have caught the bug (confirmed: reverting the fix breaks exactly this file).
-;
-; note: kurt's derivation is single-hop, so applying `K` (a chained implication, not a
-; conjunction-antecedent) needs the intermediate `□X ⇒ □Y` written out explicitly before the
-; final `□Y` -- see doc/kurt-doc.md's "known gaps" (single-hop derivation).
+; the axiom K, □(X → Y) → (□X → □Y), for letters with other names than those of the axiom in
+; modal.kurt (a regression test: the axiom's variables must be renamed apart)
 load modal
-bool X, Y
+const X, Y
+formula X, Y
 
-use □(X ⇒ Y)
-use □X
+use ⊢ □(X → Y)
+use ⊢ □X
 
-□X ⇒ □Y
-□Y
+⊢ (□X → □Y)
+⊢ □Y

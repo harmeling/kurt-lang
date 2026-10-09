@@ -51,7 +51,7 @@ SYMBOLS = {
     # relations, sets, arithmetic
     '≠': r'\neq', '<=': r'\leq', '≤': r'\leq', '>=': r'\geq', '≥': r'\geq', 'in': r'\in',
     '∈': r'\in', '⊂': r'\subset', '∪': r'\cup', '∩': r'\cap', '∅': r'\emptyset',
-    '→': r'\to', '*': r'\cdot', '□': r'\Box', '◇': r'\Diamond', 'λ': r'\lambda',
+    '→': r'\to', '⊢': r'\vdash', '*': r'\cdot', '□': r'\Box', '◇': r'\Diamond', 'λ': r'\lambda',
     'invimplies': r'\Leftarrow', '⇐': r'\Leftarrow', '∉': r'\notin', '⊆': r'\subseteq',
     '⊃': r'\supset', '⊇': r'\supseteq', '×': r'\times', '∘': r'\circ', '·': r'\cdot',
     '∣': r'\mid', '↦': r'\mapsto', '⟨': r'\langle ', '⟩': r'\rangle ', '∞': r'\infty',
@@ -71,7 +71,7 @@ LINE = re.compile(r'^( *)(.*?)\s*(?:; (.*))?$')
 
 def latex_formula(text: str) -> str:
     # `$a` and `%A` (variables) are written `a` and `A`, as in mathematics
-    text = re.sub(r'[$%]+([A-Za-z])', r'\1', text)
+    text = re.sub(r'[$%]+(?=[A-Za-z\u0370-\u03ff])', '', text)
     text = text.replace('%', r'\%').replace('$', r'\$').replace('&', r'\&').replace('#', r'\#')
     words = re.split(r'(\s+|[(){}\[\],])', text)
     # a name of several letters (`inv`, `det`, `Nat`) upright, as `\mathrm{inv}`
@@ -124,7 +124,7 @@ def main() -> None:
         output = sys.stdin.read()
     else:
         kurt = Path(__file__).resolve().parent.parent / 'src' / 'kurt' / 'kurt.py'
-        result = subprocess.run([sys.executable, str(kurt), sys.argv[1]], capture_output=True, text=True)
+        result = subprocess.run([sys.executable, str(kurt), '--no-line-numbers', sys.argv[1]], capture_output=True, text=True)
         if result.returncode != 0:
             sys.stderr.write(result.stderr)
             sys.exit(result.returncode)

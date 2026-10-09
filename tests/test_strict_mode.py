@@ -10,22 +10,22 @@ import kurt.kurt as kurt   # the module itself, since `strict_mode` is a module-
 # i.e. the theories that come with Kurt, or the ones found via `-p`
 class TestStrictMode(unittest.TestCase):
     def setUp(self):
-        kurt.strict_mode = True
-        self.trusted = list(kurt.trusted_paths)
+        kurt.run_state.strict_mode = True
+        self.trusted = list(kurt.run_state.trusted_paths)
 
     def tearDown(self):
-        kurt.strict_mode = False
-        kurt.trusted_paths[:] = self.trusted
+        kurt.run_state.strict_mode = False
+        kurt.run_state.trusted_paths[:] = self.trusted
 
     def check(self, source: str, tmp: str) -> None:
         path = os.path.join(tmp, 'exercise.kurt')
         with open(path, 'w') as fh:
             fh.write(source)
-        kurt.load_file(path, copy.deepcopy(kurt.initial_kb), mainstream=False)
+        kurt.load_file(path, copy.deepcopy(kurt.initial_kb), main=False)
 
     def test_rejects_unproven_statements(self):
         for source in ['bool A\nuse A\n', 'bool A\ntodo A\n', 'infix lt 20 20\nbool lt 0\nchain lt\n',
-                       'infix plus 60 60\ncalc plus add\n',       # a `calc` binding is like an axiom
+                       'infix plus 60 60\nbuiltin plus add\n',       # a `calc` binding is like an axiom
                        'infix plus 60 60\nsym plus\n', 'infix plus 60 60\nflat plus\n']:   # so are `sym` and `flat`
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
                 with self.assertRaises(kurt.KurtException):
@@ -50,13 +50,13 @@ class TestStrictMode(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as teacher:
             with open(os.path.join(teacher, 'axioms.kurt'), 'w') as fh:
                 fh.write('bool P\nuse P "p"\n')
-            kurt.trusted_paths.append(kurt.Path(teacher))
-            search = kurt.theory_path[:]
-            kurt.theory_path.insert(1, kurt.Path(teacher))
+            kurt.run_state.trusted_paths.append(kurt.Path(teacher))
+            search = kurt.run_state.theory_path[:]
+            kurt.run_state.theory_path.insert(1, kurt.Path(teacher))
             try:
                 self.check('load axioms\nP\n', tmp)
             finally:
-                kurt.theory_path[:] = search
+                kurt.run_state.theory_path[:] = search
 
 
 if __name__ == '__main__':

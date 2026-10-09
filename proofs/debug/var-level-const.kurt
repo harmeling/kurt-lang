@@ -3,4 +3,4 @@ var x
 assume A
   const x       ; that's ok, since on the current level there is no variable
   true
-A ⇒ true
+A implies true

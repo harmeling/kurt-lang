@@ -1,0 +1,41 @@
+; Grammar and semantic properties must not combine in ways that make normalization change the
+; expression's meaning. These combinations once let satisfiable axioms prove `false`.
+
+load prop
+
+expect "EvalError" "can not be `flat`"
+    prefix f 90
+    infix f 50 50
+    flat f
+
+expect "EvalError" "can not also be prefix"
+    infix f 50 50
+    flat f
+    prefix f 90
+
+expect "EvalError" "can not be `sym`"
+    infix q 20 20
+    bindop q
+    sym q
+
+expect "EvalError" "can not be a binding operator"
+    infix q 20 20
+    sym q
+    bindop q
+
+expect "EvalError" "explicit arity"
+    arity h 2
+    prefix h 90
+
+expect "EvalError" "between 0 and its arity 1"
+    prefix p 90
+    bool p 0 2
+
+expect "EvalError" "non-boolean result"
+    builtin arithmetic add
+    bool arithmetic 0
+
+expect "EvalError" "first position"
+    bool binder 0 1
+    arity binder 2
+    bindop binder

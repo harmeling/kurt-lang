@@ -6,7 +6,7 @@ import unittest
 
 import kurt.kurt as kurt
 
-from tests.utils import PROJECT_ROOT
+from tests.utils import PROJECT_ROOT, with_quantifiers, numbered
 
 
 def run_with_certificates(text: str, name: str = 'kernel-test.kurt') -> list[kurt.Certificate]:
@@ -14,10 +14,10 @@ def run_with_certificates(text: str, name: str = 'kernel-test.kurt') -> list[kur
     path = PROJECT_ROOT / 'tests' / name
     path.write_text(text)
     try:
-        kb = copy.deepcopy(kurt.initial_kb)
+        kb = with_quantifiers(copy.deepcopy(kurt.initial_kb))
         with contextlib.redirect_stdout(io.StringIO()):
             kurt.load_file(str(path), kb)
-        mine = sorted((line, certs) for (f, line), certs in kurt.certificates_by_line.items() if f == str(path))
+        mine = sorted((line, certs) for (f, line), certs in kurt.run_state.certificates_by_line.items() if f == str(path))
         return [cert for _, certs in mine for cert, _ in certs]
     finally:
         path.unlink()
@@ -111,6 +111,29 @@ class TestKernelRejects(unittest.TestCase):
         self.assert_rejected(v, {'no facts': 'does not follow', 'other goal': 'is not the goal',
                                  'unknown rule': 'not in the theory'})
 
+    def test_nary_case_elimination(self):
+        def variants(cert, kb):
+            wrong_rule = fact_named(kb, 'A or B or C')
+            return {
+                'missing case': dataclasses.replace(cert, facts=cert.facts[:-1]),
+                'wrong order': dataclasses.replace(cert, facts=[cert.facts[0], cert.facts[2], cert.facts[1], *cert.facts[3:]]),
+                'other goal': dataclasses.replace(cert, goal=token('A')),
+                'wrong rule': dataclasses.replace(cert, rule=wrong_rule),
+                'no rule': dataclasses.replace(cert, rule=None),
+            }
+        text = '\n'.join([
+            'load prop', 'bool A, B, C, G', 'use A or B or C',
+            'use A implies G', 'use B implies G', 'use C implies G', 'G',
+        ])
+        v = self.verdicts(text, variants, which=lambda cert: cert.kind == 'case-elim')
+        self.assert_rejected(v, {
+            'missing case': 'exactly one implication',
+            'wrong order': 'does not prove the goal from its alternative',
+            'other goal': 'does not prove the goal from its alternative',
+            'wrong rule': 'not general binary disjunction elimination',
+            'no rule': 'not in the theory',
+        })
+
     def test_free_variable_of_the_goal_gets_no_value(self):
         def variants(cert, kb):
             return {'value': dataclasses.replace(cert, values={**cert.values, **{y: token('c') for y in cert.fixed}})}
@@ -126,19 +149,20 @@ class TestKernelRejects(unittest.TestCase):
             b = next(t.value for t in kurt.get_token_set(other.simplified_expr) if str(t.value).startswith('$'))
             values = {**cert.values, value_named(cert, kb, 'c'): token(e), b: token(e)}
             return {'eigen': dataclasses.replace(cert, facts=[other], values=values)}
-        text = '\n'.join(['bool R, Q', 'arity R 2', 'const R, Q, c',
-                          'use (∀ $x (R $x $T)) implies Q', 'use R $a c', 'use R $b $b', 'Q'])
+        text = '\n'.join(['load logic', 'bool R, Q', 'arity R 2', 'const R, Q, c',
+                          'use (forall $x (R $x $T)) implies Q', 'use R $a c', 'use R $b $b', 'Q'])
         self.assert_rejected(self.verdicts(text, variants), {'eigen': 'depends on the fresh variables'})
 
     def test_no_capture(self):
         # `$T` in `∃ $y (R $y $T)` is one fixed term: it can't be the bound `$y`
         def variants(cert, kb):
             y = cert.expr[1][1].value
-            other = fact_named(kb, '∃ $z (R $z $z)')
+            other = fact_named(kb, 'exists $z (R $z $z)')
             values = {**cert.values, value_named(cert, kb, 'c'): token(y)}
             return {'capture': dataclasses.replace(cert, facts=[other], values=values)}
-        text = '\n'.join(['bool R, Q', 'arity R 2', 'const R, Q, c',
-                          'use (∃ $y (R $y $T)) implies Q', 'use ∃ $z (R $z c)', 'use ∃ $z (R $z $z)', 'Q'])
+        text = '\n'.join(['load logic', 'bool R, Q', 'arity R 2', 'const R, Q, c',
+                          'use (exists $y (R $y $T)) implies Q', 'use exists $z (R $z c)',
+                          'use exists $z (R $z $z)', 'Q'])
         self.assert_rejected(self.verdicts(text, variants), {'capture': 'capture'})
 
     def test_rule_with_sub(self):
@@ -148,6 +172,25 @@ class TestKernelRejects(unittest.TestCase):
         text = 'load equality\nconst a, b, f\narity f 1\nuse a = b\nuse f a = a\nf b = a'
         v = self.verdicts(text, variants, lambda cert: cert.rule is not None and cert.rule.label == 'equal-elim')
         self.assert_rejected(v, {'other value': ''})
+
+    def test_sorted_schema_value_is_checked_by_kernel(self):
+        # Search skips `P d` because the rule variable has sort nat. A forged certificate must
+        # not be able to select that fact and substitute the vec value in the independent kernel.
+        def variants(cert, kb):
+            other = fact_named(kb, 'P d')
+            return {'wrong sort': dataclasses.replace(
+                cert,
+                facts=[other],
+                values={**cert.values, value_named(cert, kb, 'c'): token('d')},
+            )}
+        text = '\n'.join([
+            'sort nat, vec', 'var n', 'nat n', 'const c, d', 'nat c', 'vec d',
+            'bool P 0', 'arity P 1', 'bool Q',
+            'use (P n) implies Q "nat-only"', 'use P c', 'use P d', 'Q',
+        ])
+        verdicts = self.verdicts(text, variants,
+                                 lambda cert: cert.rule is not None and cert.rule.label == 'nat-only')
+        self.assert_rejected(verdicts, {'wrong sort': 'sort `nat`'})
 
 
 
@@ -181,7 +224,7 @@ class TestKernelRejectsBlocks(unittest.TestCase):
             if cert.kind != 'forall-intro':
                 return {}
             return {'no forall': dataclasses.replace(cert, goal=cert.rule.expr)}
-        text = 'bool P\narity P 1\nconst P\nuse P $y\nlet x\n    P x\ntrue'
+        text = 'load logic\nbool P\narity P 1\nconst P\nuse P $y\nlet x\n    P x\ntrue'
         self.assert_rejected(self.verdicts(text, 'forall-intro', variants), {'no forall': 'is not'})
 
     def test_exists_elim(self):
@@ -224,11 +267,11 @@ class TestCertCommand(unittest.TestCase):
         path = PROJECT_ROOT / 'tests' / 'cert-test.kurt'
         path.write_text(text)
         try:
-            kb = copy.deepcopy(kurt.initial_kb)
+            kb = with_quantifiers(copy.deepcopy(kurt.initial_kb))
             out = io.StringIO()
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
                 try:
-                    kurt.load_file(str(path), kb, mainstream=True)
+                    kurt.load_file(str(path), kb, main=True)
                 except kurt.KurtException:
                     pass
             return out.getvalue()
@@ -269,12 +312,12 @@ class TestShortForm(unittest.TestCase):
         out = self.output('\n'.join(['load equality', 'bool A, B', 'const a, b, f', 'arity f 1',
                                       'use A implies B', 'use A', 'B', 'use a = b', 'use f a = a', 'f b = a',
                                       'A ∧ B', 'assume A', '    B', 'true']))
-        self.assertIn('; 7 by 5(6)', out)                    # the implication of line 5 with the fact of line 6
-        self.assertIn('; 10 by equal-elim(8, 9)', out)
-        out_and = self.output('bool A, B\nuse A\nuse B implies B\nuse B\nA ∧ B\n')
-        self.assertIn('; 5 by and-intro(5a, 5b)', out_and)
+        self.assertTrue(numbered(out, 7, 'by 5(6)'), out)                    # the implication of line 5 with the fact of line 6
+        self.assertTrue(numbered(out, 10, 'by equal-elim(8, 9)'), out)
+        out_and = self.output('bool A, B\nuse A\nuse B implies B\nuse B\nA and B\n')
+        self.assertTrue(numbered(out_and, 5, 'by and-intro(5a, 5b)'), out_and)
         self.assertIn('; 12-13 by impl-intro', out)          # numbered by its block, not by line 14
-        self.assertIn('; 14 by top-intro', out)
+        self.assertTrue(numbered(out, 14, 'by top-intro'), out)
 
     def test_the_result_of_a_block_is_numbered_by_its_lines(self):
         # the result of a closed block used to have the number of the next line, which has a step
@@ -287,17 +330,17 @@ class TestShortForm(unittest.TestCase):
         self.assertIn('; 6-7 by impl-intro', out)
         self.assertIn('; 9-10 by not-intro', out)              # an inner block
         self.assertIn('; 8-11 by impl-intro', out)             # the outer one, to the end of its last line
-        self.assertIn('; 11 by 9-10', out)                     # used by its lines
+        self.assertTrue(numbered(out, 11, 'by 9-10'), out)                     # used by its lines
         self.assertNotIn('; 6 by impl-intro', out)
 
     def test_comments_stay(self):
         out = self.output('bool A, B\nuse A implies B   ; the rule\nuse A\nB   ; modus ponens\nA\n')
         lines = out.splitlines()
-        i = next(i for i, line in enumerate(lines) if line.startswith('B '))
+        i = next(i for i, line in enumerate(lines) if line.lstrip(' 0123456789').startswith('B '))
         self.assertTrue(lines[i].endswith('; modus ponens'), lines[i])
-        self.assertEqual(lines[i + 1].strip(), '; 4 by 2(3)')
-        self.assertTrue(any(line.startswith('use A implies B') and line.endswith('; the rule') for line in lines))
-        self.assertTrue(any(line.startswith('A ') and line.endswith('; 5 by 3') for line in lines))    # no comment: as before
+        self.assertEqual(lines[i + 1].strip(), '; by 2(3)')
+        self.assertTrue(any(line.lstrip(' 0123456789').startswith('use A implies B') and line.endswith('; the rule') for line in lines))
+        self.assertTrue(numbered(out, 5, 'by 3'), out)    # no comment: as before
 
 
 class TestKernelErrorStops(unittest.TestCase):
@@ -312,13 +355,13 @@ class TestKernelErrorStops(unittest.TestCase):
 
     def test_kernel_error_stops_the_file(self):
         with self.assertRaises(kurt.KernelError) as e:
-            self.run_rejecting('bool A\nuse A\nA ∧ A')
+            self.run_rejecting('bool A\nuse A\nA and A')
         self.assertIn('rejected for the test', e.exception.msg)
         self.assertEqual(e.exception.kind, 'KernelError')
 
     def test_expect_does_not_catch_it(self):
         with self.assertRaises(kurt.KurtException) as e:
-            self.run_rejecting('bool A\nuse A\nexpect "ProofError"\n    A ∧ A')
+            self.run_rejecting('bool A\nuse A\nexpect "ProofError"\n    A and A')
         self.assertIn('KernelError', e.exception.msg)
 
 

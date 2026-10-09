@@ -1,0 +1,25 @@
+; 42-breakpoint.kurt
+
+; `breakpoint` is a line in a proof file where you want to look around --
+; like `breakpoint()` in Python. Run the file at a terminal (or with
+; `kurt -i FILE`): checking stops there, and the shell continues with exactly
+; that state -- the open blocks, the facts, what is still to prove. Try steps
+; there until one works, then write it into the file. (Ctrl-D ends the shell.)
+;
+; Without a terminal (in the playground, or when Kurt is used from Python),
+; `breakpoint` shows that state and checking goes on -- as here:
+
+load prop
+bool A, B
+use A
+use A implies B
+show A and B
+proof
+    B
+    breakpoint          ; shows: open: proof, to prove: A and B, the facts, next: A and B
+    A and B
+qed
+
+; Related: after an error, `kurt -i FILE` continues in the shell at the
+; failing line, with the state there; and `hint on` (39-hint.kurt) shows
+; before each prompt what could come next.

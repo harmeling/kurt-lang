@@ -6,10 +6,7 @@ use c > 0 "c-pos"
 show c + 1 > 1
 proof
     ; inside a block, to have something to show
-    level
-    mode
-    trail
-    context
+    summary
     show
     c + 1 > 0 + 1
 qed
@@ -49,29 +46,23 @@ cert
 cert 5, 999
 
 ; wrong arguments
-expect "ParseError"
-    level 1
-expect "ParseError"
-    mode 1
-expect "ParseError"
-    trail 1
-expect "ParseError"
-    context 1
-expect "ParseError"
+expect "EvalError"
+    summary 1
+expect "EvalError"
     format latex
-expect "ParseError"
+expect "EvalError"
     format sexpr normal
-expect "ParseError"
+expect "EvalError"
     calc maybe
-expect "ParseError"
+expect "EvalError"
     calc on, off
-expect "ParseError"
+expect "EvalError"
     syntax 1
-expect "ParseError"
+expect "EvalError"
     theory 1
-expect "ParseError"
+expect "EvalError"
     cert x
-expect "ParseError"
+expect "EvalError"
     save
-expect "ParseError"
+expect "EvalError"
     save "a.kurt", "b.kurt"

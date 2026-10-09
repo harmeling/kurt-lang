@@ -13,7 +13,7 @@
 ; its variables have values (`($n - 1)!` with `$n := 3` matches `2!`, see
 ; proofs/arithmetic/factorial-with-calc.kurt) -- but it doesn't solve: `$b / 3` doesn't match
 ; `0` while `$b` is unknown.
-load equality
+load prop, equality
 
 ;; syntax
 infix   +  60 60           ; binary plus
@@ -37,8 +37,8 @@ alias   ≤ <=
 alias   ≥ >=
 
 ; `calc on` computes these with numbers, exactly (see doc/kurt-doc.md, `calc`)
-calc    + add, - subtract, - negate, * multiply, / divide, ^ power
-calc    = eq, ≠ ne, < lt, <= le, > gt, >= ge
+builtin + add, - subtract, - negate, * multiply, / divide, ^ power
+builtin = eq, ≠ ne, < lt, <= le, > gt, >= ge
 
 ;; rules
 use $a = $b  ⇒  $a + $c = $b + $c   "add-eq"
@@ -124,7 +124,7 @@ use $a >= $b  ⇒  ¬($a < $b)   "ge-not-lt"
 
 ;; transitivity: genuinely automatic now, not hand-written -- `chain = <= <` and
 ;; `chain = >= >` above make kurt itself generate every combined-transitivity fact
-;; ("lt-trans", "le-lt-trans", "ge-gt-trans", ... one per ordered pair of chain members) as a
+;; ("chain-trans-I-J", by the positions of the two relations in the chain, one per ordered pair) as a
 ;; real, directly-usable axiom. See `generate_chain_transitivity` in kurt.py and
 ;; doc/kurt-soundness.md for how and why.
 

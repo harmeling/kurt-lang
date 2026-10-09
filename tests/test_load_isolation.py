@@ -28,7 +28,7 @@ class LoadTestCase(unittest.TestCase):
     def check(self, name: str) -> tuple[kurt.KnowledgeBase, str]:
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            kb = kurt.load_file(os.path.join(self.dir.name, name), copy.deepcopy(kurt.initial_kb), mainstream=True)
+            kb = kurt.load_file(os.path.join(self.dir.name, name), copy.deepcopy(kurt.initial_kb), main=True)
         return kb, out.getvalue()
 
     def fails(self, name: str) -> str:
@@ -61,8 +61,8 @@ class TestIsolation(LoadTestCase):
         self.write('lib.kurt', 'bool C\nuse C "c"\ntheory\n')
         self.write('main.kurt', 'load big\nload lib\n')
         read_eval_loop = kurt.read_eval_loop
-        def recording(f, kb, mainstream=False):
-            kb = read_eval_loop(f, kb, mainstream)
+        def recording(f, kb):
+            kb = read_eval_loop(f, kb)
             if f.name.endswith('lib.kurt'):
                 seen.append(sum(len(node.theory) for node in kb.levels()))
             return kb
@@ -145,9 +145,9 @@ class TestCache(LoadTestCase):
         self.write('main.kurt', 'load lib\n')
         reads = []
         read_eval_loop = kurt.read_eval_loop
-        def counting(f, kb, mainstream=False):
+        def counting(f, kb):
             reads.append(os.path.basename(f.name))
-            return read_eval_loop(f, kb, mainstream)
+            return read_eval_loop(f, kb)
         kurt.read_eval_loop = counting
         try:
             self.check('main.kurt')

@@ -1,0 +1,16 @@
+; the quantifiers come with logic.kurt (`builtin forall universal, exists existential`): without
+; `load logic`, `forall` is an ordinary word -- no binder, and the engine gives it no meaning.
+;
+; History: before 2026-10-09 the syntax of `forall`/`exists` was part of the core, since the
+; engine handled them by name (it strips the outer `forall`s of facts), and an undeclared `forall`
+; crashed that code (doc/kurt-soundness.md §1). Now the engine only handles the symbol with the
+; role `universal`, so the word is harmless: a fact with it is just a fact, and nothing follows
+; from it by instantiation.
+bool A
+arity A 1
+const a
+use forall x A x                 ; `forall` applied to `x`, `A`, `x`: just a formula
+expect "ProofError"
+    A a                          ; no instantiation: `forall` means nothing here
+expect "EvalError" "load logic"
+    let y                        ; no quantifier to close `let` with

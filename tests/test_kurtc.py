@@ -8,18 +8,19 @@ import unittest
 from pathlib import Path
 
 import kurt.kurt as kurt
+from tests.utils import numbered
 
 
 class KurtcTestCase(unittest.TestCase):
     # runs files in a temporary directory, with `.kurtc` files on (as `kurt` on the command line)
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
-        self.old = kurt.kurtc_enabled
-        kurt.kurtc_enabled = True
+        self.old = kurt.run_state.kurtc_enabled
+        kurt.run_state.kurtc_enabled = True
 
     def tearDown(self):
-        kurt.kurtc_enabled = self.old
-        kurt.replay_hints.clear()
+        kurt.run_state.kurtc_enabled = self.old
+        kurt.run_state.replay_hints.clear()
         self.dir.cleanup()
 
     def write(self, name: str, text: str) -> Path:
@@ -31,7 +32,7 @@ class KurtcTestCase(unittest.TestCase):
         kb = copy.deepcopy(kurt.initial_kb)
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            kurt.load_file(str(path), kb, mainstream=True)
+            kurt.load_file(str(path), kb, main=True)
         return out.getvalue()
 
 
@@ -131,7 +132,7 @@ class TestReplay(KurtcTestCase):
         content = json.loads(Path(str(path) + 'c').read_text())
         content['steps']['4'][0]['values'] = 'nonsense'
         Path(str(path) + 'c').write_text(json.dumps(content))
-        self.assertIn('B                                         ; 4 by 2(3)', self.run_file(path))
+        self.assertTrue(numbered(self.run_file(path), 4, 'by 2(3)'))
 
 
 class TestDependencies(KurtcTestCase):

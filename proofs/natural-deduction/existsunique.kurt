@@ -1,0 +1,78 @@
+; unique existence, `∃! x P(x)` (logic.kurt): its definition, and the three rules that follow
+; from it.
+load logic
+
+; 1. The rules "existsunique-intro", "-exists" and "-unique" are axioms of logic.kurt (a general
+;    proof would need `sub`). Here each of them is derived for a predicate `P` from the
+;    definition alone -- with a binder `eu` of our own that has only the defining axiom.
+arity  eu 2
+bindop eu
+bool   eu 0 2
+use (eu $x %A)  iff  exists $x (%A and (forall $y ((sub $x $y %A) implies ($y = $x))))  "eu-def"
+
+bool P
+arity P 1
+const a, b, c
+
+; intro: P(a), and every y with P(y) is a
+show (P(a) and (forall y (P(y) implies y = a))) implies (eu x P(x))
+proof
+    assume P(a) and (forall y (P(y) implies y = a))
+        exists x (P(x) and (forall y (P(y) implies y = x)))
+        eu x P(x)
+qed
+
+; exists and unique: the witness of the definition
+show (eu x P(x)) implies (exists x P(x))
+proof
+    assume eu x P(x)
+        exists x (P(x) and (forall y (P(y) implies y = x)))
+        pick w with P(w) and (forall y (P(y) implies y = w))
+            P(w)
+            exists x P(x)
+qed
+
+show ((eu x P(x)) and P(b) and P(c)) implies b = c
+proof
+    assume (eu x P(x)) and P(b) and P(c)
+        eu x P(x)
+        exists x (P(x) and (forall y (P(y) implies y = x)))
+        pick w with P(w) and (forall y (P(y) implies y = w))
+            forall y (P(y) implies y = w)
+            P(b) implies b = w
+            P(b)
+            b = w
+            P(c) implies c = w
+            P(c)
+            c = w
+            b = c
+qed
+
+; 2. With logic.kurt's `∃!` and its rules, each is one step.
+const d
+use P(d)
+use ∀ y (P(y) ⇒ y = d)
+∃! x P(x)
+∃ x P(x)
+bool R
+arity R 1
+const e, f
+use ∃! x R(x)
+use R(e)
+use R(f)
+e = f
+
+; 3. With a condition: `∃! x ∈ M Q(x)` is `∃! x (x ∈ M and Q(x))`.
+bool Q, in
+arity Q 1
+infix in 25 25
+const M
+use ∃! x (x in M and Q(x))
+∃! x in M Q(x)
+
+; 4. Existence alone is not unique existence.
+bool S
+arity S 1
+use ∃ x S(x)
+expect "ProofError"
+    ∃! x S(x)

@@ -6,7 +6,7 @@ import sys
 import unittest
 
 import kurt.kurt as kurt
-from tests.utils import PROJECT_ROOT
+from tests.utils import PROJECT_ROOT, numbered
 
 PROOF = 'load prop\nbool A, B\nuse A implies B\nuse A\nB\n'
 UNDECLARED = 'load prop\nuse A\nA\n'          # `A` not declared: an error only with `strict`
@@ -18,7 +18,7 @@ class TestApi(unittest.TestCase):
     def test_check_text(self):
         result = kurt.check_text(PROOF)
         self.assertTrue(result.ok and result.complete)
-        self.assertIn('; 5 by 3(4)', result.output)
+        self.assertTrue(numbered(result.output, 5, 'by 3(4)'), result.output)
         self.assertIn('Proof checked', result.output)
         failed = kurt.check_text('load prop\nbool A, B\nB\n', name='mine.kurt')
         self.assertFalse(failed.ok)
@@ -31,7 +31,7 @@ class TestApi(unittest.TestCase):
     def test_check_file(self):
         result = kurt.check_file(str(PROJECT_ROOT / 'proofs' / 'natural-deduction' / 'contraposition.kurt'))
         self.assertTrue(result.complete, result.error)
-        self.assertIn('; 26 by or-elim(25, 11-13, 14-15)', result.output)
+        self.assertTrue(numbered(result.output, 26, 'by case-elim(25, 11-13, 14-15)'), result.output)
 
     def test_the_same_text_gives_the_same_output_in_any_session(self):
         first, second = kurt.new_session(), kurt.new_session()
@@ -45,7 +45,7 @@ class TestApi(unittest.TestCase):
         self.assertFalse(strict.check_text(UNDECLARED).ok)
         self.assertTrue(kurt.check_text(UNDECLARED).ok)          # another session: not strict
         self.assertFalse(strict.check_text(UNDECLARED).ok)       # and the strict one still is
-        self.assertFalse(kurt.strict_mode)                       # the module's own state is back
+        self.assertFalse(kurt.run_state.strict_mode)                       # the module's own state is back
 
     def test_sessions_can_alternate(self):
         # one session's checks, interleaved with another's, end in the same state (fresh names,
@@ -59,9 +59,9 @@ class TestApi(unittest.TestCase):
         one.check_text(PROOF)
         other.check_text('load set\nconst a\nuse ∀ $y ($y ∈ ∅ ⇒ $y = a)\n')
         self.assertEqual(one.check_text(text).output, expected)
-        self.assertEqual(one._state['counters'], alone._state['counters'])
-        self.assertEqual(sorted(one._state['certificates_by_line']), sorted(alone._state['certificates_by_line']))
-        self.assertNotEqual(other._state['counters'], alone._state['counters'])
+        self.assertEqual((one._state.var_counter, one._state.bool_var_counter), (alone._state.var_counter, alone._state.bool_var_counter))
+        self.assertEqual(sorted(one._state.certificates_by_line), sorted(alone._state.certificates_by_line))
+        self.assertNotEqual((other._state.var_counter, other._state.bool_var_counter), (alone._state.var_counter, alone._state.bool_var_counter))
 
     def test_a_text_is_never_trusted_by_its_name(self):
         # trust comes from where a file was read: under `strict`, a text named like a theory of
@@ -90,12 +90,36 @@ class TestApi(unittest.TestCase):
             self.assertTrue(session.check_file(path).ok)
             self.assertTrue(os.path.exists(path + 'c'))
 
+    def test_restating_a_labelled_fact_is_a_step(self):
+        # the events come from the reasons as data, not from parsing their text: `by "lbl"` was
+        # read as a line with the label `lbl` (2026-10-09)
+        result = kurt.check_text('load prop\nbool A\nuse A "given"\nA\n')
+        event = [e for e in result.events if e.get('id') == '4'][0]
+        self.assertEqual((event['kind'], event['rule'], event['uses']), ('step', 'given', []))
+        self.assertNotIn('label', event)
+
+    def test_the_todos_before_an_error_count(self):
+        # an editor marks them, also when a later line fails (2026-10-09: they were lost)
+        result = kurt.check_text('load prop\nbool A, B, C\nuse A\ntodo A and C\nA and C\nB\n')
+        self.assertFalse(result.ok)
+        self.assertEqual(len(result.todos), 1)
+        self.assertIn(':4 todo A and C', result.todos[0])
+
+    def test_the_todos_before_an_unfinished_proof_count(self):
+        # the error at the end of the file (a proof that isn't finished) keeps the todos before it
+        result = kurt.check_text('load prop\nbool A, B, C\nuse A\ntodo A and C\nshow B or C\nproof\n    A\n')
+        self.assertEqual((result.error_kind, result.error_line), ('ProofError', 5))
+        self.assertIn("isn't finished at the end of the file", result.error)
+        self.assertEqual(len(result.todos), 1)
+
     def test_events(self):
         # each printed line as a record: its line, id, kind, rule and the lines it uses
         result = kurt.check_text('load prop\nbool A, B\nuse A implies B   "rule"\nuse A\nB    ; modus ponens\n'
                                  'assume A\n    B\nshow B\nproof\n    B\nqed\nC\n')
         events = {(e['id'], e['kind']): e for e in result.events}
         self.assertEqual(events[('3', 'assumed')]['label'], 'rule')
+        self.assertEqual(events[('3', 'assumed')]['text'], 'use A implies B "rule"')
+        self.assertIn('use A implies B "rule"', result.output)
         step = events[('5', 'step')]
         self.assertEqual((step['line'], step['rule'], step['uses'], step['comment']), (5, 'rule', ['4'], 'modus ponens'))
         self.assertEqual(events[('6-7', 'step')]['rule'], 'impl-intro')       # the result of the block
@@ -133,19 +157,19 @@ class TestApi(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual((shell.stopped, shell.line, shell.indentation()), ('error', 8, 4))   # at the failing line
         self.assertIn('; to prove: A and B', shell.summary())
-        self.assertIn('; 8 by and-intro', shell.feed('    A and B'))
+        self.assertTrue(numbered(shell.feed('    A and B'), 8, 'by and-intro'))
         self.assertEqual(shell.next_steps(), ['qed'])
-        self.assertIn('; 9 by 8', shell.feed('qed'))
+        self.assertTrue(numbered(shell.feed('qed'), 9, 'by 8'))
         self.assertEqual(shell.accepted, ['    A and B', 'qed'])
         self.assertIn('can not derive', shell.feed('C'))                 # an error is shown, the shell goes on
-        self.assertIn('; 11 by proof.kurt:3', shell.feed('A'))
+        self.assertTrue(numbered(shell.feed('A'), 11, 'by proof.kurt:3'))
 
     def test_a_shell_after_the_end_and_at_a_breakpoint(self):
         shell = kurt.Shell()
         shell.start_text('load numbers\ncalc on\nconst x\nuse x = 3\n')
         self.assertEqual(shell.stopped, 'end')
         self.assertEqual(shell.completions('17*42=', ''), ['714'])
-        self.assertIn('; 5 by proof.kurt:4', shell.feed('x = 3'))
+        self.assertTrue(numbered(shell.feed('x = 3'), 5, 'by proof.kurt:4'))
         shell = kurt.Shell()
         shell.start_text('load prop\nbool A\nuse A\nshow A and A\nproof\n    breakpoint\n    A and A\nqed\n')
         self.assertEqual((shell.stopped, shell.line), ('breakpoint', 7))

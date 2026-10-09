@@ -23,11 +23,11 @@ class TestKurt2Latex(unittest.TestCase):
         self.assertTrue(doc.startswith(r'\documentclass') and doc.rstrip().endswith(r'\end{document}'))
 
     def test_symbols_names_and_comments(self):
-        output = ('($b ∘ (inv $b)) = e                      ; (ii) with α\n'
+        output = ('⊢ (($b ∘ (inv $b)) → e)                 ; (ii) with α\n'
                   '                                          ; 30a by G4(23)\n'
                   '⟨ ($x , $y) ⟩ ∈ K                        ; 31 by S-map(a_b, 30)\n')
         doc = kurt2latex.latex_document(output)
-        self.assertIn(r'$ (b \circ (\mathrm{inv} b)) = e$ & (ii) with $\alpha$ --- 30a by G4(23) \\', doc)   # one row
+        self.assertIn(r'$ \vdash ((b \circ (\mathrm{inv} b)) \to e)$ & (ii) with $\alpha$ --- 30a by G4(23) \\', doc)   # one row
         self.assertIn(r'\langle  (x , y) \rangle  \in K', doc)
         self.assertIn(r'S-map(a\_b, 30)', doc)
         self.assertFalse([c for c in doc if ord(c) > 127])                                    # all symbols as LaTeX

@@ -23,6 +23,6 @@ arity transpose 1, det 1
 flat +, ·
 sym +
 
-calc [ matrix
-calc + add, - subtract, - negate, · multiply, / divide, transpose transpose, det determinant
-calc = eq, ≠ ne
+builtin [ matrix
+builtin + add, - subtract, - negate, · multiply, / divide, transpose transpose, det determinant
+builtin = eq, ≠ ne

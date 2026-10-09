@@ -2,7 +2,7 @@
 ; symbol applied to distinct variables on the left, no other variables on the right, not for an
 ; operator declared `sym` or `flat`, and not inside a proof block (found in the soundness review
 ; of 2026-09-29, doc/kurt-soundness.md §8.17) -- each of these used to give `1 = 2` or `false`
-load numbers
+load numbers, logic
 expect "EvalError"
     def c = $y                      ; `c = 1` and `c = 2`
 expect "EvalError"
@@ -32,8 +32,8 @@ expect "EvalError"
 infix is 30 30
 const is
 expect "EvalError"
-    def $f is injective iff ∀ $x ∀ $y ($f $x = $f $y ⇒ $x = $y)
-def injective($f) iff ∀ $x ∀ $y ($f $x = $f $y ⇒ $x = $y)
+    def $f is injective iff forall $x forall $y ($f $x = $f $y ⇒ $x = $y)
+def injective($f) iff forall $x forall $y ($f $x = $f $y ⇒ $x = $y)
 
 ; what a `def` is for still works
 def h($x) = $x * $x

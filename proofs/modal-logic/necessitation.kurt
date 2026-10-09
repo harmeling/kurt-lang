@@ -1,0 +1,7 @@
+; necessitation applies to theorems only: from the theorem A → A follows the theorem □(A → A)
+load modal
+const A
+formula A
+
+⊢ (A → A)
+⊢ □(A → A)

@@ -10,10 +10,10 @@ proof
     p                   ; admitted
 qed
 
-show p ∧ r
+show p and r
 proof
     todo
-    p ∧ p               ; admitted
+    p and p             ; admitted
     expect "ProofError"
         r               ; not admitted any more
     todo

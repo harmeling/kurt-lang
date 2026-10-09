@@ -1,13 +1,12 @@
-; coverage for modal.kurt's "diamond-distrib-or" and "K" axioms -- never exercised by any proof
-; file before this one (box-distrib-and and T already have worked examples in this directory).
+; Diamond distribution and K in the modal theory.
 load modal
-bool p, q
+const P, Q
+formula P, Q
 
-; diamond distributes over or, restated generically both directions
-(◇p ∨ ◇q) ≡ ◇(p ∨ q)   "diamond-distrib-or restated"
+⊢ ((◇P ∨ ◇Q) ⇔ ◇(P ∨ Q))
 
-; K distribution: if it's necessary that p implies q, then necessity of p gives necessity of q
-use □(p ⇒ q) "box-implication"
-use □p "box-p"
-□p ⇒ □q
-□q
+; K distribution: if it is necessary that P implies Q, necessity of P gives necessity of Q.
+use ⊢ □(P → Q) "box-implication"
+use ⊢ □P "box-P"
+⊢ (□P → □Q)
+⊢ □Q

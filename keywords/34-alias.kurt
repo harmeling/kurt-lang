@@ -1,0 +1,25 @@
+; 34-alias.kurt
+
+; `alias NEW OLD` gives an existing symbol an additional name -- most often
+; used to offer a nicer Unicode spelling next to an ASCII one.  The core
+; (`minimal.kurt`) has no aliases; the loaded theories add them, e.g.
+; `prop.kurt` has `alias ⇒ implies`, so after `load prop` the symbol `implies`
+; also answers to `⇒` (try `parse A ⇒ B` after declaring `bool A, B`), and
+; likewise `¬` to `not` and `∧` to `and`.
+
+infix "xor" 15 15
+alias "^" xor          ; `^` is now just another name for `xor`
+
+; `A ^ B` below is logged as a restatement of the axiom: an alias is resolved to its
+; canonical name while scanning, before parsing even starts, so `A ^ B` is literally the
+; exact same formula as `A xor B`. `parse
+; A ^ B` would still *display* `(^ A B)`, not `(xor A B)` -- display prefers whatever
+; spelling you actually typed -- but only the underlying symbol is what actually gets
+; unified/matched.
+bool A, B
+use A xor B
+A ^ B                  ; same formula, either spelling
+
+; An alias is resolved while scanning, before parsing even starts -- unlike
+; `def` (12-def.kurt), which introduces a genuinely new constant and needs an
+; inference step to unfold (see `doc/dev-notes.md`'s 2025-04-17 notes).

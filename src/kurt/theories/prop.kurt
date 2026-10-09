@@ -2,12 +2,13 @@
 ;
 ; covers: not, or, invimplies (backwards implication), iff, and the standard elimination/
 ; introduction rules connecting them and the hardcoded connectives (and-intro/elim, or-intro/
-; elim, iff-intro/elim, not-intro/elim, bottom-intro/elim, top-elim). `true`/`false`/
-; `implies`/`and` themselves are hardcoded directly in kurt.py (see minimal.kurt for exactly
-; what) -- this file only adds `not`, `or`, `invimplies`, `iff`, and the rules relating them.
+; elim, iff-intro, iff-elim-forward/backward, not-intro/elim, bottom-intro/elim, top-elim).
+; `true`/`implies`/`and` themselves are hardcoded directly in kurt.py (see minimal.kurt for
+; exactly what) -- this file adds `false`, `not`, `or`, `invimplies`, `iff`, and the rules
+; relating them.
 ;
 ; loaded (directly or transitively) by nearly every other theory here -- logic.kurt,
-; equality.kurt, set.kurt, numbers.kurt, and modal.kurt all `load prop` first.
+; equality.kurt, set.kurt, and numbers.kurt all `load prop` first.
 
 ;; builtin syntax
 ; infix  implies 13 12  ; logical implies, right associative (since 13>12)
@@ -17,9 +18,9 @@
 ; flat   and            ; (a and b) and c  iff  a and b and c
 ; sym    and            ; a and b  iff  b and a
 ; bool   true           ; true has type bool
-; alias  ⊤ true
-; alias  ⇒ implies
-; alias  ∧ and
+alias  ⊤ true
+alias  ⇒ implies
+alias  ∧ and
 
 ;; syntax
 prefix not        18     ; logical not
@@ -31,6 +32,10 @@ bool   or      0 1 2     ; `or` and its inputs have type bool
 bool   invimplies 0 1 2  ; `invimplies` and its inputs have type bool
 bool   iff     0 1 2     ; `and` and its inputs have type bool
 bool   false             ; false has type bool
+; the meaning the engine gives these symbols (and nothing has it by its name alone): an `iff`
+; fact is used as two implications, `case` splits an `or`, an `assume` block whose last line is
+; `false` also gives `not` of its assumption, and `def` may define with `iff`
+builtin iff equivalence, or disjunction, not negation, false falsum
 
 flat   or
 sym    or
@@ -76,10 +81,13 @@ use %A  and  %B   implies   %A                                      "and-elim"  
 use %A   implies   %A or %B                                         "or-intro"   ; `or` is symmetric and flat
 use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"
 
-; "or-elim" for three and four alternatives, proven from "or-elim": then three or four `case`
-; blocks in a row combine, `A or B or C` with `case A`, `case B`, `case C` (`or` is flat, so
-; "or-elim" itself only splits off one alternative from the others)
-; TODO: any number of alternatives (a step of its own in the search, with a certificate)
+; `case` supports any finite number of alternatives. The binary rule above supplies the logical
+; meaning. The engine recognizes a stored flat disjunction plus one implication to the same goal
+; for every alternative, and the kernel checks both the rule and that exact list. It does not
+; synthesize an n-premise schema, so matching does not grow through a Cartesian product of facts.
+;
+; Keep the previously published 3/4-branch theorems as named compatibility lemmas. Their proofs
+; now also exercise the general case-elimination certificate.
 show (%A or %B or %C) and (%A implies %D) and (%B implies %D) and (%C implies %D) implies %D   "or-elim-3"
 proof
     assume (%A or %B or %C) and (%A implies %D) and (%B implies %D) and (%C implies %D)
@@ -87,8 +95,6 @@ proof
         %A implies %D
         %B implies %D
         %C implies %D
-        case %B or %C
-            %D
         %D
 qed
 show (%A or %B or %C or %E) and (%A implies %D) and (%B implies %D) and (%C implies %D) and (%E implies %D) implies %D   "or-elim-4"
@@ -99,11 +105,11 @@ proof
         %B implies %D
         %C implies %D
         %E implies %D
-        case %B or %C or %E
-            %D
         %D
 qed
 
+; A defining axiom, not `def`: `invimplies` already participates in the `chain` declarations
+; above, so it is no longer a fresh symbol without meaning when this equivalence is stated.
 use (%A invimplies %B) iff (%B implies %A)                         "invimplies-def"
 
 use (%A implies %B) and (%B implies %A) implies (%A iff %B)         "iff-intro"

@@ -33,7 +33,7 @@ expect "ParseError"
       = c, d = d             ; one continuation only
 
 ; `qed` closes a `proof`, with a dedent and no argument
-expect "ParseError"
+expect "EvalError"
     show c = d
     proof
         c = d
@@ -51,5 +51,5 @@ expect "EvalError"
     assume Q
         Q
     qed
-expect "ParseError"
+expect "EvalError"
     break 1

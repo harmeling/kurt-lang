@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 import kurt.kurt as kurt
-from tests.utils import PROJECT_ROOT
+from tests.utils import PROJECT_ROOT, numbered
 
 PROOF = 'load prop\nbool A, B\nuse A\nuse A implies B\nshow A and B\nproof\n    B\n    breakpoint\n    A and B\nqed\n'
 
@@ -40,7 +40,7 @@ class TestBreakpoint(unittest.TestCase):
         done = run({'p.kurt': failing}, ['-i', 'p.kurt'], '    A and B\nqed\n')
         self.assertIn('can not derive', done.stderr)
         self.assertIn('; the shell continues at line 8, with the state there', done.stdout)
-        self.assertIn('8 by and-intro', done.stdout)
+        self.assertIn('8 by and-intro', done.stdout)                 # (the shell: no numbers in front, its prompt has them)
         self.assertEqual(done.returncode, 1)          # the file itself failed
 
     def test_in_a_loaded_file_it_is_skipped(self):

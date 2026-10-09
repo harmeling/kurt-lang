@@ -1,0 +1,18 @@
+; a comment at the end of a line of a statement that continues on the next line ends at its line:
+; the lines of a statement were joined first, so the comment swallowed the rest ("unexpected end
+; of file") -- and Kurt's own output of a multi-row matrix, with the reason as such a comment,
+; couldn't be pasted back as source (found 2026-10-09)
+load prop
+bool A, B
+use (A        ; a comment inside the statement
+  implies B)  ; and one at its end
+use A
+B
+
+load matrix
+calc on
+const M
+use M = [[1, 2],                          ; 5 without proof
+         [3, 4]]
+M = [[1, 2],                              ; the output of Kurt, pasted
+     [3, 4]]

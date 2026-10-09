@@ -1,0 +1,35 @@
+; 45-builtin.kurt
+
+; `builtin` gives a symbol a meaning that Kurt itself implements -- nothing has
+; such a meaning by its name alone.  Two kinds:
+;
+; - an operation of the calculator (40-calc.kurt): `builtin + add` makes `+`
+;   the calculator's addition, computed with `calc on`
+; - a role of the engine: prop.kurt says `builtin iff equivalence, or
+;   disjunction, not negation, false falsum`, equality.kurt `builtin =
+;   equality` -- so an `iff` fact is used as two implications, `case` splits an
+;   `or`, an `assume` block ending in `false` gives `not`, and `def` defines
+;   with `=` or `iff`
+;
+; Without arguments, `builtin` lists the meanings given so far.
+
+load prop
+builtin
+
+; Only a theory that comes with Kurt (or one from a `-p` directory) can give a
+; role of the engine, since it changes what Kurt derives.  Our own `<=>`
+; stays an ordinary relation:
+
+infix <=> 10 10
+bool <=> 0 1 2
+expect "EvalError" "can only be given by a theory that comes with Kurt"
+    builtin <=> equivalence
+
+; A calculator operation, like an axiom, can be given here too (not with
+; `kurt --strict`): `plus` adds.
+
+load equality
+infix plus 30 30
+builtin plus add
+calc on
+2 plus 3 = 5

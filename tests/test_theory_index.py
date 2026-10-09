@@ -32,7 +32,7 @@ class TestTheoryIndex(unittest.TestCase):
                          'proofs/debug/cases-three-and-four.kurt', 'proofs/debug/calc-membership.kurt']:
                 kb = copy.deepcopy(kurt.initial_kb)
                 with contextlib.redirect_stdout(io.StringIO()):
-                    kurt.load_file(str(PROJECT_ROOT / name), kb, mainstream=True)
+                    kurt.load_file(str(PROJECT_ROOT / name), kb, main=True)
         finally:
             kurt.KnowledgeBase.theory_candidates = original
         self.assertGreater(calls[0], 1000)
@@ -47,7 +47,7 @@ class TestTheoryIndex(unittest.TestCase):
             answer = original(formula, goal, kb)
             if answer:
                 f = next(f for f in kb.all_theory() if f.simplified_expr is formula)
-                cert, _ = kurt.impl_elim(goal, kurt.free_bound_vars(goal, kb)[0], f, '<test>', False, kurt.State.empty(), kb)
+                cert, _ = kurt.impl_elim(goal, kurt.free_bound_vars(goal, kb)[0], f, '<test>', kurt.State.empty(), kb)
                 self.assertIsNone(cert, f'{kurt.expr_str(formula, kb)} concludes {kurt.expr_str(goal, kb)}')
                 skipped[0] += 1
             return answer
@@ -58,7 +58,7 @@ class TestTheoryIndex(unittest.TestCase):
                          'proofs/debug/cases-three-and-four.kurt', 'proofs/debug/iff-true.kurt', 'src/kurt/theories/group.kurt']:
                 kb = copy.deepcopy(kurt.initial_kb)
                 with contextlib.redirect_stdout(io.StringIO()):
-                    kurt.load_file(str(PROJECT_ROOT / name), kb, mainstream=True)
+                    kurt.load_file(str(PROJECT_ROOT / name), kb, main=True)
         finally:
             kurt.cannot_conclude = original
         self.assertGreater(skipped[0], 1000)

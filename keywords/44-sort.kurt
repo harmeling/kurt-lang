@@ -1,0 +1,28 @@
+; 44-sort.kurt
+
+; Kurt's only required sort is `bool`, the built-in sort of judgments that can
+; be proved. Additional sorts are optional and deliberately lightweight.
+
+sort nat, vec
+
+; A sort name becomes a declaration keyword parallel to `bool`. Position 0 is
+; the result; positions 1, 2, ... are arguments. Leaving positions unmentioned
+; leaves them unconstrained.
+
+nat zero
+nat plus 0 1 2
+vec scale 0 2
+nat scale 1
+
+arity plus 2, scale 2
+
+; A sort property does not choose `const` or `var`.
+
+var n, v
+nat n
+vec v
+
+; `sort`, and each individual sort name, list their declarations.
+
+sort
+nat

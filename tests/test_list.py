@@ -16,7 +16,7 @@ class TestList(unittest.TestCase):
         self.assertTrue(result.ok, result.error)
         self.assertIn('; retained content from natural.kurt', result.output)
         self.assertIn('const Nat', result.output)
-        self.assertIn('natural.kurt:20', result.output)
+        self.assertIn('natural.kurt:21', result.output)
         self.assertIn('infix ∣ 20 20', result.output)
         self.assertIn('use ', result.output)
 
@@ -27,6 +27,18 @@ class TestList(unittest.TestCase):
         self.assertIn('const group', result.output)
         self.assertIn('group.kurt:', result.output)
         self.assertIn('def ', result.output)
+
+    def test_group_exports_schematic_operator_syntax_but_not_its_local_variable_role(self):
+        result = kurt.check_text(
+            'load group\n'
+            'list infix group\n'
+            'list const group\n'
+            'list var group\n'
+        )
+        self.assertTrue(result.ok, result.error)
+        self.assertIn('infix ∘ 70 70', result.output)
+        self.assertNotIn('const ∘', result.output)
+        self.assertNotIn('var ∘', result.output)
 
     def test_list_and_list_files_show_loaded_files(self):
         for command in ('list', 'list files'):

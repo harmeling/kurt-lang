@@ -86,7 +86,7 @@ expect "EvalError"
 ; the wrong number or kind of arguments
 expect "EvalError"
     infix times 70
-expect "ParseError"
+expect "EvalError"
     prefix minus
 expect "EvalError"
     arity k
@@ -96,7 +96,7 @@ expect "EvalError"
     alias only
 expect "EvalError"
     bool Q 1 2 3 4
-expect "ParseError"
+expect "EvalError"
     postfix bang
 expect "EvalError"
     flat 1

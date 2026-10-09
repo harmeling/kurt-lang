@@ -4,10 +4,12 @@
 ; `+`, `-`, `*` and `/` (by a number ≠ 0); and every positive rational in lowest terms
 ; ("lowest-terms", proven from the well-ordering of natural.kurt). As for natural.kurt, they are
 ; numbers of numbers.kurt, so its laws (and `calc`) apply.
-load integer
+load prop, equality, logic, set, numbers, natural, integer
 const Rat
-calc Rat rationals                  ; `calc on` proves `1 / 3 ∈ Rat`
+builtin Rat rationals                  ; `calc on` proves `1 / 3 ∈ Rat`
 
+; A defining axiom, not `def`: `Rat` is an existing calculator-bound carrier, and this
+; characterizes membership in it rather than introducing one fresh predicate abbreviation.
 use $q ∈ Rat  ⇔  ∃ $m ∃ $n ($m ∈ Int ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = $m / $n)     "rat-def"
 use $a ∈ Rat ∧ $b ∈ Rat  ⇒  $a + $b ∈ Rat                          "rat-add"
 use $a ∈ Rat ∧ $b ∈ Rat  ⇒  $a - $b ∈ Rat                          "rat-sub"

@@ -1,6 +1,134 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 (2026-10-09)
+
+- The end of a file closes the blocks still open, like a dedent: a proof whose goal is reached
+  needs no `qed` there. A proof not finished at the end is a `ProofError` at the line of its
+  `show` ("isn't finished at the end of the file"), a claim without proof one at the claim; the
+  todos before it still count (an editor marks them). A `Shell` (and the editors' completion)
+  continues inside the open blocks. A `qed` that isn't written (a dedent, the end of the file)
+  is a derived line after the proof's last line (`qed ; 7a by or-intro(7)`), and the editors show
+  it there (`; by 4(3); qed 7a by or-intro(7)`).
+
+- Kurt's output has the number of each source line in front (`   5  B   ; by 3(4)`), and the
+  reason goes without it; a derived line keeps its number in the reason (`; 9a by 4`, `; 7-8 by
+  impl-intro`). `kurt --no-line-numbers` (and `RunConfig(line_numbers=False)`) prints the old form;
+  the interactive shell has no numbers in front (its prompt shows them). In the editors the
+  reasons go without their own line's number, and the hover of a line without a certificate says
+  what it is (an axiom, a claim, an assumption, ...).
+- The editors' hover (`kurt --lsp`) shows the certificate of the line, as `cert` does, with the
+  lines it names as links; `CheckResult.certificates` (with `certificates=True`) has them.
+- The run state is one object (`RunState`), which a `Session` swaps in as a whole, under a lock:
+  sessions can be used from several threads. The command line runs in one `Session` with a
+  `RunConfig` from its options. (No change in behaviour; the same output for all files.)
+- The error kinds follow one rule: `ScanError` (formerly `SyntaxError`) a symbol can't be scanned;
+  `ParseError` the line can't be read; `EvalError` readable but not allowed, now also for wrong
+  arguments of a keyword (some were `ParseError`); `TypeError`; `ProofError`. `expect
+  "SyntaxError"` becomes `expect "ScanError"` (or `"ParseError"`).
+- Fix: a comment at the end of a line inside a statement that continues on the next line
+  swallowed the rest of the statement; Kurt's output of a multi-row matrix (with its reason as a
+  comment) can be pasted back as source.
+- A trusted theory gets a note for a symbol of a theory it doesn't load itself (`∀` via
+  `load natural`), and `kurt --deps` lists such symbols for any file; the theories that come with
+  Kurt now load everything they use (prop, equality, logic, ... directly).
+- The quantifiers `forall`/`exists` are declared in logic.kurt (with `builtin forall universal,
+  exists existential`), not in the core: a file with `let` (over terms), `pick` or `∀`/`∃` needs
+  `load logic` (numbers.kurt and equality.kurt don't load it).
+- `builtin` gives a symbol a meaning built into Kurt: a calculator operation (`builtin + add`,
+  formerly `calc + add`; `calc` is now only `calc on`/`calc off`) or a role of the engine
+  (`builtin iff equivalence`). Nothing has a meaning by its name alone any more: prop.kurt and
+  equality.kurt assign the roles of `iff`, `or`, `not`, `false`, `=`, and only trusted theories
+  can (doc/kurt-soundness.md §8.30). New keyword lesson 45-builtin.
+- The core is read from `minimal.kurt` when Kurt starts (it was a second copy in `kurt.py`, kept
+  in sync by a test); `load minimal` says that it is the core. The comma and space are declared
+  quoted there (`infix "," 5 4`).
+- Unique existence in logic.kurt: the binder `existsunique`, written `∃! x P(x)` (one symbol,
+  `\exists!` in the shell), defined by "existsunique-def" (`∃ x (P(x) ∧ ∀ y (P(y) ⇒ y = x))`),
+  also with a condition; the rules "existsunique-intro", "-exists", "-unique" follow from it
+  (proofs/natural-deduction/existsunique.kurt). logic.kurt now loads equality.kurt.
+- `summary` replaces the inspection keywords `mode`, `level`, `context` and `trail`: the open
+  blocks (a `case` block as `case`), the claims still to prove, the latest facts, what could come
+  next -- the view of `breakpoint` and `kurt -i`. The keyword lessons 23-26 are one,
+  `23-summary.kurt`; the later ones moved up by 3.
+- Fix: an `alias` declares its name, so a theory with `alias ∧ and` (prop.kurt) and one with its
+  own `∧` (modal.kurt) can't be loaded together -- before, `∧` silently changed its meaning
+  (doc/kurt-soundness.md §8.29).
+- Fix: `pick FACT` without `with`, with a fact ending in an application with brackets (`pick c > 0
+  and P(c)`), read as an unclosed bracket, or crashed with a block after it.
+- Fix: `save` keeps what is inside an `expect`, also a statement that only shows something (its
+  error may be the expected one) -- the saved file had an `expect` without a body.
+- Document the distinct status of conservative `def`initions, `use` axioms, `todo` admissions,
+  and derived labelled lines or `show` theorems. Audit the bundled `...-def` rules and replace set
+  equality's mutual-subset characterization with a proof from extensionality and subset.
+- Explain failed proof steps with a bounded structured `not-derived` result: up to three relevant
+  rules, their missing premises, and the premises already matched. Expose it consistently through
+  normal errors, `CheckResult.failure`, JSON events, and LSP diagnostic data without treating
+  failed one-step search as evidence that a claim is false.
+- Add paper-style lambda typing judgments `Γ ⊢ M : A` as an ordinary sorted notation layer over
+  the complete de Bruijn rules; retain `has Γ M A` for compatibility. Document the boundary
+  between checker sorts and object-level carriers such as `Nat`, retain Boolean-only first-use
+  inference, and deprecate the redundant `trail` inspection command in favor of `context` and
+  `mode`.
+- Complete a follow-up adversarial sort audit, including a forged-certificate regression checked
+  by the independent kernel.
+- Keep the minimal core free of aliases. `prop.kurt` now owns `⊤`, `⇒`, `∧`, `∨`, and `¬`, while
+  `logic.kurt` owns `∀` and `∃`; their canonical words and the quantifier machinery remain in the
+  core. This lets a standalone deep theory assign the familiar glyphs to object constructors.
+- Replace the incomplete shallow `modal.kurt` with classical normal modal logic T: object
+  connectives, K, T, duality, distribution, modus ponens, and necessitation are expressed as
+  sorted terms under `⊢`. Convert every modal example.
+- Add entirely optional user sorts with `sort nat` and sparse signatures such as
+  `nat + 0 1 2`. They reuse `bool`'s positional notation, remain independent of `const`/`var`,
+  survive selective theory loading, retain declaration origins, and are available through
+  `list` and completion. A declared sort name is exported even before a fact uses it. Sorted
+  schema variables remain constrained during search and independent
+  kernel verification, including across `load`. `bool` remains the distinguished built-in
+  judgment sort. Add packaged `lambda.kurt` with complete de Bruijn typing rules, readable named
+  binders, compatible beta reduction, and deterministic call-by-value evaluation, plus lambda and
+  modal tutorials. Concrete preservation and local-confluence diamonds document
+  what works and why the general metatheorems still require encoded derivations or induction.
+- Add `⊢` with the `\vdash` input shortcut and a sorted-term `modal.kurt` theory. Modal
+  formulas are terms built with object `→` and `□`; prefix theoremhood and binary sequents share
+  `⊢`, and K, object modus ponens, and necessitation are ordinary Kurt schemata. Sequent and
+  ordered-resource examples test explicit contexts and the absence of exchange, weakening, and
+  contraction. Explicit variables may use Greek names such as `$Γ`, `%φ`, and `$Γ2`, so sequent
+  schemas retain conventional notation. These experiments need no generic `rule` keyword:
+  ordinary Boolean schemata already express their inference rules.
+- Show the effective normalized schema beside a `use` that contains declared named variables,
+  for example `; schema: $x $op $y = $y $op $x`. The display uses stable `%` names for Boolean
+  variables and `$` names for terms, functions, and operators without exposing internal fresh
+  names; structured events include the same schema, while `format source` stays exact.
+- Export regressions confirm that named boolean, term, function and operator variables are freshened per formula and
+  remain schematic across `load`, including when an importer uses the same names as constants.
+- Support `case` over any finite flat disjunction with one exact, kernel-checked `case-elim`
+  certificate. It is a bounded derived shortcut justified by a known general binary `or-elim`
+  theorem; merely naming an unrelated operator `or` no longer gives it logical semantics. Search
+  narrows implications by their common conclusion and checks one per alternative, avoiding a
+  generated n-premise rule and its combinatorial matching.
+- Show an axiom's optional label on its own `use` output line, as well as on later references to
+  that axiom.
+- Harden the language server for editor clients: correct UTF-16 positions and file URIs, versioned
+  diagnostics, close cleanup, inlay-hint refresh, debounced checks while typing, initialization
+  options, and standard shutdown/exit behavior. Open dependencies use their unsaved editor text.
+- Keep a document's own directory ahead of extra theory paths without trusting it. Previously the
+  LSP represented this search directory as an explicit trusted path, so strict mode could accept
+  an unproved `use` from a sibling file.
+- Reject declaration combinations that changed normal forms unsoundly: a prefix/infix symbol can
+  no longer be `flat`, and binding operators cannot be symmetric, flat, chained,
+  calculator-bound, variable, or prefix-overloaded. Complete regressions previously derived
+  `false` from satisfiable assumptions.
+- Make fixed semantic declarations explicit: `bindop`, `flat`, `sym`, `chain`, and calculator
+  bindings imply and report `const`; `chain` also supplies/reports boolean output. Fix bracket
+  boolean declarations, validate boolean positions against arity in either declaration order,
+  and keep calculator result types consistent with their operations.
+- Validate a comma-separated declaration line before changing a persistent shell/LSP session.
+  Reject order-dependent arity/fixity/bracket conflicts consistently.
+- Add independent truth-table checks for all pure propositional exports and exact sampled checks
+  for every `numbers.kurt` axiom.
+- Print multirow matrix literals as aligned rows in normal screen output; row vectors, saved Kurt
+  source, and s-expression output remain compact and stable.
+- Rename the legacy `format original` mode to `format source` and document its contract for
+  replaying a stored formula's input spelling.
 
 ## 0.7.6 (2026-10-07)
 

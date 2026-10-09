@@ -12,6 +12,7 @@
 ; pick-with-nested-quantifier.kurt) -- unrelated to it, but uncovered by trying to wrap a
 ; failing `pick` in `expect`. Fixed by only popping when `eval_pick` actually pushed a level
 ; (comparing `kb.level` before/after). See doc/kurt-soundness.md #3.4.
+load logic   ; (`pick` needs the existential quantifier)
 expect "ProofError"
     pick c with true
 true

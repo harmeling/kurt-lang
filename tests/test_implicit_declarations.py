@@ -46,6 +46,16 @@ class TestImplicitDeclarations(unittest.TestCase):
         self.assertNotIn('bool c', definition.output)
         self.assertIn('const a', definition.output)
 
+    def test_semantic_operator_declarations_report_the_roles_they_imply(self):
+        flat = kurt.check_text('infix f 20 20\nflat f\n')
+        chain = kurt.check_text('infix r 20 20\nchain r\n')
+
+        self.assertTrue(flat.ok, flat.error)
+        self.assertIn('const f', flat.output)
+        self.assertTrue(chain.ok, chain.error)
+        self.assertIn('const r', chain.output)
+        self.assertIn('bool r 0', chain.output)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -51,7 +51,7 @@ false
     'calculator_argument': '''load numbers
 const plus
 infix plus 60 60
-calc plus add
+builtin plus add
 def c plus $x = 0
 c plus 0 = 0
 c plus 1 = 0
@@ -70,7 +70,7 @@ false
 ''',
     'calculator_head': '''load numbers
 infix plus 60 60
-calc plus add
+builtin plus add
 def $x plus $y = 0
 1 plus 0 = 0
 calc on

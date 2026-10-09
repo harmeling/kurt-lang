@@ -4,13 +4,13 @@
 ; there, and dev/todo-claude.md's now-corrected note). This was never actually verified --
 ; checked here directly: the lexer's SYMBOL pattern is `[$%@]?[A-Za-z][A-Za-z0-9]*`, at
 ; most *one* leading `$`/`%`/`@` followed immediately by a letter, so a doubled prefix
-; can never be scanned as a symbol at all; it fails at the lexer with a `SyntaxError`
+; can never be scanned as a symbol at all; it fails at the lexer with a `ScanError`
 ; before parsing/matching even begins. Confirmed for both `$$` and `%%`; a user can never
 ; construct a name that collides with a generated one, by construction, not just
 ; convention.
-expect "SyntaxError"
+expect "ScanError"
     var $$foo
-expect "SyntaxError"
+expect "ScanError"
     bool %%foo
 true
 

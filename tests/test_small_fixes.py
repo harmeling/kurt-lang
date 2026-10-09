@@ -21,7 +21,7 @@ def check(text: str) -> tuple[str, str]:
             fh.write(text)
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            kurt.load_file(path, copy.deepcopy(kurt.initial_kb), mainstream=True)
+            kurt.load_file(path, copy.deepcopy(kurt.initial_kb), main=True)
         return out.getvalue(), err.getvalue()
 
 

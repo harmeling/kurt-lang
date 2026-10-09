@@ -1,3 +1,5 @@
+; 26-inspect-a-loaded-theory.kurt
+;
 ; Inspect a loaded theory
 ;
 ; A loaded theory contributes declarations and labelled facts to the current

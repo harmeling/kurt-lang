@@ -23,7 +23,7 @@ a < b
   = c
 
 ; a chain doesn't continue the line that opens a block (its indentation is the block's)
-expect "SyntaxError"
+expect "ParseError"
     assume a < b
         = c
 
@@ -36,9 +36,9 @@ pick p with p = a
     a = a
 
 ; `local` comes after a formula, before its label
-expect "SyntaxError"
+expect "ParseError"
     local
-expect "SyntaxError"
+expect "ParseError"
     local "x"
 
 ; an operator in parentheses is a term, not a function (`(implies) A` was an `IndexError`, and

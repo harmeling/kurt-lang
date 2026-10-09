@@ -1,0 +1,21 @@
+; modus ponens and necessitation in modal logic (modal.kurt): from the theorems P and P → Q
+; follows the theorem Q, and from a theorem A the theorem □A
+load modal
+
+const P, Q
+formula P, Q
+
+; an axiom, and by necessitation the same with □
+⊢ (P → (Q → P))
+⊢ □(P → (Q → P))
+
+; a theorem is what follows from no assumptions
+empty ⊢ □(P → (Q → P))
+
+; modus ponens
+use ⊢ P "example-P"
+use ⊢ (P → Q) "example-P-to-Q"
+⊢ Q
+
+; necessitation, for the theorem just derived
+⊢ □Q

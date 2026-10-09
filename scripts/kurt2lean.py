@@ -65,7 +65,7 @@ class Recorder:
             self.parent_object[id(kb)] = kb.parent
 
     def ours(self) -> bool:
-        line = kurt.current_line[0]
+        line = kurt.run_state.current_line[0]
         return line is not None and line[0] == self.path
 
     def run(self) -> kurt.KnowledgeBase:
@@ -84,10 +84,10 @@ class Recorder:
                 recorder.events.append(('formula', f, kb))
             return result
         kurt.record_certificate, kurt.KnowledgeBase.theory_append = recording_certificate, recording_append
-        kurt.kurtc_enabled = False
+        kurt.run_state.kurtc_enabled = False
         try:
             with contextlib.redirect_stdout(io.StringIO()):
-                kb = kurt.load_file(self.path, copy.deepcopy(kurt.initial_kb), mainstream=True)
+                kb = kurt.load_file(self.path, copy.deepcopy(kurt.initial_kb), main=True)
             # a closed level is detached from its parent (`pop_level`): attach it again, so that
             # the declarations of the enclosing levels are found from it
             for kid, level in self.levels.items():

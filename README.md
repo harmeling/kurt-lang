@@ -6,8 +6,8 @@ immediately, line by line, whether each step follows. It is meant for students l
 things, much like running tests while learning to program. Kurt has been developed by Stefan
 Harmeling (TU Dortmund) since 2016.
 
-**Status: 0.7, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
-proof written for 0.7 may need small changes for 1.0.
+**Status: 0.8, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
+proof written for 0.8 may need small changes for 1.0.
 
 **Try it in your browser**, without installing anything:
 [www.kurt-lang.org](https://www.kurt-lang.org), the playground. It runs the same Kurt in the
@@ -26,10 +26,12 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.7.6 (made by Stefan Harmeling, 2016-2026), file c57cc53c5c5d
-    use A implies B                           ; 3 without proof
-    use A                                     ; 4 without proof
-    B                                         ; 5 by 3(4)
+    This is Kurt, v0.8.0 (made by Stefan Harmeling, 2016-2026), file 36776884a69c
+       3  use A implies B                           ; without proof
+          const A                                   ; added constant
+          const B                                   ; added constant
+       4  use A                                     ; without proof
+       5  B                                         ; by 3(4)
     Proof checked
 
 Each line gets the reason it holds: `B` follows by the rule of line 3 from the fact of line 4.
@@ -57,8 +59,8 @@ same indentation rules as a file.
 - **Proofs as text**, line by line. Kurt finds each single step by itself, from the facts and
   rules around. You don't need tactics or rule names.
 - **Theories written in Kurt itself**: propositional and first-order logic, equality, sets,
-  arithmetic, natural numbers with induction, analysis (sums, limits), and groups; and, as an
-  experimental example, a fragment of modal logic.
+  arithmetic, natural numbers with induction, analysis (sums, limits), groups, and modal logic
+  T (with `⊢ A` for "A is a theorem", modus ponens and necessitation).
   Even the grammar is declared there (`infix`, `bindop`, `chain`), so students can read why a
   step goes through.
 - **A kernel checks every step again**: the search hands each accepted step to a small checker
@@ -106,14 +108,16 @@ in parallel, use processes.
 
 ## Documentation
 
-- [`tutorial/`](tutorial/): the tutorial, 27 lessons (00 to 26), task by task: prove an implication, argue by
+- [`tutorial/`](tutorial/): the tutorial, 29 lessons (00 to 28), task by task: prove an implication, argue by
   contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
   derive". Each one is a Kurt file you can run and change.
-- [`keywords/`](keywords/): 47 short lessons (00 to 46), one keyword or idea each
+- [`keywords/`](keywords/): 46 short lessons (00 to 45), one keyword or idea each
   ([plan](keywords/plan.md)).
 - [`doc/kurt-doc.md`](doc/kurt-doc.md): the language reference.
 - [`doc/kurt-soundness.md`](doc/kurt-soundness.md): what the checker's correctness rests on,
   rule by rule, and the bugs found so far, each with its regression test.
+- [`dev/deep-logic-experiments.md`](dev/deep-logic-experiments.md): modal formulas as terms,
+  sequents, an ordered-resource fragment, optional sorts, and the remaining language limits.
 - [`proofs/`](proofs/): many more example proofs. Each one is also a test.
 
 ## Why trust it?
@@ -145,11 +149,13 @@ line. The design of the language, and the responsibility for it, remain the auth
 ## Editor support
 
 `kurt --lsp` is a language server for editors: the errors and `todo`s at their lines, the reason
-of each checked line at its end and on hover, and completion with the state at the cursor.
+of each checked line at its end and on hover, and completion with the state at the cursor. It
+checks after open and save, and can check edits after a short debounce; two open files use each
+other's unsaved text when one loads the other.
 
 The [kurt-syntax](https://github.com/harmeling/kurt-syntax) repository has editor support for
-`.kurt` files: highlighting, comments and indentation, and, in VS Code and Emacs, LaTeX-style
-shortcuts such as `\forall` → `∀`.
+`.kurt` files: highlighting, comments and indentation, LSP clients for VS Code, Emacs/Eglot and
+Neovim, and, in VS Code and Emacs, LaTeX-style shortcuts such as `\forall` → `∀`.
 
 - **VS Code**: an extension with snippets, built with `npm install` and `npm run package`, then
   installed with `code --install-extension kurt-syntax-<version>.vsix`.
@@ -157,6 +163,10 @@ shortcuts such as `\forall` → `∀`.
   path, and add `(require 'kurt-mode)` to your configuration.
 - **Vim and Neovim**: use the repository as a plugin, e.g. clone it into
   `~/.vim/pack/plugins/start/kurt-syntax`, or into Neovim's plugin directory.
+
+The editor support is new and not completely tested yet (VS Code tried on macOS, Emacs and Neovim
+briefly): expect rough edges, and please report what doesn't work. A check stops at the first
+error of a file, so an editor shows one error at a time.
 
 ## Developing Kurt
 

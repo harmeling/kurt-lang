@@ -13,7 +13,7 @@
 ; times-associative (K5), times-commutative (K6), one-times and zero-not-one (K7), inv-times (K8),
 ; distributive (K9). The existential axioms are given by names, as the slides do after proving
 ; uniqueness: `0` and `1`, `- λ` and `inv λ`. proofs/mafi1/ uses this theory.
-load set
+load prop, equality, logic, set
 infix + 60 60
 infix · 70 70
 infix - 60 60
@@ -271,7 +271,9 @@ proof
         $x = 1 ∨ $x = - 1
 qed
 
-; subtraction: `λ - μ` is `λ + (- μ)`, and its laws
+; subtraction: `λ - μ` is `λ + (- μ)`, and its laws. `minus-def` is a defining axiom rather
+; than `def`: binary `-` shares an already meaningful symbol with unary `-`, and the equation is
+; conditional on field membership instead of introducing one fresh abbreviation.
 use $a ∈ K ∧ $b ∈ K  ⇒  $a - $b = $a + (- $b)                       "minus-def"
 
 show $a ∈ K ∧ $b ∈ K  ⇒  $a - $b ∈ K                                "difference-closed"

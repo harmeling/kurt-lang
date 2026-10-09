@@ -3,7 +3,7 @@
 sandbox
     load modal
     true
-    trail
+    summary
 sandbox
     load modal    ; should be alright
     true

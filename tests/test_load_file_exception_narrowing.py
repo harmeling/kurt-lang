@@ -30,7 +30,7 @@ class TestLoadFileExceptionNarrowing(unittest.TestCase):
         # `candidate.open(...)` call itself.
         kb = copy.deepcopy(kurt.initial_kb)
         with self.assertRaises(AttributeError):
-            kurt.load_file('anything', kb, search_paths=[_NoNamePath()], mainstream=False)
+            kurt.load_file('anything', kb, search_paths=[_NoNamePath()], main=False)
 
 if __name__ == '__main__':
     unittest.main()

@@ -19,10 +19,9 @@ bool p, q
 ; supply the outline, kurt only checks each step is a real, valid inference.
 ;
 ; Strategy for ¬(p ∧ q) ⇒ ¬p ∨ ¬q: assume the antecedent, then case-split on `p ∨ ¬p`
-; (excluded middle, not built in -- you have to `use` it). In the `p` case, `p ∧ q` would
-; need `q` too, but if `q` also held you'd have `p ∧ q`, contradicting the assumption --
+; (the excluded middle, which `prop.kurt` proves as "excluded-middle"). In the `p` case,
+; `p ∧ q` would need `q` too, but if `q` also held you'd have `p ∧ q`, contradicting the assumption --
 ; so `¬q`, hence `¬p ∨ ¬q`. In the `¬p` case, `¬p ∨ ¬q` follows immediately from `¬p`.
-use p ∨ ¬p "excluded-middle"
 
 show ¬(p ∧ q) ⇒ ¬p ∨ ¬q
 proof
@@ -30,9 +29,8 @@ proof
         ; Step 3: here's the mistake -- jumping straight to the conclusion. It's *true*
         ; here, but nothing derivable in one step from `¬(p ∧ q)` alone gets you there;
         ; kurt only checks real inferences, it doesn't take your word for a true-but-
-        ; unjustified restatement (`expect` can only wrap an ordinary statement like this
-        ; one, not a block-opening keyword like the `case` below, which is why this
-        ; deliberate mistake has to be a bare line rather than the actual wrong case split):
+        ; unjustified restatement. `expect` (lesson 13) wraps the mistake, so that the
+        ; file still checks:
         expect "ProofError"
             ¬p ∨ ¬q
 
@@ -56,5 +54,5 @@ qed
 ; that's the whole method: state the goal, sketch a strategy in prose (comments) before
 ; writing any kurt, expect to hit "can not derive" at least once, and read *which* step
 ; failed to find the missing link -- almost always a contradiction, an elimination rule, or
-; an intermediate restatement that needs to be spelled out explicitly. `sandbox` (15-sandbox)
+; an intermediate restatement that needs to be spelled out explicitly. `sandbox` (lesson 14)
 ; is the right place to try a step you're not sure about without committing to it.

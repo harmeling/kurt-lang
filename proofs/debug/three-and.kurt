@@ -4,12 +4,12 @@
 
 ;;load prop
 use %A  and  %B   implies   %A                                      "and-elim"   ; `and` is symmetric and flat
-use p ∧ q ∧ r
+use p and q and r
 p                   ; first position
 r                   ; second position
 q                   ; third position
 
 bool a, b
-use a ∧ b
+use a and b
 a                   ; first position
 b                   ; second position

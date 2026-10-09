@@ -13,7 +13,7 @@ ALLOWED = {
     # the meaning of `flat`, `sym` and `calc`: trusted semantics, not search
     'normalize_expr', 'calculate_normalized', 'numeric_comparison_holds',
     # plain predicates and helpers on expressions
-    'is_forall', 'is_iff', 'is_implication', 'is_op_expr', 'is_sub', 'is_relation', 'is_bool_var_token',
+    'is_forall', 'is_iff', 'is_disjunction', 'is_falsum', 'negation_of', 'is_implication', 'is_op_expr', 'is_sub', 'is_relation', 'is_bool_var_token',
     'bound_condition', 'is_bound_condition',
     'get_token_set', 'deepcopy_expr', 'expr_str', 'new_var_name', 'new_bool_var_name',
     # the read-only view of the knowledge base for one check

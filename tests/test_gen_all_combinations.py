@@ -1,6 +1,7 @@
 import unittest
 import copy
 from kurt.kurt import Token, generate_all_combinations, initial_kb
+from tests.utils import with_quantifiers
 
 # each example looks like this:
 #   [expr,
@@ -160,7 +161,7 @@ class Test_Combinations(unittest.TestCase):
             try:
                 token_x = Token(label='SYMBOL', value='$%1')   # use a variable name that doesn't appear in the examples
                 # the renaming is usually done elsewhere
-                kb = copy.deepcopy(initial_kb)
+                kb = with_quantifiers(copy.deepcopy(initial_kb))
                 result = generate_all_combinations(input, token_x, None, kb)
                 output = [str(r) for r in result]
             except Exception as e:

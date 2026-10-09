@@ -8,12 +8,12 @@ alias  ¬ not
 alias  ⊥ false
 
 ; inference rules
-use ¬¬%p ⇒ %p           "double-not-elim"
-use (%p ⇒ ⊥) ⇒ ¬%p      "not-intro"
+use ¬¬%p implies %p           "double-not-elim"
+use (%p implies ⊥) implies ¬%p      "not-intro"
 
 ; let's prove something!
 const q
-show ⊥ ⇒ q  "ex-falso-quodlibet"
+show ⊥ implies q  "ex-falso-quodlibet"
 proof
     assume ⊥
         assume ¬q
@@ -22,7 +22,7 @@ proof
         q
 qed
 
-show ⊥ ⇒ %q  "ex-falso-quodlibet"
+show ⊥ implies %q  "ex-falso-quodlibet"
 proof
     let %q
         assume ⊥
@@ -30,6 +30,6 @@ proof
                 ⊥
             ¬¬%q
             %q
-        ⊥ ⇒ %q
-    ⊥ ⇒ %q
+        ⊥ implies %q
+    ⊥ implies %q
 qed

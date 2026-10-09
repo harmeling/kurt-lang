@@ -26,9 +26,9 @@ P 1 ∨ q2 = r
 ; a symbol means one operation of the calculator (`calc s power, s add` computed `add`), and
 ; possibly `negate` besides, like `-`
 infix s 50 50
-calc s power
+builtin s power
 expect "EvalError"
-    calc s add
+    builtin s add
 
 ; `pick x with` needs a fact
 exists y (y = y)

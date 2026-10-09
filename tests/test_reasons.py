@@ -1,4 +1,5 @@
 import contextlib
+import re
 import copy
 import io
 import os
@@ -18,18 +19,20 @@ def reasons(text: str) -> dict[str, str]:
         with open(path, 'w') as fh:
             fh.write(text)
         out = io.StringIO()
-        old = kurt.kurtc_enabled
-        kurt.kurtc_enabled = False
+        old = kurt.run_state.kurtc_enabled
+        kurt.run_state.kurtc_enabled = False
         try:
             with contextlib.redirect_stdout(out):
-                kurt.load_file(path, copy.deepcopy(kurt.initial_kb), mainstream=True)
+                kurt.load_file(path, copy.deepcopy(kurt.initial_kb), main=True)
         finally:
-            kurt.kurtc_enabled = old
+            kurt.run_state.kurtc_enabled = old
     lines = {}
     for line in out.getvalue().splitlines():
         if ';' in line:
             claim, reason = line.split(';', 1)
-            lines[claim.strip()] = reason.strip()
+            number = re.match(r'\s*(\d+)  ', claim)      # (the number of the line, in front)
+            claim = claim[number.end():] if number else claim
+            lines[claim.strip()] = f'{number.group(1)} {reason.strip()}' if number else reason.strip()
     return lines
 
 

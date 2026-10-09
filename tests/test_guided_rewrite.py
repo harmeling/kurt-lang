@@ -18,7 +18,7 @@ def kb_after(text: str) -> 'kurt.KnowledgeBase':
             f.write(text)
         kb = copy.deepcopy(kurt.initial_kb)
         with contextlib.redirect_stdout(io.StringIO()):
-            kurt.load_file(path, kb, mainstream=False)
+            kurt.load_file(path, kb, main=False)
         return kb
 
 

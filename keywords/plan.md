@@ -8,7 +8,9 @@ for `true`/`implies`/`and`, one core built-in symbol).  Lessons are numbered
 consecutively (the sections below are just for orientation), and are meant to
 be read and run in numeric order: a lesson only uses keywords that were
 already introduced in an earlier lesson (plus whatever `minimal.kurt`
-hard-codes for free: `true`, `implies`, `and`, brackets, comma, space).
+hard-codes for free: `true`, `implies`, `and`, brackets, comma, space),
+except where the lesson says so (07-show uses `proof`/`qed`, 08-proof `qed`, 19-let and
+20-pick use `arity`).
 
 Run a lesson with:
 
@@ -43,48 +45,53 @@ BLOCKS -- natural-deduction-style sub-proofs
     18-assume    hypothetical reasoning ("impl-intro", "not-intro")
     19-let       introducing a fresh, arbitrary constant ("forall-intro")
     20-pick      extracting a witness from an existential ("exists-elim")
-    21-case      case distinctions ("or-elim")
+    21-case      case distinctions (the derived, kernel-checked "case-elim")
     22-break     abandoning a block immediately, without proving anything
-    23-mode      what kind of block are we in right now?
-    24-trail     the chain of open blocks, one line
-    25-context   the chain of open blocks, in detail
-    26-level     how deeply nested are we?
+    23-summary   where the proof is: open blocks, claims to prove, next steps
 
 SYNTAX -- extending Kurt's grammar from Kurt source
 ------------------------------------------------------
-    27-tokenize  see how a string turns into tokens
-    28-parse     see how tokens turn into a term
-    29-syntax    inspect all currently declared syntax
-    30-infix     declaring infix operators (with binding powers)
-    31-prefix    declaring prefix operators
-    32-postfix   declaring postfix operators
-    33-brackets  declaring bracket pairs
-    34-arity     declaring a symbol's number of arguments
-    35-bindop    declaring variable-binding operators (`forall`, `exists`, ...)
-    36-chain     declaring chains of mixed (in)equalities, e.g. `a = b < c`
+    24-tokenize  see how a string turns into tokens
+    25-parse     see how tokens turn into a term
+    26-syntax    inspect all currently declared syntax
+    27-infix     declaring infix operators (with binding powers)
+    28-prefix    declaring prefix operators
+    29-postfix   declaring postfix operators
+    30-brackets  declaring bracket pairs
+    31-arity     declaring a symbol's number of arguments
+    32-bindop    declaring variable-binding operators (`forall`, `exists`, ...)
+    33-chain     declaring chains of mixed (in)equalities, e.g. `a = b < c`
 
 SUGAR -- syntactic convenience
 ---------------------------------
-    37-alias     giving a symbol an extra name (e.g. Unicode for ASCII)
-    38-flat      an infix operator that doesn't need explicit nesting
-    39-sym       an infix operator whose arguments may be swapped
+    34-alias     giving a symbol an extra name (e.g. Unicode for ASCII)
+    35-flat      an infix operator that doesn't need explicit nesting
+    36-sym       an infix operator whose arguments may be swapped
 
 MISC -- REPL/output behaviour and self-documentation
 --------------------------------------------------------
-    40-format    how formulas are printed (`sexpr` vs `normal`)
-    41-help      list of all keywords, straight from Kurt itself
-    42-hint      toggle: hints for the next input (shell only)
-    43-calc      toggle: automatic arithmetic simplification (`+`, `*`)
+    37-format    how formulas are printed (`sexpr` vs `normal`)
+    38-help      list of all keywords, straight from Kurt itself
+    39-hint      toggle: hints for the next input (shell only)
+    40-calc      computing with numbers: `calc + add`, `calc < lt`, ...; `calc on`/`off`
 
 TRUST -- certificates
 ---------------------
-    44-cert      `cert N`: the certificate of a line, checked by the kernel;
+    41-cert      `cert N`: the certificate of a line, checked by the kernel;
                  `.kurtc` files and `kurt --deps`
 
 DEBUGGING
 ---------
-    45-breakpoint  stop in a file and continue in the shell with its state
-    46-list        inspect the retained exports of loaded theories
+    42-breakpoint  stop in a file and continue in the shell with its state
+    43-list        which theories are loaded, and what each one exports
+
+OPTIONAL SORTS
+--------------
+    44-sort        add sparse term/type categories with the existing positional notation
+
+MEANINGS BUILT INTO KURT
+------------------------
+    45-builtin     a calculator operation (`builtin + add`) or a role of the engine (`builtin iff equivalence`)
 
 Moved (2026-10-06): the worked proof is tutorial/21-worked-proof.kurt; the
 lessons on tuples and groups are tutorial/23-work-with-pairs-and-tuples.kurt and

@@ -7,7 +7,7 @@
 
 load logic
 bool P, B, C
-arity P 1
+arity P 1                ; P takes one argument (lesson 20)
 const P, B, C
 
 use forall $x (P($x) implies B)
@@ -28,4 +28,19 @@ qed
 ; From an existential with a condition, `exists $x > 0 P($x)`, the fact about the witness is the
 ; condition and the body: `pick c with c > 0 and P(c)`, or just `pick c > 0 and P(c)` (the
 ; witness is the new name of the formula). `pick` needs the existential as a fact: to show
-; something for an arbitrary `x` with a property instead, use `let x with ...` (lesson 08).
+; something for an arbitrary `x` with a property instead, use `let` with the condition, as in
+; `let x > 0` (lesson 08).
+
+; Unique existence, `∃! x U(x)`: there is exactly one x with U(x). logic.kurt defines it
+; ("existsunique-def": some x has U(x), and every y with U(y) is that x). "existsunique-exists"
+; gives the existential, to `pick` from, and "existsunique-unique" says that two elements with
+; the property are equal.
+
+bool U
+arity U 1
+const U, m, n
+use ∃! x U(x)
+∃ x U(x)                 ; by existsunique-exists
+use U(m)
+use U(n)
+m = n                    ; by existsunique-unique

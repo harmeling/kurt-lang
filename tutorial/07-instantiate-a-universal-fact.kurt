@@ -7,10 +7,11 @@
 
 load logic
 bool P
-arity P 1
+arity P 1                ; P takes one argument (declarations: lesson 20)
 const P, c
 
 use forall $x P($x)
 P(c)
 
-; `$x` is the bound variable. `P(c)` follows by the `forall-elim` rule in `logic.kurt`.
+; `$x` is the bound variable. Instantiating it is built into Kurt, so `P(c)` follows directly from
+; the fact and the output shows just `by 13`.

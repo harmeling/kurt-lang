@@ -1,0 +1,30 @@
+; A small deeply embedded sequent calculus for object-level implication.
+;
+; `extend Γ A` is Γ with the object formula A available as its newest assumption. Unary `⊢ A`
+; is connected explicitly to the empty-context sequent `empty ⊢ A`.
+
+infix → 30 29
+prefix ⊢ 90
+infix ⊢ 10 10
+arity extend 2
+
+const →, ⊢, extend, empty
+bool ⊢ 0
+
+var A, B, Γ
+
+use extend Γ A ⊢ A "assumption"
+use (Γ ⊢ A) implies (extend Γ B ⊢ A) "weakening"
+use (extend Γ A ⊢ B) implies (Γ ⊢ (A → B)) "implication-right"
+use (Γ ⊢ A) and (Γ ⊢ (A → B)) implies (Γ ⊢ B) "implication-elimination"
+use (⊢ A) implies (empty ⊢ A) "theorem-to-empty-sequent"
+use (empty ⊢ A) implies (⊢ A) "empty-sequent-to-theorem"
+
+const P, Q
+
+extend empty P ⊢ P
+empty ⊢ (P → P)
+⊢ (P → P)
+
+; Weakening makes P remain available below an unrelated Q.
+extend (extend empty P) Q ⊢ P

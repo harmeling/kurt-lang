@@ -10,7 +10,9 @@ Writing Kurt proofs, the essentials:
 - Declare symbols first: `bool A, B` (propositions), `const a, b`, `arity f 1`. Variables of
   rules start with `$` (objects) or `%` (propositions).
 - Load theories: `load prop` (propositional logic), `logic` (quantifiers), `equality`, `set`,
-  `numbers`, `natural` (induction), `analysis`, `group`, `modal`.
+  `numbers`, `natural` (induction), `integer`, `rational`, `analysis`, `group`, `field`,
+  `vectorspace`, `matrix`, `modal`, `lambda`. A symbol is declared by one file only, so some
+  can't be loaded together (`numbers` and `field`, `prop` and `modal`).
 - `use F "label"` states an axiom; `show F` / `proof` / (indented steps) / `qed` proves a claim;
   a plain line `F` is a claim that must follow in one step from what is there.
 - `assume A` opens a block; its last line `B` gives `A implies B` when the block closes by

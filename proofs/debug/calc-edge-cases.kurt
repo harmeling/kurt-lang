@@ -29,4 +29,4 @@ P (1 * x)
 
 ; the symbols of numbers.kurt can't be bound anew
 expect "EvalError"
-    calc + multiply
+    builtin + multiply

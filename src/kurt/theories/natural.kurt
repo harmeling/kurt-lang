@@ -12,13 +12,14 @@
 ;
 ; arithmetic comes from numbers.kurt: natural numbers are real numbers, so all of its laws
 ; (and `calc`) apply to them as well.
+load prop, equality
 load set
 load numbers
 load logic
 
 ;; inference rules
 const Nat
-calc Nat naturals                   ; `calc on` proves `3 ∈ Nat`
+builtin Nat naturals                   ; `calc on` proves `3 ∈ Nat`
 
 use 0 in Nat  "nat-zero"
 use $n in Nat  implies  $n+1 in Nat  "nat-succ"

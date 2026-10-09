@@ -1,0 +1,7 @@
+; an `alias` declares its name, as `infix` or `const` do: a symbol is declared by one file only.
+; prop.kurt's `alias ∧ and` and modal.kurt's constructor `∧` (an object-level connective) were
+; loaded together without an error, and `∧` then silently meant prop's meta-level `and`
+; (found by the consistency check of 2026-10-09).
+load modal
+expect "EvalError" "declared in `modal.kurt` and in `prop.kurt`"
+    load prop

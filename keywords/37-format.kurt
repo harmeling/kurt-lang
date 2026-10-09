@@ -1,0 +1,28 @@
+; 37-format.kurt
+
+; `format` chooses how formulas are printed in the log: `normal` (the
+; default, close to how you typed it) or `sexpr` (fully-parenthesised
+; s-expressions, useful for seeing the exact tree structure Kurt parsed).
+; `source` replays the spelling saved on each stored formula. In normal
+; format, matrices with several rows are aligned over several screen lines.
+; (For a LaTeX document of a proof, see `scripts/kurt2latex.py`.)
+
+load prop
+bool A, B, C
+
+format sexpr
+use A
+use B
+A and B                 ; printed as `(and A B)`
+
+format normal
+use C
+A and C                  ; back to the default look: `A and C`
+
+format source
+use C ∧ A                ; printed with the same alias and operand order
+
+format normal
+
+; `format` with no argument reports the current setting:
+format

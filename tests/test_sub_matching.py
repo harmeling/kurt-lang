@@ -3,6 +3,7 @@ import random
 import unittest
 
 import kurt.kurt as kurt
+from tests.utils import with_quantifiers
 
 # Matching a formula `G` against the pattern `sub $x $a %A` means finding `$a` and `%A` with
 # `G == %A[$x := $a]` (up to flattening/sorting and alpha-equivalence) -- second-order matching,
@@ -14,7 +15,7 @@ import kurt.kurt as kurt
 
 
 def make_kb() -> kurt.KnowledgeBase:
-    kb = copy.deepcopy(kurt.initial_kb)
+    kb = with_quantifiers(copy.deepcopy(kurt.initial_kb))
     kb = kb.push_level('sandbox', [])
     for s in ['P', 'Q', 'R']:
         kb.add_bool(s, [0])

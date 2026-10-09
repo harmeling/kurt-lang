@@ -14,7 +14,7 @@
 ; vector-plus-commutative (V2), vector-plus-zero (V3), vector-plus-minus (V4),
 ; vector-times-associative (V5), vector-one-times (V6), vector-distributive (V7),
 ; vector-distributive-scalars (V8). proofs/mafi1/ uses this theory.
-load field
+load equality, logic, set, field
 arity vectorspace 1
 
 use vectorspace($V)  ⇒  0 ∈ $V                                                       "zero-vector-in"

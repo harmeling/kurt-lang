@@ -1,5 +1,5 @@
 ; simple proofs from group theory
-load equality
+load equality, logic
 
 ; define function symbols for infix and prefix notations
 infix  +  60 60           ; binary plus

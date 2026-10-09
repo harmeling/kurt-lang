@@ -6,6 +6,7 @@ from kurt.kurt import (
     initial_kb,
     bare_bool_schema_axiom_warning,
 )
+from tests.utils import with_quantifiers
 
 def sym(name: str) -> Token:
     return Token(label="SYMBOL", value=name)
@@ -18,7 +19,11 @@ def forall(x: str, body: Expr) -> Expr:
 
 class TestBareBoolSchemaWarning(unittest.TestCase):
     def setUp(self):
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
+        # `iff` is an equivalence only with its role (prop.kurt's `builtin iff equivalence`)
+        self.kb.add_infix('iff', 10, 10)
+        self.kb.add_bool('iff', [0, 1, 2])
+        self.kb.bind_engine_role('iff', 'equivalence')
 
     def test_bare_var_warns(self):
         # use %A

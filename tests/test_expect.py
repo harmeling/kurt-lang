@@ -14,15 +14,15 @@ from tests.utils import PROJECT_ROOT
 
 def check(path: str) -> str:
     # the error of checking the file, or '' if it checks
-    old = kurt.kurtc_enabled
-    kurt.kurtc_enabled = False
+    old = kurt.run_state.kurtc_enabled
+    kurt.run_state.kurtc_enabled = False
     try:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            kurt.load_file(path, copy.deepcopy(kurt.initial_kb), mainstream=True)
+            kurt.load_file(path, copy.deepcopy(kurt.initial_kb), main=True)
     except kurt.KurtException as e:
         return e.msg
     finally:
-        kurt.kurtc_enabled = old
+        kurt.run_state.kurtc_enabled = old
     return ''
 
 def check_text(text: str) -> str:
@@ -45,9 +45,12 @@ class TestExpect(unittest.TestCase):
         self.assertIn('ExpectationError: this `expect "ProofError"` block finished without raising a `ProofError`', msg)
 
     def test_minimal_can_not_be_loaded(self):
-        # minimal.kurt is only for reference (the core is built into Kurt): its `false` makes sure
+        # minimal.kurt is the core, which Kurt reads when it starts (`read_core`): never loaded
         msg = check(str(PROJECT_ROOT / 'src' / 'kurt' / 'theories' / 'minimal.kurt'))
-        self.assertIn('ProofError: can not derive `false`', msg)
+        self.assertIn('is the core, which every file starts with', msg)
+        kb = copy.deepcopy(kurt.initial_kb)
+        with self.assertRaises(kurt.KurtException):
+            kurt.load_file('minimal', kb)
 
 if __name__ == '__main__':
     unittest.main()

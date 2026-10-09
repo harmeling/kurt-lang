@@ -1,0 +1,15 @@
+; 39-hint.kurt
+
+; `hint` is a toggle (`hint on` / `hint off`) for the interactive shell: with
+; `hint on`, Kurt prints before each prompt what could come next, e.g.
+;
+;     ; hint: next, e.g. proof  (Tab writes it)
+;
+; -- `proof` after a `show`, in a proof its goal and then `qed`, in a chain
+; its relation, in a `case` block the other alternatives of the disjunction.
+; Tab on an empty line writes it. In a file, `hint` changes nothing.
+
+hint                ; reports the current setting ("hint off")
+hint on
+hint                ; ("hint on")
+hint off

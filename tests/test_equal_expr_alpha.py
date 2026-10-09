@@ -6,6 +6,7 @@ from kurt.kurt import (
     initial_kb,
     equal_expr,
 )
+from tests.utils import with_quantifiers
 
 def sym(name: str) -> Token:
     return Token(label="SYMBOL", value=name)
@@ -21,7 +22,7 @@ def exists(x: str, body: Expr) -> Expr:
 
 class TestEqualExprAlpha(unittest.TestCase):
     def setUp(self):
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
 
     def test_identical_expressions_are_equal(self):
         e = app("R", sym("a"), sym("b"))

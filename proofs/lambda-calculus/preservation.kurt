@@ -1,0 +1,11 @@
+; A concrete preservation experiment. Both sides of this call-by-value step have type base.
+; General preservation needs induction over typing derivations plus a substitution lemma; Kurt's
+; current first-order rule language cannot state that meta-theorem without encoding derivations.
+load lambda
+
+empty ⊢ (λ x x) : (fun base base)
+empty ⊢ unit : base
+empty ⊢ (app (λ x x) unit) : base
+
+(app (λ x x) unit) ⇝ unit
+empty ⊢ unit : base

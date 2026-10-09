@@ -1,3 +1,3 @@
 ; error: a `show` without its proof at the end of the file
-expect "EvalError" "cannot merge and pop a level with promised formulas, got 1 formulas."
+expect "ProofError" "has no proof"
     load "helpers/not-all-show-proved.kurt"

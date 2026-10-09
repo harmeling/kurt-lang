@@ -23,7 +23,7 @@ proof
                 contradiction
             ¬¬(A ∨ ¬A)
             A ∨ ¬A                ; by not-elim
-            ¬A ∨ B                ; by or-elim
+            ¬A ∨ B                ; by case-elim
     qed
     show (¬A ∨ B)  ⇒  (A ⇒ B)
     proof

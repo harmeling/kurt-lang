@@ -34,7 +34,7 @@ def load(files: dict[str, str], main: str) -> kurt.KnowledgeBase:
             with open(os.path.join(tmp, name), 'w') as fh:
                 fh.write(text)
         with contextlib.redirect_stdout(io.StringIO()):
-            return kurt.load_file(os.path.join(tmp, main), copy.deepcopy(kurt.initial_kb), mainstream=False)
+            return kurt.load_file(os.path.join(tmp, main), copy.deepcopy(kurt.initial_kb), main=False)
 
 
 class TestExportBundle(unittest.TestCase):
@@ -49,11 +49,11 @@ class TestExportBundle(unittest.TestCase):
                 self.assertFalse(seen(kb, 'Y'), f'`{kind}` of Y, only in an unlabelled fact, crossed')
 
     def test_a_calc_binding_crosses_like_an_axiom(self):
-        # `calc S add` says what `S` computes, an axiom about it: it crosses also without a fact
+        # `builtin S add` says what `S` computes, an axiom about it: it crosses also without a fact
         # that mentions `S` (matrix.kurt's `[ ]`, `det`, `transpose` are in none)
-        helper = PRELUDE + 'infix S 50 50\ncalc S add\n'
+        helper = PRELUDE + 'infix S 50 50\nbuiltin S add\n'
         kb = load({'helper.kurt': helper, 'main.kurt': 'load helper\n'}, 'main.kurt')
-        self.assertIn('add', kb.get_calc_ops('S'))
+        self.assertIn('add', kb.get_builtins('S'))
         self.assertTrue(kb.is_infix('S'))
 
     def test_a_new_field_stays_in_the_file(self):
@@ -70,11 +70,11 @@ class TestExportBundle(unittest.TestCase):
         child = kb.push_level('sandbox', [])
         child.add_const('b')
         child.theory_append(kurt.Formula(child, kurt.Token('SYMBOL', 'b'), 'b', '1', 'f', 'b-label', '', ''))
-        child.calc_ops['b'] = ['add']
+        child.builtins['b'] = ['add']
         bundle = kurt.compute_exports(child)
-        bundle.calc_ops['b'].append('multiply')
+        bundle.builtins['b'].append('multiply')
         bundle.theory.clear()
-        self.assertEqual(child.calc_ops['b'], ['add'])
+        self.assertEqual(child.builtins['b'], ['add'])
         self.assertEqual(len(child.theory), 1)
 
     def test_loading_twice_changes_nothing(self):

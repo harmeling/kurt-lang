@@ -1,10 +1,15 @@
-; minimal
-false ; never load this theory, this file is just for reference
-      ; it is already hard-coded in `kurt.py`, look for `initial_kb`
+; minimal -- the core
+;
+; Kurt reads this file when it starts, before anything else: its declarations are the core that
+; every file and the shell begin with. It is never loaded (`load minimal` is an error), and its
+; symbols are frozen: no file can change them. Only two internal things are made in `kurt.py`
+; itself (`initial_kb`): the parse rule of `local` (below) and the marker of bound variables.
 
 ;; syntax
 brackets ( )                                 ; for grouping during parsing
-infix    ,    5  4                           ; for lists and tuples, right associative: `(a, b, c)` is `(a, (b, c))`
+infix    ","  5  4                           ; for lists and tuples, right associative: `(a, b, c)` is `(a, (b, c))`
+                                             ; (quoted, because a comma separates declarations)
+const    ","                                 ; the fixed tuple/list constructor
 infix    " " 90 90                           ; space for function applications, binds most tightly
                                              ; (`f(x)` without a space binds more tightly still, 95:
                                              ; `inv det(A)` is `inv (det A)`)
@@ -14,11 +19,9 @@ bool  true                                   ; true has type bool
 infix implies 13 12                          ; logical implies, right associative (since 13>12)
 infix and     16 16                          ; and operator
 bool  implies 0 1 2, and 0 1 2               ; both take and give booleans
+const implies, and                           ; both are constants
 flat  and                                    ; conjunctions need no nesting
 sym   and                                    ; `A and B` is the same as `B and A`
-alias ⊤ true
-alias ⇒ implies
-alias ∧ and
 ; `EXPR local "label"` marks a label as not exported by `load` -- a special parse rule, no
 ; declaration (see `local_led` in `kurt.py`)
 ;
@@ -52,33 +55,20 @@ alias ∧ and
 ; lessons 08-proof and 18-assume). `not`/`false` themselves also aren't declared here at
 ; all -- see `prop.kurt` for those, and for a general, always-available "not-intro".
 
-;; names the engine itself knows, although they are declared in theories
+;; meanings the engine implements for symbols that theories declare
 ;
-; the engine treats these symbols specially *by name*, once some theory declares them:
-; - `iff`: every fact `A iff B` is also used as `A implies B` and `B implies A` (`impl_elim`)
-; - `not`, `false`: closing an `assume` block whose last line is `false` also gives `not A`
-; - `=`, `iff`: the only relations `def` accepts (and only from the packaged `equality.kurt` /
-;   `prop.kurt`); their two sides are never reordered, although both are `sym`
-; - nothing is computed by its name: with `calc on`, the calculator computes the symbols a
-;   theory binds to it (numbers.kurt: `calc + add, * multiply, ...`; matrix.kurt: `calc [ matrix`)
-; - `or`: only for Tab and `hint` in the shell (the other alternatives of a `case`)
-; - `sub`, `forall`, `exists`: see below, and the rules behind `let` ("forall-intro") and
-;   `pick` ("exists-elim")
+; nothing has such a meaning by its name: a trusted theory assigns it with `builtin` (doc/kurt-
+; doc.md §10) -- prop.kurt `builtin iff equivalence, or disjunction, not negation, false falsum`,
+; equality.kurt `builtin = equality`, and the calculator's operations, e.g. numbers.kurt `builtin
+; + add, * multiply, ...` and matrix.kurt `builtin [ matrix` (computed with `calc on`). The
+; quantifiers too: logic.kurt declares `forall`/`exists` with `builtin forall universal, exists
+; existential` -- without `load logic` there are no quantifiers, and no `let`/`pick`.
 
 ;; substitution operator
 arity  sub 3                                 ; operator for substitutions
 bindop sub                                   ; first arg must be a variable that is bound
 
-;; forall/exists syntax (their axioms -- forall-elim, exists-intro -- still live in
-;; logic.kurt, and still need `load logic`; only the *syntax* is hard-coded, so that the
-;; two lines below aren't the only thing standing between "forall" meaning something and
-;; it crashing the theory-storage machinery the moment anyone uses the word -- see
-;; `theory_append`/`remove_outer_forall_quantifiers` in `kurt.py`)
-arity  forall 2, exists 2
-bindop forall, exists                        ; with a condition, `∀ x > 0 ...` binds the first symbol of
-                                             ; the condition that is new or a variable, decided (and
-                                             ; stored) when the line is read
-bool   forall 0 2, exists 0 2                ; position 2 (the body) must be boolean
-const  forall, exists
-alias  ∀ forall
-alias  ∃ exists
+; The minimal core deliberately has no aliases. `prop.kurt` supplies the familiar aliases for
+; propositional syntax (`⊤`, `⇒`, `∧`, ...), and `logic.kurt` the quantifiers with `∀` and `∃`.
+; Keeping the glyphs theory-local lets a deeply embedded object language declare them with
+; another meaning.

@@ -1,0 +1,88 @@
+; SIMPLY TYPED LAMBDA CALCULUS
+;
+; `term`, `type`, `index`, `ctx`, and `typing` are optional Kurt sorts. They make malformed
+; typing judgments fail during checking. The paper notation `Γ ⊢ M : A`, compatible beta
+; reduction `M ↦ N`, and call-by-value evaluation `M ⇝ N` are Boolean judgments Kurt can prove.
+; The older prefix spelling `has Γ M A` remains as a compatibility notation with the same rules.
+;
+; The fully general typing rules use de Bruijn terms: `at zero`, `at (succ zero)`, and
+; `abs A M`. This keeps context extension and abstraction entirely in ordinary Kurt rules.
+;
+; The theory additionally offers readable named terms `λ x M`. `λ` is a real Kurt binder, so
+; alpha-equivalent terms match, and beta uses Kurt's capture-avoiding `sub`. The current pure-Kurt
+; rule language does not express the full hypothetical premise of named abstraction conveniently;
+; the named typing conveniences below are therefore deliberately limited to sound cases.
+
+sort type, term, index, ctx, typing
+
+arity fun 2, app 2, has 3, value 1, λ 2, succ 1, at 1, abs 2, extend 2
+infix ↦ 15 15
+infix ⇝ 15 15
+infix : 25 24
+infix ⊢ 10 9
+bindop λ
+
+const fun, app, has, value, ↦, ⇝, :, ⊢, succ, at, abs, extend, zero, empty, base, unit
+
+type fun 0 1 2, has 3, base
+type abs 1, extend 2
+type : 2
+term app 0 1 2, λ 0 1 2, at 0, abs 0 2, has 2, value 1, ↦ 1 2, ⇝ 1 2, unit
+term : 1
+index zero, succ 0 1, at 1
+ctx empty, extend 0 1, has 1
+ctx ⊢ 1
+typing : 0
+typing ⊢ 2
+bool has 0, value 0, ↦ 0, ⇝ 0, ⊢ 0
+
+var Γ, M, N, F, x, n, A, B, C
+ctx Γ
+term M, N, F, x
+index n
+type A, B, C
+
+; A closed inhabitant makes the examples executable without choosing another object theory.
+use has empty unit base "unit-type"
+use empty ⊢ unit : base "unit-type-paper"
+
+; Complete syntax-directed typing rules for the de Bruijn representation.
+use has (extend Γ A) (at zero) A "variable-zero"
+use (has Γ (at n) A) implies (has (extend Γ B) (at (succ n)) A) "variable-successor"
+use (has (extend Γ A) M B) implies (has Γ (abs A M) (fun A B)) "abstraction"
+
+use (has Γ M (fun A B)) and (has Γ N A) implies (has Γ (app M N) B) "application"
+
+; The same complete rules in the notation normally used on paper. Keeping these as direct rules,
+; rather than a multi-step bridge through `has`, also keeps each ordinary Kurt proof step local.
+use (extend Γ A) ⊢ (at zero) : A "variable-zero-paper"
+use (Γ ⊢ (at n) : A) implies ((extend Γ B) ⊢ (at (succ n)) : A) "variable-successor-paper"
+use ((extend Γ A) ⊢ M : B) implies (Γ ⊢ (abs A M) : (fun A B)) "abstraction-paper"
+use (Γ ⊢ M : (fun A B)) and (Γ ⊢ N : A) implies (Γ ⊢ (app M N) : B) "application-paper"
+
+; Sound named-term conveniences. Binder matching guarantees that M/F do not acquire the bound x
+; in the constant/application-abstraction rules. Identity is the dependent base case explicitly.
+use has Γ (λ x x) (fun A A) "named-identity"
+use (has Γ M B) implies (has Γ (λ x M) (fun A B)) "named-constant-abstraction"
+use (has Γ F (fun A B)) implies (has Γ (λ x (app F x)) (fun A B)) "named-application-abstraction"
+use Γ ⊢ (λ x x) : (fun A A) "named-identity-paper"
+use (Γ ⊢ M : B) implies (Γ ⊢ (λ x M) : (fun A B)) "named-constant-abstraction-paper"
+use (Γ ⊢ F : (fun A B)) implies (Γ ⊢ (λ x (app F x)) : (fun A B)) "named-application-abstraction-paper"
+
+; Object-level beta reduction. `sub` computes capture-avoiding substitution and respects nested λ.
+use (app (λ x M) N) ↦ (sub x N M) "beta"
+
+; Compatible closure for applications. These rules let either immediate subterm reduce. We leave
+; reduction below a λ out deliberately: the experiments below need weak reduction, and a future
+; strong strategy should make that choice explicit.
+use (M ↦ N) implies ((app M F) ↦ (app N F)) "beta-app-function"
+use (M ↦ N) implies ((app F M) ↦ (app F N)) "beta-app-argument"
+
+; A small-step call-by-value strategy. Values are exactly the supplied unit and named lambdas for
+; the present language. The function is evaluated first; the argument is evaluated only after the
+; function is a value; beta fires only after the argument is a value.
+use value unit "value-unit"
+use value (λ x M) "value-lambda"
+use (F ⇝ M) implies ((app F N) ⇝ (app M N)) "cbv-function"
+use (value F) and (M ⇝ N) implies ((app F M) ⇝ (app F N)) "cbv-argument"
+use (value N) implies ((app (λ x M) N) ⇝ (sub x N M)) "cbv-beta"

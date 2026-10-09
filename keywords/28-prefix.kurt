@@ -1,0 +1,15 @@
+; 28-prefix.kurt
+
+; `prefix OP rbp` declares `OP` as a prefix operator (applied in front of its
+; single argument) with a right binding power controlling how much it grabs.
+
+prefix "-" 100
+
+var a
+parse -a               ; (- a)
+
+; Space (function application, built into `minimal.kurt`) already lets you
+; write `f a` for "f applied to a" -- `prefix` is for when you want a
+; *different* binding power than space's, e.g. so that `- a + b` parses as
+; `(- a) + b` rather than `- (a + b)` (see `doc/dev-notes.md`, "difference
+; between prefix and function").

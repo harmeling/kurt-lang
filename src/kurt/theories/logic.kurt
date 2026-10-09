@@ -3,19 +3,27 @@
 ; covers: forall-elim (instantiate a universal at a specific value) and exists-intro
 ; (introduce an existential from a witness). forall-intro and exists-elim are *not* axioms
 ; here -- they're the effect of closing a `let`/`pick` block (see kurt.py's `eval_done`).
-;
-; not covered: `existsunique` (unique existence) -- drafted below but commented out, needs
-; more thought about how to state/use uniqueness cleanly before it's worth adding for real.
+; Also unique existence, `∃! x P(x)` (`existsunique`), defined from `∃`, `∀` and `=`.
 
 ;; syntax
-load prop  ; syntax and rules for prop logic
-; `forall`/`exists`'s syntax (arity, bindop, bool signature, ∀/∃ aliases) is hardcoded
-; directly in `initial_kb` now, not declared here -- see the comment next to it in
-; `kurt.py`, right after `initial_kb.add_arity(SUB_SYMBOL, 3)`. Only their axioms
-; (forall-elim, exists-intro) are theory-level, below.
-; arity  existsunique 2 ; existential quantification with uniqueness
-; bool   existsunique 0 2 ; position 1 is a variable or a boolean expression (with a variable)
-; alias  ∃! existsunique
+load prop      ; syntax and rules for prop logic
+load equality  ; `=`, for unique existence
+; the quantifiers: binders with a boolean body, and the roles the engine gives them -- `let`
+; closes with the universal ("forall-intro"), `pick` opens from the existential ("exists-elim"),
+; and the outer `∀`s of facts are left out (their variables stand for anything); the other two
+; rules are the axioms below. Without `load logic`, a file has no quantifiers (a deep object
+; language may use the words and the glyphs for something else).
+arity   forall 2, exists 2
+bindop  forall, exists          ; with a condition, `∀ x > 0 ...` binds the first symbol of the
+                                ; condition that is new or a variable (decided when it is read)
+bool    forall 0 2, exists 0 2  ; the body is boolean, and so is the whole
+builtin forall universal, exists existential
+alias   ∀ forall
+alias   ∃ exists
+arity  existsunique 2     ; unique existence: `existsunique x P(x)`, `∃! x P(x)`
+bindop existsunique       ; binds its variable, also with a condition: `∃! x ∈ M P(x)`
+bool   existsunique 0 2   ; the body is boolean, and so is the whole
+alias  ∃! existsunique
 
 ;; inference rules
 ;use %A                                  implies  forall $x %A      "forall-intro"
@@ -28,6 +36,8 @@ use sub $x $a %A                        implies  exists $x %A      "exists-intro
 ; with the hole `$x` for `$v`, e.g. `$x > 0`)
 use (forall (sub $x $v %C) %P) and (sub $x $a %C)  implies  sub $v $a %P    "forall-cond-elim"
 use (sub $x $a %C) and (sub $v $a %P)  implies  exists (sub $x $v %C) %P    "exists-cond-intro"
+; Defining axioms, not `def`: these characterize conditioned forms of the existing built-in
+; binders; they do not introduce one fresh predicate or function symbol.
 use (forall (sub $x $v %C) %P)  iff  forall $w ((sub $x $w %C) implies (sub $v $w %P))  "forall-cond-def"
 use (exists (sub $x $v %C) %P)  iff  exists $w ((sub $x $w %C) and (sub $v $w %P))      "exists-cond-def"
 
@@ -37,10 +47,21 @@ use (exists (sub $x $v %C) %P)  iff  exists $w ((sub $x $w %C) and (sub $v $w %P
 use (forall $x (%A iff %B))  implies  ((forall $x %A) iff (forall $x %B))   "forall-iff"
 use (forall $x (%A iff %B))  implies  ((exists $x %A) iff (exists $x %B))   "exists-iff"
 
-; ;; existsunique
-; use %A and (forall $x (%A implies (forall $y (%A implies ($x = $y)))))  implies  existsunique $x %A  "existsunique-intro"
-; use existsunique $x %A  implies  exists $x %A  "existsunique-elim-1"
-; use existsunique $x %A  implies  forall $x (%A implies (forall $y (%A implies ($x = $y))))  "existsunique-elim-2"
+;; unique existence
+; The meaning of `∃!` is its definition: there is an x with P(x), and every y with P(y) is that x.
+; With a condition, `∃! x ∈ M P(x)` is `∃! x (x ∈ M and P(x))`, as for `∃`.
+use (existsunique $x %A)  iff  exists $x (%A and (forall $y ((sub $x $y %A) implies ($y = $x))))  "existsunique-def"
+use (existsunique (sub $x $v %C) %P)  iff  existsunique $w ((sub $x $w %C) and (sub $v $w %P))     "existsunique-cond-def"
+; Three rules that follow from the definition, for one step instead of several. Axioms, since a
+; proof for any `%A` that depends on `$x` would need `sub` in its lines (as for "forall-iff");
+; proofs/natural-deduction/existsunique.kurt derives each of them from "existsunique-def" alone, for a
+; predicate `P`:
+; - intro: `P(a)` and every y with `P(y)` is a: `∃! x P(x)` (the definition, with exists-intro)
+; - exists: `∃! x P(x)` gives `∃ x P(x)` (pick the witness of the definition)
+; - unique: `∃! x P(x)`, `P(a)` and `P(b)` give `a = b` (both are the witness)
+use (sub $x $a %A) and (forall $y ((sub $x $y %A) implies ($y = $a)))  implies  existsunique $x %A  "existsunique-intro"
+use (existsunique $x %A)  implies  exists $x %A                                                     "existsunique-exists"
+use (existsunique $x %A) and (sub $x $a %A) and (sub $x $b %A)  implies  $a = $b                    "existsunique-unique"
 
 
 ;; better looking

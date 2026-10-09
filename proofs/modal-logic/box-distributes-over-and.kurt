@@ -1,10 +1,12 @@
-; coverage test for modal.kurt's "box-distrib-and" axiom, generalized (see
-; k-distribution.kurt's comment on the schema-variable bug these were part of).
+; Box distribution in the modal theory.
 load modal
-bool X, Y
+const X, Y
+formula X, Y
 
-use □X
-use □Y
+⊢ ((□X ∧ □Y) ⇔ □(X ∧ Y))
+⊢ ((□X ∧ □Y) → □(X ∧ Y))
 
-□X and □Y
-□(X and Y)
+use ⊢ □X
+use ⊢ □Y
+⊢ (□X ∧ □Y)
+⊢ □(X ∧ Y)

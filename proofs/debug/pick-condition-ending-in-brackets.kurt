@@ -1,0 +1,18 @@
+; `pick FACT` (without `with`) whose fact ends in an application with brackets, `P(c)`: the
+; tokens were parsed twice, and the first parse changed the `)` -- the line then read as an
+; unclosed bracket ("unexpected end of file"), with a block after it even a crash ("too many
+; dedents"). Found by the consistency check of tutorial lesson 09 (2026-10-09).
+load logic, numbers
+bool P, Q
+arity P 1
+const P, Q
+use exists $x > 0 P($x)
+use forall $x ((($x > 0) and P($x)) implies Q)
+pick c > 0 and P(c)
+    Q
+Q
+pick d > 0 and P(d)
+    Q
+pick e with e > 0 and P(e)
+    Q
+Q

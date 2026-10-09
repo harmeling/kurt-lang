@@ -1,3 +1,3 @@
 ; error: a block still open at the end of the file
-expect "EvalError" "not all blocks closed"
+expect "ProofError" "isn't finished at the end of the file"
     load "helpers/not-all-blocks-close.kurt"

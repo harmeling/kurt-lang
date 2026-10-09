@@ -14,7 +14,7 @@ expect "EvalError"
     proof 1
 expect "EvalError"
     sandbox 1
-expect "ParseError"
+expect "EvalError"
     show c > 0, d > 0
 expect "EvalError"
     show c + 1
@@ -93,11 +93,11 @@ expect "TypeError"
     use ∀ (c > 0) (P c)
 
 ; keywords and `with` only at the top of a line, a label after `local`, nothing between commas
-expect "SyntaxError"
+expect "ParseError"
     c > (use d)
 expect "ParseError"
     c > 0 with d > 0
-expect "SyntaxError"
+expect "ParseError"
     c > 0 local
-expect "SyntaxError"
+expect "ParseError"
     use c > 0, , d > 0

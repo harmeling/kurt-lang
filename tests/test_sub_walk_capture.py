@@ -9,6 +9,7 @@ from kurt.kurt import (
     trigger_sub,
     capture_avoiding_replace,
 )
+from tests.utils import with_quantifiers
 
 # Try to import your SUB symbol name; fall back to the common literal.
 try:
@@ -33,7 +34,7 @@ def is_var_tok(tok: Token, kb) -> bool:
 
 class TestWalk(unittest.TestCase):
     def setUp(self):
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
         # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
         # no need to redeclare them here
 
@@ -68,7 +69,7 @@ class TestWalk(unittest.TestCase):
 
 class TestTriggerSub(unittest.TestCase):
     def setUp(self):
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
         # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
         # no need to redeclare them here
 
@@ -113,7 +114,7 @@ class TestTriggerSub(unittest.TestCase):
 
 class TestCaptureAvoidingReplace(unittest.TestCase):
     def setUp(self):
-        self.kb = copy.deepcopy(initial_kb)
+        self.kb = with_quantifiers(copy.deepcopy(initial_kb))
         # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
         # no need to redeclare them here
 

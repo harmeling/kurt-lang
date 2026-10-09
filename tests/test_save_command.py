@@ -17,7 +17,7 @@ import kurt.kurt as kurt
 def load(path: str) -> kurt.KnowledgeBase:
     kb = copy.deepcopy(kurt.initial_kb)
     with contextlib.redirect_stdout(io.StringIO()):
-        return kurt.load_file(path, kb, mainstream=False)
+        return kurt.load_file(path, kb, main=False)
 
 
 def shell(lines: list[str]) -> str:
@@ -35,7 +35,7 @@ def shell(lines: list[str]) -> str:
     err = io.StringIO()
     try:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
-            kurt.read_eval_loop(stdin, copy.deepcopy(kurt.initial_kb), mainstream=True)
+            kurt.read_eval_loop(stdin, copy.deepcopy(kurt.initial_kb))
     finally:
         builtins.input = old_input
     return err.getvalue()
@@ -76,6 +76,20 @@ class TestSaveCommand(unittest.TestCase):
             self.assertEqual(body, ['load prop', 'bool A', 'expect "ProofError"', '    A', 'use A'])
             load(saved)
 
+    def test_save_keeps_what_an_expect_expects(self):
+        # a statement that only shows something stays inside an `expect`: there it is what fails
+        # (found 2026-10-09: the saved file had `expect` without a body, and didn't check)
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, 'source.kurt')
+            saved = os.path.join(tmp, 'saved.kurt')
+            with open(source, 'w') as fh:
+                fh.write(f'load prop\nbool A\nuse A\ncert\nexpect "EvalError"\n    cert 99\n    save "x.txt"\nA\nsave "{saved}"\n')
+            load(source)
+            with open(saved) as fh:
+                body = [line for line in fh.read().splitlines() if line and not line.startswith(';')]
+            self.assertEqual(body, ['load prop', 'bool A', 'use A', 'expect "EvalError"', '    cert 99', '    save "x.txt"', 'A'])
+            load(saved)                                         # checks again
+
     def test_save_needs_closed_blocks(self):
         with tempfile.TemporaryDirectory() as tmp:
             saved = os.path.join(tmp, 'session.kurt')
@@ -101,12 +115,12 @@ class TestSaveCommand(unittest.TestCase):
     def test_no_save_with_strict_or_in_a_loaded_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             saved = os.path.join(tmp, 'saved.kurt')
-            old = kurt.strict_mode
-            kurt.strict_mode = True
+            old = kurt.run_state.strict_mode
+            kurt.run_state.strict_mode = True
             try:
                 errors = shell(['load prop', f'save "{saved}"'])
             finally:
-                kurt.strict_mode = old
+                kurt.run_state.strict_mode = old
             self.assertIn('no `save` with `--strict`', errors)
             helper = os.path.join(tmp, 'helper.kurt')
             with open(helper, 'w') as fh:
