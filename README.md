@@ -1,5 +1,7 @@
 # Kurt
 
+<img src="https://raw.githubusercontent.com/harmeling/kurt-syntax/main/images/logo.svg" alt="the logo of Kurt: ⊢kurt" width="96" align="right">
+
 Kurt is a small language for writing mathematical proofs in a form close to how people write
 them — one claim per line, blocks for assumptions and cases — and a checker that tells you
 immediately, line by line, whether each step follows. It is meant for students learning to prove
@@ -26,7 +28,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.8.0 (made by Stefan Harmeling, 2016-2026), file 36776884a69c
+    This is Kurt, v0.8.1 (made by Stefan Harmeling, 2016-2026), file 36776884a69c
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -157,16 +159,21 @@ The [kurt-syntax](https://github.com/harmeling/kurt-syntax) repository has edito
 `.kurt` files: highlighting, comments and indentation, LSP clients for VS Code, Emacs/Eglot and
 Neovim, and, in VS Code and Emacs, LaTeX-style shortcuts such as `\forall` → `∀`.
 
-- **VS Code**: an extension with snippets, built with `npm install` and `npm run package`, then
-  installed with `code --install-extension kurt-syntax-<version>.vsix`.
+- **VS Code**: the extension **Kurt** (`harmeling.kurt`), from the command line:
+
+      curl -LO https://github.com/harmeling/kurt-syntax/releases/latest/download/kurt.vsix
+      code --install-extension kurt.vsix
+
+  It comes with Kurt itself (only Python 3.10 or newer is needed), and uses an installed `kurt`
+  first.
 - **Emacs**: put `kurt-mode.el` and `replacements.json` together in a directory on your load
   path, and add `(require 'kurt-mode)` to your configuration.
 - **Vim and Neovim**: use the repository as a plugin, e.g. clone it into
   `~/.vim/pack/plugins/start/kurt-syntax`, or into Neovim's plugin directory.
 
 The editor support is new and not completely tested yet (VS Code tried on macOS, Emacs and Neovim
-briefly): expect rough edges, and please report what doesn't work. A check stops at the first
-error of a file, so an editor shows one error at a time.
+briefly): expect rough edges, and please report what doesn't work. The editors show all errors of
+a file (`kurt -a` on the command line; by default it stops at the first).
 
 ## Developing Kurt
 

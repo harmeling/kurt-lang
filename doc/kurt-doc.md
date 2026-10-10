@@ -25,6 +25,7 @@ the source.
     kurt -v                     # show the version (also `-V`, `--version`)
     kurt -p DIR path/to/proof.kurt   # also search DIR for `load`ed theories
     kurt -s path/to/proof.kurt       # strict, for grading (see below)
+    kurt -a path/to/proof.kurt       # all errors, not only the first (also `--all-errors`, see below)
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
     kurt --no-kurtc path/to/proof.kurt   # neither write nor use `.kurtc` files (see below)
     kurt path/to/proof.kurtc             # the certificates of proof.kurt, readable (see below)
@@ -41,6 +42,29 @@ check from a successful one without scraping stderr text. Leftover `todo`s
 still exit `0` (a `todo` is a deliberate, self-reported placeholder, not a
 failure), and errors raised only while typing at an interactive shell
 session don't affect the exit code either.
+
+**All errors (`-a`/`--all-errors`):** by default, a check stops at the first error. With `-a`,
+it goes on after an error in the checked file, so it finds all errors that don't depend on each
+other; each is printed when it is found, the lines after it get their reasons as usual, and the
+file ends with `Proof not checked: N errors.` (exit code `1`). To go on, Kurt does internally
+what a student would do to get past the error -- the file isn't changed:
+
+- a formula that can't be derived is admitted, as `todo` would (so the lines that use it don't
+  fail because of it);
+- a block that doesn't close -- a proof whose goal isn't reached, also at the end of the file --
+  is closed anyway, and its claim counts as admitted (any other block is discarded, as `break`
+  does); the line that closed it is then checked on its own;
+- a claim without a proof counts as admitted;
+- any other line (one that can't be read, a wrong use of a keyword, a type error) is dropped, as
+  in the shell; if it opens a block, the block is skipped too, and so is the `proof` of a `show`
+  that can't be read. A dropped line may cause later errors (e.g. a `def` that failed).
+
+The admitted lines are errors, not `todo`s: they aren't listed as `todo`s, the file gets no
+`.kurtc`, and the result is failed. Some errors still stop the check: an error in a file it
+loads (and on a `load` line), anything inside an `expect` block (there the error is the expected
+result; §9.6), and a `KernelError`. The editors (`kurt --lsp`) and the playground show all errors
+by default; from Python, `kurt.RunConfig(all_errors=True)`, and `CheckResult.errors` lists them
+(`error` is the first one).
 
 **Strict mode (`-s`/`--strict`), for grading:** the checked file (and any
 file it loads that isn't trusted) may not contain `use`, `todo` or `chain`,
@@ -65,7 +89,8 @@ in a session with `kurt.RunConfig(kurtc=True)`, and never for a text (`check_tex
 
 `kurt --json foo.kurt` checks the file and prints the result as JSON (exit code as above): `ok`,
 `complete` (also no `todo` left), `error`, `error_kind`, `error_line`, `failure` (why a step
-failed, §6.1), `todos`, the text `output`, and `events`, each printed line as a record -- the
+failed, §6.1), `errors` (each with its `kind`, `line`, `column`, `message` and `failure`; with
+`--all-errors` all of them, else the one), `todos`, the text `output`, and `events`, each printed line as a record -- the
 source `line`, its `id` (`5`, `5a`, `11-13`), its `kind` (`step`, `claim`, `open`, `close`,
 `assumed`, `load`, `declaration`, `expect`, `error`, `text`, `other`), `level`, `text`, the
 `rule` and the lines it `uses`, its `label`, the user's `comment`, and where they apply its
@@ -90,8 +115,9 @@ names). Positions use the LSP's UTF-16 convention, so mathematical symbols
 before a completion or hint do not shift it.
 
 The initialization options are `theoryPaths` (additional trusted theory
-directories), `strict`, `checkOnChange` (also accepted as `checkOnType`), and
-`checkOnChangeDelay` in seconds. The directory of the edited file is searched
+directories), `strict`, `allErrors` (all errors of a file, the default; `false`:
+only the first, as `kurt` without `-a`), `checkOnChange` (also accepted as
+`checkOnType`), and `checkOnChangeDelay` in seconds. The directory of the edited file is searched
 first but remains untrusted; only an explicit theory path grants trust. When an
 open document loads another open document, Kurt checks the current unsaved
 text of the loaded document. Closing a document clears its diagnostics.
@@ -1038,8 +1064,10 @@ from scratch**, using everything true at that point (not by comparing to
 the block's literal last line) — so a block whose last explicit line looks
 unrelated to the goal can still close successfully, as long as the goal
 happens to already be derivable by then. If the goal can't be (re-)derived,
-the block does not close (a `ProofError`, either from `qed` itself or from
-the dedent that was trying to close it).
+the block does not close: a `ProofError` at the `show` (where an editor
+marks it), saying where the proof ends and what is missing -- ``the proof of
+`A and C` (line 4) ends at line 7 without reaching its goal -- can not
+derive `C` ``, whether `qed` or a dedent closed it.
 
 `qed` is optional: dedenting alone already closes a `proof` block the same
 way (§9 covers dedent-based closing in general). Writing `qed` additionally

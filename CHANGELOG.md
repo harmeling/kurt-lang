@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.1 (2026-10-10)
+
+- All errors, not only the first: `kurt -a` (`--all-errors`), `RunConfig(all_errors=True)`, and by
+  default in the editors (`kurt --lsp`, option `allErrors`) and the playground. After an error in
+  the checked file, checking goes on: a formula that can't be derived is admitted, a block that
+  doesn't close is closed anyway (its claim admitted), any other line is dropped (with the block
+  it opens). Internally only: these lines stay errors, they are no `todo`s, the file gets no
+  `.kurtc`, the result is failed; an error in a loaded file, inside `expect`, and a `KernelError`
+  still stop. `CheckResult.errors` lists them (`error` is the first), one event each; a
+  `Session`'s output shows them at their places, ending with `Proof not checked: N errors.`
+- A `.kurtc` is no longer written for a file whose last claim has no proof.
+- A proof that doesn't reach its goal is an error at its `show` (where the editors mark it), not at
+  the line where it ends: ``the proof of `A and C` (line 4) ends at line 7 without reaching its
+  goal -- can not derive `C` ``, also for `qed`.
+- The README: the logo (⊢kurt), and the VS Code extension installed with `code --install-extension
+  kurt.vsix` (until it is on the Marketplace). The playground's new editor (checked while typing,
+  the results in the editor) shows all errors with this release.
+
 ## 0.8.0 (2026-10-09)
 
 - The end of a file closes the blocks still open, like a dedent: a proof whose goal is reached

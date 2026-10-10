@@ -73,7 +73,7 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
     hashlib = None
 
 # config: general information
-version        = '0.8.0'     # the only place of the version (pyproject.toml reads it from here)
+version        = '0.8.1'     # the only place of the version (pyproject.toml reads it from here)
 made_by        = 'made by Stefan Harmeling, 2016-2026'
 
 def file_fingerprint() -> str:
@@ -256,6 +256,9 @@ class RunState:
     line_numbers: bool = True     # the number of a source line in front of its output (`log`)
     var_counter: int = 0          # the fresh variables (`new_var_name`)
     bool_var_counter: int = 0     # ... and formula variables (`new_bool_var_name`)
+    all_errors: bool = False      # after an error in the main file, go on checking (`--all-errors`, the editors)
+    errors: list = field(default_factory=lambda: [])   # ... the errors found so far (`record_error`)
+    print_errors: str = ''        # ... printed when found: to 'stderr' (the command line), 'stdout' (a `Session`'s output)
 
 run_state = RunState()            # the state of the command line, and of calls without a `Session`
 
@@ -8970,8 +8973,10 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
                     kb = eval_done(kb, filename, line)  # done with a block, yield a formula (or an `expect`'s check)
                 dedents -= 1
         except KurtException as e:
+            e = at_the_claim(e, kb, filename, line)
             e.kb_after = e.kb_after or kb
-            raise
+            e.closing = True                 # (the block `kb` didn't close, see `read_eval_loop`)
+            raise e
     else:
         # process the DEDENTs -- this is how every block ordinarily closes, `proof` included
         # (`eval_done` itself dispatches to `eval_qed` for a `proof`-mode level)
@@ -8981,8 +8986,10 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
                 kb = eval_done(kb, filename, line)   # closes one level: yields a formula, or discards (for `sandbox`)
                 dedents -= 1
         except KurtException as e:
+            e = at_the_claim(e, kb, filename, line)
             e.kb_after = e.kb_after or kb    # the blocks closed so far are closed (see `read_eval_loop`)
-            raise
+            e.closing = True                 # (the block `kb` didn't close)
+            raise e
 
         # evaluate the expression
         run_state.new_symbols.clear()
@@ -9098,13 +9105,102 @@ def close_at_the_end(kb: KnowledgeBase, lexer_state: 'LexerState', filename: str
             try:
                 kb = eval_done(kb, filename, line)
             except KurtException as e:
-                if kb.mode_str == 'proof':
-                    raise unfinished_at_the_end(kb, filename) from None
+                error = unfinished_at_the_end(kb, filename) if kb.mode_str == 'proof' else e
+                if collects_errors(error) and not kb.is_load_boundary:
+                    if error.filename is None:
+                        error.filename, error.line = filename, max(1, line - 1)
+                    record_error(error)
+                    kb = admit_block(kb, filename)    # (and on: the blocks around it)
+                    continue
+                if error is not e:
+                    raise error from None
                 e.todos_so_far = kb.todos()
                 raise
     finally:
         run_state.current_line[0] = outer
     return kb
+
+# all errors (`--all-errors`, `RunConfig(all_errors=True)`, the editors): after an error in the main
+# file, checking goes on -- a formula that can't be derived is admitted (`admit_line`), a block
+# that doesn't close is closed anyway (`admit_block`), any other line is dropped (as in the
+# shell). All of it internally: the line stays an error, it is no `todo`, the result is failed.
+
+def at_the_claim(e: KurtException, block: KnowledgeBase, filename: str, line: int) -> KurtException:
+    # a proof that doesn't reach its goal, found where it ends: the error is its claim's -- at the
+    # `show` (where the editors mark it), saying where the proof ends and what is missing
+    if e.kind != 'ProofError' or e.filename is not None or block.mode_str != 'proof' or block.parent is None or not block.parent.show:
+        return e
+    claim = block.parent.show[-1]
+    n = int(re.match(r'\d+', claim.line).group())
+    first, _, rest = e.msg.strip().partition('\n')
+    where = '\n' if filename in ('<stdin>', '<shell>') else f'\nFile `{filename}`, line {n}:\n'
+    msg = (f'{where}show {claim.input_line}\n^\nProofError: the proof of `{expr_str(claim.expr, block)}` (line {n}) ends at line {line} '
+           f'without reaching its goal -- {first.removeprefix("ProofError: ")}' + (f'\n{rest}' if rest else ''))
+    return KurtException(msg, column=0, line=n, filename=filename, kind='ProofError', details=e.details)
+
+def collects_errors(e: KurtException) -> bool:
+    # does checking go on after `e`? In the main file, for the kinds of error of a line (not a
+    # `KernelError`, not an `expect`'s); the other cases stop, as without all errors
+    return (run_state.all_errors and len(run_state._loading_in_progress) <= 1
+            and e.kind in KurtException.KNOWN_KINDS)
+
+def record_error(e: KurtException) -> None:
+    run_state.errors.append(e)
+    if run_state.event_sink is not None:
+        run_state.event_sink.append(error_event(e))
+    if run_state.print_errors == 'stderr':
+        sys.stdout.flush()                 # (the lines before it first)
+        print(e.msg, file=sys.stderr)
+        sys.stderr.flush()
+    elif run_state.print_errors == 'stdout':
+        print(e.msg)
+
+def error_line_of(e: KurtException) -> Optional[int]:
+    at = re.search(r'line (\d+):', e.msg)
+    return int(at.group(1)) if at else e.line
+
+def error_event(e: KurtException) -> dict:
+    # an error as an event (`--json`, the editors)
+    event = {'line': error_line_of(e), 'id': None, 'kind': 'error', 'level': 0,
+             'text': e.msg.strip(), 'reason': '', 'error_kind': e.kind}
+    if e.details is not None:
+        event['failure'] = e.details
+    return event
+
+def admit_block(kb: KnowledgeBase, filename: str) -> KnowledgeBase:
+    # the block `kb` didn't close (all errors): it closes without its check -- a proof's claim
+    # counts as admitted (as if proved), any other block is discarded (as `break` does)
+    was_proof = kb.mode_str == 'proof'
+    kb.show.clear()                        # (its own claims without proof go with it)
+    kb = kb.pop_level(keep_todos=was_proof)
+    if was_proof and kb.show:
+        claim = kb.show.pop()
+        kb.theory_append(admitted(kb, claim, filename))
+    return kb
+
+def admitted(kb: KnowledgeBase, claim: 'Formula', filename: str) -> 'Formula':
+    # a claim without (a finished) proof, admitted after its error
+    return Formula(kb, claim.expr, claim.input_line, str(claim.line), filename, claim.label,
+                   Reason(str(claim.line), 'admitted after an error'), keyword='', local=claim.local)
+
+def admit_line(input_line: str, kb: KnowledgeBase, lexer_state: 'LexerState', line: int, filename: str) -> tuple[KnowledgeBase, 'LexerState']:
+    # a formula that can't be derived (all errors): admitted, as `todo FORMULA` would -- quietly,
+    # and no `todo` is noted (the line is an error); a line that can't be admitted is dropped
+    lead = count_leading_spaces(input_line)
+    text = input_line[:lead] + 'todo ' + input_line[lead:]
+    before = len(kb._todos)
+    strict = run_state.strict_mode
+    run_state.strict_mode = False          # (`todo` is no step of the student's here)
+    try:
+        with quietly():
+            after, lexer_after = scan_parse_check_eval(rows_by_line(text, matrix_brackets(kb)), lexer_state, kb, line, filename)
+    except KurtException:
+        return kb, lexer_state
+    finally:
+        run_state.strict_mode = strict
+    if after is kb:
+        del kb._todos[before:]
+    return after, lexer_after
 
 def unfinished_at_the_end(kb: KnowledgeBase, fname: str) -> KurtException:
     # a block still open at the end of the file: the innermost one, and where it was opened
@@ -9156,14 +9252,18 @@ def checked_exports_now(fname: str, f: TextIO, candidate, loader: KnowledgeBase,
     assert kb.level == 1, f'BUG: `load_file` decreased the level from 1 to {kb.level}'
     if is_trusted_file(fname):
         kb.frozen |= kb.declared_symbols()   # only this theory may change their meaning
-    if run_state.kurtc_enabled and len(kb.todos()) == 0 and isinstance(candidate, Path):
-        write_kurtc(fname)       # checked completely: its certificates
     if len(kb.show) > 0:
         claim = kb.show[-1]
         error = KurtException(f'ProofError: the claim `{expr_str(claim.expr, kb)}` (line {claim.line}) has no proof -- '
                               f'a `proof` block follows a `show`', line=int(re.match(r'\d+', claim.line).group()), filename=fname)
         error.todos_so_far = kb.todos()
-        raise error
+        if not collects_errors(error):
+            raise error
+        record_error(error)                # (all errors: admitted)
+        while kb.show:
+            kb.theory_append(admitted(kb, kb.show.pop(), fname))
+    if run_state.kurtc_enabled and len(kb.todos()) == 0 and isinstance(candidate, Path) and not (main and run_state.errors):
+        write_kurtc(fname)       # checked completely: its certificates (not with errors, see `collects_errors`)
     bundle = compute_exports(kb)
     validate_exports(bundle, kb, root, fname)
     bundle.todos = list(kb.todos())
@@ -9329,6 +9429,7 @@ class RunConfig:
     line_numbers: bool = True             # the number of each source line in front of its output
     untrusted_paths: tuple[str, ...] = () # source directories searched before `paths`, without granting trust
     overlays: tuple[tuple[str, str], ...] = () # current editor text by absolute source filename
+    all_errors: bool = False              # all errors of the file, not only the first (`--all-errors`; the editors)
 
 @dataclasses.dataclass
 class CheckResult:
@@ -9341,6 +9442,7 @@ class CheckResult:
     events: list[dict] = dataclasses.field(default_factory=list)   # each line of `output` as a record, see `reason_event`
     failure: Optional[dict] = None        # structured proof-failure explanation, when available
     certificates: dict[int, str] = dataclasses.field(default_factory=dict)   # line -> its certificates in long form (`certificates=True`)
+    errors: list[dict] = dataclasses.field(default_factory=list)   # all errors (with `all_errors`, else the one): kind, line, column, message, failure
 
     def to_json(self) -> str:
         # for graders and editors (`kurt --json FILE`)
@@ -9357,7 +9459,7 @@ def _fresh_run_state(config: RunConfig) -> RunState:
     return RunState(theory_path=[*untrusted, Path.cwd(), *paths, *packaged_theory_paths], strict_mode=config.strict,
                     trusted_paths=list(paths), untrusted_names=set(overlays), source_overlays=overlays,
                     kurtc_enabled=config.kurtc, comment_indent=config.comment_indent,
-                    line_numbers=config.line_numbers)
+                    line_numbers=config.line_numbers, all_errors=config.all_errors)
 
 # a session's run state is `run_state` while it is active: one session at a time (several threads
 # take turns -- the checks are Python work, which wouldn't run in parallel anyway)
@@ -9389,27 +9491,36 @@ class Session:
         with self._active(), contextlib.redirect_stdout(out):
             run_state.event_sink = events
             run_state.shell_start[0] = None
+            run_state.errors = []
+            printed_before, run_state.print_errors = run_state.print_errors, 'stdout'   # (all errors: in the output, at their places)
+            stopped: Optional[KurtException] = None
             try:
-                kb = run(kb)
-                log_summary(kb)
-                if certificates:
-                    shown = self._certificates(name, kb, links)
-            except KurtException as e:
-                at = re.search(r'line (\d+):', e.msg)
-                line = int(at.group(1)) if at else e.line
-                event = {'line': line, 'id': None, 'kind': 'error', 'level': 0,
-                         'text': e.msg.strip(), 'reason': '', 'error_kind': e.kind}
-                if e.details is not None:
-                    event['failure'] = e.details
-                events.append(event)
-                state = getattr(e, 'state', None)       # (the todos before the error count too)
-                todos = list(state[0].todos()) if state is not None else list(getattr(e, 'todos_so_far', kb.todos()))
-                return CheckResult(False, out.getvalue(), e.msg.strip(), e.kind,
-                                   todos, line, events, e.details)
+                try:
+                    kb = run(kb)
+                except KurtException as e:
+                    stopped = e
+                    events.append(error_event(e))   # (the ones before it are there, see `record_error`)
+                errors = run_state.errors + ([stopped] if stopped is not None else [])
+                if stopped is None:
+                    log_summary(kb, len(errors))
+                    shown = self._certificates(name, kb, links) if certificates else {}
             finally:
                 run_state.event_sink = None
-        return CheckResult(True, out.getvalue(), None, None, list(kb.todos()), None, events,
-                           certificates=shown if certificates else {})
+                run_state.errors = []
+                run_state.print_errors = printed_before
+        if not errors:
+            return CheckResult(True, out.getvalue(), None, None, list(kb.todos()), None, events, certificates=shown)
+        if stopped is not None:
+            state = getattr(stopped, 'state', None)       # (the todos before the error count too)
+            todos = list(state[0].todos()) if state is not None else list(getattr(stopped, 'todos_so_far', kb.todos()))
+            shown = {}
+        else:
+            todos = list(kb.todos())
+        first = errors[0]
+        listed = [{'kind': e.kind, 'line': error_line_of(e), 'column': e.column, 'message': e.msg.strip(), 'failure': e.details}
+                  for e in errors]
+        return CheckResult(False, out.getvalue(), first.msg.strip(), first.kind, todos, error_line_of(first), events,
+                           first.details, certificates=shown, errors=listed)
 
     def _certificates(self, name: str, kb: KnowledgeBase, links: bool) -> dict[int, str]:
         # the certificates of the lines of the checked file, in long form (as `cert` shows them)
@@ -9523,9 +9634,13 @@ def check_text(text: str, *, name: str = 'proof.kurt', session: Optional[Session
 def check_file(path: str, *, session: Optional[Session] = None, certificates: bool = False) -> CheckResult:
     return (session or Session()).check_file(path, certificates)
 
-def log_summary(kb: KnowledgeBase) -> None:
-    # the last lines of a checked file: `Proof checked`, or the open `todo`s
+def log_summary(kb: KnowledgeBase, errors: int = 0) -> None:
+    # the last lines of a checked file: `Proof checked`, or the open `todo`s (or the number of
+    # errors, when it went on after them: `--all-errors`)
     todos = kb.todos()
+    if errors:
+        log(kb, f'Proof not checked: {errors} error{"s" if errors != 1 else ""}.')
+        return
     if len(todos) == 0:
         log(kb, f'Proof checked')
     elif len(todos) == 1:
@@ -9583,6 +9698,7 @@ class LanguageServer:
         self.versions: dict[str, Optional[int]] = {}
         self.extra_paths: tuple[str, ...] = ()
         self.strict = False
+        self.all_errors = True             # all errors of a file, not only the first (option `allErrors`)
         self.check_on_change = False
         self.check_delay = 0.3
         self.client_refreshes_hints = False
@@ -9619,7 +9735,7 @@ class LanguageServer:
             overlays = tuple((lsp_uri_path(open_uri), text) for open_uri, text in self.texts.items()
                              if open_uri.startswith('file:') and open_uri != uri)
         return Session(RunConfig(paths=self.extra_paths, untrusted_paths=(folder,),
-                                 overlays=overlays, strict=self.strict))
+                                 overlays=overlays, strict=self.strict, all_errors=self.all_errors))
 
     def publish_diagnostics(self, uri: str, diagnostics: list[dict], version: Optional[int]) -> None:
         params: dict[str, object] = {'uri': uri, 'diagnostics': diagnostics}
@@ -9651,15 +9767,15 @@ class LanguageServer:
             self.results[uri] = result
         diagnostics = []
         lines = text.split('\n')
-        if result.error is not None:
-            line = max(0, (result.error_line or 1) - 1)
-            marker = result.error.find(f'{result.error_kind}:') if result.error_kind else -1
-            message = result.error[marker:] if marker >= 0 else result.error
+        for error in result.errors:
+            line = max(0, (error['line'] or 1) - 1)
+            marker = error['message'].find(f'{error["kind"]}:') if error['kind'] else -1
+            message = error['message'][marker:] if marker >= 0 else error['message']
             end = lsp_python_to_utf16(lines[line], len(lines[line])) if line < len(lines) else 0
             diagnostic = {'range': {'start': {'line': line, 'character': 0}, 'end': {'line': line, 'character': end}},
                           'severity': 1, 'source': 'kurt', 'message': message}
-            if result.failure is not None:
-                diagnostic['data'] = {'failure': result.failure}
+            if error['failure'] is not None:
+                diagnostic['data'] = {'failure': error['failure']}
             diagnostics.append(diagnostic)
         for todo in result.todos:
             found = re.search(r':(\d+)', todo)
@@ -9774,6 +9890,7 @@ class LanguageServer:
             options = params.get('initializationOptions') or {}
             self.extra_paths = tuple(os.path.abspath(os.path.expanduser(path)) for path in options.get('theoryPaths', []))
             self.strict = bool(options.get('strict', False))
+            self.all_errors = bool(options.get('allErrors', True))
             self.check_on_change = bool(options.get('checkOnChange', options.get('checkOnType', False)))
             self.check_delay = max(0.05, float(options.get('checkOnChangeDelay', 0.3)))
             capabilities = params.get('capabilities') or {}
@@ -10082,6 +10199,7 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase,
     lexer_state = lexer_state or LexerState()   # lexer state for indentation management (the one of a breakpoint)
     input_line = ''
     skip_deeper_than: Optional[int] = None   # skip the rest of an `expect` block after its error
+    skip_proof_at: Optional[int] = None      # ... and the `proof` of a `show` that failed (all errors)
     run_state.accepted_lines[input_stream.name] = []   # the accepted lines, for `save`
     pending: list[str] = []                  # the lines of the statement being read
     replay: Optional[str] = None             # a line to evaluate again (after an `expect` closed)
@@ -10164,6 +10282,12 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase,
                     line += 1
                     continue      # still inside the `expect` block whose error was confirmed
                 skip_deeper_than = None
+            if not continued and skip_proof_at is not None:
+                at, skip_proof_at = skip_proof_at, None
+                if count_leading_spaces(new_line) == at and new_line.split()[0] == 'proof':
+                    skip_deeper_than = at       # (its block too)
+                    line += 1
+                    continue
             input_line += new_line
             pending.append(new_line)
             try:
@@ -10251,6 +10375,32 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase,
                     msg += f'{input_line}\n'
                     msg += f'{" " * e.column + "^"}\n'
                     e.msg = msg + e.msg
+                words = input_line.split()
+                first = words[0] if words else ''
+                if is_file and expect_kb is None and e.filename == input_stream.name and first != 'load' and collects_errors(e):
+                    # all errors: record it, and go on (see `collects_errors`)
+                    record_error(e)
+                    statement, one_line = input_line, len(pending) == 1
+                    pending = []                   # (the statement is not saved)
+                    input_line, continued = '', False
+                    if getattr(e, 'closing', False) and kb.parent is not None and not kb.is_load_boundary:
+                        # a block didn't close: it closes anyway, and the line is read again
+                        # (it may close more blocks, and it has its own content) -- not a `qed`,
+                        # whose work is done then
+                        kb = admit_block(kb, input_stream.name)
+                        del lexer_state.indent_stack[open_block_depth(kb) + 1:]
+                        lexer_state.initial_LHS, lexer_state.chained_ops, lexer_state.indent_requester = None, [], ''
+                        if first != 'qed' and one_line:
+                            replay = new_line
+                            continue
+                    elif e.kind == 'ProofError' and first not in keywords:
+                        kb, lexer_state = admit_line(statement, kb, lexer_state, line, input_stream.name)
+                    elif first in keywords_opening_blocks or first == 'show':
+                        skip_deeper_than = count_leading_spaces(new_line)   # (its block can't be read)
+                        if first == 'show':
+                            skip_proof_at = skip_deeper_than
+                    line += 1
+                    continue
                 if is_file:
                     e.state = (kb, lexer_state, line)   # where it stopped, for `kurt -i` to continue there
                     if len(run_state._loading_in_progress) <= 1 and run_state.shell_start[0] is None:
@@ -10278,6 +10428,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-p', '--path',                              help=f'specify the path where `load` looks for theories after checking {run_state.theory_path}')
     parser.add_argument('-v', '-V', '--version', action='version', version=f'kurt {version}', help=f'show the version of Kurt and exit')
     parser.add_argument('-d', '--debug',        action='store_true', help=f'show debugging information')
+    parser.add_argument('-a', '--all-errors',   action='store_true', help=f'go on checking after an error, and show all errors (by default only the first one; the editors show all)')
     parser.add_argument('--no-line-numbers',    action='store_true', help=f'print the output without the numbers of the source lines in front (the reasons then start with them, `; 5 by 3(4)`)')
     parser.add_argument('--no-kurtc',           action='store_true', help=f'neither write nor use `.kurtc` files (the certificates of a checked file, see doc/kurt-doc.md)')
     parser.add_argument('--json',               action='store_true', help=f'check the file and print the result as JSON: each line as an event (its id, kind, rule, the lines it uses), the error, the todos -- for graders and editors')
@@ -10314,7 +10465,7 @@ def main() -> None:
     # shell) with the same options
     config = RunConfig(strict=args.strict, paths=(args.path,) if args.path else (),
                        kurtc=not args.no_kurtc, comment_indent=args.comment_indent,
-                       line_numbers=not args.no_line_numbers)
+                       line_numbers=not args.no_line_numbers, all_errors=args.all_errors)
     if args.lsp:
         # a language server for editors: its own sessions, one per check (not inside this one,
         # whose lock would hold back the checks of its other threads)
@@ -10378,10 +10529,13 @@ def run_command_line(args: argparse.Namespace, session: 'Session', kb: Knowledge
         if args.filename is not None:
             shown = not args.interactive          # (`kurt -i FILE`: the file quietly, then the shell)
             assert kb.level == 0
+            run_state.print_errors = 'stderr'   # (`--all-errors`: each when it is found)
+            run_state.errors = []
             kb = load_file(args.filename, kb, main=shown)
             assert kb.level == 0
+            had_error = bool(run_state.errors)
             if shown:
-                log_summary(kb)
+                log_summary(kb, len(run_state.errors))
         else:
             args.interactive = True
 

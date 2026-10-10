@@ -6,6 +6,9 @@ name: Release
 # GitHub publisher: owner `harmeling`, repository `kurt-lang`, workflow `release.yml`,
 # environment `pypi`); no token is stored anywhere. By hand, for a tag that exists already:
 # Actions, Release, Run workflow, with the tag (e.g. to put it on PyPI after the fact).
+#
+# After this, kurt-syntax and kurt-web follow by themselves (their workflow sync.yml, daily and a
+# button) -- see dev/releasing.md in kurt-lang-dev.
 
 on:
   push:

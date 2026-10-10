@@ -67,5 +67,30 @@ class TestPublishScript(unittest.TestCase):
                     self.assertIn(reason, run.stdout)
                     subprocess.run(['rm', '-rf', os.path.join(tmp, 'public')])
 
+    def test_no_leftovers_of_the_tests(self):
+        # the tests in the public checkout write ignored files (`__pycache__`, `.kurtc`); they
+        # used to stay there and made the next publication refuse it ("ignored files")
+        leftovers = 'mkdir -p src/__pycache__ && touch src/__pycache__/x.pyc proofs/x.kurtc'
+        for case, test_cmd, ok in [('passing', leftovers, True), ('failing', leftovers + ' && false', False)]:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
+                public = self.checkout(tmp)
+                private = os.path.join(tmp, 'private')   # committed, whatever the working tree here
+                self.git(tmp, 'clone', '-q', str(PROJECT_ROOT), private)
+                # the public checkout as after the last publication (its diff --check sees changes only)
+                subprocess.run(f'git -C {private} archive HEAD | tar -x -C {public}', shell=True, check=True)
+                self.git(public, 'add', '-A')
+                self.git(public, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'last')
+                env = dict(os.environ, PUBLISH_TEST_CMD=test_cmd, GIT_AUTHOR_NAME='t',
+                           GIT_AUTHOR_EMAIL='t@t', GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+                run = subprocess.run(['bash', str(SCRIPT), public, 'Kurt test'], cwd=private,
+                                     capture_output=True, text=True, env=env)
+                self.assertEqual(run.returncode == 0, ok, run.stdout + run.stderr)
+                status = subprocess.run(['git', 'status', '--porcelain', '--ignored'], cwd=public,
+                                        capture_output=True, text=True, check=True).stdout
+                self.assertNotIn('!!', status)
+                if ok:
+                    self.assertEqual(status, '')
+                    self.assertIn('committed in', run.stdout)
+
 if __name__ == '__main__':
     unittest.main()
