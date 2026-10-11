@@ -66,6 +66,11 @@ result; §9.6), and a `KernelError`. The editors (`kurt --lsp`) and the playgrou
 by default; from Python, `kurt.RunConfig(all_errors=True)`, and `CheckResult.errors` lists them
 (`error` is the first one).
 
+**Progress, from Python:** `kurt.RunConfig(progress=f)` calls `f` with a dict when a file starts,
+at each of its statements and when it is done: `file`, `line` (of `lines`), `index` of `files`
+(the files checked so far -- a theory that the session has checked before and that didn't change is not
+checked again) and `done`. The playground shows it as a progress bar.
+
 **Strict mode (`-s`/`--strict`), for grading:** the checked file (and any
 file it loads that isn't trusted) may not contain `use`, `todo` or `chain`,
 and every symbol must be declared before its use (§3.2), and `calc` may not bind symbols to the calculator — everything has to be proven from the theories that come with Kurt, or

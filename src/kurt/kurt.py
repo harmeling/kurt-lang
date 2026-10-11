@@ -73,7 +73,7 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
     hashlib = None
 
 # config: general information
-version        = '0.8.1'     # the only place of the version (pyproject.toml reads it from here)
+version        = '0.8.2'     # the only place of the version (pyproject.toml reads it from here)
 made_by        = 'made by Stefan Harmeling, 2016-2026'
 
 def file_fingerprint() -> str:
@@ -259,6 +259,9 @@ class RunState:
     all_errors: bool = False      # after an error in the main file, go on checking (`--all-errors`, the editors)
     errors: list = field(default_factory=lambda: [])   # ... the errors found so far (`record_error`)
     print_errors: str = ''        # ... printed when found: to 'stderr' (the command line), 'stdout' (a `Session`'s output)
+    progress: Optional[Callable[[dict], None]] = None   # told which line of which file is checked (`RunConfig.progress`)
+    progress_files: list[str] = field(default_factory=lambda: [])   # ... the files checked so far in this check
+    progress_lines: dict[str, int] = field(default_factory=lambda: {})   # ... and how many lines they have
 
 run_state = RunState()            # the state of the command line, and of calls without a `Session`
 
@@ -7027,6 +7030,9 @@ def source_hash(fname: str) -> Optional[str]:
     name = source_name(fname)
     if name in run_state.source_overlays:
         return hashlib.sha256(run_state.source_overlays[name].encode('utf-8')).hexdigest() if hashlib is not None else None
+    embedded = fname.removeprefix('<embedded>/') if fname.startswith('<embedded>/') else None
+    if embedded is not None and embedded in _EMBEDDED_THEORIES:     # (the standalone bundle, the playground)
+        return hashlib.sha256(_EMBEDDED_THEORIES[embedded].encode('utf-8')).hexdigest() if hashlib is not None else None
     try:
         with open(fname, 'rb') as f:
             return hashlib.sha256(f.read()).hexdigest() if hashlib is not None else None
@@ -9217,12 +9223,20 @@ def unfinished_at_the_end(kb: KnowledgeBase, fname: str) -> KurtException:
     error.todos_so_far = kb.todos()        # (they count, see `Session._check`)
     return error
 
+def report_progress(name: str, line: Optional[int]) -> None:
+    # `RunConfig.progress`: line `line` of file `name` is checked next (None: the file is done)
+    assert run_state.progress is not None
+    lines, files = run_state.progress_lines.get(name, 0), run_state.progress_files
+    index = len(files) - files[::-1].index(name) if name in files else len(files)
+    run_state.progress({'file': name, 'line': lines if line is None else line, 'lines': lines,
+                        'index': index, 'files': len(files), 'done': line is None})
+
 def checked_exports(fname: str, f: TextIO, candidate, loader: KnowledgeBase, main: bool) -> ExportBundle:
     # check the file in a fresh context -- the core, and the files it loads itself, nothing of
     # its loader (whose facts it could otherwise use without loading them, and whose load order
     # would matter) -- and return what it exports
     key = (fname, source_hash(fname), run_state.strict_mode, tuple(str(p) for p in run_state.trusted_paths), run_state.kurtc_enabled,
-           tuple(str(p) for p in run_state.theory_path))
+           tuple(str(p) for p in run_state.theory_path), tuple(sorted(run_state.untrusted_names)))
     cached = run_state._checked_exports.get(key) if not main and key[1] is not None else None
     if cached is not None and all(source_hash(dep) == digest for dep, digest in cached[1]) and same_load_resolutions(cached[2]):
         for resolutions in run_state._load_resolutions:
@@ -9240,6 +9254,14 @@ def checked_exports_now(fname: str, f: TextIO, candidate, loader: KnowledgeBase,
     run_state.load_dependencies[fname] = []
     if run_state.kurtc_enabled:
         read_kurtc(fname)
+    if run_state.progress is not None:
+        name = getattr(f, 'name', fname)
+        text = f.read()                    # (how many lines it has)
+        f = io.StringIO(text)
+        f.name = name
+        run_state.progress_files.append(name)
+        run_state.progress_lines[name] = text.count('\n') + (not text.endswith('\n'))
+        report_progress(name, 0)
     root = copy.deepcopy(core_kb)
     root.format, root.hint = loader.format, loader.hint   # only how it looks
     kb = root.push_level('sandbox', [])    # (the level of the file)
@@ -9247,6 +9269,8 @@ def checked_exports_now(fname: str, f: TextIO, candidate, loader: KnowledgeBase,
     kb.is_load_boundary = True             # `break` must not be able to close this implicit level
     with (contextlib.nullcontext() if main else quietly()):      # a loaded file prints nothing
         kb = read_eval_loop(f, kb)
+    if run_state.progress is not None:
+        report_progress(getattr(f, 'name', fname), None)
     if kb.level > 1:
         raise unfinished_at_the_end(kb, fname)
     assert kb.level == 1, f'BUG: `load_file` decreased the level from 1 to {kb.level}'
@@ -9430,6 +9454,10 @@ class RunConfig:
     untrusted_paths: tuple[str, ...] = () # source directories searched before `paths`, without granting trust
     overlays: tuple[tuple[str, str], ...] = () # current editor text by absolute source filename
     all_errors: bool = False              # all errors of the file, not only the first (`--all-errors`; the editors)
+    # called with {'file', 'line', 'lines', 'index', 'files', 'done'} when a file starts, at each of
+    # its lines and when it is done: the line of `file` (of `lines`) being checked, the `index`-th of
+    # the `files` checked so far (a loaded file that is cached isn't checked); for a progress bar
+    progress: Optional[Callable[[dict], None]] = None
 
 @dataclasses.dataclass
 class CheckResult:
@@ -9459,7 +9487,7 @@ def _fresh_run_state(config: RunConfig) -> RunState:
     return RunState(theory_path=[*untrusted, Path.cwd(), *paths, *packaged_theory_paths], strict_mode=config.strict,
                     trusted_paths=list(paths), untrusted_names=set(overlays), source_overlays=overlays,
                     kurtc_enabled=config.kurtc, comment_indent=config.comment_indent,
-                    line_numbers=config.line_numbers, all_errors=config.all_errors)
+                    line_numbers=config.line_numbers, all_errors=config.all_errors, progress=config.progress)
 
 # a session's run state is `run_state` while it is active: one session at a time (several threads
 # take turns -- the checks are Python work, which wouldn't run in parallel anyway)
@@ -9492,6 +9520,7 @@ class Session:
             run_state.event_sink = events
             run_state.shell_start[0] = None
             run_state.errors = []
+            run_state.progress_files = []
             printed_before, run_state.print_errors = run_state.print_errors, 'stdout'   # (all errors: in the output, at their places)
             stopped: Optional[KurtException] = None
             try:
@@ -9701,8 +9730,12 @@ class LanguageServer:
         self.all_errors = True             # all errors of a file, not only the first (option `allErrors`)
         self.check_on_change = False
         self.check_delay = 0.3
+        self.progress: Optional[Callable[[dict], None]] = None   # see `RunConfig.progress` (the playground)
         self.client_refreshes_hints = False
         self.timers: dict[str, threading.Timer] = {}
+        # the files checked so far (`_checked_exports`), shared by all checks: a theory is checked
+        # once, not on each change of the document (only again when it, or what it loads, changes)
+        self.checked: dict = {}
         self.state_lock = threading.RLock()            # timer checks share document maps with the protocol loop
         self.work_lock = threading.Lock()             # Session swaps module state; one operation at a time
         self.send_lock = threading.Lock()
@@ -9734,8 +9767,11 @@ class LanguageServer:
         with self.state_lock:
             overlays = tuple((lsp_uri_path(open_uri), text) for open_uri, text in self.texts.items()
                              if open_uri.startswith('file:') and open_uri != uri)
-        return Session(RunConfig(paths=self.extra_paths, untrusted_paths=(folder,),
-                                 overlays=overlays, strict=self.strict, all_errors=self.all_errors))
+        session = Session(RunConfig(paths=self.extra_paths, untrusted_paths=(folder,),
+                                    overlays=overlays, strict=self.strict, all_errors=self.all_errors,
+                                    progress=self.progress))
+        session._state._checked_exports = self.checked     # (used under `work_lock` only)
+        return session
 
     def publish_diagnostics(self, uri: str, diagnostics: list[dict], version: Optional[int]) -> None:
         params: dict[str, object] = {'uri': uri, 'diagnostics': diagnostics}
@@ -9872,6 +9908,7 @@ class LanguageServer:
         prefix = line[:col]
         word = re.search(r'[^\s()\[\]{},=]*$', prefix).group(0)
         shell = Shell(self.session_for(uri).config)
+        shell.session._state._checked_exports = self.checked
         with self.work_lock, contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             shell.start_text('\n'.join(lines[:n]) + '\n', lsp_uri_path(uri) or 'proof.kurt')
             items = shell.completions(prefix, word)
@@ -10288,6 +10325,8 @@ def read_eval_loop(input_stream: TextIO, kb: KnowledgeBase,
                     skip_deeper_than = at       # (its block too)
                     line += 1
                     continue
+            if is_file and run_state.progress is not None and not continued:
+                report_progress(input_stream.name, line)
             input_line += new_line
             pending.append(new_line)
             try:

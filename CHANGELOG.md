@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.2 (2026-10-11)
+
+- The editors are fast again with `load natural` and other large theories: the language server
+  (`kurt --lsp`, and the playground) checks a loaded theory once, not on each change of the
+  document -- again only when it, or a file it loads, changes (also when it is open in the
+  editor). A change of a document with `load natural` took about 4.6 s to check, now 0.06 s.
+- The theories embedded in the single-file `kurt.py` (`scripts/build_standalone.py`; the
+  playground) are cached too: they were checked again by each file that loads them, and in each
+  check -- `load analysis` checked `prop.kurt` five times.
+- `RunConfig(progress=...)`: which line of which file is checked, for a progress bar (the
+  playground; doc/kurt-doc.md §1). The playground shows it while a check takes a while: a bar
+  above the editor, and `Checking natural.kurt · line 120 of 571 · file 2 of 7` (the files
+  checked so far: more may follow, as the `load`s are found).
+
 ## 0.8.1 (2026-10-10)
 
 - All errors, not only the first: `kurt -a` (`--all-errors`), `RunConfig(all_errors=True)`, and by

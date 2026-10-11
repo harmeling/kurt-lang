@@ -51,6 +51,26 @@ class TestStandaloneBundle(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Proof checked", result.stdout)
 
+    def test_an_embedded_theory_is_checked_once(self):
+        # (it had no hash, so it wasn't cached: checked again by each file that loads it, and
+        # in each check of a session -- the playground took seconds for each change)
+        script = (
+            "import collections, kurt\n"
+            "starts = collections.Counter()\n"
+            "session = kurt.Session(kurt.RunConfig(progress=lambda e: e['line'] == 0 and starts.update([e['file']])))\n"
+            "for _ in range(2):\n"
+            "    assert session.check_text('load set\\nload prop\\n').ok\n"
+            "print(sorted(starts.items()))\n")
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        result = subprocess.run([sys.executable, "-c", script], cwd=self.tmpdir, env=env,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        starts = dict(eval(result.stdout))
+        self.assertEqual(starts.pop('proof.kurt'), 2)
+        self.assertIn('<embedded>/prop.kurt', starts)       # (loaded by set.kurt too)
+        self.assertEqual(set(starts.values()), {1}, starts)
+
     def test_no_directory_named_theories_exists(self):
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, "theories")))
 

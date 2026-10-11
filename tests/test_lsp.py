@@ -6,6 +6,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import unittest.mock
 
 import kurt.kurt as kurt
 
@@ -240,6 +241,33 @@ class TestLanguageServer(unittest.TestCase):
                 self.assertIn('DocumentFact', [item['label'] for item in items])
             finally:
                 os.chdir(before)
+
+    def test_a_loaded_theory_is_checked_once_not_on_each_change(self):
+        # (each check used to start a new session, which checked `load natural` again: seconds per keystroke)
+        with tempfile.TemporaryDirectory() as tmp:
+            def write(name, text):
+                with open(os.path.join(tmp, name), 'w', encoding='utf-8') as stream:
+                    stream.write(text)
+            write('dep.kurt', 'bool P\nuse P "given"\n')
+            uri, dep_uri = 'file://' + os.path.join(tmp, 'main.kurt'), 'file://' + os.path.join(tmp, 'dep.kurt')
+            checked = []
+            original = kurt.checked_exports_now
+            def counting(fname, *args):
+                checked.append(os.path.basename(fname))
+                return original(fname, *args)
+            server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
+            with unittest.mock.patch.object(kurt, 'checked_exports_now', counting):
+                for n, text in enumerate(('load dep\nP\n', 'load dep\nP\nP\n', 'load dep\nP\nP and P\n')):
+                    server.texts[uri], server.versions[uri] = text, n
+                    server.check(uri)
+                self.assertEqual(checked.count('dep.kurt'), 1)
+                self.assertTrue(server.results[uri].ok)
+                # a change of the theory (open in the editor too) is seen at once
+                server.texts[dep_uri] = 'bool P\n'
+                server.versions[uri] = 3
+                server.check(uri)
+                self.assertEqual(checked.count('dep.kurt'), 2)
+                self.assertFalse(server.results[uri].ok)
 
     def test_a_proof_closed_without_qed_says_so_at_its_last_line(self):
         # (the end of the file, or a dedent, closes the proof: a derived line after its last one)

@@ -28,7 +28,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.8.1 (made by Stefan Harmeling, 2016-2026), file 36776884a69c
+    This is Kurt, v0.8.2 (made by Stefan Harmeling, 2016-2026), file 3aeac2fb138f
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
