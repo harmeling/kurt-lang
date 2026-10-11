@@ -1,7 +1,8 @@
-; the determinant of a matrix product (course "Mathematik für Informatik 1" (mafi1), lecture 18), from det(A B) = det(A) det(B) and det(E) = 1
+; the determinant and the matrix product (course "Mathematik für Informatik 1" (mafi1), lecture 18),
+; from det(A B) = det(A) det(B) (Theorem 6.62) and det(E) = 1
 load matrices
 
-; det(A⁻¹) = det(A)⁻¹ -- and det(A) ≠ 0, which the formula needs
+; Theorem 6.64: det(A⁻¹) = det(A)⁻¹ -- with det(A) ≠ 0, which the formula needs
 show $A ∈ GL  ⇒  det($A) ≠ 0 ∧ det(inv $A) = inv det($A)              "det-inv"
 proof
     assume $A ∈ GL
@@ -9,49 +10,47 @@ proof
         inv $A ∈ Mat
         det($A) ∈ K
         det(inv $A) ∈ K
-        ; 1 = det E = det(A A⁻¹) = det A det A⁻¹
         1 = det(E)                                      ; det-E
           = det($A · (inv $A))
-          = det($A) · det(inv $A)
-        ; so det(A) ≠ 0, since otherwise 1 = 0 det A⁻¹ = 0
+          = det($A) · det(inv $A)                       ; det-times
+        ; so det(A) ≠ 0, since otherwise 1 = 0 det(A⁻¹) = 0
         assume det($A) = 0
-            0 = 0 · det(inv $A)                         ; zero-times
             1 = 0 · det(inv $A)
-            1 = 0
-            0 ≠ 1                                       ; K7a
-            ¬(0 = 1)
-            0 = 1 ∧ ¬(0 = 1)
+              = 0                                       ; zero-times
+            ¬(1 = 0)                                    ; zero-not-one
             ⊥
-        ¬(det($A) = 0)
         det($A) ≠ 0
-        ; and det A⁻¹ is the inverse of det A in K
-        inv det($A) ∈ K                                 ; K-inv
-        (inv det($A)) · det($A) = 1                     ; K8
-        det(inv $A) · det($A) = det($A) · det(inv $A)   ; K6
-        det(inv $A) · det($A) = 1
+        ; and det(A⁻¹) is the inverse of det(A) in K
+        inv det($A) ∈ K
+        (inv det($A)) · det($A) = 1                     ; inv-times
+        det(inv $A) · det($A) = det($A) · det(inv $A)
+                              = 1
         det(inv $A) = inv det($A)                       ; inv-unique
         det($A) ≠ 0 ∧ det(inv $A) = inv det($A)
 qed
 
-; the matrices of a map in two bases (B = C⁻¹ A C) have the same determinant
-show $A ∈ Mat ∧ $C ∈ GL  ⇒  det(((inv $C) · $A) · $C) = det($A)       "det-similar"
+; Theorem 6.69: the matrices A and B = C⁻¹ A C of an endomorphism in two bases have the same
+; determinant
+show $A ∈ Mat ∧ $C ∈ GL ∧ $B = ((inv $C) · $A) · $C  ⇒  det($A) = det($B)   "det-similar"
 proof
-    assume $A ∈ Mat ∧ $C ∈ GL
+    assume $A ∈ Mat ∧ $C ∈ GL ∧ $B = ((inv $C) · $A) · $C
         $A ∈ Mat
         $C ∈ GL
+        $B = ((inv $C) · $A) · $C
         $C ∈ Mat
         inv $C ∈ Mat
         (inv $C) · $A ∈ Mat
         det($A) ∈ K
         det($C) ∈ K
         det(inv $C) ∈ K
-        det(((inv $C) · $A) · $C) = det((inv $C) · $A) · det($C)
-                                  = (det(inv $C) · det($A)) · det($C)
-                                  = (det($A) · det(inv $C)) · det($C)
-                                  = det($A) · (det(inv $C) · det($C))
-                                  = det($A) · det((inv $C) · $C)
-                                  = det($A) · det(E)
-                                  = det($A) · 1
-                                  = 1 · det($A)
-                                  = det($A)
+        det($B) = det(((inv $C) · $A) · $C)
+                = det((inv $C) · $A) · det($C)          ; det-times
+                = (det(inv $C) · det($A)) · det($C)
+                = det(inv $C) · (det($A) · det($C))
+                = det(inv $C) · (det($C) · det($A))
+                = (det(inv $C) · det($C)) · det($A)
+                = det((inv $C) · $C) · det($A)
+                = det(E) · det($A)                      ; inv-left
+                = 1 · det($A)                           ; det-E
+                = det($A)
 qed

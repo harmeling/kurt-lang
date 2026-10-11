@@ -1,0 +1,30 @@
+; the derivative of 3x at 2 is 3, by ε and δ ("deriv-intro"), without the rules of
+; differentiation: the difference quotient is 3 for every h ≠ 0, so any δ will do (here 1)
+load derivative
+calc on
+
+show (deriv x 2 (3 * x)) = 3
+proof
+    let e > 0
+        0 < e
+        1 > 0
+        let h
+            assume 0 < abs(h) ∧ abs(h) < 1
+                0 < abs(h)
+                0 ≠ abs(h)
+                not (abs(h) = 0)
+                assume h = 0
+                    abs(h) = 0                                    ; by abs-zero
+                    false
+                not (h = 0)
+                h ≠ 0
+                3 * (2 + h) = 6 + 3 * h                           ; by distrib-add
+                3 * (2 + h) - 3 * 2 = (6 + 3 * h) - 6
+                    = 3 * h                                       ; by add-sub
+                (3 * h) / h = 3                                   ; by mul-div
+                (3 * (2 + h) - 3 * 2) / h = 3
+                (3 * (2 + h) - 3 * 2) / h - 3 = 0
+                abs(0) = 0
+                abs((3 * (2 + h) - 3 * 2) / h - 3) = 0
+                    < e
+        ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d) ⇒ abs((3 * (2 + $h) - 3 * 2) / $h - 3) < e)

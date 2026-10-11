@@ -1,0 +1,32 @@
+; EXERCISE 4: STRICT ORDERS
+;
+; R and S are relations on the set A (theory/relations.kurt), and S is the strict version of R:
+; (x, y) ∈ S exactly when (x, y) ∈ R and x ≠ y. (If R is ≤, then S is <.) This is the premise
+; `∀ x ∀ y ((x, y) ∈ S ⇔ (x, y) ∈ R ∧ x ≠ y)` of each part. Replace each `todo` by a proof;
+; don't change the `show` lines. Check with `kurt 4-strict-order.kurt`.
+;
+; `x ≠ y` and `¬(x = y)` follow from each other ("not-equal-elim", "not-equal-intro" in
+; equality.kurt), and `x = x` holds for each x.
+
+load theory/relations
+const A, R, S
+
+; (a) S is irreflexive: nothing is related to itself.
+show (∀ x ∀ y ((x, y) ∈ S ⇔ (x, y) ∈ R ∧ x ≠ y)) ⇒ ∀ x ¬((x, x) ∈ S)
+proof
+    todo
+qed
+
+; (b) If R is antisymmetric, S is asymmetric: (x, y) ∈ S excludes (y, x) ∈ S.
+show antisymmetric(R) ∧ (∀ x ∀ y ((x, y) ∈ S ⇔ (x, y) ∈ R ∧ x ≠ y)) ⇒ ∀ x ∀ y ((x, y) ∈ S ⇒ ¬((y, x) ∈ S))
+proof
+    todo
+qed
+
+; (c) If R is a partial order, S is transitive.
+;     Hint: (x, z) ∈ R is easy. For x ≠ z, assume x = z: then (y, z) ∈ R becomes (y, x) ∈ R,
+;     and antisymmetry gives x = y.
+show order(R, A) ∧ (∀ x ∀ y ((x, y) ∈ S ⇔ (x, y) ∈ R ∧ x ≠ y)) ⇒ transitive(S)
+proof
+    todo
+qed

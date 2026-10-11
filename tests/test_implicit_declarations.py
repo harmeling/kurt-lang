@@ -30,6 +30,22 @@ class TestImplicitDeclarations(unittest.TestCase):
         ])
         self.assertNotIn('new constant', result.output)
 
+    def test_a_fixed_variable_of_an_assumption_is_no_new_constant(self):
+        # in `assume $x ∈ $A ∧ $x ∈ $B`, `$x` is one object until the block closes; a fact derived
+        # there didn't make it a constant (`const $x ; added constant`, found 2026-10-11)
+        result = kurt.check_text(
+            'load set\n'
+            'show $x ∈ $A ∧ $x ∈ $B ⇒ $x ∈ $B\n'
+            'proof\n'
+            '    assume $x ∈ $A ∧ $x ∈ $B\n'
+            '        $x ∈ $B\n'
+            'qed\n'
+        )
+
+        self.assertTrue(result.complete, result.error)
+        declarations = [event['text'] for event in result.events if event['kind'] == 'declaration']
+        self.assertEqual(declarations, [])
+
     def test_explicit_roles_and_definitions_are_not_reported_twice(self):
         variable = kurt.check_text(
             'load equality\n'

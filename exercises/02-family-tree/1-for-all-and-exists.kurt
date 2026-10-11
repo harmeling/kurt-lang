@@ -1,0 +1,52 @@
+; EXERCISE 1: FOR ALL AND THERE EXISTS
+;
+; A family tree: theory/family.kurt describes it. Read it first: it says what `parent`,
+; `grandparent`, ... mean, and which rules hold.
+;
+; Prove each statement: replace the `todo` of its proof by your proof. Don't change the `show`
+; lines. Check the file with
+;
+;     kurt 1-for-all-and-exists.kurt
+;
+; until it says `Proof checked` (with `todo`s left it says `Proof almost checked`).
+;
+; Reminder (tutorial lessons 07-09): a fact `∀ x P(x)` gives `P(A)` for any A in one step. To
+; prove `∀ x P(x)`, write `let x` and prove `P(x)` inside the block. A fact `∃ x P(x)` is used
+; with `pick a with P(a)`: inside the block, `a` is one such object. To prove `∃ x P(x)`, write a
+; line `P(A)` for a witness A, then `∃ x P(x)`.
+
+load theory/family
+const A, B, C
+
+; (a) A warm-up without quantifiers: if A is the mother of B, then B is a child of A.
+;     Hint: a definition is used as a step: from `mother(A, B)` Kurt derives what it abbreviates.
+show mother(A, B) ⇒ child(B, A)
+proof
+    todo
+qed
+
+; (b) Nobody is their own parent.
+show ∀ x ¬parent(x, x)
+proof
+    todo
+qed
+
+; (c) A parent of a parent is a grandparent.
+;     Hint: the definition of `grandparent` needs an `∃`. Which person is the witness?
+show parent(A, B) ∧ parent(B, C) ⇒ grandparent(A, C)
+proof
+    todo
+qed
+
+; (d) A grandparent has a child.
+show grandparent(A, C) ⇒ ∃ y child(y, A)
+proof
+    todo
+qed
+
+; (e) Everybody has a grandparent.
+;     Hint: `let x`; then "has-parent" gives x a parent: `pick` one. It has a parent, too.
+show ∀ x ∃ z grandparent(z, x)
+proof
+    todo
+qed

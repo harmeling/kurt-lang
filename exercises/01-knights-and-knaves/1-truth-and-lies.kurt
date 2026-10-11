@@ -1,0 +1,45 @@
+; EXERCISE 1: TRUTH AND LIES
+;
+; The island of knights and knaves: theory/island.kurt describes it. Read it first.
+;
+; Prove each statement: replace the `todo` of its proof by your proof. Don't change the `show`
+; lines. Check the file with
+;
+;     kurt 1-truth-and-lies.kurt
+;
+; until it says `Proof checked` (with `todo`s left it says `Proof almost checked`).
+
+load theory/island
+const A
+bool S
+
+; (a) What a knight says is true.
+;     Hint: `assume` the left side; its parts `A says S` and `knight(A)` are facts of their own
+;     when you write them as lines. What does the rule "says" give?
+show (A says S) ∧ knight(A) ⇒ S
+proof
+    todo
+qed
+
+; (b) What a knave says is false.
+show (A says S) ∧ knave(A) ⇒ ¬S
+proof
+    todo
+qed
+
+; (c) Whoever says something true is a knight.
+show (A says S) ∧ S ⇒ knight(A)
+proof
+    todo
+qed
+
+; (d) No islander can say "I am a knave".
+;     Hint: assume that A says it. Then knight(A) ⇔ knave(A): split into the cases knight(A) and
+;     ¬knight(A) (`case`), and reach `false` in both.
+show ¬(A says knave(A))
+proof
+    todo
+qed
+
+; (e) Think, without Kurt: if A says "I am a knight", what do we learn about A? Why can't you
+;     prove `knight(A)`, or `knave(A)`, from `A says knight(A)`?

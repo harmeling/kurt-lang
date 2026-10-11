@@ -14,22 +14,23 @@ use $A ∈ Mat ∧ $B ∈ Mat  ⇒  $A · $B ∈ Mat                            
 use $A ∈ Mat  ⇒  T($A) ∈ Mat                                         "T-in"
 use $A ∈ GL  ⇒  $A ∈ Mat                                             "GL-in"
 
-; (M1) and the identity matrix
+; (M1) of Theorem 5.9 (lecture 12), and E is neutral (lecture 12, Theorem 5.13: a ring)
 use $A ∈ Mat ∧ $B ∈ Mat ∧ $C ∈ Mat  ⇒  ($A · $B) · $C = $A · ($B · $C)   "M1"
 use $A ∈ Mat  ⇒  E · $A = $A                                         "E-left"
 use $A ∈ Mat  ⇒  $A · E = $A                                         "E-right"
 
-; the inverse (lecture 15: regulär)
+; the inverse: A A⁻¹ = A⁻¹ A = E (lecture 12, Theorem 5.12; lecture 15, Definition 5.38: regulär)
 use $A ∈ GL  ⇒  inv $A ∈ Mat                                         "inv-in"
 use $A ∈ GL  ⇒  $A · (inv $A) = E                                    "inv-right"
 use $A ∈ GL  ⇒  (inv $A) · $A = E                                    "inv-left"
 
-; the transposed matrix (lecture 15, "Übungsaufgabe")
+; the transposed matrix (lecture 15, Theorem 5.27, "Übungsaufgabe" there)
 use $A ∈ Mat ∧ $B ∈ Mat  ⇒  T($A · $B) = T($B) · T($A)              "T-times"
 use T(E) = E                                                         "T-E"
 
-; the determinant (lectures 17 and 18, "without proof" there)
+; the determinant: det(A B) = det(A) det(B) (lecture 18, Theorem 6.62), normiert (lecture 16,
+; Theorem 6.17), det(A) = det(Aᵀ) (lecture 17, Theorem 6.53, "without proof" there)
 use $A ∈ Mat  ⇒  det($A) ∈ K                                         "det-in"
 use $A ∈ Mat ∧ $B ∈ Mat  ⇒  det($A · $B) = det($A) · det($B)         "det-times"
 use det(E) = 1                                                       "det-E"
-use $A ∈ Mat  ⇒  det(T($A)) = det($A)                                "det-T"
+use $A ∈ Mat  ⇒  det($A) = det(T($A))                                "det-T"

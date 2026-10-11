@@ -1,0 +1,50 @@
+; integrals
+;
+; covers: the (Riemann) integral `integral x (a, b) T` of `T` in `x` from `a` to `b`, and
+; `integrable x (a, b) T` ("`T` is integrable in `x` on [a, b]", for `a <= b`); continuous
+; functions are integrable; linearity, the integral of a constant, splitting the interval, the
+; integral from `b` to `a`, monotonicity; and the fundamental theorem of calculus, both parts
+; (with derivative.kurt). See proofs/analysis/ for worked examples.
+;
+; `integral` gives a value for *every* argument, also where the integral doesn't exist -- so a
+; rule says what it is only for an integrable `T`: "integral-riemann" (its value: the limit of
+; the Riemann sums of equally long pieces) needs `integrable`, since these sums may converge
+; for a function that isn't integrable (1 on the rational numbers, 0 elsewhere: all of its
+; points `a + i (b - a) / n` are rational for rational `a`, `b`).
+;
+; As in derivative.kurt, `$T` is any function of the bound variable, and the rules are
+; theorems of real analysis stated as axioms, each with the conditions it needs.
+load prop, equality, logic, set, numbers, natural, analysis, derivative
+
+;; syntax: as `sum`, the range in brackets after the variable
+const integral, integrable
+arity integral 3, integrable 3
+bindop integral, integrable
+bool integrable 0
+
+;; what the integral is: the limit of the Riemann sums (n pieces of length (b - a) / n, each
+;; with the value at its right end)
+use ($a <= $b) ∧ (integrable $v ($a, $b) $T)  ⇒  ∀ $e > 0 ∃ $N ∀ $n ∈ Nat ($n > $N  ⇒  abs(($b - $a) / $n * (sum $i (1, $n) (sub $v ($a + $i * ($b - $a) / $n) $T)) - (integral $v ($a, $b) $T)) < $e)   "integral-riemann"
+
+;; which functions are integrable
+use ($a <= $b) ∧ (∀ $y (($a <= $y ∧ $y <= $b)  ⇒  cont $v $y $T))  ⇒  integrable $v ($a, $b) $T   "integrable-cont"
+use ($a <= $b) ∧ (integrable $v ($a, $b) $S) ∧ (integrable $v ($a, $b) $T)  ⇒  integrable $v ($a, $b) ($S + $T)   "integrable-add"
+use ($a <= $b) ∧ (integrable $v ($a, $b) $T)  ⇒  integrable $v ($a, $b) ($c * $T)   "integrable-scale"   ; (`$c` doesn't depend on `$v`)
+use ($a <= $b) ∧ ($b <= $c) ∧ (integrable $v ($a, $c) $T)  ⇒  (integrable $v ($a, $b) $T) ∧ (integrable $v ($b, $c) $T)   "integrable-split"
+
+;; rules
+use (integral $v ($a, $a) $T) = 0                                                  "integral-empty"
+use (integral $v ($b, $a) $T) = -(integral $v ($a, $b) $T)                         "integral-swap"
+use $c = $c  ⇒  (integral $v ($a, $b) $c) = $c * ($b - $a)                         "integral-const"   ; (`$c` doesn't depend on `$v`)
+use ($a <= $b) ∧ (integrable $v ($a, $b) $S) ∧ (integrable $v ($a, $b) $T)  ⇒  (integral $v ($a, $b) ($S + $T)) = (integral $v ($a, $b) $S) + (integral $v ($a, $b) $T)   "integral-add"
+use ($a <= $b) ∧ (integrable $v ($a, $b) $T)  ⇒  (integral $v ($a, $b) ($c * $T)) = $c * (integral $v ($a, $b) $T)   "integral-scale"
+use ($a <= $b) ∧ ($b <= $c) ∧ (integrable $v ($a, $c) $T)  ⇒  (integral $v ($a, $b) $T) + (integral $v ($b, $c) $T) = integral $v ($a, $c) $T   "integral-split"
+use ($a <= $b) ∧ (integrable $v ($a, $b) $S) ∧ (integrable $v ($a, $b) $T) ∧ (∀ $y (($a <= $y ∧ $y <= $b)  ⇒  (sub $v $y $S) <= (sub $v $y $T)))  ⇒  (integral $v ($a, $b) $S) <= (integral $v ($a, $b) $T)   "integral-mono"
+
+;; the fundamental theorem of calculus
+; 1. the integral as a function of its upper end is differentiable where `T` is continuous, and
+;    its derivative is `T` there
+use ($a < $c) ∧ ($c < $b) ∧ (integrable $v ($a, $b) $T) ∧ (cont $v $c $T)  ⇒  diff $w $c (integral $v ($a, $w) $T)   "ftc-diff"
+use ($a < $c) ∧ ($c < $b) ∧ (integrable $v ($a, $b) $T) ∧ (cont $v $c $T)  ⇒  (deriv $w $c (integral $v ($a, $w) $T)) = sub $v $c $T   "ftc-deriv"
+; 2. the integral of a derivative (an antiderivative `$F` of `$T` on [a, b])
+use ($a <= $b) ∧ (integrable $v ($a, $b) $T) ∧ (∀ $y (($a <= $y ∧ $y <= $b)  ⇒  (diff $v $y $F) ∧ (deriv $v $y $F) = (sub $v $y $T)))  ⇒  (integral $v ($a, $b) $T) = (sub $v $b $F) - (sub $v $a $F)   "ftc"

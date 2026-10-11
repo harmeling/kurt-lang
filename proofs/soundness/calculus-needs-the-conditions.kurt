@@ -1,0 +1,63 @@
+; the rules of derivatives and integrals (derivative.kurt, integral.kurt) only apply with their
+; conditions -- `deriv` and `integral` have a value everywhere, also where the derivative or the
+; integral doesn't exist, so a rule without its condition would say something false about it
+load integral
+const f, g, k
+arity f 1, g 1, k 1
+
+; nothing is differentiable without a reason: not `abs(x)` at 0, nor any `f`
+expect "ProofError"
+    diff x 0 (abs(x))
+expect "ProofError"
+    diff x 0 (f x)
+; a constant doesn't depend on `x`: the rules of constants don't apply to `f x`, `x * f x`
+expect "ProofError"
+    (deriv x 0 (f x)) = 0
+use diff x 0 (f x)
+expect "ProofError"
+    (deriv x 0 (x * f x)) = x * (deriv x 0 (f x))
+; the sum rule needs both summands differentiable (`abs(x) + -abs(x)` is, its summands aren't)
+expect "ProofError"
+    (deriv x 0 (f x + g x)) = (deriv x 0 (f x)) + (deriv x 0 (g x))
+expect "ProofError"
+    (deriv x 0 (f x * g x)) = (deriv x 0 (f x)) * g 0 + f 0 * (deriv x 0 (g x))
+use diff x 0 (g x)
+(deriv x 0 (f x + g x)) = (deriv x 0 (f x)) + (deriv x 0 (g x))
+; the quotient rule needs `g 0 ≠ 0`
+expect "ProofError"
+    diff x 0 (f x / g x)
+; powers: natural exponents only (√x isn't differentiable at 0)
+expect "ProofError"
+    diff x 0 (x ^ (1 / 2))
+; the chain rule needs the outer function differentiable at the inner value
+expect "ProofError"
+    diff x 0 (k (f x))
+use diff y (f 0) (k y)
+diff x 0 (k (f x))
+; Fermat needs the derivative to exist (`-abs(x)` has a maximum at 0)
+use ∃ $d > 0 ∀ $y (abs($y - 0) < $d ⇒ k $y <= k 0)
+expect "ProofError"
+    (deriv x 0 (k x)) = 0
+; the mean value theorem needs `a < b`, continuity and differentiability
+use ∀ $y ((1 <= $y ∧ $y <= 0) ⇒ cont x $y (g x))
+use ∀ $y ((1 < $y ∧ $y < 0) ⇒ diff x $y (g x))
+expect "ProofError"
+    ∃ $c (1 < $c ∧ $c < 0 ∧ (deriv x $c (g x)) * (0 - 1) = g 0 - g 1)
+
+; integrals: linearity and the fundamental theorem need integrable functions
+use 0 <= 1
+expect "ProofError"
+    (integral x (0, 1) (f x + g x)) = (integral x (0, 1) (f x)) + (integral x (0, 1) (g x))
+expect "ProofError"
+    integrable x (0, 1) (f x)
+use ∀ $y ((0 <= $y ∧ $y <= 1) ⇒ (diff x $y (k x)) ∧ (deriv x $y (k x)) = f $y)
+expect "ProofError"
+    (integral x (0, 1) (f x)) = k 1 - k 0
+use integrable x (0, 1) (f x)
+(integral x (0, 1) (f x)) = k 1 - k 0
+; splitting needs the point in between
+use integrable x (0, 2) (g x)
+use 0 <= 2
+use 2 <= 3
+expect "ProofError"
+    (integral x (0, 3) (g x)) + (integral x (3, 2) (g x)) = integral x (0, 2) (g x)

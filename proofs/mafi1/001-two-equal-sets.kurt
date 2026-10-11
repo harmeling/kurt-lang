@@ -1,51 +1,50 @@
-; two-equal sets
+; two equal sets (lecture 01, "Beispielbeweis, dass zwei Mengen gleich sind")
 load set
 const A, B, C
 show A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)   "set-distribution"
 proof
-    ; for set equality we show "⊂" and "⊃"
+    ; 1. "⊂"
     show A ∩ (B ∪ C) ⊂ (A ∩ B) ∪ (A ∩ C)
     proof
         let x ∈ A ∩ (B ∪ C)
             x ∈ A  ∧  x ∈ B ∪ C
-            x ∈ A
-            x ∈ B ∪ C
-            (x ∈ B) or (x ∈ C)
+            x ∈ A                                   ; (1)
+            x ∈ B ∪ C                               ; (2)
+            x ∈ B  ∨  x ∈ C                         ; by (2), two cases
             case x ∈ B
-                x ∈ A  ∧  x ∈ B
-                x ∈ A ∩ B
-                (x ∈ A ∩ B) or (x ∈ A ∩ C)
+                x ∈ A ∩ B                           ; by (1)
+                x ∈ A ∩ B  ∨  x ∈ A ∩ C
                 x ∈ (A ∩ B) ∪ (A ∩ C)
-                ;done
             case x ∈ C
-                x ∈ A  ∧  x ∈ C
-                x ∈ A ∩ C
-                (x ∈ A ∩ B) or (x ∈ A ∩ C)
+                x ∈ A ∩ C                           ; by (1)
+                x ∈ A ∩ B  ∨  x ∈ A ∩ C
                 x ∈ (A ∩ B) ∪ (A ∩ C)
-                ;done
-            x ∈ (A ∩ B) ∪ (A ∩ C)
-        ; `⊂` is defined with `∀ $c ($c ∈ $a implies ...)`, `let x ∈ ...` gave `∀ x ∈ ...`
-        ∀ $x ($x ∈ A ∩ (B ∪ C)  implies  $x ∈ (A ∩ B) ∪ (A ∩ C))     ; by forall-cond-def
+            x ∈ (A ∩ B) ∪ (A ∩ C)                   ; in both cases
+        ; `⊂` is defined by `∀ $c ($c ∈ $a implies $c ∈ $b)`, `let x ∈ ...` gave `∀ x ∈ ...`
+        ∀ $x ($x ∈ A ∩ (B ∪ C)  implies  $x ∈ (A ∩ B) ∪ (A ∩ C))
     qed
-    show (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
+    ; 2. "⊃"
+    show A ∩ (B ∪ C) ⊃ (A ∩ B) ∪ (A ∩ C)
     proof
         let x ∈ (A ∩ B) ∪ (A ∩ C)
-            (x ∈ A ∩ B) or (x ∈ A ∩ C)
+            x ∈ A ∩ B  ∨  x ∈ A ∩ C                 ; two cases
             case x ∈ A ∩ B
                 x ∈ A  ∧  x ∈ B
-                x ∈ A
                 x ∈ B
-                (x ∈ B) or (x ∈ C)
+                x ∈ B  ∨  x ∈ C
                 x ∈ B ∪ C
+                x ∈ A
                 x ∈ A ∩ (B ∪ C)
             case x ∈ A ∩ C
                 x ∈ A  ∧  x ∈ C
-                x ∈ A
                 x ∈ C
-                (x ∈ B) or (x ∈ C)
+                x ∈ B  ∨  x ∈ C
                 x ∈ B ∪ C
+                x ∈ A
                 x ∈ A ∩ (B ∪ C)
-            x ∈ A ∩ (B ∪ C)
-        ∀ $x ($x ∈ (A ∩ B) ∪ (A ∩ C)  implies  $x ∈ A ∩ (B ∪ C))     ; by forall-cond-def
+            x ∈ A ∩ (B ∪ C)                         ; in both cases
+        ∀ $x ($x ∈ (A ∩ B) ∪ (A ∩ C)  implies  $x ∈ A ∩ (B ∪ C))
+        (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)
     qed
+    (A ∩ B) ∪ (A ∩ C) ⊂ A ∩ (B ∪ C)                 ; `⊃` is `⊂` the other way round
 qed

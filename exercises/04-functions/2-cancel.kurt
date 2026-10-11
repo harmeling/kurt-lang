@@ -1,0 +1,41 @@
+; EXERCISE 2: WHAT A COMPOSITION TELLS ABOUT ITS PARTS
+;
+; f is a map from A to B, g a map from B to C (theory/maps.kurt). What does a property of g ∘ f
+; say about f and about g? Replace each `todo` by a proof; don't change the `show` lines. Check
+; with `kurt 2-cancel.kurt`.
+;
+; Remember (exercise 1): a premise `P ∧ Q` gives the steps `P` and `Q`; a definition like
+; `injective(f, A)` gives its ∀ statement in one step, and the other way round; instantiate a
+; nested ∀ one ∀ at a time; from `∃ x ∈ A (...)`, `pick x with x ∈ A ∧ ...`.
+
+load theory/maps
+const A, B, C, f, g
+
+; (a) If g ∘ f is injective, then f is injective.
+;     Hint: from f x = f y, Kurt gets g (f x) = g (f y) in two steps: first `g (f x) = g (f x)`,
+;     then rewrite one side.
+show f : A → B ∧ g : B → C ∧ injective(g ∘ f, A) ⇒ injective(f, A)
+proof
+    todo
+qed
+
+; (b) If g ∘ f is surjective (onto C), then g is surjective.
+show f : A → B ∧ g : B → C ∧ surjective(g ∘ f, A, C) ⇒ surjective(g, B, C)
+proof
+    todo
+qed
+
+; (c) If g ∘ f is injective and f is surjective, then g is injective.
+;     Hint: for y1, y2 ∈ B with g y1 = g y2, pick x1 ∈ A with f x1 = y1, and x2 ∈ A with
+;     f x2 = y2.
+show f : A → B ∧ g : B → C ∧ injective(g ∘ f, A) ∧ surjective(f, A, B) ⇒ injective(g, B)
+proof
+    todo
+qed
+
+; (d) If g ∘ f is surjective and g is injective, then f is surjective.
+;     Hint: for y ∈ B, g y is in C, so it is a value of g ∘ f.
+show f : A → B ∧ g : B → C ∧ surjective(g ∘ f, A, C) ∧ injective(g, B) ⇒ surjective(f, A, B)
+proof
+    todo
+qed

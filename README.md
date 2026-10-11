@@ -28,7 +28,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.8.2 (made by Stefan Harmeling, 2016-2026), file 3aeac2fb138f
+    This is Kurt, v0.8.3 (made by Stefan Harmeling, 2016-2026), file 022f67e99ab6
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -61,7 +61,7 @@ same indentation rules as a file.
 - **Proofs as text**, line by line. Kurt finds each single step by itself, from the facts and
   rules around. You don't need tactics or rule names.
 - **Theories written in Kurt itself**: propositional and first-order logic, equality, sets,
-  arithmetic, natural numbers with induction, analysis (sums, limits), groups, and modal logic
+  arithmetic, natural numbers with induction, analysis (sums, limits, derivatives, integrals), groups, and modal logic
   T (with `⊢ A` for "A is a theorem", modus ponens and necessitation).
   Even the grammar is declared there (`infix`, `bindop`, `chain`), so students can read why a
   step goes through.
@@ -115,10 +115,13 @@ in parallel, use processes.
   derive". Each one is a Kurt file you can run and change.
 - [`keywords/`](keywords/): 46 short lessons (00 to 45), one keyword or idea each
   ([plan](keywords/plan.md)).
+- [`exercises/`](exercises/): exercises for students, by topic (logic puzzles, quantifiers, sets,
+  functions, relations, groups, induction, limits, calculus): each loads the scene of its topic
+  and leaves the proofs to do; `scripts/grade_exercise.py` grades a solution.
 - [`doc/kurt-doc.md`](doc/kurt-doc.md): the language reference.
 - [`doc/kurt-soundness.md`](doc/kurt-soundness.md): what the checker's correctness rests on,
   rule by rule, and the bugs found so far, each with its regression test.
-- [`dev/deep-logic-experiments.md`](dev/deep-logic-experiments.md): modal formulas as terms,
+- [`doc/deep-logic-experiments.md`](doc/deep-logic-experiments.md): modal formulas as terms,
   sequents, an ordered-resource fragment, optional sorts, and the remaining language limits.
 - [`proofs/`](proofs/): many more example proofs. Each one is also a test.
 

@@ -1,40 +1,41 @@
 ; self-adjoint maps (course "Mathematik für Informatik 1" (mafi1), lecture 28)
 load 26-eigenvalues, scalar-product
 
-; f is self-adjoint
+; Definition: f is self-adjoint
 use $v ∈ V ∧ $w ∈ V  ⇒  ⟨f($v), $w⟩ = ⟨$v, f($w)⟩                    "self-adjoint"
 
 ; Notiz 1: eigenvectors for different eigenvalues are orthogonal
-show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ $w ∈ V ∧ f($v) = $l · $v ∧ f($w) = $m · $w  ⇒  orthogonal($v, $w)   "eigenvectors-orthogonal"
+show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ $w ∈ V ∧ eigenvector($v, $l) ∧ eigenvector($w, $m)  ⇒  orthogonal($v, $w)   "eigenvectors-orthogonal"
 proof
-    assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ $w ∈ V ∧ f($v) = $l · $v ∧ f($w) = $m · $w
+    assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ $w ∈ V ∧ eigenvector($v, $l) ∧ eigenvector($w, $m)
         $l ∈ K
         $m ∈ K
         $l ≠ $m
         $v ∈ V
         $w ∈ V
+        eigenvector($v, $l)
+        f($v) = $l · $v ∧ $v ≠ 0
+        eigenvector($w, $m)
+        f($w) = $m · $w ∧ $w ≠ 0
         f($v) = $l · $v
         f($w) = $m · $w
         ⟨$v, $w⟩ ∈ K
-        ; λ ⟨v, w⟩ = ⟨λ v, w⟩ = ⟨f v, w⟩ = ⟨v, f w⟩ = ⟨v, μ w⟩ = μ ⟨v, w⟩
-        $l · ⟨$v, $w⟩ = ⟨$l · $v, $w⟩
-                      = ⟨f($v), $w⟩
-                      = ⟨$v, f($w)⟩
-                      = ⟨$v, $m · $w⟩
-                      = $m · ⟨$v, $w⟩
-        ; so 0 = (λ - μ) ⟨v, w⟩
-        - $m ∈ K
-        ($l + (- $m)) · ⟨$v, $w⟩ = $l · ⟨$v, $w⟩ + (- $m) · ⟨$v, $w⟩
-                                 = $m · ⟨$v, $w⟩ + (- $m) · ⟨$v, $w⟩
-                                 = ($m + (- $m)) · ⟨$v, $w⟩
-                                 = 0 · ⟨$v, $w⟩
-                                 = 0
-        $l + (- $m) ∈ K
-        $l + (- $m) = 0 ∨ ⟨$v, $w⟩ = 0                  ; no-zero-divisors
-        case $l + (- $m) = 0
-            $l = $m                                     ; minus-zero
-            ¬($l = $m)
-            $l = $m ∧ ¬($l = $m)
+        f($w) ∈ V
+        ⟨$v, f($w)⟩ ∈ K
+        ; self-adjoint
+        0 = ⟨$v, f($w)⟩ - ⟨$v, f($w)⟩
+          = ⟨f($v), $w⟩ - ⟨$v, f($w)⟩
+          = ⟨$l · $v, $w⟩ - ⟨$v, f($w)⟩
+          = ⟨$l · $v, $w⟩ - ⟨$v, $m · $w⟩
+          = $l · ⟨$v, $w⟩ - ⟨$v, $m · $w⟩
+          = $l · ⟨$v, $w⟩ - $m · ⟨$v, $w⟩
+          = ($l - $m) · ⟨$v, $w⟩
+        ; since λ ≠ μ, ⟨v, w⟩ = 0
+        $l - $m ∈ K
+        $l - $m = 0 ∨ ⟨$v, $w⟩ = 0                      ; no-zero-divisors
+        $l - $m ≠ 0                                     ; difference-nonzero
+        case $l - $m = 0
+            ¬($l - $m = 0)
             ⊥
             ⟨$v, $w⟩ = 0
         case ⟨$v, $w⟩ = 0
@@ -43,12 +44,14 @@ proof
         orthogonal($v, $w)
 qed
 
-; Notiz 2: for an eigenvector v, f maps v^⊥ into v^⊥
-show $l ∈ K ∧ $v ∈ V ∧ f($v) = $l · $v ∧ $u ∈ V ∧ orthogonal($u, $v)  ⇒  orthogonal(f($u), $v)   "eigenvector-perp-invariant"
+; Notiz 2: for an eigenvector v, f maps v^⊥ into v^⊥ (u ∈ v^⊥ ⇒ f(u) ∈ v^⊥)
+show $l ∈ K ∧ $v ∈ V ∧ eigenvector($v, $l) ∧ $u ∈ V ∧ orthogonal($u, $v)  ⇒  orthogonal(f($u), $v)   "eigenvector-perp-invariant"
 proof
-    assume $l ∈ K ∧ $v ∈ V ∧ f($v) = $l · $v ∧ $u ∈ V ∧ orthogonal($u, $v)
+    assume $l ∈ K ∧ $v ∈ V ∧ eigenvector($v, $l) ∧ $u ∈ V ∧ orthogonal($u, $v)
         $l ∈ K
         $v ∈ V
+        eigenvector($v, $l)
+        f($v) = $l · $v ∧ $v ≠ 0
         f($v) = $l · $v
         $u ∈ V
         orthogonal($u, $v)

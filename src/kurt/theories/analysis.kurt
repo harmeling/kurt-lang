@@ -4,7 +4,8 @@
 ; maximum/minimum and the supremum/infimum of the values of `T` for the `v` with a condition
 ; (`max v ∈ A T`, `sup v > 0 T`, ...), and limits `lim v a T` of `T` for `v` going to `a`,
 ; also with a condition on `v` (`lim v > 0 0 T` is the limit from the right) -- defined by ε
-; and δ. See proofs/analysis/ for worked examples.
+; and δ. See proofs/analysis/ for worked examples; derivatives and integrals are in
+; derivative.kurt and integral.kurt.
 ;
 ; the binders of `max`, `sup`, `lim`, ... take any condition: in a rule, the condition
 ; `sub $x $v %C` stands for any condition on the bound variable `$v` (see logic.kurt). The
@@ -17,6 +18,21 @@
 ; `(lim $v $a $T) = $L ⇔ ...` would be wrong, since `lim v 0 (1 / v) = lim v 0 (1 / v)` would
 ; then say that this limit exists.
 load prop, equality, logic, set, numbers, natural
+
+;; subtraction and halving, for ε/2 arguments: "sub-def" links `-` to `+`, and the laws after it
+;; follow from it (proofs/arithmetic/helpers/subtraction.kurt, checked by
+;; tests/test_subtraction_laws.py) -- stated here, since their proofs (+ is flat and symmetric)
+;; would make this file slow to check, and not in numbers.kurt, since every rule for rewriting makes
+;; the search a little slower
+use $a - $b = $a + (-$b)                         "sub-def"
+use ($a - $b) + $b = $a                          "sub-add-cancel"
+use ($a - $b) + ($b - $c) = $a - $c              "sub-split"
+use ($a + $b) - ($c + $d) = ($a - $c) + ($b - $d)    "sub-add"
+use $c * $a - $c * $b = $c * ($a - $b)           "sub-mul"
+use $a - $b = 0  ⇒  $a = $b                      "sub-zero"
+use 2 * $a = $a + $a                             "double"
+use $a / 2 + $a / 2 = $a                         "halves"
+use $c >= 0 ∧ $a <= $b  ⇒  $a * $c <= $b * $c    "le-mul-nonneg"
 
 ;; absolute value
 const abs

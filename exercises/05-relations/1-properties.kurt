@@ -1,0 +1,57 @@
+; EXERCISE 1: PROPERTIES OF RELATIONS
+;
+; R and S are relations on the set A, a and b are objects (theory/relations.kurt lists the symbols
+; and the rules). Replace each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 1-properties.kurt`.
+;
+; How to use a definition: `symmetric(R)` and `∀ x ∀ y ((x, y) ∈ R ⇒ (y, x) ∈ R)` follow from each
+; other in one step (by "symmetric"). To use `symmetric(R)`, write its ∀ statement as a step,
+; then an instance, `(a, b) ∈ R ⇒ (b, a) ∈ R`. To prove `symmetric(R)`, prove the ∀ statement
+; (`let x, y`, then `assume (x, y) ∈ R`, lesson 08) and write `symmetric(R)` after the block.
+;
+; Kurt does one step at a time: from a premise `P ∧ Q ∧ R`, write `P`, `Q` and `R` as steps of
+; their own before you use them, and to use `P ∧ Q ⇒ S`, write `P ∧ Q` first.
+
+load theory/relations
+const A, R, S, a, b
+
+; (a) In a relation that is symmetric and antisymmetric, related objects are equal.
+show symmetric(R) ∧ antisymmetric(R) ∧ (a, b) ∈ R ⇒ a = b
+proof
+    todo
+qed
+
+; (b) A relation that is symmetric and transitive, in which every element of A is related to
+;     something, is reflexive.
+;     Hint: for x ∈ A, pick a y with (x, y) ∈ R (lesson 09).
+show symmetric(R) ∧ transitive(R) ∧ (∀ x ∈ A ∃ y ((x, y) ∈ R)) ⇒ reflexive(R, A)
+proof
+    todo
+qed
+
+; (c), (d), (e): The intersection R ∩ S of two relations (the pairs that are in both) inherits
+; each of the three properties of an equivalence relation.
+;     Hint: `(x, y) ∈ R ∩ S` and `(x, y) ∈ R ∧ (x, y) ∈ S` follow from each other
+;     ("in-intersection").
+show reflexive(R, A) ∧ reflexive(S, A) ⇒ reflexive(R ∩ S, A)                    "inter-reflexive"
+proof
+    todo
+qed
+
+show symmetric(R) ∧ symmetric(S) ⇒ symmetric(R ∩ S)                            "inter-symmetric"
+proof
+    todo
+qed
+
+show transitive(R) ∧ transitive(S) ⇒ transitive(R ∩ S)                          "inter-transitive"
+proof
+    todo
+qed
+
+; (f) So the intersection of two equivalence relations is an equivalence relation.
+;     Hint: (c), (d) and (e) are proven rules now, with labels: Kurt uses them like the rules of
+;     the scene.
+show equivalence(R, A) ∧ equivalence(S, A) ⇒ equivalence(R ∩ S, A)
+proof
+    todo
+qed

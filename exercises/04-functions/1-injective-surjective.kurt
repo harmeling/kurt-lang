@@ -1,0 +1,51 @@
+; EXERCISE 1: INJECTIVE, SURJECTIVE, BIJECTIVE
+;
+; A, B, C are sets, f and g are maps (theory/maps.kurt lists the symbols and the rules). Replace
+; each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 1-injective-surjective.kurt`.
+;
+; How to use a definition: `injective(f, A)` and `∀ x ∈ A ∀ y ∈ A (f x = f y ⇒ x = y)` follow
+; from each other in one step (by "injective"). So to prove `injective(f, A)`, prove the
+; ∀ statement (with `let x ∈ A`, lesson 08 of the tutorial), and write `injective(f, A)` after
+; the block. To use `injective(g, B)`, write its ∀ statement as a step, and instantiate it one ∀
+; at a time: first `∀ v ∈ B (g a = g v ⇒ a = v)`, then `g a = g b ⇒ a = b`.
+;
+; Kurt does one step at a time: from a premise `P ∧ Q`, write `P` and `Q` as steps of their own
+; before you use them.
+
+load theory/maps
+const A, B, C, f, g
+
+; (a) The identity: a map with f x = x for each x ∈ A is a bijection from A to A.
+;     Hint: prove `injective(f, A)` and `surjective(f, A, A)` one after the other. For the first,
+;     `let x ∈ A`, then `let y ∈ A`, then `assume f x = f y`.
+show ∀ x ∈ A (f x = x) ⇒ bijective(f, A, A)
+proof
+    todo
+qed
+
+; (b) The composition of two injective maps is injective.
+;     Hint: `(g ∘ f) x = g (f x)` by "comp" (it needs `f : A → B` as a step), and `f x ∈ B` by
+;     "map".
+show f : A → B ∧ g : B → C ∧ injective(f, A) ∧ injective(g, B) ⇒ injective(g ∘ f, A)    "comp-injective"
+proof
+    todo
+qed
+
+; (c) The composition of two surjective maps is surjective.
+;     Hint: for z ∈ C, there is a y ∈ B with g y = z: `pick y with y ∈ B ∧ g y = z` (lesson 09).
+;     Then pick an x for y. Inside `pick x ...`, x is a constant, so write an ∃ with another
+;     name for its variable: `∃ u ∈ A ((g ∘ f) u = z)`. A `pick` block passes only its last
+;     line on.
+show f : A → B ∧ surjective(f, A, B) ∧ surjective(g, B, C) ⇒ surjective(g ∘ f, A, C)    "comp-surjective"
+proof
+    todo
+qed
+
+; (d) The composition of two bijective maps is bijective.
+;     Hint: (b) and (c) are proven rules now, with the labels "comp-injective" and
+;     "comp-surjective": Kurt uses them like the rules of the scene.
+show f : A → B ∧ g : B → C ∧ bijective(f, A, B) ∧ bijective(g, B, C) ⇒ bijective(g ∘ f, A, C)
+proof
+    todo
+qed

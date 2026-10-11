@@ -1,0 +1,50 @@
+; EXERCISE 2: MULTIPLICATION
+;
+; Multiplication in the scene theory/peano.kurt is defined by `m · 0 = 0` ("mul-zero") and
+; `m · s n = m · n + m` ("mul-succ"). Prove its laws by induction, as you proved those of + in
+; exercise 1. Replace each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 2-multiplication.kurt`.
+;
+; From (b) on, you need the laws of + that you proved in exercise 1: associativity and
+; commutativity. An exercise can't load another one, so they are the premise of each statement:
+;
+;     (∀ $a ∀ $b ∀ $c (($a + $b) + $c = $a + ($b + $c))) ∧ (∀ $a ∀ $b ($a + $b = $b + $a))
+;
+; Start such a proof with `assume` and the premise, and then write the half of it you need as a
+; line of its own (`∀ $a ∀ $b ($a + $b = $b + $a)`): then Kurt can use it to rewrite. To use a
+; part that you proved before, e.g. (b) in (c), write its conclusion as a line in the `assume`
+; block (Kurt derives it from (b) and the premise), and Kurt can rewrite with it.
+
+load theory/peano
+
+; (a) 0 is absorbing from the left, too.
+show ∀ $n (0 · $n = 0)     "zero-mul"
+proof
+    todo
+qed
+
+; (b) The successor in the left factor. Induction on n, for an arbitrary m.
+;     Hint: in the step, `s m · s n` and `m · s n + s n` both become `m · n + s (m + n)`:
+;     go from both ends towards it with associativity, commutativity and "add-succ".
+show (∀ $a ∀ $b ∀ $c (($a + $b) + $c = $a + ($b + $c))) ∧ (∀ $a ∀ $b ($a + $b = $b + $a))  ⇒  ∀ $m ∀ $n (s $m · $n = $m · $n + $n)     "succ-mul"
+proof
+    todo
+qed
+
+; (c) Multiplication is commutative. Induction on n, with (a) and (b).
+show (∀ $a ∀ $b ∀ $c (($a + $b) + $c = $a + ($b + $c))) ∧ (∀ $a ∀ $b ($a + $b = $b + $a))  ⇒  ∀ $m ∀ $n ($m · $n = $n · $m)     "mul-comm"
+proof
+    todo
+qed
+
+; (d) Multiplication distributes over addition. Induction on c, for arbitrary a and b.
+show (∀ $a ∀ $b ∀ $c (($a + $b) + $c = $a + ($b + $c))) ∧ (∀ $a ∀ $b ($a + $b = $b + $a))  ⇒  ∀ $a ∀ $b ∀ $c ($a · ($b + $c) = $a · $b + $a · $c)     "distrib"
+proof
+    todo
+qed
+
+; (e) Multiplication is associative. Induction on c, with (d).
+show (∀ $a ∀ $b ∀ $c (($a + $b) + $c = $a + ($b + $c))) ∧ (∀ $a ∀ $b ($a + $b = $b + $a))  ⇒  ∀ $a ∀ $b ∀ $c (($a · $b) · $c = $a · ($b · $c))     "mul-assoc"
+proof
+    todo
+qed

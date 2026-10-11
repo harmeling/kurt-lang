@@ -347,3 +347,74 @@ proof
                        = ($a + (- $b)) + $c             ; plus-associative
                        = ($a - $b) + $c                 ; minus-def
 qed
+
+; more laws: 0 and 1 from the other side, (λ - μ) a, and when a difference or a factor isn't 0
+show $a ∈ K  ⇒  0 + $a = $a                                         "zero-plus"
+proof
+    assume $a ∈ K
+        0 + $a = $a + 0                                 ; plus-commutative
+               = $a                                     ; plus-zero
+qed
+
+show $a ∈ K  ⇒  $a · 1 = $a                                         "times-one"
+proof
+    assume $a ∈ K
+        $a · 1 = 1 · $a                                 ; times-commutative
+               = $a                                     ; one-times
+qed
+
+show $l ∈ K ∧ $m ∈ K ∧ $a ∈ K  ⇒  $l · $a - $m · $a = ($l - $m) · $a   "minus-distributive"
+proof
+    assume $l ∈ K ∧ $m ∈ K ∧ $a ∈ K
+        $l ∈ K
+        $m ∈ K
+        $a ∈ K
+        - $m ∈ K
+        $l · $a ∈ K
+        $m · $a ∈ K
+        (- $m) · $a ∈ K
+        $m · $a + (- $m) · $a = ($m + (- $m)) · $a      ; distributive-right
+                              = 0 · $a
+                              = 0
+        - ($m · $a) ∈ K
+        $m · $a + (- ($m · $a)) = 0                     ; plus-minus
+        - ($m · $a) = (- $m) · $a                       ; minus-unique
+        $l · $a - $m · $a = $l · $a + (- ($m · $a))     ; minus-def
+                          = $l · $a + (- $m) · $a
+                          = ($l + (- $m)) · $a          ; distributive-right
+                          = ($l - $m) · $a              ; minus-def
+qed
+
+show $a ∈ K ∧ $b ∈ K ∧ $a ≠ $b  ⇒  $a - $b ≠ 0                     "difference-nonzero"
+proof
+    assume $a ∈ K ∧ $b ∈ K ∧ $a ≠ $b
+        $a ∈ K
+        $b ∈ K
+        $a ≠ $b
+        assume $a - $b = 0
+            $a + (- $b) = $a - $b                       ; minus-def
+                        = 0
+            $a = $b                                     ; minus-zero
+            ¬($a = $b)
+            false
+        ¬($a - $b = 0)
+        $a - $b ≠ 0
+qed
+
+show $a ∈ K ∧ $b ∈ K ∧ $a · $b = 1  ⇒  $a ≠ 0                       "product-one-nonzero"
+proof
+    assume $a ∈ K ∧ $b ∈ K ∧ $a · $b = 1
+        $a ∈ K
+        $b ∈ K
+        $a · $b = 1
+        assume $a = 0
+            0 · $b = 0                                  ; zero-times
+            1 = $a · $b
+              = 0 · $b
+              = 0
+            0 ≠ 1                                       ; zero-not-one
+            ¬(0 = 1)
+            false
+        ¬($a = 0)
+        $a ≠ 0
+qed

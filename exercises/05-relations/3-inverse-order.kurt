@@ -1,0 +1,35 @@
+; EXERCISE 3: THE INVERSE OF AN ORDER
+;
+; R and S are relations on the set A (theory/relations.kurt), and S is the inverse of R:
+; (x, y) ∈ S exactly when (y, x) ∈ R. (If R is ≤, then S is ≥.) This is the premise
+; `∀ x ∀ y ((x, y) ∈ S ⇔ (y, x) ∈ R)` of each part. Replace each `todo` by a proof; don't change
+; the `show` lines. Check with `kurt 3-inverse-order.kurt`.
+;
+; Tip: instantiate the premise for the pair you need, e.g. `(x, z) ∈ S ⇔ (z, x) ∈ R`; then Kurt
+; goes from one side to the other in one step.
+
+load theory/relations
+const A, R, S
+
+; (a), (b), (c): The inverse of a relation inherits reflexivity, antisymmetry and transitivity.
+show reflexive(R, A) ∧ (∀ x ∀ y ((x, y) ∈ S ⇔ (y, x) ∈ R)) ⇒ reflexive(S, A)          "inverse-reflexive"
+proof
+    todo
+qed
+
+show antisymmetric(R) ∧ (∀ x ∀ y ((x, y) ∈ S ⇔ (y, x) ∈ R)) ⇒ antisymmetric(S)      "inverse-antisymmetric"
+proof
+    todo
+qed
+
+show transitive(R) ∧ (∀ x ∀ y ((x, y) ∈ S ⇔ (y, x) ∈ R)) ⇒ transitive(S)            "inverse-transitive"
+proof
+    todo
+qed
+
+; (d) So the inverse of a partial order is a partial order.
+;     Hint: (a), (b) and (c) are proven rules now, with labels.
+show order(R, A) ∧ (∀ x ∀ y ((x, y) ∈ S ⇔ (y, x) ∈ R)) ⇒ order(S, A)
+proof
+    todo
+qed

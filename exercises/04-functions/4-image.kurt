@@ -1,0 +1,49 @@
+; EXERCISE 4: IMAGES
+;
+; f is a map into B (theory/maps.kurt), and S, T are sets. The image of S under f is the set of
+; the values f x of the x ∈ S, `{y ∈ B | ∃ x ∈ S (f x = y)}` (often written f[S]). Replace each
+; `todo` by a proof; don't change the `show` lines. Check with `kurt 4-image.kurt`.
+;
+; To prove X ⊂ Y ("subset"):
+;
+;     let c
+;         assume c ∈ X
+;             ...
+;             c ∈ Y
+;     X ⊂ Y
+;
+; `c ∈ {y ∈ B | ∃ x ∈ S (f x = y)}` and `c ∈ B ∧ ∃ x ∈ S (f x = c)` follow from each other
+; ("separation"). From `∃ x ∈ S (f x = c)`: `pick a with a ∈ S ∧ f a = c` (lesson 09).
+; Exercise 3 has tips for ∪ and ∩.
+
+load theory/maps
+const A, B, f, S, T
+
+; (a) f[S ∪ T] ⊂ f[S] ∪ f[T]
+show {y ∈ B | ∃ x ∈ S ∪ T (f x = y)} ⊂ {y ∈ B | ∃ x ∈ S (f x = y)} ∪ {y ∈ B | ∃ x ∈ T (f x = y)}
+proof
+    todo
+qed
+
+; (b) f[S] ∪ f[T] ⊂ f[S ∪ T]
+show {y ∈ B | ∃ x ∈ S (f x = y)} ∪ {y ∈ B | ∃ x ∈ T (f x = y)} ⊂ {y ∈ B | ∃ x ∈ S ∪ T (f x = y)}
+proof
+    todo
+qed
+
+; (c) f[S ∩ T] ⊂ f[S] ∩ f[T]
+;     Hint: a `pick` block passes only its last line on; when you need two facts after it, make
+;     the last line their conjunction.
+show {y ∈ B | ∃ x ∈ S ∩ T (f x = y)} ⊂ {y ∈ B | ∃ x ∈ S (f x = y)} ∩ {y ∈ B | ∃ x ∈ T (f x = y)}
+proof
+    todo
+qed
+
+; (d) For an injective f, also f[S] ∩ f[T] ⊂ f[S ∩ T]. (Without injectivity, this is false:
+;     think of a map with only one value.)
+;     Hint: for c in both images, pick a ∈ S with f a = c, and b ∈ T with f b = c. Then a = b.
+;     From `S ⊂ A`, write `∀ z (z ∈ S ⇒ z ∈ A)` before you conclude `a ∈ A`.
+show injective(f, A) ∧ S ⊂ A ∧ T ⊂ A ⇒ {y ∈ B | ∃ x ∈ S (f x = y)} ∩ {y ∈ B | ∃ x ∈ T (f x = y)} ⊂ {y ∈ B | ∃ x ∈ S ∩ T (f x = y)}
+proof
+    todo
+qed

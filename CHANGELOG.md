@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.8.3 (2026-10-11)
+
+- Fixed a soundness bug: a derived fact `∀ c ((Q x 0 c) = (Q x 1 c))` (from a `let c`) could be
+  used with `c := x`, the bound variable -- its variables now stand for terms only; only an
+  axiom's `$T` may depend on a bound variable (doc/kurt-soundness.md §8.31).
+- Derivatives and integrals: `load derivative` has continuity `cont x a T`, differentiability
+  `diff x a T` and the derivative `deriv x a T` (defined by ε and δ), the rules of
+  differentiation with the conditions they need (sum, product, quotient, powers, chain rule, ...),
+  Fermat and the mean value theorem; `load integral` has the Riemann integral
+  `integral x (a, b) T`, `integrable x (a, b) T`, linearity, splitting, monotonicity and both parts
+  of the fundamental theorem of calculus. Examples in proofs/analysis/.
+- A schema variable `$T` of an axiom may now also depend on a binder's variable inside the body
+  (`deriv $v $a ($S + $T)`), if it is the whole body of a binder over that variable somewhere
+  else in the axiom (doc/kurt-doc.md §4).
+- Error messages that say what to do: a bound variable named like a constant (rename it), a name
+  with `_` (`odd_sum` is read as `odd`, `_`, `sum`), `def f($x, $y)` without `arity f 2`, `def`
+  of a symbol declared with `const` before.
+- Small laws the course proofs and exercises missed: equality.kurt "not-equal" (`a ≠ b ⇔ ¬(a = b)`,
+  to rewrite inside a formula); set.kurt `⊃` ("superset"); field.kurt "zero-plus", "times-one",
+  "minus-distributive", "difference-nonzero", "product-one-nonzero". proofs/mafi1/ uses them
+  (001 with `⊃` as on the slide; 03, 26, 28 shorter).
+- analysis.kurt: the laws of subtraction and halving for ε/2 arguments ("sub-def",
+  `a - b = a + (-b)`, and "sub-split", "sub-add", "sub-mul", "sub-zero", "double", "halves",
+  "le-mul-nonneg", which follow from it; tests/test_subtraction_laws.py checks their proofs).
+- `exercises/`: exercises for students by topic, each loading a scene theory of its topic
+  (`theory/`) and stating the questions as `show`s with `todo` proofs;
+  `scripts/grade_exercise.py` grades a submission (strict, the statements unchanged).
+- A fact derived inside `assume` no longer reports the assumption's fixed `$` variables as new
+  constants (`const $x ; added constant`).
+- proofs/mafi1/ follows the slides more closely: their names (v1, v2; x1, x2; Kern, Bild), their
+  order and their chains (Satz a and b of the groups step by step, with (G4) as an existence
+  axiom; (U1) as `U ≠ ∅`; Theorem 5.12, Lemma 5.36, Theorem 5.39 and 6.69 as stated; O(n)
+  defined), with intermediate lines removed where Kurt doesn't need them.
+
 ## 0.8.2 (2026-10-11)
 
 - The editors are fast again with `load natural` and other large theories: the language server

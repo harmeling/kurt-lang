@@ -1,0 +1,97 @@
+;; The laws of subtraction and halving that analysis.kurt states (with the same names there:
+;; "sub-add-cancel", "sub-zero", "sub-split", "sub-add", "sub-mul", "double", "halves",
+;; "le-mul-nonneg") follow from its "sub-def", a - b = a + (-b), and the laws of numbers.kurt.
+;;
+;; tests/test_subtraction_laws.py checks this file against a copy of analysis.kurt without these
+;; eight laws (with them, a proof could cite its own law) -- so it is a helper, not a test of its
+;; own.
+load analysis
+
+show ($x - $y) + $y = $x
+proof
+    ($x - $y) + $y = ($x + (-$y)) + $y
+                   = $x + ($y + (-$y))
+                   = $x + 0
+                   = $x
+qed
+
+show $x - $y = 0  ⇒  $x = $y
+proof
+    assume $x - $y = 0
+        $x = ($x - $y) + $y
+           = 0 + $y
+           = $y
+qed
+
+show ($x - $y) + ($y - $z) = $x - $z
+proof
+    ($x - $y) + ($y - $z) = ($x + (-$y)) + ($y - $z)
+                          = ($x + (-$y)) + ($y + (-$z))
+                          = $x + ($y + (-$y)) + (-$z)
+                          = $x + 0 + (-$z)
+                          = $x + (-$z)
+                          = $x - $z
+qed
+
+show ($x + $y) - ($u + $v) = ($x - $u) + ($y - $v)
+proof
+    -($u + $v) = ($u + $v) * (-1)
+               = $u * (-1) + $v * (-1)
+               = (-$u) + $v * (-1)
+               = (-$u) + (-$v)
+    ($x + $y) - ($u + $v) = ($x + $y) + (-($u + $v))
+                          = ($x + $y) + ((-$u) + (-$v))
+                          = ($x + (-$u)) + ($y + (-$v))
+                          = ($x - $u) + ($y + (-$v))
+                          = ($x - $u) + ($y - $v)
+qed
+
+show $c * $x - $c * $y = $c * ($x - $y)
+proof
+    $c * ($x - $y) = ($x - $y) * $c
+                   = $x * $c - $y * $c
+                   = $c * $x - $y * $c
+                   = $c * $x - $c * $y
+qed
+
+show 2 * $x = $x + $x
+proof
+    (1 + 1) * $x = 1 * $x + 1 * $x
+                 = $x + $x
+    calc on
+    2 * $x = $x + $x
+    calc off
+qed
+
+show $x / 2 + $x / 2 = $x
+proof
+    calc on
+    2 ≠ 0
+    calc off
+    (2 * $x) / 2 = $x
+    $x / 2 + $x / 2 = ($x + $x) / 2
+                    = (2 * $x) / 2
+                    = $x
+qed
+
+show $c >= 0 ∧ $x <= $y  ⇒  $x * $c <= $y * $c
+proof
+    assume $c >= 0 ∧ $x <= $y
+        $c >= 0
+        $x <= $y
+        $c < 0 ∨ $c = 0 ∨ $c > 0
+        case $c < 0
+            false
+            $x * $c <= $y * $c
+        case $c = 0
+            $x * 0 = 0
+            $y * 0 = 0
+            $x * $c = 0
+            $y * $c = 0
+            0 <= 0
+            $x * $c <= 0
+            $x * $c <= $y * $c
+        case $c > 0
+            $x * $c <= $y * $c
+        $x * $c <= $y * $c
+qed

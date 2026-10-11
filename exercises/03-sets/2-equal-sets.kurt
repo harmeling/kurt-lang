@@ -1,0 +1,47 @@
+; EXERCISE 2: EQUAL SETS
+;
+; Sets: theory/sets.kurt. Replace each `todo` by a proof; don't change the `show` lines. Check
+; with `kurt 2-equal-sets.kurt`.
+;
+; How to prove that two sets are equal, M = N: prove M ⊂ N and N ⊂ M (as in exercise 1); then
+; `M = N` follows by the rule "eq-def". To use a fact `M = N`: from `x ∈ M` follows `x ∈ N`
+; in one step, and from `x ∈ N` follows `x ∈ M`.
+
+load theory/sets
+const A, B, C
+
+; (a) The intersection is commutative.
+;     Hint: `let x ∈ A ∩ B`; what does "in-intersection" give? Kurt knows that `∧` is
+;     commutative.
+show A ∩ B = B ∩ A
+proof
+    todo
+qed
+
+; (b) The empty set is neutral for the union.
+;     Hint: an element of A ∪ ∅ is in A or in ∅: split into these two cases with `case`.
+show A ∪ ∅ = A
+proof
+    todo
+qed
+
+; (c) Absorption: a union with a part of A is A.
+show A ∪ (A ∩ B) = A
+proof
+    todo
+qed
+
+; (d) A is a subset of B exactly when A is the common part of A and B.
+;     Hint: prove the two implications, each with `assume`; then the `⇔` follows.
+show A ⊂ B ⇔ A ∩ B = A
+proof
+    todo
+qed
+
+; (e) Distributivity: the union distributes over the intersection.
+;     Hint: for the inclusion from right to left, an element of (A ∪ B) ∩ (A ∪ C) is in A or
+;     in B: in the case of B, split again, on x ∈ A ∨ x ∈ C.
+show A ∪ (B ∩ C) = (A ∪ B) ∩ (A ∪ C)
+proof
+    todo
+qed

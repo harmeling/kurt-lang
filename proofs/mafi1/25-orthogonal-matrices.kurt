@@ -1,18 +1,24 @@
-; orthogonal maps (course "Mathematik für Informatik 1" (mafi1), lecture 25): A ∈ O(n), i.e. Aᵀ A = E, gives det A = ±1
+; orthogonal maps (course "Mathematik für Informatik 1" (mafi1), lecture 25): A ∈ O(n) gives det A = ±1
 load matrices
 
-show $A ∈ Mat ∧ T($A) · $A = E  ⇒  det($A) = 1 ∨ det($A) = - 1          "det-orthogonal"
+; Definition: O(n) := { A ∈ ℝ^{n×n} | Aᵀ A = E }
+def O = { $A ∈ Mat | T($A) · $A = E }                                "O"
+
+; Bemerkung: ∀ A ∈ O(n) : det A ∈ {-1, 1}
+show $A ∈ O  ⇒  det($A) = 1 ∨ det($A) = - 1                          "det-orthogonal"
 proof
-    assume $A ∈ Mat ∧ T($A) · $A = E
+    assume $A ∈ O
+        $A ∈ { $B ∈ Mat | T($B) · $B = E }              ; O
+        $A ∈ Mat ∧ T($A) · $A = E                       ; separation
         $A ∈ Mat
         T($A) · $A = E
         T($A) ∈ Mat
         det($A) ∈ K
         det(T($A)) = det($A)                            ; det-T
-        ; (det A)² = det Aᵀ det A = det(Aᵀ A) = det E = 1
+        ; (det A)² = det A · det A = det Aᵀ · det A = det(Aᵀ A) = det E = 1
         det($A) · det($A) = det(T($A)) · det($A)
                           = det(T($A) · $A)
                           = det(E)
-                          = 1                           ; det-E
+                          = 1
         det($A) = 1 ∨ det($A) = - 1                     ; square-one
 qed

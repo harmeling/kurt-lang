@@ -1613,6 +1613,27 @@ logic.kurt with `builtin forall universal, exists existential`; the stripping of
 `let` ("forall-intro") and `pick` ("exists-elim"), and the kernel's checks of them, ask for these
 roles. Without `load logic`, `forall` is an ordinary word (`forall-without-logic-is-a-word.kurt`).
 
+### 8.31 Bug found and fixed: a derived fact's variable could depend on a bound variable (2026-10-11)
+
+§8.10 decided by the form of a formula alone which variables may depend on a bound variable --
+also for a *derived* fact. A proof with `let c` that ends in `(Q x 0 c) = (Q x 1 c)` proves it for
+every term `c`; stored without its `∀`, `c` was the whole body of two binders over `x`, so it
+counted as dependent, and `(Q x 0 x) = (Q x 1 x)` followed -- false for `Q v a T` read as "the
+value of `T` at `v = a`", which satisfies the only axiom `(Q $v $a $c) = $c`. Found while writing
+the rules of derivatives (2026-10-11). Now only a postulated formula (`use`, `def`, `todo`:
+`POSTULATED`) has dependent variables, and not the variables of its written-out outer `∀`s
+(`Formula.first_order`): its form says what its author meant; a derived fact or a claim is about
+terms. The kernel decides the same on its own (`k_rule_dependencies`).
+(`derived-fact-variables-are-terms.kurt`)
+
+At the same time, the criterion of §8.10 was widened, for the rules of derivatives: a `$T` that is
+the whole body of a binder over `$i` may also occur *inside* the body of a binder over `$i` (or of a
+`sub` for it), e.g. `(diff $v $a $S) ∧ (diff $v $a $T) ⇒ (deriv $v $a ($S + $T)) = ...` --
+every occurrence is a function of the same `$i`. Without an occurrence as the whole body, `$T`
+stays a fixed term, so the counterexample of §8.10, `exists $y (not ($x = $y))`, is unchanged.
+(`dependent-summand.kurt`: "sum-add", and "sum-other": a binder over another variable doesn't
+count.)
+
 ## 9. The kernel: every step is checked again
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,

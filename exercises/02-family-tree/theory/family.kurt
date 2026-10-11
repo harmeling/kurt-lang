@@ -1,0 +1,41 @@
+; A FAMILY TREE
+;
+; People and who is whose parent. All objects are people. The basic relations:
+;
+;     parent(x, y)        x is a parent of y
+;     female(x)           x is female (a person who is not female is called male here)
+;
+; and the relations defined from them (with `def`, so each one is an abbreviation: Kurt replaces
+; one side by the other when you write it as a step):
+;
+;     "child"         child(x, y)       ⇔  parent(y, x)                      x is a child of y
+;     "mother"        mother(x, y)      ⇔  female(x) ∧ parent(x, y)
+;     "father"        father(x, y)      ⇔  ¬female(x) ∧ parent(x, y)
+;     "grandparent"   grandparent(x, z) ⇔  ∃ y (parent(x, y) ∧ parent(y, z))
+;     "sibling"       sibling(x, y)     ⇔  x ≠ y ∧ ∃ p (parent(p, x) ∧ parent(p, y))
+;     "aunt"          aunt(x, z)        ⇔  female(x) ∧ ∃ y (sibling(x, y) ∧ parent(y, z))
+;
+; The rules (with logic.kurt, the rules of predicate logic, and equality.kurt):
+;
+;     "asymmetric"    parent(x, y) ⇒ ¬parent(y, x)       nobody is a parent of their parent
+;     "has-parent"    ∀ x ∃ y parent(y, x)               everybody has a parent
+;
+; (The tree goes back forever: a model of the scene, not of the real world.)
+;
+; This file is the scene of the exercises: they load it with `load theory/family`. Don't change it.
+load logic, equality
+
+bool parent 0, female 0
+arity parent 2, female 1
+arity child 2, mother 2, father 2, grandparent 2, sibling 2, aunt 2
+const parent, female
+
+use parent($x, $y) ⇒ ¬parent($y, $x)                                     "asymmetric"
+use ∀ x ∃ y parent(y, x)                                                 "has-parent"
+
+def child($x, $y) ⇔ parent($y, $x)                                        "child"
+def mother($x, $y) ⇔ female($x) ∧ parent($x, $y)                         "mother"
+def father($x, $y) ⇔ ¬female($x) ∧ parent($x, $y)                        "father"
+def grandparent($x, $z) ⇔ ∃ $y (parent($x, $y) ∧ parent($y, $z))          "grandparent"
+def sibling($x, $y) ⇔ $x ≠ $y ∧ ∃ $p (parent($p, $x) ∧ parent($p, $y))    "sibling"
+def aunt($x, $z) ⇔ female($x) ∧ ∃ $y (sibling($x, $y) ∧ parent($y, $z))  "aunt"

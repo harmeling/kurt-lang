@@ -1,0 +1,52 @@
+; EXERCISE 2: EQUIVALENCE CLASSES
+;
+; R is a relation on the set A, a and b are objects (theory/relations.kurt). The class of a is the
+; set of the y ∈ A that a is related to, `class(a, R, A)` (often written [a]). Replace each `todo`
+; by a proof; don't change the `show` lines. Check with `kurt 2-classes.kurt`.
+;
+; `c ∈ class(a, R, A)` and `c ∈ {y ∈ A | (a, y) ∈ R}` follow from each other (by "class"), and
+; the latter and `c ∈ A ∧ (a, c) ∈ R` ("separation"). Two sets are equal if they have the same elements ("extensionality"); to prove
+; X = Y:
+;
+;     let c
+;         assume c ∈ X
+;             ...
+;             c ∈ Y
+;         assume c ∈ Y
+;             ...
+;             c ∈ X
+;         c ∈ X ⇔ c ∈ Y
+;     X = Y
+
+load theory/relations
+const A, R, a, b
+
+; (a) In an equivalence relation, each element of A is in its own class.
+show equivalence(R, A) ⇒ ∀ x ∈ A (x ∈ class(x, R, A))                          "own-class"
+proof
+    todo
+qed
+
+; (b) Related elements have the same class.
+;     Hint: for c in the class of a, (b, a) ∈ R and (a, c) ∈ R give (b, c) ∈ R.
+show equivalence(R, A) ∧ (a, b) ∈ R ⇒ class(a, R, A) = class(b, R, A)            "same-class"
+proof
+    todo
+qed
+
+; (c) Conversely, elements with the same class are related.
+;     Hint: use (a) for b.
+show equivalence(R, A) ∧ b ∈ A ∧ class(a, R, A) = class(b, R, A) ⇒ (a, b) ∈ R
+proof
+    todo
+qed
+
+; (d) Two classes are equal or disjoint.
+;     Hint: split into the cases `(a, b) ∈ R` and `¬((a, b) ∈ R)`: first write
+;     `(a, b) ∈ R ∨ ¬((a, b) ∈ R)` (excluded middle), then `case ...` (lesson 04). In the first
+;     case, use (b). In the second, prove that the intersection has the same elements as ∅:
+;     `¬(c ∈ ∅)` is the rule "empty-set", and from `false` follows anything.
+show equivalence(R, A) ⇒ class(a, R, A) = class(b, R, A) ∨ class(a, R, A) ∩ class(b, R, A) = ∅
+proof
+    todo
+qed

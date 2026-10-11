@@ -1,0 +1,118 @@
+; SEQUENCES AND THEIR LIMITS
+;
+; A sequence a = (a(0), a(1), a(2), ...) is a function `a` of one argument, the index n, a natural
+; number; declare it with `const a` and `arity a 1`, and write its terms `a(n)`. A sequence
+; given by a formula, a(n) = 1 / n, is a premise of the exercise: `(∀ n ∈ Nat (a(n) = 1 / n))`.
+;
+;     converges(a, L)     the sequence a converges to L (L is the limit of a)
+;     abs(x)              the absolute value |x| (from analysis.kurt)
+;     Nat                 the natural numbers 0, 1, 2, ... (from natural.kurt)
+;
+; The definition (for every ε > 0, from some point N on, all terms are closer to L than ε):
+;
+;     "converges-def"   converges(a, L) ⇔ ∀ e > 0 ∃ N ∀ n ∈ Nat (n > N ⇒ abs(a(n) - L) < e)
+;
+; To prove `converges(a, L)`, prove the right side: `let e > 0`, find an N (a number, it needn't
+; be natural), and prove `∀ n ∈ Nat (n > N ⇒ ...)` with `let n ∈ Nat` and `assume n > N`.
+; To use `converges(a, L)`, get the right side, instantiate it at your ε (it needs `ε > 0` as a
+; fact), and `pick N with ∀ n ∈ Nat (...)`.
+;
+; Tools (with numbers.kurt, the laws of numbers, and analysis.kurt, the rules of abs):
+;
+;     "archimedes"   ∃ n ∈ Nat (n > x)                 above every number there is a natural one
+;     "above-both"   ∃ M (M >= x ∧ M >= y)             a number above two numbers
+;     "half-pos"     e > 0 ⇒ e / 2 > 0
+;     "halves"       e / 2 + e / 2 = e                          (analysis.kurt)
+;     "sub-zero"     x - y = 0 ⇒ x = y                          (analysis.kurt)
+;     "sub-split"    (x - y) + (y - z) = x - z                  (analysis.kurt)
+;     "sub-add"      (x + y) - (u + v) = (x - u) + (y - v)      (analysis.kurt)
+;     "sub-mul"      c * x - c * y = c * (x - y)                (analysis.kurt)
+;     "le-mul-nonneg"  c >= 0 ∧ x <= y ⇒ x * c <= y * c         (analysis.kurt)
+;     "pos-ne-zero"  x > 0 ⇒ x ≠ 0
+;     "gt-ge"        x > y ⇒ x >= y
+;     "ge-ne-gt"     x >= y ∧ x ≠ y ⇒ x > y
+;
+; and from analysis.kurt: "abs-nonneg" (x >= 0 ⇒ abs(x) = x), "abs-ge-zero" (abs(x) >= 0),
+; "abs-zero" (abs(x) = 0 ⇔ x = 0), "abs-mul" (abs(x * y) = abs(x) * abs(y)), "abs-sub-sym"
+; (abs(x - y) = abs(y - x)), "abs-triangle" (abs(x + y) <= abs(x) + abs(y)).
+;
+; This file is the scene of the exercises: they load it with `load theory/sequences`. Don't
+; change it.
+load analysis
+
+const converges
+arity converges 2
+bool converges 0
+
+; the limit of a sequence
+use converges($a, $L) ⇔ ∀ $e > 0 ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ abs($a($n) - $L) < $e)   "converges-def"
+
+; the Archimedean property of the real numbers
+use ∃ $n ∈ Nat ($n > $x)                                "archimedes"
+
+show $e > 0  ⇒  $e / 2 > 0                              "half-pos"
+proof
+    assume $e > 0
+        calc on
+        2 > 0
+        calc off
+        $e / 2 > 0
+qed
+
+show $x > 0  ⇒  $x ≠ 0                                  "pos-ne-zero"
+proof
+    assume $x > 0
+        $x ≠ 0
+qed
+
+show $x > $y  ⇒  $x >= $y                               "gt-ge"
+proof
+    assume $x > $y
+        $y < $x
+        $y <= $x
+        $x >= $y
+qed
+
+show $x >= $y ∧ $x ≠ $y  ⇒  $x > $y                     "ge-ne-gt"
+proof
+    assume $x >= $y ∧ $x ≠ $y
+        $x >= $y
+        $x ≠ $y
+        $x < $y ∨ $x = $y ∨ $x > $y
+        case $x < $y
+            ¬($x >= $y)
+            false
+            $x > $y
+        case $x = $y ∨ $x > $y
+            case $x = $y
+                ¬($x = $y)
+                false
+                $x > $y
+            case $x > $y
+                $x > $y
+            $x > $y
+        $x > $y
+qed
+
+show ∃ $M ($M >= $x ∧ $M >= $y)                         "above-both"
+proof
+    $x < $y ∨ $x = $y ∨ $x > $y
+    case $x < $y
+        $x <= $y
+        $y >= $x
+        $y >= $y
+        $y >= $y ∧ $y >= $x
+        ∃ $M ($M >= $x ∧ $M >= $y)
+    case $x = $y ∨ $x > $y
+        $x >= $x
+        case $x = $y
+            $x >= $y
+        case $x > $y
+            $y < $x
+            $y <= $x
+            $x >= $y
+        $x >= $y
+        $x >= $x ∧ $x >= $y
+        ∃ $M ($M >= $x ∧ $M >= $y)
+    ∃ $M ($M >= $x ∧ $M >= $y)
+qed

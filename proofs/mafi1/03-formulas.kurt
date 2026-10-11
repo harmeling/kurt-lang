@@ -1,11 +1,11 @@
 ; formulas (course "Mathematik für Informatik 1" (mafi1), lecture 03)
 ;
-; Kontraposition and the five equivalences are in 11a-proofs.kurt and tautologies.kurt.
+; Kontraposition and the "Andere nützliche Formeln" are in 11a-proofs.kurt and tautologies.kurt.
 load 11a-proofs, set
 const P
 arity P 1
 
-; negating quantifiers (i): ¬∀x P(x) ⇔ ∃x ¬P(x)
+; "Noch mehr nützliche Formeln" (i): ¬∀x P(x) ⇔ ∃x ¬P(x)
 show ¬(∀ x P(x))  ⇔  ∃ x ¬P(x)                                       "not-forall"
 proof
     assume ¬(∀ x P(x))
@@ -14,11 +14,9 @@ proof
                 assume ¬P(a)
                     ∃ x ¬P(x)
                     ⊥
-                ¬¬P(a)
                 P(a)
             ∀ x P(x)
             ⊥
-        ¬¬(∃ x ¬P(x))
         ∃ x ¬P(x)
     assume ∃ x ¬P(x)
         pick a with ¬P(a)
@@ -43,11 +41,10 @@ proof
             pick a with P(a)
                 ¬P(a)
                 ⊥
-            ⊥
         ¬(∃ x P(x))
 qed
 
-; an equivalence is two implications
+; an equivalence is two implications ("Äquivalenz")
 show (%A ⇔ %B)  ⇔  (%A ⇒ %B) ∧ (%B ⇒ %A)                            "iff-as-and"
 proof
     assume %A ⇔ %B
@@ -60,73 +57,62 @@ proof
         %A ⇔ %B
 qed
 
-; A = B ⇔ A ⊂ B ∧ B ⊂ A, as a chain of equivalences
+; "Alternative Formulierungen der Mengengleichheit"
 const A, B
 
 ; ∀ distributes over ∧ (here for the formulas of the next proof)
 show (∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A)))  ⇔  (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))   "forall-and"
 proof
     assume ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))
-        let y
-            (y ∈ A ⇒ y ∈ B) ∧ (y ∈ B ⇒ y ∈ A)
-            y ∈ A ⇒ y ∈ B
-        ∀ y (y ∈ A ⇒ y ∈ B)
-        let z
-            (z ∈ A ⇒ z ∈ B) ∧ (z ∈ B ⇒ z ∈ A)
-            z ∈ B ⇒ z ∈ A
-        ∀ z (z ∈ B ⇒ z ∈ A)
+        let x
+            x ∈ A ⇒ x ∈ B
+        let x
+            x ∈ B ⇒ x ∈ A
         (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))
     assume (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))
         ∀ x (x ∈ A ⇒ x ∈ B)
         ∀ x (x ∈ B ⇒ x ∈ A)
-        let y
-            y ∈ A ⇒ y ∈ B
-            y ∈ B ⇒ y ∈ A
-            (y ∈ A ⇒ y ∈ B) ∧ (y ∈ B ⇒ y ∈ A)
-        ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))
+        let x
+            (x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A)
 qed
 
 show A = B  ⇔  A ⊂ B ∧ B ⊂ A                                         "set-equality"
 proof
-    ; the definition of ⇔ under the ∀ ("forall-iff")
-    (∀ x (x ∈ A ⇔ x ∈ B)) ⇔ ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))   ; forall-iff
     A = B ⇔ ∀ x (x ∈ A ⇔ x ∈ B)                                        ; extensionality
-          ⇔ ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))                    ; forall-iff
-          ⇔ (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))              ; ∀ distributes over ∧
-          ⇔ A ⊂ B ∧ (∀ x (x ∈ B ⇒ x ∈ A))                              ; definition of ⊂
+          ⇔ ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))                    ; iff-as-and, under the ∀
+          ⇔ (∀ x (x ∈ A ⇒ x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))              ; forall-and
+          ⇔ (∀ x ∈ A (x ∈ B)) ∧ (∀ x (x ∈ B ⇒ x ∈ A))                  ; forall-cond-def
+          ⇔ (∀ x ∈ A (x ∈ B)) ∧ (∀ x ∈ B (x ∈ A))                      ; forall-cond-def
+          ⇔ A ⊂ B ∧ (∀ x ∈ B (x ∈ A))                                  ; definition of ⊂
           ⇔ A ⊂ B ∧ B ⊂ A                                              ; definition of ⊂
 qed
 
-; the two forms of injectivity are the same, by Kontraposition
-const f, M
+; "Kontraposition": the two forms of injectivity of f: A → B are the same
+const f
 arity f 1
-show (∀ $x ∈ M ∀ $y ∈ M ($x ≠ $y ⇒ f($x) ≠ f($y)))  ⇔  (∀ $x ∈ M ∀ $y ∈ M (f($x) = f($y) ⇒ $x = $y))   "injective-forms"
+
+; contraposition, with x ≠ y for ¬(x = y) ("not-equal", equality.kurt)
+show ($a ≠ $b ⇒ $c ≠ $d)  ⇔  ($c = $d ⇒ $a = $b)                     "contraposition-neq"
 proof
-    assume ∀ $x ∈ M ∀ $y ∈ M ($x ≠ $y ⇒ f($x) ≠ f($y))
-        let x ∈ M
-            ∀ $y ∈ M (x ≠ $y ⇒ f(x) ≠ f($y))
-            let y ∈ M
-                x ≠ y ⇒ f(x) ≠ f(y)
-                assume f(x) = f(y)
-                    assume ¬(x = y)
-                        x ≠ y
-                        f(x) ≠ f(y)
-                        ¬(f(x) = f(y))
-                        ⊥
-                    ¬¬(x = y)
-                    x = y
-        ∀ $x ∈ M ∀ $y ∈ M (f($x) = f($y) ⇒ $x = $y)
-    assume ∀ $x ∈ M ∀ $y ∈ M (f($x) = f($y) ⇒ $x = $y)
-        let x ∈ M
-            ∀ $y ∈ M (f(x) = f($y) ⇒ x = $y)
-            let y ∈ M
-                f(x) = f(y) ⇒ x = y
-                assume x ≠ y
-                    ¬(x = y)
-                    assume f(x) = f(y)
-                        x = y
-                        ⊥
-                    ¬(f(x) = f(y))
-                    f(x) ≠ f(y)
-        ∀ $x ∈ M ∀ $y ∈ M ($x ≠ $y ⇒ f($x) ≠ f($y))
+    ($a ≠ $b ⇒ $c ≠ $d) ⇔ (¬($a = $b) ⇒ $c ≠ $d)                     ; not-equal
+                        ⇔ (¬($a = $b) ⇒ ¬($c = $d))                  ; not-equal
+                        ⇔ (¬¬($c = $d) ⇒ ¬¬($a = $b))                ; contraposition
+                        ⇔ ($c = $d ⇒ ¬¬($a = $b))                    ; not-not
+                        ⇔ ($c = $d ⇒ $a = $b)                        ; not-not
+qed
+
+show (∀ $x1 ∈ A ∀ $x2 ∈ A ($x1 ≠ $x2 ⇒ f($x1) ≠ f($x2)))  ⇔  (∀ $x1 ∈ A ∀ $x2 ∈ A (f($x1) = f($x2) ⇒ $x1 = $x2))   "injective-forms"
+proof
+    assume ∀ $x1 ∈ A ∀ $x2 ∈ A ($x1 ≠ $x2 ⇒ f($x1) ≠ f($x2))
+        let x1 ∈ A
+            ∀ $x2 ∈ A (x1 ≠ $x2 ⇒ f(x1) ≠ f($x2))
+            let x2 ∈ A
+                x1 ≠ x2 ⇒ f(x1) ≠ f(x2)
+                f(x1) = f(x2) ⇒ x1 = x2                              ; contraposition-neq
+    assume ∀ $x1 ∈ A ∀ $x2 ∈ A (f($x1) = f($x2) ⇒ $x1 = $x2)
+        let x1 ∈ A
+            ∀ $x2 ∈ A (f(x1) = f($x2) ⇒ x1 = $x2)
+            let x2 ∈ A
+                f(x1) = f(x2) ⇒ x1 = x2
+                x1 ≠ x2 ⇒ f(x1) ≠ f(x2)                              ; contraposition-neq
 qed

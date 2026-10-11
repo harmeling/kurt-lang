@@ -9,6 +9,7 @@ infix > 20 20
 bool > 0
 use $a > 0  ⇒  $a ≠ 0                                                "greater-zero"
 
+; lecture 23, Definition: an inner product is a map V × V → ℝ, (x, y) ↦ ⟨x, y⟩, with (S1)-(S3)
 use $x ∈ V ∧ $y ∈ V  ⇒  ⟨$x, $y⟩ ∈ K                                 "S-map"
 ; (S1) bilinear: v ↦ ⟨x, v⟩ and v ↦ ⟨v, x⟩ are linear
 use $x ∈ V ∧ $y ∈ V ∧ $z ∈ V  ⇒  ⟨$x, $y + $z⟩ = ⟨$x, $y⟩ + ⟨$x, $z⟩   "S1-add-right"
@@ -20,13 +21,13 @@ use $x ∈ V ∧ $y ∈ V  ⇒  ⟨$x, $y⟩ = ⟨$y, $x⟩                     
 ; (S3) positive definite
 use $x ∈ V ∧ $x ≠ 0  ⇒  ⟨$x, $x⟩ > 0                                 "S3"
 
-; lecture 23: ⟨x, 0⟩ = 0 and ⟨0, x⟩ = 0, from the bilinearity
+; lecture 23: ⟨x, 0⟩ = 0 (and so ⟨0, 0⟩ = 0) by the bilinearity, as in Cauchy-Schwarz for y = 0
 show $x ∈ V  ⇒  ⟨$x, 0⟩ = 0                                          "S-zero-right"
 proof
     assume $x ∈ V
         0 ∈ V
-        ⟨$x, 0⟩ ∈ K
         0 · 0 = 0                                       ; zero-times-vector
+        ⟨$x, 0⟩ ∈ K
         ⟨$x, 0⟩ = ⟨$x, 0 · 0⟩
                 = 0 · ⟨$x, 0⟩
                 = 0
@@ -36,12 +37,11 @@ show $x ∈ V  ⇒  ⟨0, $x⟩ = 0                                          "S-
 proof
     assume $x ∈ V
         0 ∈ V
-        ⟨0, $x⟩ = ⟨$x, 0⟩                               ; S2
-        ⟨$x, 0⟩ = 0                                     ; S-zero-right
-        ⟨0, $x⟩ = 0
+        ⟨0, $x⟩ = ⟨$x, 0⟩                               ; (S2)
+                = 0
 qed
 
-; ⟨v, v⟩ = 0 only for v = 0 (from S3)
+; lecture 23: ⟨x, x⟩ = 0 ⇒ x = 0, because of the positive definiteness (S3)
 show $v ∈ V ∧ ⟨$v, $v⟩ = 0  ⇒  $v = 0                                "S3-zero"
 proof
     assume $v ∈ V ∧ ⟨$v, $v⟩ = 0
@@ -49,45 +49,18 @@ proof
         ⟨$v, $v⟩ = 0
         assume ¬($v = 0)
             $v ≠ 0
-            ⟨$v, $v⟩ > 0                                ; S3
-            ⟨$v, $v⟩ ≠ 0                                ; greater-zero
+            ⟨$v, $v⟩ > 0                                ; (S3)
+            ⟨$v, $v⟩ ≠ 0
             ¬(⟨$v, $v⟩ = 0)
-            ⟨$v, $v⟩ = 0 ∧ ¬(⟨$v, $v⟩ = 0)
-            ⊥
-        ¬¬($v = 0)
+            false
         $v = 0
 qed
 
-; lecture 24: orthogonal vectors
+; lecture 24, Definition: x ⊥ y :⇔ ⟨x, y⟩ = 0
 arity orthogonal 2
 def orthogonal($x, $y)  ⇔  ⟨$x, $y⟩ = 0                              "orthogonal"
 
-show $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  orthogonal($y, $x)     "orthogonal-sym"
-proof
-    assume $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
-        $x ∈ V
-        $y ∈ V
-        orthogonal($x, $y)
-        ⟨$x, $y⟩ = 0
-        ⟨$y, $x⟩ = ⟨$x, $y⟩                             ; S2
-        ⟨$y, $x⟩ = 0
-        orthogonal($y, $x)
-qed
-
-show $a ∈ K ∧ $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  orthogonal($x, $a · $y)   "orthogonal-times"
-proof
-    assume $a ∈ K ∧ $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
-        $a ∈ K
-        $x ∈ V
-        $y ∈ V
-        orthogonal($x, $y)
-        ⟨$x, $a · $y⟩ = $a · ⟨$x, $y⟩                   ; S1
-                      = $a · 0
-                      = 0
-        orthogonal($x, $a · $y)
-qed
-
-; Pythagoras: x ⊥ y ⇒ ‖x + y‖² = ‖x‖² + ‖y‖²
+; lecture 24, Satz des Pythagoras 1.: x ⊥ y ⇒ ‖x + y‖² = ‖x‖² + ‖y‖²
 show $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  ⟨$x + $y, $x + $y⟩ = ⟨$x, $x⟩ + ⟨$y, $y⟩   "pythagoras"
 proof
     assume $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
@@ -97,13 +70,39 @@ proof
         $x + $y ∈ V
         ⟨$x, $x⟩ ∈ K
         ⟨$y, $y⟩ ∈ K
-        ⟨$x + $y, $x + $y⟩ = ⟨$x, $x + $y⟩ + ⟨$y, $x + $y⟩
+        ⟨$x, $y⟩ = 0
+        ⟨$x + $y, $x + $y⟩ = ⟨$x, $x + $y⟩ + ⟨$y, $x + $y⟩                  ; (S1)
                            = (⟨$x, $x⟩ + ⟨$x, $y⟩) + ⟨$y, $x + $y⟩
                            = (⟨$x, $x⟩ + ⟨$x, $y⟩) + (⟨$y, $x⟩ + ⟨$y, $y⟩)
-                           = (⟨$x, $x⟩ + 0) + (⟨$y, $x⟩ + ⟨$y, $y⟩)
-                           = ⟨$x, $x⟩ + (⟨$y, $x⟩ + ⟨$y, $y⟩)
-                           = ⟨$x, $x⟩ + (⟨$x, $y⟩ + ⟨$y, $y⟩)
+                           = (⟨$x, $x⟩ + ⟨$x, $y⟩) + (⟨$x, $y⟩ + ⟨$y, $y⟩)  ; (S2)
+                           = (⟨$x, $x⟩ + 0) + (0 + ⟨$y, $y⟩)               ; x ⊥ y
                            = ⟨$x, $x⟩ + (0 + ⟨$y, $y⟩)
                            = ⟨$x, $x⟩ + (⟨$y, $y⟩ + 0)
                            = ⟨$x, $x⟩ + ⟨$y, $y⟩
+qed
+
+; lecture 24, Weitere Eigenschaften 1.: x ⊥ y ⇒ y ⊥ x
+show $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  orthogonal($y, $x)     "orthogonal-sym"
+proof
+    assume $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
+        $x ∈ V
+        $y ∈ V
+        orthogonal($x, $y)
+        ⟨$y, $x⟩ = ⟨$x, $y⟩                             ; (S2)
+                 = 0
+        orthogonal($y, $x)
+qed
+
+; lecture 24, Weitere Eigenschaften 2.: x ⊥ y ⇒ x ⊥ λy
+show $a ∈ K ∧ $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)  ⇒  orthogonal($x, $a · $y)   "orthogonal-times"
+proof
+    assume $a ∈ K ∧ $x ∈ V ∧ $y ∈ V ∧ orthogonal($x, $y)
+        $a ∈ K
+        $x ∈ V
+        $y ∈ V
+        orthogonal($x, $y)
+        ⟨$x, $a · $y⟩ = $a · ⟨$x, $y⟩                   ; (S1)
+                      = $a · 0
+                      = 0
+        orthogonal($x, $a · $y)
 qed

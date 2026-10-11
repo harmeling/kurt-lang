@@ -1,0 +1,73 @@
+; RECURSION ON THE NATURAL NUMBERS
+;
+; Functions on the natural numbers, defined by recursion: the value at 0, and the value at n + 1
+; from the value at n. The numbers are those of natural.kurt (`Nat`, with the arithmetic of
+; numbers.kurt), and so is its induction rule.
+;
+;     odds(n)     1 + 3 + 5 + ... + (2n - 1), the sum of the first n odd numbers (odds(0) = 0)
+;     a(n)        the sequence 0, 1, 3, 7, 15, ...: start with 0, then double and add 1
+;     2 ^ n       the powers of 2 (numbers.kurt)
+;     d ∣ m       d divides m (`\mid`, natural.kurt): m = d * k for some k ∈ Nat
+;
+; The rules of this scene:
+;
+;     "odds-zero"     odds(0) = 0
+;     "odds-succ"     n ∈ Nat ⇒ odds(n + 1) = odds(n) + (2 * n + 1)
+;     "a-zero"        a(0) = 0
+;     "a-succ"        n ∈ Nat ⇒ a(n + 1) = 2 * a(n) + 1
+;     "double"        2 * x = x + x                  (proven below)
+;     "pow2-zero"     2 ^ 0 = 1                      (proven below)
+;     "pow2-succ"     2 ^ (x + 1) = 2 * 2 ^ x        (proven below)
+;
+; and from natural.kurt and numbers.kurt, among others:
+;
+;     "induction"     A(0) ∧ ∀ n ∈ Nat (A(n) ⇒ A(n + 1))  ⇒  ∀ n ∈ Nat A(n)
+;     "nat-zero", "nat-one", "nat-succ", "nat-add", "nat-mul"   0, 1, n + 1, m + n, m * n ∈ Nat
+;     "nat-nonneg"    n ∈ Nat ⇒ 0 <= n
+;     "divides"       d ∣ m ⇔ ∃ k (k ∈ Nat ∧ m = d * k)
+;     "distrib-add"   (a + b) * c = a * c + b * c    (+ and * are commutative and associative:
+;                                                     Kurt doesn't care about order and brackets)
+;     "mul-identity"  a * 1 = a,   "mul-zero"  a * 0 = 0,   "add-identity"  a + 0 = a
+;     "le-add"        a <= b ⇒ a + c <= b + c        (and `<=` chains: a <= b, b <= c give a <= c)
+;
+; The exercises leave `calc` off: write each step of the algebra as a line (one rule each).
+;
+; This file is the scene of exercise 3: it loads it with `load theory/recursion`. Don't change it.
+load natural
+
+const odds, a
+arity odds 1, a 1
+
+; the sum of the first n odd numbers: odds(n + 1) adds the (n + 1)-th odd number, 2 n + 1
+use odds(0) = 0                                               "odds-zero"
+use $n ∈ Nat ⇒ odds($n + 1) = odds($n) + (2 * $n + 1)         "odds-succ"
+
+; the sequence a: double and add 1
+use a(0) = 0                                                  "a-zero"
+use $n ∈ Nat ⇒ a($n + 1) = 2 * a($n) + 1                      "a-succ"
+
+; tools for the algebra
+show 2 * $x = $x + $x     "double"
+proof
+    (1 + 1) * $x = 1 * $x + 1 * $x
+        = $x + $x
+    calc on
+    2 * $x = $x + $x
+    calc off
+qed
+
+show 2 ^ 0 = 1     "pow2-zero"
+proof
+    calc on
+    2 ≠ 0
+    calc off
+qed
+
+show 2 ^ ($x + 1) = 2 * 2 ^ $x     "pow2-succ"
+proof
+    calc on
+    2 > 0
+    calc off
+    2 ^ 1 * 2 ^ $x = 2 ^ (1 + $x)
+    2 * 2 ^ $x = 2 ^ (1 + $x)
+qed

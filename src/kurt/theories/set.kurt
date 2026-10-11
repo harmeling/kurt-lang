@@ -21,10 +21,12 @@ infix    in 25 25        ; element
 infix    |  10 10        ; separator for set comprehension
 bindop   |               ; `{ $z ∈ $A | P $z }` binds `$z`, like `∀ $z ∈ $A ...`
 infix    ⊂  18 18        ; subset
+infix    ⊃  18 18        ; superset: `A ⊃ B` is `B ⊂ A`
 infix    ∪  30 30        ; union
 infix    ∩  40 40        ; intersection
 bool     in 0
 bool     ⊂ 0
+bool     ⊃ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
 ; `A → B` is the *set* of all mappings from A to B; `f : A → B` reads as `f ∈ (A → B)` --
@@ -48,6 +50,7 @@ use $a ∈ { $z ∈ $A | %F }  ≡  $a ∈ $A ∧ sub $z $a %F               "se
 
 ; subset
 def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)                    "subset"
+def $a ⊃ $b ≡ $b ⊂ $a                                            "superset"
 ; This is a characterization of two existing relations, hence not a conservative `def`; it is a
 ; derived theorem of extensionality and the definition of subset.
 show ∀ $M ∀ $N ($M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M)                 "eq-def"

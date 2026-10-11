@@ -1,0 +1,65 @@
+; EXERCISE 1: ADDITION
+;
+; In the scene theory/peano.kurt, numbers are built from 0 and the successor s, and addition is
+; defined by two equations: `m + 0 = m` ("add-zero") and `m + s n = s (m + n)` ("add-succ").
+; Everything else about + has to be proven -- most of it by induction. Replace each `todo` by a
+; proof; don't change the `show` lines. Check with `kurt 1-addition.kurt`.
+;
+; A proof by induction of `∀ $n A($n)` has this shape:
+;
+;     show ∀ $n A($n)
+;     proof
+;         A(0)                        ; the base case
+;         let n                       ; the step: for an arbitrary n ...
+;             assume A(n)             ; ... if A(n) holds (the induction hypothesis) ...
+;                 ...
+;                 A(s n)              ; ... then A(s n) holds
+;     qed                             ; by "induction"
+;
+; A chain of equations `x = y` followed by lines `= z`, `= w`, ... proves `x = w`; each line
+; should be one rewriting step (one rule, or the induction hypothesis).
+
+load theory/peano
+
+; (a) 1 + 1 = 2, i.e. s 0 + s 0 = s (s 0). No induction needed: compute with the two equations.
+show s 0 + s 0 = s (s 0)
+proof
+    todo
+qed
+
+; (b) 0 is also neutral from the left. (That's not one of the rules: "add-zero" has 0 on the
+;     right.) Prove it by induction on n.
+show ∀ $n (0 + $n = $n)     "zero-add"
+proof
+    todo
+qed
+
+; (c) The successor can be pulled out of the left summand as well.
+;     Hint: `let m` first, then prove `∀ $n (s m + $n = s (m + $n))` by induction on n: base case,
+;     step, and then this line itself, still inside `let m`.
+show ∀ $m ∀ $n (s $m + $n = s ($m + $n))     "succ-add"
+proof
+    todo
+qed
+
+; (d) Addition is commutative. Induction on n, for an arbitrary m; (b) and (c) are the tools
+;     (Kurt finds them by their labels "zero-add" and "succ-add").
+show ∀ $m ∀ $n ($m + $n = $n + $m)     "add-comm"
+proof
+    todo
+qed
+
+; (e) Addition is associative. Induction on c, for arbitrary a and b.
+show ∀ $a ∀ $b ∀ $c (($a + $b) + $c = $a + ($b + $c))     "add-assoc"
+proof
+    todo
+qed
+
+; (f) No number is its own successor. Induction on n again, now with "succ-ne-zero" for the base
+;     case and "succ-inj" for the step.
+;     Hint: in the step, assume `s (s n) = s n` and derive `false`. Kurt needs the induction
+;     hypothesis in the form `¬(s n = n)` for that; `s n ≠ n` gives it ("not-equal-elim").
+show ∀ $n (s $n ≠ $n)
+proof
+    todo
+qed

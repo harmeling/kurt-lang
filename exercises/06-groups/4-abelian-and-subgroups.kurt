@@ -1,0 +1,47 @@
+; EXERCISE 4: ABELIAN GROUPS AND SUBGROUPS
+;
+; A group is abelian (commutative) if a ∘ b = b ∘ a for all a, b ∈ G. A subgroup is a subset H
+; of G that is a group with the same ∘: e ∈ H, and H contains with x and y also x ∘ y and inv(x).
+; (theory/groups-scene.kurt; `H ⊂ G`, from set.kurt, means ∀ c (c ∈ H ⇒ c ∈ G).)
+;
+; As in exercises 2 and 3, the facts of the earlier exercises are a premise where they are
+; needed: `∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e ∧ inv(inv(x)) = x)` gives
+; `a ∘ e = a ∧ a ∘ inv(a) = e ∧ inv(inv(a)) = a` for any `a ∈ G`.
+;
+; Replace each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 4-abelian-and-subgroups.kurt`.
+
+load theory/groups-scene
+
+; (a) If x ∘ x = e for every x ∈ G, then G is abelian.
+;     Hint: first show (a ∘ b) ∘ (b ∘ a) = e (with "assoc" twice, the b ∘ b in the middle is e).
+;     Then a ∘ b = (a ∘ b) ∘ e, and replace e by (b ∘ a) ∘ (b ∘ a).
+show (∀ x ∈ G (x ∘ e = x)) ∧ (∀ x ∈ G (x ∘ x = e)) ∧ $a ∈ G ∧ $b ∈ G  ⇒  $a ∘ $b = $b ∘ $a     "abelian"
+proof
+    todo
+qed
+
+; The subgroup criterion: a subset H of G with an element h is a subgroup if x ∘ inv(y) ∈ H for
+; all x, y ∈ H. The parts (b), (c), (d) show it.
+
+; (b) e ∈ H.
+;     Hint: take x and y both h. To get `h ∈ G` from `H ⊂ G`, write the line
+;     `∀ c (c ∈ H ⇒ c ∈ G)` first ("subset"), then `h ∈ H ⇒ h ∈ G`.
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e ∧ inv(inv(x)) = x)) ∧ $H ⊂ G ∧ (∀ x ∈ $H ∀ y ∈ $H (x ∘ inv(y) ∈ $H)) ∧ $h ∈ $H  ⇒  e ∈ $H     "subgroup-e"
+proof
+    todo
+qed
+
+; (c) H contains the inverse of each of its elements.
+;     Hint: (b), with x for h.
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e ∧ inv(inv(x)) = x)) ∧ $H ⊂ G ∧ (∀ x ∈ $H ∀ y ∈ $H (x ∘ inv(y) ∈ $H)) ∧ $x ∈ $H  ⇒  inv($x) ∈ $H     "subgroup-inv"
+proof
+    todo
+qed
+
+; (d) H is closed under ∘.
+;     Hint: y = inv(inv(y)), and inv(y) ∈ H by (c).
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e ∧ inv(inv(x)) = x)) ∧ $H ⊂ G ∧ (∀ x ∈ $H ∀ y ∈ $H (x ∘ inv(y) ∈ $H)) ∧ $x ∈ $H ∧ $y ∈ $H  ⇒  $x ∘ $y ∈ $H     "subgroup-closed"
+proof
+    todo
+qed

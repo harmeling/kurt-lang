@@ -1,0 +1,60 @@
+; EXERCISE 3: SUMS AND POWERS
+;
+; The scene theory/recursion.kurt defines functions on the natural numbers by recursion: the sum
+; odds(n) of the first n odd numbers, and the sequence a(n) = 0, 1, 3, 7, 15, ... Try the first
+; values on paper, guess the pattern, then prove it by induction. Replace each `todo` by a proof;
+; don't change the `show` lines. Check with `kurt 3-sums-and-powers.kurt`.
+;
+; Induction over Nat (natural.kurt) has this shape:
+;
+;     show ∀ $n ∈ Nat A($n)
+;     proof
+;         A(0)                        ; the base case
+;         let n ∈ Nat                 ; the step: for an arbitrary natural number n ...
+;             assume A(n)             ; ... if A(n) holds (the induction hypothesis) ...
+;                 ...
+;                 A(n + 1)            ; ... then A(n + 1) holds
+;     qed                             ; by "induction"
+;
+; Write A(0) and A(n + 1) exactly as the statement with 0 and n + 1 in place of $n (`0 * 0`, not
+; `0`): that's how Kurt recognizes them. The algebra goes one rule per line; Kurt doesn't
+; expand or collect terms on its own (but `+` and `*` are commutative and associative, so the
+; order and the brackets of a sum or a product don't matter). "double" turns `2 * x` into
+; `x + x` and back.
+
+load theory/recursion
+
+; (a) The sum of the first n odd numbers: 1 = 1, 1 + 3 = 4, 1 + 3 + 5 = 9, ...
+;     Hint: in the step, compute odds(n + 1) with "odds-succ" and the induction hypothesis, and
+;     expand (n + 1) * (n + 1) with "distrib-add" and "mul-identity" until both are
+;     n * n + 2 * n + 1. Expand n * (n + 1) as a line of its own first.
+show ∀ $n ∈ Nat (odds($n) = $n * $n)
+proof
+    todo
+qed
+
+; (b) A closed form of the sequence a: a(n) + 1 is a power of 2.
+;     Hint: in the step, a(n + 1) + 1 = 2 * a(n) + 1 + 1; show that this is 2 * (a(n) + 1) (write
+;     both as a sum with "double"), and use the induction hypothesis and "pow2-succ".
+show ∀ $n ∈ Nat (a($n) + 1 = 2 ^ $n)
+proof
+    todo
+qed
+
+; (c) Powers of 2 grow fast: 2 ^ n is at least n + 1.
+;     Hint: 2 ^ (n + 1) = 2 ^ n + 2 ^ n. One of the summands is at least n + 1 (the induction
+;     hypothesis), the other at least 1 (why?). Add these up with "le-add", one at a time, and
+;     chain the inequalities.
+show ∀ $n ∈ Nat ($n + 1 <= 2 ^ $n)
+proof
+    todo
+qed
+
+; (d) The product of two consecutive numbers is even.
+;     Hint: `2 ∣ m` is `∃ $k ($k ∈ Nat ∧ m = 2 * $k)` ("divides"). In the step, `pick` the k of
+;     the induction hypothesis, write (n + 1) * ((n + 1) + 1) as n * (n + 1) + 2 * (n + 1), and
+;     find the k for n + 1. Don't forget to show that it is a natural number.
+show ∀ $n ∈ Nat (2 ∣ $n * ($n + 1))
+proof
+    todo
+qed

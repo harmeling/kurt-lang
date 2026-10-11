@@ -2,104 +2,97 @@
 load scalar-product
 arity Perp 1
 
-; M^⊥ = { v ∈ V | ∀ u ∈ M : v ⊥ u }
+; Definition: M^⊥ := { v ∈ V | ∀ u ∈ M : v ⊥ u }, the orthogonal complement of M ⊂ V
+; (with v ⊥ u written out as ⟨v, u⟩ = 0)
 def Perp($M) = { $v ∈ V | ∀ $u ∈ $M (⟨$v, $u⟩ = 0) }                 "Perp"
 
-; Theorem: M^⊥ is a subspace of V (for M ⊂ V)
+; v ∈ M^⊥ written out, for the proofs below
+show $v ∈ Perp($M)  ⇔  $v ∈ V ∧ ∀ $u ∈ $M (⟨$v, $u⟩ = 0)              "Perp-elem"
+proof
+    assume $v ∈ Perp($M)
+        $v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }     ; Perp
+        $v ∈ V ∧ ∀ $u ∈ $M (⟨$v, $u⟩ = 0)              ; separation
+    assume $v ∈ V ∧ ∀ $u ∈ $M (⟨$v, $u⟩ = 0)
+        $v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }     ; separation
+        $v ∈ Perp($M)                                   ; Perp
+qed
+
+; Satz: M^⊥ is a subspace of V
 show $M ⊂ V  ⇒  subspace(Perp($M))                                   "Perp-subspace"
 proof
     assume $M ⊂ V
         ∀ $c ($c ∈ $M  implies  $c ∈ V)
-        ; M^⊥ ⊂ V
+        ; M^⊥ ⊂ V, which the slide takes from the definition
         let c
             assume c ∈ Perp($M)
-                c ∈ { $v ∈ V | ∀ $u ∈ $M (⟨$v, $u⟩ = 0) }        ; Perp
-                c ∈ V ∧ ∀ $u ∈ $M (⟨c, $u⟩ = 0)                 ; separation
+                c ∈ V ∧ ∀ $u ∈ $M (⟨c, $u⟩ = 0)
                 c ∈ V
-        ∀ $c ($c ∈ Perp($M)  implies  $c ∈ V)
         Perp($M) ⊂ V
-        ; (U1): 0 ∈ M^⊥
-        0 ∈ V
+        ; (U1): ⟨0, u⟩ = 0, so 0 ⊥ M and M^⊥ ≠ ∅
         let u ∈ $M
-            u ∈ $M  implies  u ∈ V
             u ∈ V
             ⟨0, u⟩ = 0                                  ; S-zero-left
-        ∀ $u ∈ $M (⟨0, $u⟩ = 0)
         0 ∈ V ∧ ∀ $u ∈ $M (⟨0, $u⟩ = 0)
-        0 ∈ { $v ∈ V | ∀ $u ∈ $M (⟨$v, $u⟩ = 0) }      ; separation
         0 ∈ Perp($M)
-        ∃ $x ($x ∈ Perp($M))
-        ; (U2): v + w ∈ M^⊥
-        let v ∈ Perp($M)
-            let w ∈ Perp($M)
-                v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }
-                w ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }
-                v ∈ V ∧ ∀ $u ∈ $M (⟨v, $u⟩ = 0)
-                w ∈ V ∧ ∀ $u ∈ $M (⟨w, $u⟩ = 0)
-                v ∈ V
-                w ∈ V
-                ∀ $u ∈ $M (⟨v, $u⟩ = 0)
-                ∀ $u ∈ $M (⟨w, $u⟩ = 0)
-                v + w ∈ V
+        Perp($M) ≠ ∅
+        ; (U2): let x, y ∈ M^⊥ and u ∈ M (the slide does (U2) and (U3) together)
+        let x ∈ Perp($M)
+            let y ∈ Perp($M)
+                x ∈ V ∧ ∀ $u ∈ $M (⟨x, $u⟩ = 0)
+                y ∈ V ∧ ∀ $u ∈ $M (⟨y, $u⟩ = 0)
+                x ∈ V
+                y ∈ V
+                ∀ $u ∈ $M (⟨x, $u⟩ = 0)
+                ∀ $u ∈ $M (⟨y, $u⟩ = 0)
                 let u ∈ $M
-                    u ∈ $M  implies  u ∈ V
                     u ∈ V
-                    ⟨v, u⟩ = 0
-                    ⟨w, u⟩ = 0
-                    ⟨v + w, u⟩ = ⟨v, u⟩ + ⟨w, u⟩        ; S1
-                               = 0 + ⟨w, u⟩
+                    ⟨x, u⟩ = 0
+                    ⟨y, u⟩ = 0
+                    ⟨x + y, u⟩ = ⟨x, u⟩ + ⟨y, u⟩        ; (S1)
+                               = 0 + ⟨y, u⟩
                                = 0 + 0
                                = 0
-                ∀ $u ∈ $M (⟨v + w, $u⟩ = 0)
-                v + w ∈ V ∧ ∀ $u ∈ $M (⟨v + w, $u⟩ = 0)
-                v + w ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }   ; separation
-                v + w ∈ Perp($M)
-        ∀ $x ∈ Perp($M) ∀ $y ∈ Perp($M) ($x + $y ∈ Perp($M))
-        ; (U3): λ v ∈ M^⊥
-        let a ∈ K
-            let v ∈ Perp($M)
-                v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }
-                v ∈ V ∧ ∀ $u ∈ $M (⟨v, $u⟩ = 0)
-                v ∈ V
-                ∀ $u ∈ $M (⟨v, $u⟩ = 0)
-                a · v ∈ V
+                x + y ∈ V ∧ ∀ $u ∈ $M (⟨x + y, $u⟩ = 0)
+                x + y ∈ Perp($M)
+        ; (U3): let λ ∈ K, x ∈ M^⊥ and u ∈ M
+        let λ ∈ K
+            let x ∈ Perp($M)
+                x ∈ V ∧ ∀ $u ∈ $M (⟨x, $u⟩ = 0)
+                x ∈ V
+                ∀ $u ∈ $M (⟨x, $u⟩ = 0)
                 let u ∈ $M
-                    u ∈ $M  implies  u ∈ V
                     u ∈ V
-                    ⟨v, u⟩ = 0
-                    ⟨a · v, u⟩ = a · ⟨v, u⟩             ; S1
-                               = a · 0
+                    ⟨x, u⟩ = 0
+                    ⟨λ · x, u⟩ = λ · ⟨x, u⟩             ; (S1)
+                               = λ · 0
                                = 0
-                ∀ $u ∈ $M (⟨a · v, $u⟩ = 0)
-                a · v ∈ V ∧ ∀ $u ∈ $M (⟨a · v, $u⟩ = 0)
-                a · v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }   ; separation
-                a · v ∈ Perp($M)
-        ∀ $a ∈ K ∀ $x ∈ Perp($M) ($a · $x ∈ Perp($M))
+                λ · x ∈ V ∧ ∀ $u ∈ $M (⟨λ · x, $u⟩ = 0)
+                λ · x ∈ Perp($M)
         subspace(Perp($M))
 qed
 
-; Theorem: M ∩ M^⊥ = {0} if 0 ∈ M -- "⊂": only 0 is in both
-show $v ∈ $M ∧ $v ∈ Perp($M)  ⇒  $v = 0                              "Perp-meet"
-proof
-    assume $v ∈ $M ∧ $v ∈ Perp($M)
-        $v ∈ $M
-        $v ∈ Perp($M)
-        $v ∈ { $z ∈ V | ∀ $u ∈ $M (⟨$z, $u⟩ = 0) }     ; Perp
-        $v ∈ V ∧ ∀ $u ∈ $M (⟨$v, $u⟩ = 0)              ; separation
-        $v ∈ V
-        ∀ $u ∈ $M (⟨$v, $u⟩ = 0)
-        ⟨$v, $v⟩ = 0                                    ; v ⊥ v
-        $v = 0                                          ; S3-zero
-qed
-
-; "⊃", which the slide doesn't write out: 0 is in both
-show $M ⊂ V ∧ 0 ∈ $M  ⇒  0 ∈ $M ∩ Perp($M)                           "Perp-meet-zero"
+; Satz: 0 ∈ M ⇒ M ∩ M^⊥ = {0}, with the set {0} written out
+show $M ⊂ V ∧ 0 ∈ $M  ⇒  ∀ $v ($v ∈ $M ∩ Perp($M)  ⇔  $v = 0)        "Perp-meet"
 proof
     assume $M ⊂ V ∧ 0 ∈ $M
         $M ⊂ V
         0 ∈ $M
-        subspace(Perp($M))                              ; Perp-subspace
-        0 ∈ Perp($M)                                    ; U-zero
-        0 ∈ $M ∧ 0 ∈ Perp($M)
-        0 ∈ $M ∩ Perp($M)
+        let v
+            ; "⊂": let v ∈ M ∩ M^⊥
+            assume v ∈ $M ∩ Perp($M)
+                v ∈ $M ∧ v ∈ Perp($M)
+                v ∈ $M
+                v ∈ Perp($M)
+                v ∈ V ∧ ∀ $u ∈ $M (⟨v, $u⟩ = 0)
+                v ∈ V
+                ∀ $u ∈ $M (⟨v, $u⟩ = 0)
+                ⟨v, v⟩ = 0                              ; in particular v ⊥ v
+                v = 0                                   ; S3-zero
+            ; "⊃", which the slide doesn't write out: 0 is in both
+            assume v = 0
+                subspace(Perp($M))                      ; Perp-subspace
+                0 ∈ Perp($M)                            ; U-zero
+                0 ∈ $M ∩ Perp($M)
+                v ∈ $M ∩ Perp($M)
+            v ∈ $M ∩ Perp($M)  ⇔  v = 0
 qed

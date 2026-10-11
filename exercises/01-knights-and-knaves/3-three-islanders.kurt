@@ -1,0 +1,24 @@
+; EXERCISE 3: THREE ISLANDERS
+;
+; Three islanders, A, B and C (theory/island.kurt). Solve the puzzle on paper first, then prove
+; it: replace the `todo`; don't change the `show` line. Check with `kurt 3-three-islanders.kurt`.
+
+load theory/island
+const A, B, C
+
+; (a) A says: "B is a knave." B says: "C is a knave." C says: "A and B are both knaves."
+;     Who is a knight, who is a knave?
+;     Hint: start with C. If C were a knight, then A and B would be knaves -- what does A's
+;     statement say then?
+show (A says knave(B)) ∧ (B says knave(C)) ∧ (C says knave(A) ∧ knave(B)) ⇒ knave(A) ∧ knight(B) ∧ knave(C)
+proof
+    todo
+qed
+
+; (b) Prove that the islanders' statements are consistent: in the world where A and C are knaves
+;     and B is a knight, each of them says what the rules allow. Here the facts are given; derive
+;     what each one's statement must be.
+show knave(A) ∧ knight(B) ∧ knave(C) ⇒ ¬knave(B) ∧ knave(C) ∧ ¬(knave(A) ∧ knave(B))
+proof
+    todo
+qed

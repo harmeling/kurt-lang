@@ -25,6 +25,7 @@ use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
 
 use not ($a = $b) implies  $a ≠ $b                        "not-equal-intro"
 use $a ≠ $b       implies  not ($a = $b)                  "not-equal-elim"
+use $a ≠ $b       iff      not ($a = $b)                  "not-equal"        ; to rewrite inside a formula
 
 ;; anything else?
 ;  we can also combine both rules

@@ -1,0 +1,56 @@
+; EXERCISE 3: DIFFERENCE AND COMPLEMENT
+;
+; Sets: theory/sets.kurt. Here A - B is the set of the elements of A that are not in B, and
+; compl(A) = U - A is the complement of A in a fixed universe U. Replace each `todo` by a proof;
+; don't change the `show` lines. Check with `kurt 3-complement.kurt`.
+;
+; `x ∉ A` and `¬(x ∈ A)` are the same by the rule "not-in": write the one you need as a line.
+
+load theory/sets
+const A, B
+
+; (a) A difference is a part of the first set.
+show A - B ⊂ A
+proof
+    todo
+qed
+
+; (b) Nothing is in a set and in its complement.
+;     Hint: to show that a set is equal to ∅, prove that it is a subset of ∅ (an element would
+;     give `false`, and from `false` follows anything), and that ∅ is a subset of it.
+show A ∩ compl(A) = ∅
+proof
+    todo
+qed
+
+; (c) The complement turns the subset relation around.
+show A ⊂ B ⇒ compl(B) ⊂ compl(A)
+proof
+    todo
+qed
+
+; (d) De Morgan's law for the union: the complement of a union is the intersection of the
+;     complements.
+show compl(A ∪ B) = compl(A) ∩ compl(B)
+proof
+    todo
+qed
+
+; (e) De Morgan's law for the intersection.
+;     Hint: for an x ∈ compl(A ∩ B), split into the cases `x ∈ A` and `¬(x ∈ A)` (one of them
+;     holds: Kurt knows the excluded middle). In the first case, why is x not in B?
+show compl(A ∩ B) = compl(A) ∪ compl(B)
+proof
+    todo
+qed
+
+; (f) The complement of the complement is the set itself -- if the set is a part of U.
+;     Hint: for compl(compl(A)) ⊂ A, an element x of compl(compl(A)) is not in compl(A). Prove
+;     `x ∈ A` by contradiction: if `¬(x ∈ A)`, then x would be in compl(A).
+show A ⊂ U ⇒ compl(compl(A)) = A
+proof
+    todo
+qed
+
+; (g) Think, without Kurt: why does (f) need `A ⊂ U`? Find sets A and U for which
+;     compl(compl(A)) = A is false.

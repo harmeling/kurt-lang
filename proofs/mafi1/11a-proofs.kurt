@@ -2,32 +2,26 @@
 ; the laws that the slides derive from the tautologies by chains of equivalences
 load tautologies
 
-; tertium non datur, as an equivalence with ⊤
-show (%A ∨ ¬%A)  ⇔  ⊤                                                "tertium"
-proof
-    assume %A ∨ ¬%A
-        ⊤
-    assume ⊤
-        %A ∨ ¬%A                                        ; excluded-middle
-qed
+; tertium non datur: A ∨ ¬A is "excluded-middle" of prop.kurt, here as an equivalence with ⊤
+(%A ∨ ¬%A)  ⇔  ⊤                                                     "tertium"
 
-; ¬A ≡ A ⇒ ⊥
+; Reductio ad absurdum / Beweis durch Widerspruch: ¬A ≡ A ⇒ ⊥
 show ¬%A  ⇔  (%A ⇒ ⊥)                                                "not-as-impl"
 proof
     ¬%A ⇔ ¬%A ∨ ⊥                                       ; or-bottom
         ⇔ (%A ⇒ ⊥)                                      ; impl-or
 qed
 
-; ⊥ ≡ A ∧ ¬A
+; Widerspruch: ⊥ ≡ A ∧ ¬A
 show ⊥  ⇔  %A ∧ ¬%A                                                  "bottom-as-and"
 proof
     ⊥ ⇔ ¬⊤                                              ; not-top
       ⇔ ¬(%A ∨ ¬%A)                                     ; tertium
-      ⇔ ¬%A ∧ ¬¬%A                                      ; de-morgan-or
-      ⇔ ¬%A ∧ %A                                        ; not-not
+      ⇔ ¬%A ∧ %A                                        ; de-morgan-or, not-not
+      ⇔ %A ∧ ¬%A                                        ; ∧ is symmetric
 qed
 
-; ex falso quodlibet: ⊥ ⇒ A is always true
+; ex falso quodlibet: ⊥ ⇒ A is a tautology, i.e. ≡ ⊤ (Kurt has ⊥ ⇒ A as rule "bottom-elim")
 show (⊥ ⇒ %A)  ⇔  ⊤                                                  "ex-falso"
 proof
     (⊥ ⇒ %A) ⇔ ¬⊥ ∨ %A                                  ; impl-or
@@ -35,12 +29,13 @@ proof
              ⇔ ⊤                                        ; or-top
 qed
 
-; Kontraposition
+; Kontraposition (the steps of lecture 03; lecture 11a skips ¬¬B)
 show (%A ⇒ %B)  ⇔  (¬%B ⇒ ¬%A)                                       "contraposition"
 proof
     (%A ⇒ %B) ⇔ ¬%A ∨ %B                                ; impl-or
               ⇔ ¬%A ∨ ¬¬%B                              ; not-not
-              ⇔ (¬%B ⇒ ¬%A)                             ; impl-or (∨ is symmetric)
+              ⇔ ¬¬%B ∨ ¬%A                              ; ∨ is symmetric
+              ⇔ (¬%B ⇒ ¬%A)                             ; impl-or
 qed
 
 ; Fallunterscheidung (case distinction)
@@ -50,5 +45,5 @@ proof
                      ⇔ (¬%A ∧ ¬%B) ∨ %C                 ; de-morgan-or
                      ⇔ (¬%A ∨ %C) ∧ (¬%B ∨ %C)          ; distrib-or
                      ⇔ (%A ⇒ %C) ∧ (¬%B ∨ %C)           ; impl-or
-                     ⇔ (%A ⇒ %C) ∧ (%B ⇒ %C)            ; impl-or
+                     ⇔ (%A ⇒ %C) ∧ (%B ⇒ %C)            ; impl-or (Kurt rewrites one place at a time)
 qed

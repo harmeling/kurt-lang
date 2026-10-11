@@ -1,0 +1,73 @@
+# Exercises
+
+Exercises for students, by topic. Each topic is a folder: its exercises are the `.kurt` files in
+it, and its *scene* is in `theory/` -- a theory that the exercises load, which declares what the
+topic talks about (the symbols, how to write them) and the rules that hold there. The scene keeps
+an exercise small: the exercise only states what is to be proven.
+
+## Working on an exercise
+
+Open the exercise, e.g. `01-knights-and-knaves/2-two-islanders.kurt`, and read it: its comments
+pose the questions (often in parts (a), (b), ...), and the scene in `theory/` says what you may
+use. Each statement to prove is a `show` line followed by a proof that is still a `todo`:
+
+    show (A says knave(A) ∧ knave(B)) ⇒ knave(A) ∧ knight(B)
+    proof
+        todo
+    qed
+
+Replace the `todo` by your proof, and check the file:
+
+    cd exercises/01-knights-and-knaves
+    kurt 2-two-islanders.kurt
+
+Kurt checks each line and says why it follows, or where it gets stuck. As long as `todo`s are
+left, it ends with `Proof almost checked: N todos.`; when every part is proven, with `Proof
+checked`. Don't change the `show` lines or the scene, and don't add axioms (`use`): your proof
+must follow from the scene. You may add lemmas of your own (`show ... proof ... qed`) before a
+part that needs them.
+
+New to Kurt? The tutorial (`../tutorial/`, one task per lesson) shows how to prove an implication
+(`assume`), a negation (by contradiction), a `∀` (`let`), how to use a `∃` (`pick`), and how to
+split into cases (`case`).
+
+## Grading
+
+    python3 scripts/grade_exercise.py exercises/01-knights-and-knaves/2-two-islanders.kurt submission.kurt
+
+checks the submission as `kurt --strict` would (no `use`, `todo` or `chain`; every symbol
+declared), next to a copy of the exercise's `theory/`, which it trusts (as with `-p`). Then it
+compares the statements: each `show` of the exercise must be in the submission, unchanged and in
+the same order, and so must the exercise's other top-level lines (`load`, `const`, ...). It
+prints `COMPLETE` (exit code 0) or what is missing (exit code 1). Use the teacher's copy of the
+exercise, not the student's.
+
+## Topics
+
+| folder | topic | the scene |
+|---|---|---|
+| `01-knights-and-knaves/` | propositional logic: puzzles about islanders who always tell the truth or always lie | `theory/island.kurt` |
+| `02-family-tree/` | predicate logic: ∀ and ∃ with parents, grandparents, siblings; negating quantifiers | `theory/family.kurt` |
+| `03-sets/` | set algebra: subsets, equal sets, the complement and De Morgan | `theory/sets.kurt` |
+| `04-functions/` | maps between sets: injective, surjective, composition, image, preimage | `theory/maps.kurt` |
+| `05-relations/` | relations: equivalence relations and classes, partial and strict orders | `theory/relations.kurt` |
+| `06-groups/` | groups from weak axioms: right inverse and neutral element, uniqueness, equations, subgroups | `theory/groups-scene.kurt` |
+| `07-induction/` | induction: Peano arithmetic from scratch; sums and powers | `theory/peano.kurt`, `theory/recursion.kurt` |
+| `08-limits/` | limits of sequences with ε and N: first limits, limit laws, uniqueness | `theory/sequences.kurt` |
+| `09-calculus/` | derivatives and integrals: the rules, ε-δ, the fundamental theorem | `theory/calculus.kurt` |
+
+## Writing an exercise
+
+- A topic folder `NN-name/` with its scene in `NN-name/theory/`. The scene loads the theories of
+  Kurt it needs, declares the topic's symbols (with a header that lists them and the rules, by
+  their labels), and states the rules with `use` or `def`. Prove in the scene what follows from
+  its rules and is only a tool, not an exercise (e.g. "knight" in island.kurt).
+- An exercise `N-name.kurt` loads its scene (`load theory/NAME`), declares its constants, and
+  states each part as a `show` with a proof that is `todo`. Its premises are the left side of the
+  statement (`show P ∧ Q ⇒ R`), not axioms: a student's file under `--strict` can't have `use`.
+  The comments pose the question, and give hints where a first step is not obvious.
+- Each exercise has a solution: the same file with the `todo`s replaced. The solutions are not
+  published, so that the exercises can be used in a course; teachers can ask the author for
+  them. `tests/test_exercises.py` checks the scenes, checks that each exercise runs with its
+  `todo`s, and grades each solution with `scripts/grade_exercise.py` (where the solutions are
+  present).

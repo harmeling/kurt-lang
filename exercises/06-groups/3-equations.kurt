@@ -1,0 +1,44 @@
+; EXERCISE 3: EQUATIONS
+;
+; In a group, an equation a ∘ x = b has exactly one solution x, and so does x ∘ a = b
+; (theory/groups-scene.kurt). Prove it, and that you can cancel a factor on either side.
+;
+; As in exercise 2, the facts from exercise 1 are a premise where they are needed:
+; `∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)` gives `a ∘ e = a ∧ a ∘ inv(a) = e` for any `a ∈ G`.
+;
+; Replace each `todo` by a proof; don't change the `show` lines. Check with `kurt 3-equations.kurt`.
+
+load theory/groups-scene
+
+; (a) If a ∘ x = b, then x = inv(a) ∘ b: the equation has at most one solution.
+;     Hint: "multiply a ∘ x = b by inv(a) from the left": x = e ∘ x = (inv(a) ∘ a) ∘ x = ...
+show $a ∈ G ∧ $b ∈ G ∧ $x ∈ G ∧ $a ∘ $x = $b  ⇒  $x = inv($a) ∘ $b                 "solve-left"
+proof
+    todo
+qed
+
+; (b) And x = inv(a) ∘ b is a solution: a ∘ (inv(a) ∘ b) = b.
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G ∧ $b ∈ G  ⇒  $a ∘ (inv($a) ∘ $b) = $b     "solution-left"
+proof
+    todo
+qed
+
+; (c) The same from the other side: if x ∘ a = b, then x = b ∘ inv(a).
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G ∧ $b ∈ G ∧ $x ∈ G ∧ $x ∘ $a = $b  ⇒  $x = $b ∘ inv($a)     "solve-right"
+proof
+    todo
+qed
+
+; (d) Cancel from the right: if b ∘ a = c ∘ a, then b = c.
+;     Hint: use (c) twice, with b ∘ a for b.
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $b ∘ $a = $c ∘ $a  ⇒  $b = $c     "cancel-right"
+proof
+    todo
+qed
+
+; (e) Only e leaves an element unchanged: if a ∘ b = a, then b = e.
+;     Hint: a ∘ b = a ∘ e?
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G ∧ $b ∈ G ∧ $a ∘ $b = $a  ⇒  $b = e     "neutral-only"
+proof
+    todo
+qed

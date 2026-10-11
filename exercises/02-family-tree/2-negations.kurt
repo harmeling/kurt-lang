@@ -1,0 +1,47 @@
+; EXERCISE 2: NEGATIONS OF QUANTIFIERS
+;
+; The family tree of theory/family.kurt. Replace each `todo` by a proof; don't change the `show`
+; lines. Check with `kurt 2-negations.kurt`.
+;
+; Reminder (tutorial lesson 03): to prove `¬P`, `assume P` and derive `false`. To use a fact `¬P`,
+; derive `P` as well: then `false` follows.
+
+load theory/family
+const A
+
+; (a) Nobody is without a parent: there is no x such that every y is not a parent of x.
+;     Hint: assume there is such an x, and `pick` it.
+show ¬∃ x ∀ y ¬parent(y, x)
+proof
+    todo
+qed
+
+; (b) Nobody is their own grandparent.
+show ¬∃ x grandparent(x, x)
+proof
+    todo
+qed
+
+; (c) If there are no women, then nobody is a mother, and every parent is a father.
+show (¬∃ x female(x)) ⇒ (∀ x ∀ y ¬mother(x, y)) ∧ (∀ x ∀ y (parent(x, y) ⇒ father(x, y)))
+proof
+    todo
+qed
+
+; (d) Parenthood is not symmetric: it is not true that whenever x is a parent of y, y is a parent
+;     of x.
+;     Hint: assume the opposite. To get a contradiction you need one parent and child: A has a
+;     parent ("has-parent").
+show ¬∀ x ∀ y (parent(x, y) ⇒ parent(y, x))
+proof
+    todo
+qed
+
+; (e) If not everybody is female, then somebody is not female. (This is a law of logic, true for
+;     any predicate, but its proof needs a contradiction inside a contradiction.)
+;     Hint: assume `¬∃ x ¬female(x)`, and prove `∀ x female(x)` from it with `let a`: why is `a`
+;     female? (Inside `let x`, `x` is a constant: you can't write `∃ x ...` there. Name it `a`.)
+show ¬(∀ x female(x)) ⇒ ∃ x ¬female(x)
+proof
+    todo
+qed

@@ -465,12 +465,18 @@ the body; arguments in between are outside of it, as in mathematics: in
 A schema variable in the body of a binder normally stands for something
 that does *not* depend on the bound variable — in `(∀ $x ($x = $T))`, `$T`
 is one fixed term. A boolean `%A` may depend on it (that's what
-"forall-elim" is about), and so may a non-boolean `$T` that occurs only as
-the *whole* body of binders over the same variable, or as the body of a
-`sub` for it, as in the sum axioms `(sum $i ($a, $a) $T) = sub $i $a $T`
-and `(sum $i ($a, $b+1) $T) = (sub $i ($b+1) $T) + (sum $i ($a, $b) $T)`
-(see `analysis.kurt`) — such a `$T` stands for any summand, which the
-axioms only ever use with something substituted for `$i`. This is decided by
+"forall-elim" is about), and so may a non-boolean `$T` of an axiom that
+occurs as the *whole* body of a binder over the same variable, and
+otherwise only inside binders over it or as the body of a `sub` for it, as
+in the sum axioms `(sum $i ($a, $a) $T) = sub $i $a $T` and
+`(sum $i ($a, $b+1) $T) = (sub $i ($b+1) $T) + (sum $i ($a, $b) $T)` (see
+`analysis.kurt`) — such a `$T` stands for any summand, which the axioms
+only ever use for the bound `$i` or with something substituted for it —
+or in the sum rule of derivatives, `(diff $v $a $S) ∧ (diff $v $a $T) ⇒
+(deriv $v $a ($S + $T)) = ...` (`derivative.kurt`). Only an axiom (`use`,
+`def`, `todo`) is read like this, and not the variables of the `∀`s it
+writes out: a proven fact holds for every *term* in place of its
+variables (a proof with `let c` is about terms `c`). This is decided by
 the form of the rule alone: there is no way to declare a dependence
 (`$T[$i]`, as in Isabelle) or a distinct-variable condition ("`$x` doesn't
 occur in `$T`", as in Metamath) -- a decision (2026-10-06): the form shows
@@ -1253,18 +1259,20 @@ declaring their own prerequisites via their own `load` lines:
 | theory | adds | depends on |
 |---|---|---|
 | `prop.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; aliases `⊤`, `⇒`, `∧`, `∨`, `¬`; and-elim, or-intro/elim, iff-intro/elim, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
-| `equality.kurt` | `=`, `≠`; equal-intro/elim | `prop` |
+| `equality.kurt` | `=`, `≠`; equal-intro/elim, "not-equal" (`a ≠ b ⇔ ¬(a = b)`, to rewrite inside a formula) | `prop` |
 | `logic.kurt` | aliases `∀`/`∃`; forall-elim, exists-intro, the rules for quantifiers with a condition (§4.4), and rewriting under a quantifier ("forall-iff", "exists-iff": from `∀ x (A ⇔ B)`, `(∀ x A) ⇔ (∀ x B)`); the quantifiers `forall`/`exists` themselves, with their roles (§8.1); unique existence `∃! x P(x)` (`existsunique`, below) | `prop`, `equality` |
-| `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂`, `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings as sets of pairs (`f ∈ (A → B)`: `f ⊂ A × B` with one pair `(a, f a)` for each `a ∈ A`), "apply-in", "function-extensionality" | `equality`, `logic` |
+| `set.kurt` | Zermelo-Fraenkel-style: `in`/`∈`, `⊂` (and `⊃`, "superset"), `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox), `∅`, `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings as sets of pairs (`f ∈ (A → B)`: `f ⊂ A × B` with one pair `(a, f a)` for each `a ∈ A`), "apply-in", "function-extensionality" | `equality`, `logic` |
 | `numbers.kurt` | arithmetic; the order (`<`, `<=`, `>`, `>=` and how they relate) | `equality` |
 | `natural.kurt` | natural numbers, induction; `0 <= n`, the predecessor, no number between n and n + 1, the well-ordering principle (proven from induction); `even` and `odd` (every number is one of them, none both); divisibility `∣` (`\mid`), `coprime` | `set`, `numbers`, `logic` |
 | `integer.kurt` | integers `Int`: the natural numbers and their negatives, closed under `+`, `-`, `*` | `natural` |
 | `rational.kurt` | rationals `Rat`: m / n with m ∈ `Int`, n ∈ `Nat`, n ≠ 0; closed under `+`, `-`, `*`, `/`; "lowest-terms": a positive rational is m / n with coprime m, n (proven from the well-ordering) | `integer` |
 | `group.kurt` | groups: `group(G, (∘), e, inv)` defined by `closed`, `associative`, `identity`, `inverse`; rules for single steps ("group-associative", "group-right-inverse", ...); theorems: the identity and the inverse are unique, `inv (inv a) = a`. `∘` is an operator variable, so it all holds for any group, e.g. `group(R, (+), 0, (-))` | `set` |
-| `field.kurt` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1`: every axiom for the elements of `K` (`$a ∈ K`), the (K1)-(K9) of the mafi1 lecture with English names ("plus-commutative", "distributive", ...); theorems: the identities and inverses are unique, `0 · λ = 0`, no zero divisors, `x² = 1` only for `±1`; subtraction `λ - μ` with "minus-def", "minus-minus", "minus-of-plus", "minus-of-minus". Its own `+`: not together with numbers.kurt | `set` |
+| `field.kurt` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1`: every axiom for the elements of `K` (`$a ∈ K`), the (K1)-(K9) of the mafi1 lecture with English names ("plus-commutative", "distributive", ...); theorems: the identities and inverses are unique, `0 · λ = 0`, no zero divisors, `x² = 1` only for `±1`; subtraction `λ - μ` with "minus-def", "minus-minus", "minus-of-plus", "minus-of-minus"; "zero-plus", "times-one", "minus-distributive" (`λa − μa = (λ − μ)a`), "difference-nonzero" (`a ≠ b ⇒ a − b ≠ 0`), "product-one-nonzero" (`a · b = 1 ⇒ a ≠ 0`). Its own `+`: not together with numbers.kurt | `set` |
 | `vectorspace.kurt` | vector spaces over `K`: `vectorspace($V)`, the (V1)-(V8) for the elements of `$V`; `+`, `·`, `-`, `0` shared with the scalars; theorems: the zero vector and the inverse are unique, `0 · x = 0`, `(-1) · x = - x` | `field` |
 | `matrix.kurt` | vectors and matrices as literals (`[1, 2]`, `[[1, 2], [3, 4]]`, one row per line), computed exactly with `calc on`: `+`, `-`, `·`, `transpose`, `det`, `=`, `≠` (and `/` of numbers). Its own `+`: not together with numbers.kurt | `equality` |
-| `analysis.kurt` | `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, `argmax`/`argmin` over a set (*some* place of the maximum, `argmax $v ∈ A T`), limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |
+| `analysis.kurt` | subtraction for ε/2 arguments ("sub-def": `a - b = a + (-b)`, "sub-split", "sub-add", "sub-mul", "sub-zero", "double", "halves", "le-mul-nonneg"), `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, `argmax`/`argmin` over a set (*some* place of the maximum, `argmax $v ∈ A T`), limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist | `natural` |
+| `derivative.kurt` | continuity `cont x a T`, differentiability `diff x a T` and the derivative `deriv x a T` (of `T` in `x` at `a`), defined by ε and δ ("cont-def", "diff-def", "deriv-intro"); the rules of differentiation (constant, `x`, sum, difference, constant factor, product, quotient, natural powers, chain rule), each with the differentiability it needs; differentiable implies continuous; Fermat ("deriv-max", "deriv-min"), the mean value theorem | `analysis` |
+| `integral.kurt` | the Riemann integral `integral x (a, b) T` and `integrable x (a, b) T`: its value as the limit of Riemann sums (for an integrable `T`), continuous functions are integrable; linearity, constants, splitting the interval, `(b, a)`, monotonicity; the fundamental theorem of calculus, both parts ("ftc-diff", "ftc-deriv", "ftc") | `derivative` |
 | `modal.kurt` | classical normal modal logic T: formulas are terms built with `→`, `⇔`, `∧`, `∨`, `¬`, `□`, `◇`, `⊥`; `⊢ A` says that A is a theorem, `empty ⊢ A` the same with an empty list of assumptions; the propositional rules for theorems, K, T, duality, distribution, modus ponens, and necessitation | (none) |
 | `lambda.kurt` | simply typed lambda calculus: complete syntax-directed typing for a de Bruijn representation, readable named binders `λ`, compatible beta reduction `↦`, and call-by-value evaluation `⇝` | (none) |
 

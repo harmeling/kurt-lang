@@ -1,0 +1,43 @@
+; EXERCISE 3: PREIMAGES
+;
+; f is a map from A to B (theory/maps.kurt), and S, T are sets. The preimage of T under f is the
+; set of the x ∈ A whose value is in T, `{x ∈ A | f x ∈ T}`. Replace each `todo` by a proof;
+; don't change the `show` lines. Check with `kurt 3-preimage.kurt`.
+;
+; Two sets are equal if they have the same elements ("extensionality"). To prove X = Y:
+;
+;     let c
+;         assume c ∈ X
+;             ...
+;             c ∈ Y
+;         assume c ∈ Y
+;             ...
+;             c ∈ X
+;         c ∈ X ⇔ c ∈ Y
+;     X = Y
+;
+; `c ∈ {x ∈ A | f x ∈ T}` and `c ∈ A ∧ f c ∈ T` follow from each other ("separation"). For a
+; union, go through the `∨`: `c ∈ S ∪ T` follows from `c ∈ S ∨ c ∈ T` ("union"), which follows
+; from `c ∈ S`. For an intersection, go through the `∧` ("in-intersection").
+
+load theory/maps
+const A, B, f, S, T
+
+; (a) The preimage of all of B is all of A.
+show f : A → B ⇒ {x ∈ A | f x ∈ B} = A
+proof
+    todo
+qed
+
+; (b) The preimage of an intersection is the intersection of the preimages.
+show {x ∈ A | f x ∈ S ∩ T} = {x ∈ A | f x ∈ S} ∩ {x ∈ A | f x ∈ T}
+proof
+    todo
+qed
+
+; (c) The preimage of a union is the union of the preimages.
+;     Hint: split into cases with `case` (lesson 04).
+show {x ∈ A | f x ∈ S ∪ T} = {x ∈ A | f x ∈ S} ∪ {x ∈ A | f x ∈ T}
+proof
+    todo
+qed

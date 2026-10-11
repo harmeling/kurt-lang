@@ -1,0 +1,53 @@
+; EXERCISE 1: FIRST LIMITS
+;
+; Prove that some sequences converge, by the definition (theory/sequences.kurt, "converges-def"):
+;
+;     converges(a, L)  ⇔  ∀ e > 0 ∃ N ∀ n ∈ Nat (n > N ⇒ abs(a(n) - L) < e)
+;
+; Each proof has the same outline: assume the premise, then
+;
+;     let e > 0
+;         ...                                    ; find an N for this e
+;         let n ∈ Nat
+;             assume n > N
+;                 ...
+;                 abs(a(n) - L) < e
+;         ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ abs(a($n) - L) < e)
+;     converges(a, L)
+;
+; Kurt finds the N for the `∃` itself, from the `let n ∈ Nat` block above it. Two things to know:
+; Kurt reads `e > 0` and `0 < e` as different facts (one step turns one into the other), and a
+; fact like `∀ n ∈ Nat (a(n) = 1 / n)` gives `a(n) = 1 / n` for an `n` with `n ∈ Nat`.
+; Replace each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 1-first-limits.kurt`.
+
+load theory/sequences
+const a, b, c, L
+arity a 1, b 1
+
+; (a) A constant sequence converges to its value.
+;     Hint: any N will do, e.g. 0. Then `a(n) - c = c - c`, which is 0, and abs(0) = 0 < e.
+show (∀ n ∈ Nat (a(n) = c)) ⇒ converges(a, c)
+proof
+    todo
+qed
+
+; (b) The sequence 1, 1/2, 1/3, ... converges to 0.
+;     Hint: take N = 1 / e (it is > 0, by "div-pos"; `calc on` ... `calc off` proves `1 > 0`).
+;     From n > 1 / e, multiply by e ("gt-mul-pos", "div-mul") and divide by n ("gt-div-pos",
+;     "mul-div") to get e > 1 / n. Since 1 / n >= 0, abs(1 / n) = 1 / n ("abs-nonneg").
+show (∀ n ∈ Nat (a(n) = 1 / n)) ⇒ converges(a, 0)
+proof
+    todo
+qed
+
+; (c) Dropping the first term doesn't change the limit: if a converges to L, then so does
+;     b = (a(1), a(2), a(3), ...).
+;     Hint: here you *use* `converges(a, L)`: get its right side ("converges-def"), instantiate
+;     it at your e, and `pick N with ∀ $n ∈ Nat ($n > N ⇒ abs(a($n) - L) < e)`. The same N works
+;     for b, since n + 1 > n. Instantiating `∀ $n ∈ Nat ($n > N ⇒ ...)` at n + 1 gives the
+;     implication `n + 1 > N ⇒ ...` (write it as a step); then apply it.
+show converges(a, L) ∧ (∀ n ∈ Nat (b(n) = a(n + 1))) ⇒ converges(b, L)
+proof
+    todo
+qed

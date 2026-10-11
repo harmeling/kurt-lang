@@ -1,0 +1,63 @@
+; EXERCISE 2: LIMIT LAWS
+;
+; Limits of sequences built from convergent ones (theory/sequences.kurt). Each sequence built
+; from others is given by a premise, e.g. `∀ n ∈ Nat (s(n) = a(n) + b(n))` for the sum.
+;
+; Here you use convergence and prove it. To use `converges(a, L)` for an e > 0: get the right
+; side of "converges-def", instantiate it at e (that needs `e > 0` as a fact), and pick the N:
+;
+;     ∀ $e > 0 ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ abs(a($n) - L) < $e)     ; by converges-def
+;     let e > 0
+;         ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ abs(a($n) - L) < e)
+;         pick N with ∀ $n ∈ Nat ($n > N ⇒ abs(a($n) - L) < e)
+;             let n ∈ Nat
+;                 assume n > N
+;                     n > N ⇒ abs(a(n) - L) < e                     ; the ∀ for this n
+;                     abs(a(n) - L) < e
+;                     ...
+;             ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ ...)     ; the goal for e, with the N of the `pick`
+;         ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ ...)         ; and again after the `pick` block
+;
+; The algebra you need is in the scene as tools ("sub-add", "sub-mul", "halves", ...). Replace
+; each `todo` by a proof; don't change the `show` lines. Check with `kurt 2-limit-laws.kurt`.
+
+load theory/sequences
+const a, b, s, t, p, c, K, L, M
+arity a 1, b 1, s 1, t 1, p 1
+
+; (a) Adding a constant c to each term adds c to the limit.
+;     Hint: the N of a works. t(n) - (L + c) is (a(n) + c) - (L + c), which is
+;     (a(n) - L) + (c - c) by "sub-add", and that is a(n) - L.
+show converges(a, L) ∧ (∀ n ∈ Nat (t(n) = a(n) + c)) ⇒ converges(t, L + c)
+proof
+    todo
+qed
+
+; (b) The limit of a sum is the sum of the limits.
+;     Hint: the ε/2 trick. For e > 0, e / 2 > 0 ("half-pos"): pick an N1 for a and an N2 for b,
+;     both with e / 2, and an N above both ("above-both"). For n > N, both terms are closer than
+;     e / 2 to their limits. s(n) - (L + M) = (a(n) - L) + (b(n) - M) ("sub-add"), and the
+;     triangle inequality ("abs-triangle") and "halves" finish it -- as a chain
+;     `abs(...) = abs(...) <= ... < e`.
+show converges(a, L) ∧ converges(b, M) ∧ (∀ n ∈ Nat (s(n) = a(n) + b(n))) ⇒ converges(s, L + M)
+proof
+    todo
+qed
+
+; (c) A constant factor c > 0 multiplies the limit by c.
+;     Hint: use the N of a for e / c. Then abs(t(n) - c * L) = abs(c * (a(n) - L)) ("sub-mul"),
+;     which is abs(c) * abs(a(n) - L) ("abs-mul"), and abs(c) = c since c >= 0 ("gt-ge",
+;     "abs-nonneg"). From abs(a(n) - L) < e / c, multiply by c ("lt-mul-pos", "div-mul").
+show c > 0 ∧ converges(a, L) ∧ (∀ n ∈ Nat (t(n) = c * a(n))) ⇒ converges(t, c * L)
+proof
+    todo
+qed
+
+; (d) A bounded sequence times a sequence that converges to 0 converges to 0 (even if the
+;     bounded one doesn't converge).
+;     Hint: use the N of b for e / K. Then abs(p(n) - 0) = abs(a(n)) * abs(b(n)) ("abs-mul"),
+;     which is <= K * abs(b(n)) ("le-mul-nonneg", with abs(b(n)) >= 0), and that is < e.
+show K > 0 ∧ (∀ n ∈ Nat (abs(a(n)) <= K)) ∧ converges(b, 0) ∧ (∀ n ∈ Nat (p(n) = a(n) * b(n))) ⇒ converges(p, 0)
+proof
+    todo
+qed

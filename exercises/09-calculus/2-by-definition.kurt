@@ -1,0 +1,53 @@
+; EXERCISE 2: BY THE DEFINITION
+;
+; Continuity and derivatives by ε and δ ("cont-def", "diff-def", "deriv-intro" in
+; theory/calculus.kurt), without the rules of differentiation -- for linear functions, where the
+; algebra is short. Parts (a) and (c) state what the definition asks for; (b) and (d) conclude
+; with the definition. Work with `calc on` (it computes 2 * 3 + 1 = 7 and the like).
+;
+; To prove `∀ $e > 0 ∃ $d > 0 ∀ $y (... ⇒ ...)`: `let e > 0`, choose a δ (prove it is > 0),
+; then `let y` and `assume ...` and prove the conclusion for that y; after the `let y` block,
+; the line `∃ $d > 0 ∀ $y (... ⇒ ... < e)` (Kurt finds the δ from the block above it).
+;
+; Replace each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 2-by-definition.kurt`.
+
+load theory/calculus
+
+; (a) For f(x) = 2x + 1 and the point 3 (f(3) = 7): for every ε > 0 there is a δ > 0 such that
+;     |f(y) - f(3)| < ε whenever |y - 3| < δ.
+;     Hint: δ = e / 2. The algebra, one step each: (2 * y + 1) - 7 = 2 * y - 6 ("add-sub"),
+;     (y - 3) * 2 = 2 * y - 6 ("distrib-sub"); abs((y - 3) * 2) = abs(y - 3) * abs(2)
+;     ("abs-mul"), abs(2) = 2 ("abs-nonneg"); and from abs(y - 3) < e / 2, multiply by 2
+;     ("lt-mul-pos", "div-mul" with 2 ≠ 0). Put it together in a chain
+;     `abs((2 * y + 1) - 7) = ... < ... = e`.
+show ∀ $e > 0 ∃ $d > 0 ∀ $y (abs($y - 3) < $d ⇒ abs((2 * $y + 1) - 7) < $e)
+proof
+    todo
+qed
+
+; (b) So 2x + 1 is continuous at 3.
+;     Hint: one step by "cont-def", with `calc on` (in the definition, f(3) is 2 * 3 + 1).
+show cont x 3 (2 * x + 1)
+proof
+    todo
+qed
+
+; (c) For f(x) = 5x + 2 at the point 1 (f(1) = 7): the difference quotient (f(1 + h) - f(1)) / h
+;     is closer to 5 than any ε > 0, for all h ≠ 0 close enough to 0.
+;     Hint: the difference quotient is exactly 5 for every h ≠ 0, so any δ will do, e.g. 1.
+;     First get h ≠ 0 from 0 < abs(h): assume h = 0, then abs(h) = 0 ("abs-zero"), which
+;     contradicts 0 < abs(h) (via `0 ≠ abs(h)` and `¬(abs(h) = 0)`). Then compute:
+;     5 * (1 + h) = 5 + 5 * h ("distrib-add"), ..., (5 * h) / h = 5 ("mul-div").
+show ∀ $e > 0 ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d) ⇒ abs(((5 * (1 + $h) + 2) - 7) / $h - 5) < $e)
+proof
+    todo
+qed
+
+; (d) So 5x + 2 is differentiable at 1, with the derivative 5.
+;     Hint: "deriv-intro" gives the derivative from (c). For "diff-def", you need the limit L
+;     of the difference quotient as an `∃ $L ...` first.
+show (diff x 1 (5 * x + 2)) ∧ (deriv x 1 (5 * x + 2)) = 5
+proof
+    todo
+qed

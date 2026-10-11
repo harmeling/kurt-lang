@@ -1,0 +1,30 @@
+; the rules of integrals, for functions `f`, `g` that are integrable on [0, 2]
+load integral
+const f, g
+arity f 1, g 1
+use integrable x (0, 2) (f x)
+use integrable x (0, 2) (g x)
+calc on
+0 <= 1
+1 <= 2
+0 <= 2
+calc off
+(integral x (0, 2) (f x + g x)) = (integral x (0, 2) (f x)) + (integral x (0, 2) (g x))   ; by integral-add
+(integral x (0, 2) (3 * f x)) = 3 * (integral x (0, 2) (f x))                             ; by integral-scale
+(integral x (0, 1) (f x)) + (integral x (1, 2) (f x)) = integral x (0, 2) (f x)            ; by integral-split
+(integral x (2, 0) (f x)) = -(integral x (0, 2) (f x))                                    ; by integral-swap
+(integral x (1, 1) (f x)) = 0                                                             ; by integral-empty
+(integral x (0, 2) 5) = 5 * (2 - 0)                                                       ; by integral-const
+; if f <= g on [0, 2], then so are their integrals
+use ∀ $y ((0 <= $y ∧ $y <= 2) ⇒ f $y <= g $y)
+(integral x (0, 2) (f x)) <= (integral x (0, 2) (g x))                                    ; by integral-mono
+
+; the fundamental theorem, first part: the integral up to `w` is differentiable in `w` where `f`
+; is continuous, with the derivative `f`
+use cont x 1 (f x)
+calc on
+0 < 1
+1 < 2
+calc off
+diff w 1 (integral x (0, w) (f x))                                                        ; by ftc-diff
+(deriv w 1 (integral x (0, w) (f x))) = f 1                                               ; by ftc-deriv

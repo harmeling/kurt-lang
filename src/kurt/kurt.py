@@ -73,7 +73,7 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
     hashlib = None
 
 # config: general information
-version        = '0.8.2'     # the only place of the version (pyproject.toml reads it from here)
+version        = '0.8.3'     # the only place of the version (pyproject.toml reads it from here)
 made_by        = 'made by Stefan Harmeling, 2016-2026'
 
 def file_fingerprint() -> str:
@@ -692,6 +692,7 @@ class Formula:
         self.schema: str           = ''                 # stable rendering of the freshened schema
         self.def_symbol: Optional[str] = None           # for `def`-created formulas: the symbol it defines (see `eval_def`)
         self.direction_of: Optional[Expr] = None        # for `L ⇒ R` made from an `iff`: that `iff` (see `impl_elim`)
+        self.first_order: frozenset[str] = frozenset()  # the variables of `simplified_expr` that were its outer `∀`s (see `dependent_vars_of_formula`)
         self.id: int               = Formula.next_id    # a unique id for every formula
         Formula.next_id += 1
 
@@ -721,6 +722,7 @@ class Formula:
         cloned_f.def_symbol = self.def_symbol
         cloned_f.schema_vars = set(self.schema_vars)
         cloned_f.schema = self.schema
+        cloned_f.first_order = self.first_order
         return cloned_f
 
     def prefix_str(self) -> str:
@@ -2543,8 +2545,8 @@ class KnowledgeBase:
         match e:
             case Token(label='SYMBOL', value=s):
                 assert isinstance(s, str), f'BUG: token value must be string`'
-                if self.is_var(s) or self.is_const(s):
-                    pass
+                if self.is_var(s) or self.is_const(s) or self.is_fixed_var(s):
+                    pass        # (a fixed variable of an assumption is one object there, not a new constant)
                 elif not self.is_used(s):
                     if s not in bound_vars:
                         # if s contains '$$$' (it is from brackets) do not add it as a new constant
@@ -2662,20 +2664,23 @@ class KnowledgeBase:
             self.parent.add_new_symbols(f.expr)
         else:
             self.add_new_symbols(f.expr)
-        f.simplified_expr, _ = remove_outer_forall_quantifiers(f.simplified_expr, self)
-        f.simplified_expr = rename_all_vars(f.simplified_expr, self)
-        f.schema = normalized_schema_str(f.simplified_expr, f.schema_vars, self)
-        run_state.dependent_vars.update(find_dependent_vars(f.simplified_expr, self))
+        self.simplify(f)
+        run_state.dependent_vars.update(dependent_vars_of_formula(f, self))
         self.theory.append(f)
+
+    def simplify(self, f: Formula) -> None:
+        # the formula as the search uses it: without its outer `∀`s (their variables stand for
+        # anything), all variables renamed (unique names)
+        stripped, fresh = remove_outer_forall_quantifiers(f.simplified_expr, self)
+        f.simplified_expr, renaming = rename_all_vars_rec(deepcopy_expr(stripped), self)
+        f.first_order = frozenset(str(v.value) for x in fresh if isinstance(v := renaming.lookup(x), Token))
+        f.schema = normalized_schema_str(f.simplified_expr, f.schema_vars, self)
 
     def show_append(self, f: Formula) -> None:
         named_vars = {s for node in self.levels() for s in node.var}
         f.schema_vars = free_symbols(f.expr, self) & named_vars
         self.add_new_symbols(f.expr)
-        f.simplified_expr, _ = remove_outer_forall_quantifiers(f.simplified_expr, self)
-        f.simplified_expr = rename_all_vars(f.simplified_expr, self)
-        f.schema = normalized_schema_str(f.simplified_expr, f.schema_vars, self)
-        run_state.dependent_vars.update(find_dependent_vars(f.simplified_expr, self))
+        self.simplify(f)
         self.show.append(f)
 
     def show_str(self) -> str:
@@ -3462,7 +3467,8 @@ def mark_bound_variables(expr: Expr, kb: KnowledgeBase, outer: frozenset[str] = 
                 v = next((t for t in written_symbols(cond, kb) if isinstance(t.value, str) and t.value not in outer
                           and is_new_symbol_or_existing_variable(t.value, kb) and not kb.is_fixed_var(t.value)), None)
                 if v is None:
-                    raise KurtException(f'TypeError: the condition `{expr_str(cond, kb)}` of `{op}` has no variable to bind -- every symbol in it is a constant', column=expr_column(cond))
+                    raise KurtException(f'TypeError: the condition `{expr_str(cond, kb)}` of `{op}` has no variable to bind -- every symbol in it is a constant '
+                                    f'(declared, or named by an enclosing `let` or `pick`): give the bound variable a new name', column=expr_column(cond))
                 cond = bound_condition(v.value, cond, v.column)
             assert isinstance(v, Token) and isinstance(v.value, str)
             inner = outer | {v.value}
@@ -3677,6 +3683,21 @@ def eval_proof(kb: KnowledgeBase) -> KnowledgeBase:
 # LHS: exactly one unused symbol that is not a variable or boolean variable
 # `def` is safe only if `=` and `iff` have their usual meaning, so they must come from the
 # theories that come with Kurt
+def raise_declaration_usage(keyword: str, arg: object, keyword_token: Token) -> None:
+    # a declaration takes names, separated by commas: `const odd_sum` is read as `odd`, `_`, `sum`
+    # (`_` isn't a letter), so say that, not only "wrong number of arguments"
+    tokens = arg if isinstance(arg, list) else []
+    if len(tokens) > 1 and all(isinstance(t, Token) and t.label == 'SYMBOL' for t in tokens) \
+            and all(t.glued for t in tokens[1:]):
+        written = ''.join(str(t.value) for t in tokens)
+        parts = ', '.join(f'`{t.value}`' for t in tokens)
+        joined = ''.join(str(t.value) for t in tokens if str(t.value).isalnum())
+        example = f' (e.g. `{joined}`)' if joined else ''
+        raise KurtException(f'EvalError: `{written}` is not one name: Kurt reads it as {parts} -- a name is letters and digits'
+                            f'{example}, or one symbol', keyword_token.column)
+    msg = create_usage(keyword, [[], ['STRING']])
+    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+
 DEF_THEORIES = {EQUAL_SYMBOL: 'equality', IFF_SYMBOL: 'prop'}     # (for the message only)
 
 def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filename: str, line: int, local: bool = False) -> tuple[Formula, str]:
@@ -3690,6 +3711,10 @@ def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filenam
     match expr:
         case [Token(label='SYMBOL', value=s), LHS, RHS] if isinstance(s, str) and (kb.has_role(s, 'equality') or kb.has_role(s, 'equivalence')):
             lhs_candidates = extract_by_condition(LHS, lambda s: not kb.is_const(s) and not kb.is_var(s) and not kb.is_bracket_placeholder(s), kb)
+            if len(lhs_candidates) == 0:
+                declared = extract_by_condition(LHS, lambda s: kb.is_const(s) and not kb.is_frozen(s) and not kb.is_bracket_placeholder(s), kb)
+                hint = f' -- `{declared[0]}` is declared already: `def` declares it itself, so remove its `const` (an `arity` or `bool` before the `def` is fine)' if len(declared) == 1 else ''
+                raise KurtException(f'EvalError: `def` requires exactly one new constant on the left-hand side, got none in `{expr_str(expr, kb)}`{hint}')
             if len(lhs_candidates) != 1:
                 raise KurtException(f'EvalError: `def` requires exactly one new constant on the left-hand side, got `{lhs_candidates}` in `{expr_str(expr, kb)}`')
             lhs_const = lhs_candidates[0]
@@ -3714,7 +3739,12 @@ def eval_def(kb: KnowledgeBase, expr: Expr, input_line: str, label: str, filenam
                 return None
             found_vars = definiendum_vars(LHS)
             if found_vars is None:
-                raise KurtException(f'EvalError: `def` needs the new `{lhs_const}` applied to variables on the left-hand side, like `{lhs_const}($x, $y)`, got `{expr_str(LHS, kb)}`')
+                hint = ''
+                match LHS:
+                    case [Token(label='SYMBOL', value=head), [Token(label='SYMBOL', value=comma), *_] as pair] if head == lhs_const and comma == ',':
+                        n = len(comma_items(pair))
+                        hint = f' -- without `arity {lhs_const} {n}` before the `def`, `{lhs_const}` is applied to one argument, the tuple'
+                raise KurtException(f'EvalError: `def` needs the new `{lhs_const}` applied to variables on the left-hand side, like `{lhs_const}($x, $y)`, got `{expr_str(LHS, kb)}`{hint}')
             lhs_vars: list[str] = found_vars
             if len(set(lhs_vars)) != len(lhs_vars):
                 raise KurtException(f'EvalError: `def` needs distinct variables on the left-hand side, got `{expr_str(LHS, kb)}`')
@@ -4627,8 +4657,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     assert isinstance(op, str)
                     new_stuff.append(op)    # first collect
                 case _:
-                    msg = create_usage(keyword, [[], ['STRING']])
-                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+                    raise_declaration_usage(keyword, arg, keyword_token)
         apply_declaration_batch(kb, lambda target: [target.add_bindop(op) for op in new_stuff], tuple(new_stuff))
     elif keyword == 'chain':
         if len(args) == 0:
@@ -4689,8 +4718,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     assert isinstance(op, str)
                     new_stuff.append(op)    # first collect
                 case _:
-                    msg = create_usage(keyword, [[], ['STRING']])
-                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+                    raise_declaration_usage(keyword, arg, keyword_token)
         if new_stuff:
             check_strict(keyword, filename)     # a claim about the operator, like an axiom
         check_not_frozen(new_stuff, keyword, filename, kb)
@@ -4705,8 +4733,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     assert isinstance(op, str)
                     new_stuff.append(op)    # first collect
                 case _:
-                    msg = create_usage(keyword, [[], ['STRING']])
-                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+                    raise_declaration_usage(keyword, arg, keyword_token)
         if new_stuff:
             check_strict(keyword, filename)     # a claim about the operator, like an axiom
         check_not_frozen(new_stuff, keyword, filename, kb)
@@ -4804,8 +4831,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     assert isinstance(op, str)
                     new_stuff.append(op)    # first collect
                 case _:
-                    msg = create_usage(keyword, [[], ['STRING']])
-                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+                    raise_declaration_usage(keyword, args_i, keyword_token)
         apply_declaration_batch(kb, lambda target: [target.add_var(op) for op in new_stuff])
         for op in new_stuff:
             if printing():
@@ -4822,8 +4848,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     assert isinstance(op, str)
                     new_stuff.append(op)    # first collect
                 case _:
-                    msg = create_usage(keyword, [[], ['STRING']])
-                    raise KurtException(f'EvalError: wrong number of arguments, possible is:\n{msg}', keyword_token.column)
+                    raise_declaration_usage(keyword, args_i, keyword_token)
         def add_constants(target: KnowledgeBase) -> None:
             for op in new_stuff:
                 if op[0] in ['$', '%']:
@@ -5392,7 +5417,8 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase,
                         if not isinstance(v, str):
                             raise KurtException(f'TypeError: first arg of binding operator must be boolean expression or symbol, got {v}', column=expr_column(tail[0]))
                         if kb.is_const(v):
-                            raise KurtException(f'TypeError: first arg of binding operator must not be constant, got a constant `{v}`', column=expr_column(tail[0]))
+                            raise KurtException(f'TypeError: first arg of binding operator must not be constant, got a constant `{v}` -- '
+                                              f'`{v}` is declared, or named by an enclosing `let` or `pick`: give the bound variable another name', column=expr_column(tail[0]))
                         pass         # ok!
                     case [Token(label='SYMBOL', value=b), Token(), cond] if b == BOUND_SYMBOL:
                         if not bool_expr(cond, kb):
@@ -6298,44 +6324,59 @@ def restore_blocked(s_new: State, x: str, s_old: State) -> State:
 # each such (renamed, so globally unique) `$T` to its `$i`.
 
 def find_dependent_vars(expr: Expr, kb: KnowledgeBase) -> dict[str, str]:
-    # the non-boolean schema variables of `expr` that may depend on a bound variable: those that
-    # only ever occur as the *whole* body of a binder over the same `$i` (`sum $i ($a, $b) $T`)
-    # or of a `sub $i ... $T` -- being just somewhere inside a binder's scope isn't enough, e.g.
-    # the `$x` in `exists $y (not ($x = $y))` must stay independent of `$y`
-    occurrences: dict[str, list[Optional[tuple[str, bool]]]] = {}   # var -> (binder, is a `sub`), or None
-    def note(e: Expr, context: Optional[tuple[str, bool]]) -> bool:
+    # the non-boolean schema variables of `expr` that may depend on a bound variable `$i`: those
+    # that occur as the *whole* body of a binder over `$i` (`sum $i ($a, $b) $T`), and otherwise
+    # only inside binders over `$i` or `sub`s for it (`deriv $v $a ($S + $T)` with
+    # `diff $v $a $S`) -- being just somewhere inside a binder's scope isn't enough, e.g. the `$x`
+    # in `exists $y (not ($x = $y))` must stay independent of `$y`
+    occurrences: dict[str, list[tuple[frozenset[str], Optional[str]]]] = {}   # var -> (the binders around it, the binder it is the whole body of)
+    def note(e: Expr, scopes: frozenset[str], whole: Optional[str]) -> bool:
         if isinstance(e, Token) and isinstance(e.value, str) and e.value.startswith('$') and kb.is_var(e.value) and not kb.is_bool(e.value):
-            occurrences.setdefault(e.value, []).append(context)
+            occurrences.setdefault(e.value, []).append((scopes, whole))
             return True
         return False
-    def walk(e: Expr) -> None:
+    def walk(e: Expr, scopes: frozenset[str]) -> None:
         match e:
             case Token():
-                note(e, None)
+                note(e, scopes, None)
             case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=bv), a, A] if op == SUB_SYMBOL and isinstance(bv, str):
-                walk(a)
-                if not note(A, (bv, True)):
-                    walk(A)
+                walk(a, scopes)
+                if not note(A, scopes | {bv}, None):
+                    walk(A, scopes | {bv})
             case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
                 try:
                     bv, _ = unpack_condition(cond, kb)
                 except KurtException:
                     return
-                walk(cond)
+                walk(cond, scopes)
                 for child in body[:-1]:
-                    walk(child)
-                if body and not note(body[-1], (bv, False)):
-                    walk(body[-1])
+                    walk(child, scopes)
+                if body and not note(body[-1], scopes | {bv}, bv):
+                    walk(body[-1], scopes | {bv})
             case [*children]:
                 for child in children:
-                    walk(child)
-    walk(expr)
+                    walk(child, scopes)
+    walk(expr, frozenset())
     result: dict[str, str] = {}
     for v, contexts in occurrences.items():
-        binders = {c[0] for c in contexts if c is not None}
-        if None not in contexts and len(binders) == 1 and any(not c[1] for c in contexts if c is not None):
-            result[v] = binders.pop()
+        binders = {whole for _, whole in contexts if whole is not None}
+        if len(binders) == 1:
+            b = binders.pop()
+            if all(b in scopes for scopes, _ in contexts):
+                result[v] = b
     return result
+
+# Only a rule that is postulated -- `use`, `def`, `todo` -- has dependent variables: the form says
+# what its author meant. A derived fact (or a claim) holds for the values of its variables, terms,
+# whatever its form -- its proof treated them as fixed terms (`let c` ... `∀ c ((Q x 0 c) = (Q x 1 c))`
+# is about the terms `c`, not about the functions of `x`) -- and so does the variable of an outer `∀`
+# that is written out (`use ∀ c ...`).
+POSTULATED = ('use', 'def', 'todo')
+
+def dependent_vars_of_formula(f: Formula, kb: KnowledgeBase) -> dict[str, str]:
+    if f.keyword not in POSTULATED:
+        return {}
+    return {v: b for v, b in find_dependent_vars(f.simplified_expr, kb).items() if v not in f.first_order}
 
 def may_capture(v: str, expr: Expr, s: State) -> bool:
     # whether the schema variable `v` may take the value `expr`, which contains a bound variable
@@ -7422,40 +7463,49 @@ def k_rename(e: Expr, old: str, new: str) -> Expr:
     return [k_rename(c, old, new) for c in e]
 
 def k_dependencies(e: Expr, kb: KnowledgeBase) -> dict[str, str]:
-    # which non-boolean schema variables may contain which bound variable: those that only occur
-    # as the whole body of binders over the same variable, or as the body of `sub` for it (the
-    # same criterion as `find_dependent_vars`, written again for the kernel)
-    contexts: dict[str, list[Optional[tuple[str, bool]]]] = {}
-    def note(t: Expr, context: Optional[tuple[str, bool]]) -> bool:
+    # which non-boolean schema variables may contain which bound variable: those that occur as
+    # the whole body of a binder over the variable, and otherwise only inside binders over it or
+    # `sub`s for it (the same criterion as `find_dependent_vars`, written again for the kernel)
+    contexts: dict[str, list[tuple[frozenset[str], Optional[str]]]] = {}
+    def note(t: Expr, scopes: frozenset[str], whole: Optional[str]) -> bool:
         if isinstance(t, Token) and isinstance(t.value, str) and t.value.startswith('$') and kb.is_var(t.value) and not kb.is_bool(t.value):
-            contexts.setdefault(t.value, []).append(context)
+            contexts.setdefault(t.value, []).append((scopes, whole))
             return True
         return False
-    def walk(t: Expr) -> None:
+    def walk(t: Expr, scopes: frozenset[str]) -> None:
         match t:
             case Token():
-                note(t, None)
+                note(t, scopes, None)
             case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), a, A] if op == SUB_SYMBOL and isinstance(x, str):
-                walk(a)
-                if not note(A, (x, True)):
-                    walk(A)
+                walk(a, scopes)
+                if not note(A, scopes | {x}, None):
+                    walk(A, scopes | {x})
             case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
                 bv = k_bound(cond, kb)
-                walk(cond)
+                walk(cond, scopes)
                 for c in body[:-1]:
-                    walk(c)
-                if body and not note(body[-1], (bv, False)):
-                    walk(body[-1])
+                    walk(c, scopes)
+                if body and not note(body[-1], scopes | {bv}, bv):
+                    walk(body[-1], scopes | {bv})
             case [*children]:
                 for c in children:
-                    walk(c)
-    walk(e)
+                    walk(c, scopes)
+    walk(e, frozenset())
     result = {}
     for v, cs in contexts.items():
-        binders = {c[0] for c in cs if c is not None}
-        if None not in cs and len(binders) == 1 and any(not c[1] for c in cs if c is not None):
-            result[v] = binders.pop()
+        wholes = {whole for _, whole in cs if whole is not None}
+        if len(wholes) == 1:
+            b = wholes.pop()
+            if all(b in scopes for scopes, _ in cs):
+                result[v] = b
     return result
+
+def k_rule_dependencies(e: Expr, f: Formula, kb: KnowledgeBase) -> dict[str, str]:
+    # the dependent variables of a rule: only of a postulated one, and not those of its outer `∀`s
+    # (see `POSTULATED`; `e` is `f`'s `simplified_expr`, or one direction of it, an `iff`)
+    if f.keyword not in ('use', 'def', 'todo'):
+        return {}
+    return {v: b for v, b in k_dependencies(e, kb).items() if v not in f.first_order}
 
 def k_instantiate(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: KnowledgeBase, bound: frozenset[str] = frozenset()) -> Expr:
     # fill in the values of the variables -- without renaming, so a value may contain a variable
@@ -7848,7 +7898,7 @@ def kernel_verify(cert: Certificate, kb: KnowledgeBase) -> Optional[str]:
         if bad_sorts:
             v, sort = bad_sorts[0]
             return f'the value of `{v}` does not have its declared sort `{sort}`'
-        deps = k_dependencies(cert.expr, kb)
+        deps = k_rule_dependencies(cert.expr, cert.rule, kb)
         if cert.form == 'fact':
             if cert.premise_fresh or cert.conclusion_fresh or cert.facts:
                 return 'a fact has no premise'
@@ -7872,7 +7922,7 @@ def kernel_verify(cert: Certificate, kb: KnowledgeBase) -> Optional[str]:
         instance = k_instance(conclusion, cert.values, deps, kb)
         if not k_equal(instance, goal, kb):
             return f'the instance `{expr_str(instance, kb)}` of the conclusion is not the goal'
-        facts = [k_instance(f.simplified_expr, cert.values, k_dependencies(f.simplified_expr, kb), kb) for f in cert.facts]
+        facts = [k_instance(f.simplified_expr, cert.values, k_rule_dependencies(f.simplified_expr, f, kb), kb) for f in cert.facts]
         def covered(part: Expr, strips: list[tuple[str, ...]]) -> bool:
             # `part` of the premise is an instance of a fact, or a `∀` whose body is (with one of
             # the recorded fresh variables), or a conjunction of such parts

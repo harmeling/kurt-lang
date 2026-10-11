@@ -1,0 +1,45 @@
+; EXERCISE 3: INTEGRALS
+;
+; Compute integrals with the fundamental theorem of calculus ("ftc" in theory/calculus.kurt) and
+; the linearity of the integral ("integral-add", "integral-scale"). "ftc" needs three things:
+; a <= b, that the function is integrable on [a, b] (e.g. because it is continuous there,
+; "integrable-cont", and differentiable functions are continuous, "diff-cont"), and an
+; antiderivative F on [a, b]:
+;
+;     ∀ y ((a <= y ∧ y <= b) ⇒ (diff x y F) ∧ (deriv x y F) = T(y))
+;
+; which you prove with `let y` and `assume 0 <= y ∧ y <= 1` (for [0, 1]). Then "ftc" gives
+; `(integral x (a, b) T) = F(b) - F(a)` -- with `calc off` for this step, and `calc on` to compute
+; the value. Replace each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 3-integrals.kurt`.
+
+load theory/calculus
+const f, g
+arity f 1, g 1
+
+; (a) The integral of 2x from 0 to 1.
+;     Hint: x² is an antiderivative of 2x. With `calc on`, "deriv-pow" gives
+;     `(deriv x y (x ^ 2)) = 2 * y ^ (2 - 1)`, which calc turns into 2 * y in two steps
+;     (`= 2 * y ^ 1`, `= 2 * y`).
+show (integral x (0, 1) (2 * x)) = 1
+proof
+    todo
+qed
+
+; (b) Linearity: for integrable functions f and g on [0, 1] whose integrals are 2 and 3, the
+;     integral of f(x) + 4 g(x).
+;     Hint: "integral-add" and "integral-scale" need `0 <= 1` (by `calc on`) and that each
+;     summand is integrable -- f(x) is, and 4 g(x) by "integrable-scale". In a chain `= ...`,
+;     replace one integral at a time.
+show (integrable x (0, 1) (f x)) ∧ (integrable x (0, 1) (g x)) ∧ (integral x (0, 1) (f x)) = 2 ∧ (integral x (0, 1) (g x)) = 3 ⇒ (integral x (0, 1) (f x + 4 * g x)) = 14
+proof
+    todo
+qed
+
+; (c) The integral of 3x² from 0 to 2.
+;     Hint: find an antiderivative, as in (a). For "integrable-cont", 3x² is continuous at each
+;     y in [0, 2] since it is differentiable there.
+show (integral x (0, 2) (3 * x ^ 2)) = 8
+proof
+    todo
+qed

@@ -1,0 +1,30 @@
+; EXERCISE 2: TWO ISLANDERS
+;
+; You meet two islanders, A and B (theory/island.kurt). Each part is a puzzle: find out who is a
+; knight and who is a knave, first on paper, then prove it. The `show` lines give the answer away
+; -- cover them while you solve the puzzle. Replace each `todo` by a proof; don't change the
+; `show` lines. Check with `kurt 2-two-islanders.kurt`.
+
+load theory/island
+const A, B
+
+; (a) A says: "We are both knaves."
+;     Hint: assume that A is a knight and derive `false`. Then you know ¬knight(A), and A's
+;     statement is false.
+show (A says knave(A) ∧ knave(B)) ⇒ knave(A) ∧ knight(B)
+proof
+    todo
+qed
+
+; (b) A says: "At least one of us is a knave."
+show (A says knave(A) ∨ knave(B)) ⇒ knight(A) ∧ knave(B)
+proof
+    todo
+qed
+
+; (c) A says: "B is a knight." B says: "A and I are of different kinds."
+;     (B's statement is `knight(A) ⇔ knave(B)`: A is a knight exactly when B is a knave.)
+show (A says knight(B)) ∧ (B says (knight(A) ⇔ knave(B))) ⇒ knave(A) ∧ knave(B)
+proof
+    todo
+qed

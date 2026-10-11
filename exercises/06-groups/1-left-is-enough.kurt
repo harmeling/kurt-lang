@@ -1,0 +1,51 @@
+; EXERCISE 1: LEFT IS ENOUGH
+;
+; The scene (theory/groups-scene.kurt; read it first) only says that e is neutral from the left
+; and that inv(a) is an inverse from the left. Here you show that both also work from the right.
+;
+; The statements use pattern variables ($a, $b, $c): each holds for all elements of G, and a
+; later part can use an earlier one for any elements, by its label (e.g. "cancel-left" for
+; inv(a), b and c). Inside a proof, just write $a, $b, ... like constants.
+;
+; Replace each `todo` by a proof; don't change the `show` lines. Check with
+;
+;     kurt 1-left-is-enough.kurt
+;
+; until it says `Proof checked`.
+
+load theory/groups-scene
+
+; (a) Cancel from the left: if a ∘ b = a ∘ c, then b = c.
+;     Hint: b = e ∘ b = (inv(a) ∘ a) ∘ b = ... Write it as a chain (see the scene).
+show $a ∈ G ∧ $b ∈ G ∧ $c ∈ G ∧ $a ∘ $b = $a ∘ $c  ⇒  $b = $c        "cancel-left"
+proof
+    todo
+qed
+
+; (b) The only element a with a ∘ a = a is e.
+;     Hint: start with a = e ∘ a, as in (a).
+show $a ∈ G ∧ $a ∘ $a = $a  ⇒  $a = e                                "idempotent"
+proof
+    todo
+qed
+
+; (c) inv(a) is an inverse from the right too: a ∘ inv(a) = e.
+;     Hint: this is the hard one. Call c = a ∘ inv(a) and show c ∘ c = c (write c ∘ c with
+;     brackets and use "assoc"; somewhere inv(a) ∘ a appears). Then (b) does the rest.
+show $a ∈ G  ⇒  $a ∘ inv($a) = e                                     "right-inverse"
+proof
+    todo
+qed
+
+; (d) e is neutral from the right too: a ∘ e = a.
+;     Hint: replace e by inv(a) ∘ a, and use (c).
+show $a ∈ G  ⇒  $a ∘ e = $a                                          "right-neutral"
+proof
+    todo
+qed
+
+; (e) The inverse of e is e.
+show inv(e) = e
+proof
+    todo
+qed

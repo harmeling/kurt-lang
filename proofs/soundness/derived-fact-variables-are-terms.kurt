@@ -1,0 +1,31 @@
+; the variables of a derived fact stand for terms, whatever its form: a proof with `let c` proves
+; something about every term `c`, not about every function of a bound variable -- read `Q v a T`
+; as "the value of `T` at `v = a`": "q-const" holds, and `(Q x 0 x) = (Q x 1 x)` would be `0 = 1`
+; (a derived fact used to get the dependent reading of a rule's `$T`, see `POSTULATED`)
+load logic, equality
+const Q
+arity Q 3
+bindop Q
+use (Q $v $a $c) = $c     "q-const"
+let c
+    (Q x 0 c) = c
+    (Q x 1 c) = c
+    (Q x 0 c) = (Q x 1 c)
+∀ c ((Q x 0 c) = (Q x 1 c))
+(Q x 0 5) = (Q x 1 5)                 ; for a term, yes
+expect "ProofError"
+    (Q x 0 x) = (Q x 1 x)             ; not for a function of `x`
+
+; the same for an axiom with a written-out `∀`: its `c` is a term too
+use ∀ c ((Q y 2 c) = (Q y 3 c))   "q-forall"
+(Q y 2 7) = (Q y 3 7)
+expect "ProofError"
+    (Q y 2 y) = (Q y 3 y)
+
+; and for a claim proven with `$c`
+show (Q $v 4 $c) = (Q $v 5 $c)   "q-show"
+proof
+    (Q $v 4 $c) = $c
+    (Q $v 5 $c) = $c
+expect "ProofError"
+    (Q z 4 z) = (Q z 5 z)

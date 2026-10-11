@@ -1,0 +1,39 @@
+; EXERCISE 3: THE LIMIT IS UNIQUE
+;
+; A sequence can't converge to two different numbers (theory/sequences.kurt). The proof has
+; three parts: (a) a number that is smaller in absolute value than every e > 0 is 0; (b) if a
+; converges to L and to M, then abs(L - M) < e for every e > 0; (c) so L = M.
+;
+; Replace each `todo` by a proof; don't change the `show` lines. Check with
+; `kurt 3-uniqueness.kurt`.
+
+load theory/sequences
+const a, L, M
+arity a 1
+
+; (a) Only 0 is smaller in absolute value than every e > 0. (`$x` is any number: after this part,
+;     Kurt uses the fact for any term in place of `$x`, e.g. for `L - M` in (c).)
+;     Hint: prove `$x = 0` by contradiction: assume ¬($x = 0). Then abs($x) ≠ 0 ("abs-zero"),
+;     so abs($x) > 0 ("abs-ge-zero", "ge-ne-gt"), and e = abs($x) gives abs($x) < abs($x).
+;     Kurt reads `x ≠ y` and `¬(x = y)` as different facts; one step turns one into the other.
+show (∀ $e > 0 (abs($x) < $e)) ⇒ $x = 0     "small-is-zero"
+proof
+    todo
+qed
+
+; (b) If a converges to L and to M, then L and M are closer than any e > 0.
+;     Hint: as in the sum rule (exercise 2): pick an N1 for L and an N2 for M, both with e / 2,
+;     and an N above both ("above-both"). Unlike there, you need one index n > N: "archimedes"
+;     gives `∃ $n ∈ Nat ($n > N)`, and `pick n ∈ Nat and n > N` takes it. Then
+;     L - M = (L - a(n)) + (a(n) - M) ("sub-split"), and abs(L - a(n)) = abs(a(n) - L)
+;     ("abs-sub-sym").
+show converges(a, L) ∧ converges(a, M) ⇒ ∀ $e > 0 (abs(L - M) < $e)
+proof
+    todo
+qed
+
+; (c) The limit is unique.
+show converges(a, L) ∧ converges(a, M) ⇒ L = M
+proof
+    todo
+qed

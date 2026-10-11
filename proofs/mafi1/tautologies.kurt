@@ -1,10 +1,12 @@
 ; tautologies -- the tautologies that the course "Mathematik für Informatik 1" (mafi1) takes as
-; given, checked "by truth tables" (lectures 03 and 11a); Kurt has no truth tables,
-; so they are proven here by natural deduction.  03-formulas.kurt and 11a-proofs.kurt then
-; derive the other laws from them, as the slides do.
+; given, checked "by truth tables" (lecture 03, "Andere nützliche Formeln"; lecture 11a,
+; "Beispiele für Tautologien", "Immer wahr und immer falsch"); Kurt has no truth tables,
+; so they are proven here by natural deduction.  ¬¬A ≡ A ("Doppelte Negation") is
+; "not-not" of prop.kurt, the two with quantifiers are in 03-formulas.kurt.
+; 11a-proofs.kurt then derives the other laws from them, as the slides do.
 load logic
 
-; De Morgan
+; De Morgansche Gesetze
 show ¬(%A ∧ %B)  ⇔  ¬%A ∨ ¬%B                                        "de-morgan-and"
 proof
     assume ¬(%A ∧ %B)
@@ -56,7 +58,7 @@ proof
         ¬(%A ∨ %B)
 qed
 
-; distributivity
+; Distributivgesetze
 show %A ∨ (%B ∧ %C)  ⇔  (%A ∨ %B) ∧ (%A ∨ %C)                        "distrib-or"
 proof
     assume %A ∨ (%B ∧ %C)
@@ -78,7 +80,6 @@ proof
             %A ∨ (%B ∧ %C)
         assume %B
             assume %C
-                %B ∧ %C
                 %A ∨ (%B ∧ %C)
             %A ∨ (%B ∧ %C)
         %A ∨ (%B ∧ %C)
@@ -90,22 +91,16 @@ proof
         %A
         %B ∨ %C
         assume %B
-            %A ∧ %B
             (%A ∧ %B) ∨ (%A ∧ %C)
         assume %C
-            %A ∧ %C
             (%A ∧ %B) ∨ (%A ∧ %C)
         (%A ∧ %B) ∨ (%A ∧ %C)
     assume (%A ∧ %B) ∨ (%A ∧ %C)
         assume %A ∧ %B
-            %A
             %B
-            %B ∨ %C
             %A ∧ (%B ∨ %C)
         assume %A ∧ %C
-            %A
             %C
-            %B ∨ %C
             %A ∧ (%B ∨ %C)
         %A ∧ (%B ∨ %C)
 qed
@@ -141,7 +136,6 @@ proof
                 %B
             %A ⇒ %B
             ⊥
-        ¬¬%A
         %A
         assume %B
             assume %A
@@ -184,7 +178,6 @@ proof
     assume %A ∧ ⊤
         %A
     assume %A
-        ⊤
         %A ∧ ⊤
 qed
 

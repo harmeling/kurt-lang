@@ -1,0 +1,50 @@
+; RELATIONS ON A SET
+;
+; The scene of the exercises on relations: with set.kurt, a relation R on a set A is a set of
+; pairs, and `(x, y) ∈ R` says that x is in relation R to y (often written x R y, or x ~ y, or
+; x ≤ y). Only reflexivity depends on the set A; the other properties are about the pairs in R.
+;
+;     (x, y) ∈ R              x is related to y
+;     reflexive(R, A)         every x ∈ A is related to itself
+;     symmetric(R)            x related to y gives y related to x
+;     transitive(R)           x related to y and y related to z give x related to z
+;     antisymmetric(R)        x related to y and y related to x give x = y
+;     equivalence(R, A)       R is an equivalence relation on A
+;     order(R, A)             R is a partial order on A
+;     class(a, R, A)          the equivalence class [a] of a: the y ∈ A with a related to y
+;
+; From set.kurt: `x ∈ A`, `A ⊂ B`, `A ∩ B`, `A ∪ B`, `∅`, `{x ∈ A | P(x)}`; from equality.kurt
+; `x ≠ y`.
+;
+; The rules (with set.kurt, and with it prop.kurt, logic.kurt and equality.kurt):
+;
+;     "reflexive"       reflexive(R, A) ⇔ ∀ x ∈ A ((x, x) ∈ R)
+;     "symmetric"       symmetric(R) ⇔ ∀ x ∀ y ((x, y) ∈ R ⇒ (y, x) ∈ R)
+;     "transitive"      transitive(R) ⇔ ∀ x ∀ y ∀ z ((x, y) ∈ R ∧ (y, z) ∈ R ⇒ (x, z) ∈ R)
+;     "antisymmetric"   antisymmetric(R) ⇔ ∀ x ∀ y ((x, y) ∈ R ∧ (y, x) ∈ R ⇒ x = y)
+;     "equivalence"     equivalence(R, A) ⇔ reflexive(R, A) ∧ symmetric(R) ∧ transitive(R)
+;     "order"           order(R, A) ⇔ reflexive(R, A) ∧ antisymmetric(R) ∧ transitive(R)
+;     "class"           class(a, R, A) = {y ∈ A | (a, y) ∈ R}
+;
+; and from set.kurt (the ones you will need most):
+;
+;     "extensionality"    A = B ⇔ ∀ c (c ∈ A ⇔ c ∈ B)
+;     "subset"            A ⊂ B ⇔ ∀ c (c ∈ A ⇒ c ∈ B)
+;     "separation"        a ∈ {x ∈ A | P(x)} ⇔ a ∈ A ∧ P(a)
+;     "in-intersection"   c ∈ A ∩ B ⇔ c ∈ A ∧ c ∈ B
+;     "empty-set"         ¬(c ∈ ∅)
+;
+; This file is the scene of the exercises: they load it with `load theory/relations`. Don't
+; change it.
+load set
+
+arity reflexive 2, symmetric 1, transitive 1, antisymmetric 1, equivalence 2, order 2, class 3
+bool reflexive 0, symmetric 0, transitive 0, antisymmetric 0, equivalence 0, order 0
+
+def reflexive($R, $A) ⇔ ∀ x ∈ $A ((x, x) ∈ $R)                                     "reflexive"
+def symmetric($R) ⇔ ∀ x ∀ y ((x, y) ∈ $R ⇒ (y, x) ∈ $R)                            "symmetric"
+def transitive($R) ⇔ ∀ x ∀ y ∀ z ((x, y) ∈ $R ∧ (y, z) ∈ $R ⇒ (x, z) ∈ $R)         "transitive"
+def antisymmetric($R) ⇔ ∀ x ∀ y ((x, y) ∈ $R ∧ (y, x) ∈ $R ⇒ x = y)                "antisymmetric"
+def equivalence($R, $A) ⇔ reflexive($R, $A) ∧ symmetric($R) ∧ transitive($R)      "equivalence"
+def order($R, $A) ⇔ reflexive($R, $A) ∧ antisymmetric($R) ∧ transitive($R)        "order"
+def class($a, $R, $A) = {y ∈ $A | ($a, y) ∈ $R}                                     "class"

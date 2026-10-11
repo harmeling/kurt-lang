@@ -1,0 +1,65 @@
+; EXERCISE 1: SUBSETS
+;
+; Sets: theory/sets.kurt lists what you may use. Read it first.
+;
+; Prove each statement: replace the `todo` of its proof by your proof. Don't change the `show`
+; lines. Check the file with
+;
+;     kurt 1-subsets.kurt
+;
+; until it says `Proof checked` (with `todo`s left it says `Proof almost checked`).
+;
+; How to prove `A ⊂ B`: take an arbitrary element of A with `let x ∈ A`, and prove `x ∈ B` in
+; the block. The block gives `∀ x ∈ A (x ∈ B)`; write the next line `∀ x (x ∈ A ⇒ x ∈ B)`, and
+; then `A ⊂ B` follows by the rule "subset". To use a fact `A ⊂ B`, write `∀ x (x ∈ A ⇒ x ∈ B)`
+; as a line: then from `a ∈ A` follows `a ∈ B`.
+
+load theory/sets
+const A, B, C
+
+; (a) Every set is a subset of itself.
+show A ⊂ A
+proof
+    todo
+qed
+
+; (b) An intersection is a subset of each of its sets.
+show A ∩ B ⊂ A
+proof
+    todo
+qed
+
+; (c) Each set is a subset of a union with it.
+show A ⊂ A ∪ B
+proof
+    todo
+qed
+
+; (d) The empty set is a subset of every set.
+;     Hint: in the block of `let x ∈ ∅` you have a contradiction. What follows from `false`?
+show ∅ ⊂ A
+proof
+    todo
+qed
+
+; (e) A common subset of A and B is a subset of A ∩ B.
+show C ⊂ A ∧ C ⊂ B ⇒ C ⊂ A ∩ B
+proof
+    todo
+qed
+
+; (f) The subset relation is transitive, for all sets X, Y, Z. The statement has a label: once it
+;     is proven, the later parts can use it as a rule, "subset-trans".
+;     Hint: `let X`, `let Y`, `let Z`, then `assume` the left side. (Name the elements in the
+;     innermost block `x`: a name different from X, Y, Z.)
+show ∀ X ∀ Y ∀ Z (X ⊂ Y ∧ Y ⊂ Z ⇒ X ⊂ Z)                    "subset-trans"
+proof
+    todo
+qed
+
+; (g) The power set is monotone: a larger set has more subsets.
+;     Hint: an element of Pow(A) is a subset of A ("power-set"). Then use (f) for it.
+show A ⊂ B ⇒ Pow(A) ⊂ Pow(B)
+proof
+    todo
+qed

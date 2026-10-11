@@ -1,107 +1,99 @@
 ; the span (course "Mathematik für Informatik 1" (mafi1), lecture 08: linear independence),
-; for two vectors: L(v, w) = { λ v + μ w | λ, μ ∈ K }
-; (the slides take r vectors, which needs sums with indices)
+; for two vectors: L(v1, v2) = { λ1 v1 + λ2 v2 | λ1, λ2 ∈ K }
+; (the slides take r vectors, which needs sums with indices; their scalars λi, μi, κ are
+; written ai, bi, k here, since Kurt reads λ1 as λ 1)
 load 06-subspaces
 arity L 2
-def L($v, $w) = { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   "span"
+def L($v1, $v2) = { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }   "span"
 
-; Theorem: L(v, w) is a subspace of V
-show $v ∈ V ∧ $w ∈ V  ⇒  subspace(L($v, $w))                         "span-subspace"
+; Theorem: for v1, v2 ∈ V, U := L(v1, v2) is a subspace of V
+show $v1 ∈ V ∧ $v2 ∈ V  ⇒  subspace(L($v1, $v2))                     "span-subspace"
 proof
-    assume $v ∈ V ∧ $w ∈ V
-        $v ∈ V
-        $w ∈ V
-        ; L(v, w) ⊂ V
+    assume $v1 ∈ V ∧ $v2 ∈ V
+        $v1 ∈ V
+        $v2 ∈ V
+        ; U ⊂ V
         let c
-            assume c ∈ L($v, $w)
-                c ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; span
-                c ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ c = $a · $v + $b · $w)            ; separation
+            assume c ∈ L($v1, $v2)
+                c ∈ { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }
+                c ∈ V ∧ ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ c = $a1 · $v1 + $a2 · $v2)
                 c ∈ V
-        ∀ $c ($c ∈ L($v, $w)  implies  $c ∈ V)
-        L($v, $w) ⊂ V
-        ; (U1): 0 = 0 v + 0 w
-        0 · $v = 0                                      ; zero-times-vector
-        0 ∈ V
-        0 · $v + 0 · $w = 0 + 0 · $w
-                        = 0 + 0
-                        = 0
-        0 ∈ K ∧ 0 ∈ K ∧ 0 = 0 · $v + 0 · $w
-        ∃ $b (0 ∈ K ∧ $b ∈ K ∧ 0 = 0 · $v + $b · $w)
-        ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ 0 = $a · $v + $b · $w)
-        0 ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ 0 = $a · $v + $b · $w)
-        0 ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; separation
-        0 ∈ L($v, $w)
-        ∃ $x ($x ∈ L($v, $w))
-        ; (U2): (a v + b w) + (c v + d w) = (a + c) v + (b + d) w
-        let x ∈ L($v, $w)
-            let y ∈ L($v, $w)
-                x ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }
-                y ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }
-                x ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
-                y ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ y = $a · $v + $b · $w)
+        L($v1, $v2) ⊂ V
+        ; (U1): v1 + v2 = 1 v1 + 1 v2 ∈ U, so U ≠ ∅
+        1 · $v1 = $v1                                   ; (V6)
+        $v1 + $v2 = 1 · $v1 + $v2
+                  = 1 · $v1 + 1 · $v2                   ; (V6)
+        1 ∈ K ∧ 1 ∈ K ∧ $v1 + $v2 = 1 · $v1 + 1 · $v2
+        ∃ $a2 (1 ∈ K ∧ $a2 ∈ K ∧ $v1 + $v2 = 1 · $v1 + $a2 · $v2)
+        ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $v1 + $v2 = $a1 · $v1 + $a2 · $v2)
+        $v1 + $v2 ∈ V
+        $v1 + $v2 ∈ { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }
+        $v1 + $v2 ∈ L($v1, $v2)
+        L($v1, $v2) ≠ ∅
+        ; (U2): (a1 v1 + a2 v2) + (b1 v1 + b2 v2) = (a1 + b1) v1 + (a2 + b2) v2
+        let x ∈ L($v1, $v2)
+            let y ∈ L($v1, $v2)
+                x ∈ { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }
+                y ∈ { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }
+                x ∈ V ∧ ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ x = $a1 · $v1 + $a2 · $v2)
+                y ∈ V ∧ ∃ $b1 ∃ $b2 ($b1 ∈ K ∧ $b2 ∈ K ∧ y = $b1 · $v1 + $b2 · $v2)
                 x ∈ V
                 y ∈ V
-                ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
-                ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ y = $a · $v + $b · $w)
                 x + y ∈ V
-                pick a with ∃ $b (a ∈ K ∧ $b ∈ K ∧ x = a · $v + $b · $w)
-                    pick b with a ∈ K ∧ b ∈ K ∧ x = a · $v + b · $w
-                        pick c with ∃ $d (c ∈ K ∧ $d ∈ K ∧ y = c · $v + $d · $w)
-                            pick d with c ∈ K ∧ d ∈ K ∧ y = c · $v + d · $w
-                                a ∈ K
-                                b ∈ K
-                                c ∈ K
-                                d ∈ K
-                                x = a · $v + b · $w
-                                y = c · $v + d · $w
-                                a · $v ∈ V
-                                b · $w ∈ V
-                                c · $v ∈ V
-                                d · $w ∈ V
-                                (a · $v + b · $w) + (c · $v + d · $w) = (a · $v + c · $v) + (b · $w + d · $w)   ; V-shuffle
-                                x + y = (a · $v + b · $w) + y
-                                      = (a · $v + b · $w) + (c · $v + d · $w)
-                                      = (a · $v + c · $v) + (b · $w + d · $w)
-                                      = (a + c) · $v + (b · $w + d · $w)
-                                      = (a + c) · $v + (b + d) · $w
-                                a + c ∈ K
-                                b + d ∈ K
-                                a + c ∈ K ∧ b + d ∈ K ∧ x + y = (a + c) · $v + (b + d) · $w
-                                ∃ $q (a + c ∈ K ∧ $q ∈ K ∧ x + y = (a + c) · $v + $q · $w)
-                                ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ x + y = $p · $v + $q · $w)
-                ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ x + y = $p · $v + $q · $w)
-                x + y ∈ V ∧ ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ x + y = $p · $v + $q · $w)
-                x + y ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; separation
-                x + y ∈ L($v, $w)
-        ∀ ($x ∈ L($v, $w)) ∀ ($y ∈ L($v, $w)) ($x + $y ∈ L($v, $w))
-        ; (U3): k (a v + b w) = (k a) v + (k b) w
+                ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ x = $a1 · $v1 + $a2 · $v2)
+                ∃ $b1 ∃ $b2 ($b1 ∈ K ∧ $b2 ∈ K ∧ y = $b1 · $v1 + $b2 · $v2)
+                pick a1 with ∃ $a2 (a1 ∈ K ∧ $a2 ∈ K ∧ x = a1 · $v1 + $a2 · $v2)
+                    pick a2 with a1 ∈ K ∧ a2 ∈ K ∧ x = a1 · $v1 + a2 · $v2
+                        pick b1 with ∃ $b2 (b1 ∈ K ∧ $b2 ∈ K ∧ y = b1 · $v1 + $b2 · $v2)
+                            pick b2 with b1 ∈ K ∧ b2 ∈ K ∧ y = b1 · $v1 + b2 · $v2
+                                a1 ∈ K
+                                a2 ∈ K
+                                b1 ∈ K
+                                b2 ∈ K
+                                x = a1 · $v1 + a2 · $v2
+                                y = b1 · $v1 + b2 · $v2
+                                a1 · $v1 ∈ V
+                                a2 · $v2 ∈ V
+                                b1 · $v1 ∈ V
+                                b2 · $v2 ∈ V
+                                (a1 · $v1 + a2 · $v2) + (b1 · $v1 + b2 · $v2) = (a1 · $v1 + b1 · $v1) + (a2 · $v2 + b2 · $v2)   ; (V1), (V2): vector-shuffle
+                                x + y = (a1 · $v1 + a2 · $v2) + y
+                                      = (a1 · $v1 + a2 · $v2) + (b1 · $v1 + b2 · $v2)
+                                      = (a1 · $v1 + b1 · $v1) + (a2 · $v2 + b2 · $v2)
+                                      = (a1 + b1) · $v1 + (a2 · $v2 + b2 · $v2)         ; (V8)
+                                      = (a1 + b1) · $v1 + (a2 + b2) · $v2               ; (V8)
+                                a1 + b1 ∈ K
+                                a2 + b2 ∈ K
+                                a1 + b1 ∈ K ∧ a2 + b2 ∈ K ∧ x + y = (a1 + b1) · $v1 + (a2 + b2) · $v2
+                                ∃ $q (a1 + b1 ∈ K ∧ $q ∈ K ∧ x + y = (a1 + b1) · $v1 + $q · $v2)
+                                ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ x + y = $p · $v1 + $q · $v2)
+                                x + y ∈ { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }
+                                x + y ∈ L($v1, $v2)
+        ; (U3): k (a1 v1 + a2 v2) = (k a1) v1 + (k a2) v2
         let k ∈ K
-            let x ∈ L($v, $w)
-                x ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }
-                x ∈ V ∧ ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
+            let x ∈ L($v1, $v2)
+                x ∈ { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }
+                x ∈ V ∧ ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ x = $a1 · $v1 + $a2 · $v2)
                 x ∈ V
-                ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ x = $a · $v + $b · $w)
                 k · x ∈ V
-                pick a with ∃ $b (a ∈ K ∧ $b ∈ K ∧ x = a · $v + $b · $w)
-                    pick b with a ∈ K ∧ b ∈ K ∧ x = a · $v + b · $w
-                        a ∈ K
-                        b ∈ K
-                        x = a · $v + b · $w
-                        a · $v ∈ V
-                        b · $w ∈ V
-                        k · x = k · (a · $v + b · $w)
-                              = k · (a · $v) + k · (b · $w)
-                              = (k · a) · $v + k · (b · $w)
-                              = (k · a) · $v + (k · b) · $w
-                        k · a ∈ K
-                        k · b ∈ K
-                        k · a ∈ K ∧ k · b ∈ K ∧ k · x = (k · a) · $v + (k · b) · $w
-                        ∃ $q (k · a ∈ K ∧ $q ∈ K ∧ k · x = (k · a) · $v + $q · $w)
-                        ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ k · x = $p · $v + $q · $w)
-                ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ k · x = $p · $v + $q · $w)
-                k · x ∈ V ∧ ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ k · x = $p · $v + $q · $w)
-                k · x ∈ { $u ∈ V | ∃ $a ∃ $b ($a ∈ K ∧ $b ∈ K ∧ $u = $a · $v + $b · $w) }   ; separation
-                k · x ∈ L($v, $w)
-        ∀ $a ∈ K ∀ ($x ∈ L($v, $w)) ($a · $x ∈ L($v, $w))
-        subspace(L($v, $w))
+                ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ x = $a1 · $v1 + $a2 · $v2)
+                pick a1 with ∃ $a2 (a1 ∈ K ∧ $a2 ∈ K ∧ x = a1 · $v1 + $a2 · $v2)
+                    pick a2 with a1 ∈ K ∧ a2 ∈ K ∧ x = a1 · $v1 + a2 · $v2
+                        a1 ∈ K
+                        a2 ∈ K
+                        x = a1 · $v1 + a2 · $v2
+                        a1 · $v1 ∈ V
+                        a2 · $v2 ∈ V
+                        k · x = k · (a1 · $v1 + a2 · $v2)
+                              = k · (a1 · $v1) + k · (a2 · $v2)                      ; (V7)
+                              = (k · a1) · $v1 + k · (a2 · $v2)                      ; (V5)
+                              = (k · a1) · $v1 + (k · a2) · $v2                      ; (V5)
+                        k · a1 ∈ K
+                        k · a2 ∈ K
+                        k · a1 ∈ K ∧ k · a2 ∈ K ∧ k · x = (k · a1) · $v1 + (k · a2) · $v2
+                        ∃ $q (k · a1 ∈ K ∧ $q ∈ K ∧ k · x = (k · a1) · $v1 + $q · $v2)
+                        ∃ $p ∃ $q ($p ∈ K ∧ $q ∈ K ∧ k · x = $p · $v1 + $q · $v2)
+                        k · x ∈ { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }
+                        k · x ∈ L($v1, $v2)
+        subspace(L($v1, $v2))
 qed

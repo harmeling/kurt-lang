@@ -1,0 +1,58 @@
+; SETS
+;
+; The sets of set.kurt (Zermelo-Fraenkel set theory, in a small version: all objects are sets),
+; with two more operations: the difference of two sets, and the complement relative to a fixed
+; set U, the universe of discourse.
+;
+;     x ∈ A           x is an element of A
+;     x ∉ A           x is not an element of A
+;     A ⊂ B           A is a subset of B (every element of A is in B; A = B is allowed)
+;     A ∪ B, A ∩ B    union, intersection
+;     A - B           difference: the elements of A that are not in B
+;     ∅               the empty set
+;     Pow(A)          the power set of A: the set of all subsets of A
+;     U               the universe (a set like any other: not every set is a subset of it)
+;     compl(A)        the complement of A in U: U - A
+;
+; The rules, by their labels (from set.kurt, and below):
+;
+;     "subset"          A ⊂ B ⇔ ∀ c (c ∈ A ⇒ c ∈ B)
+;     "eq-def"          ∀ M ∀ N (M = N ⇔ M ⊂ N ∧ N ⊂ M)
+;     "extensionality"  A = B ⇔ ∀ c (c ∈ A ⇔ c ∈ B)
+;     "union"           x ∈ A ∪ B ⇔ x ∈ A ∨ x ∈ B
+;     "in-intersection" x ∈ A ∩ B ⇔ x ∈ A ∧ x ∈ B
+;     "empty-set"       ¬(x ∈ ∅)
+;     "power-set"       B ∈ Pow(A) ⇔ B ⊂ A
+;     "not-in"          x ∉ A ⇔ ¬(x ∈ A)
+;     "in-difference"   x ∈ A - B ⇔ x ∈ A ∧ x ∉ B
+;     "in-complement"   x ∈ compl(A) ⇔ x ∈ U ∧ x ∉ A
+;
+; How to write: `∪`, `∩` bind more strongly than `∈`, `⊂` and `=`, and `∩` more strongly than `∪`
+; (`A ∪ B ∩ C` is `A ∪ (B ∩ C)`); write parentheses where you aren't sure. `-` binds between `∪`
+; and `∩`; with parentheses, `(U - A) ∩ B` is clearer.
+;
+; This file is the scene of the exercises: they load it with `load theory/sets`. Don't change it.
+load set
+
+infix ∉ 25 25
+bool ∉ 0
+def $a ∉ $A ⇔ ¬($a ∈ $A)                                    "not-in"
+
+infix - 35 35
+def $A - $B = { $x ∈ $A | $x ∉ $B }                         "difference"
+show $x ∈ $A - $B ⇔ $x ∈ $A ∧ $x ∉ $B                       "in-difference"
+proof
+    $x ∈ { $c ∈ $A | $c ∉ $B } ⇔ $x ∈ $A ∧ $x ∉ $B
+    $A - $B = { $c ∈ $A | $c ∉ $B }
+    $x ∈ $A - $B ⇔ $x ∈ $A ∧ $x ∉ $B
+qed
+
+const U
+arity compl 1
+def compl($A) = U - $A                                      "complement"
+show $x ∈ compl($A) ⇔ $x ∈ U ∧ $x ∉ $A                     "in-complement"
+proof
+    compl($A) = U - $A
+    $x ∈ U - $A ⇔ $x ∈ U ∧ $x ∉ $A
+    $x ∈ compl($A) ⇔ $x ∈ U ∧ $x ∉ $A
+qed

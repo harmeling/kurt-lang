@@ -1,0 +1,55 @@
+; EXERCISE 2: UNIQUENESS
+;
+; In a group there is only one neutral element, and each element has only one inverse
+; (theory/groups-scene.kurt).
+;
+; Exercise 1 showed that e and inv(a) also work from the right. An exercise can't load another,
+; so here these facts are a premise of the statements that need them: the premise
+;
+;     ∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)
+;
+; gives `a ∘ e = a ∧ a ∘ inv(a) = e` for any `a ∈ G` (write that line, then its two parts).
+;
+; Replace each `todo` by a proof; don't change the `show` lines. Check with `kurt 2-uniqueness.kurt`.
+
+load theory/groups-scene
+
+; (a) An element f that is neutral from the right is e.
+;     Hint: what is e ∘ f? Compute it in two ways.
+show $f ∈ G ∧ (∀ x ∈ G (x ∘ $f = x))  ⇒  $f = e                     "right-neutral-unique"
+proof
+    todo
+qed
+
+; (b) An element f that is neutral from the left is e.
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $f ∈ G ∧ (∀ x ∈ G ($f ∘ x = x))  ⇒  $f = e     "left-neutral-unique"
+proof
+    todo
+qed
+
+; (c) An inverse from the left is THE inverse: if b ∘ a = e, then b = inv(a).
+;     Hint: b = b ∘ e = b ∘ (a ∘ inv(a)) = ...
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G ∧ $b ∈ G ∧ $b ∘ $a = e  ⇒  $b = inv($a)     "inverse-unique-left"
+proof
+    todo
+qed
+
+; (d) An inverse from the right is THE inverse: if a ∘ b = e, then b = inv(a).
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G ∧ $b ∈ G ∧ $a ∘ $b = e  ⇒  $b = inv($a)     "inverse-unique-right"
+proof
+    todo
+qed
+
+; (e) The inverse of the inverse: inv(inv(a)) = a.
+;     Hint: a is an inverse of inv(a) -- from which side? Use (c) or (d).
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G  ⇒  inv(inv($a)) = $a     "inverse-inverse"
+proof
+    todo
+qed
+
+; (f) The inverse of a product: inv(a ∘ b) = inv(b) ∘ inv(a) (the order turns around!).
+;     Hint: show that inv(b) ∘ inv(a) is an inverse of a ∘ b from the left, then use (c).
+show (∀ x ∈ G (x ∘ e = x ∧ x ∘ inv(x) = e)) ∧ $a ∈ G ∧ $b ∈ G  ⇒  inv($a ∘ $b) = inv($b) ∘ inv($a)     "inverse-product"
+proof
+    todo
+qed

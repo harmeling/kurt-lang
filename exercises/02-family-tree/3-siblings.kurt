@@ -1,0 +1,61 @@
+; EXERCISE 3: SIBLINGS, AUNTS, A FAMILY
+;
+; The family tree of theory/family.kurt. Replace each `todo` by a proof; don't change the `show`
+; lines. Check with `kurt 3-siblings.kurt`.
+;
+; Two people are siblings if they are different and have a common parent ("sibling"). Read
+; `x ≠ y` as `¬(x = y)`: equality.kurt has the rules "not-equal-intro" and "not-equal-elim" to
+; go from one to the other, and `≠` is symmetric, like `=`.
+
+load theory/family
+const Anna, Ben, Clara, David, Eva
+
+; A family: Anna is a parent of Clara and David, Clara is a parent of Eva, David of Ben. Each
+; part says which of these facts it needs, on the left of its `⇒`.
+;
+;           Anna
+;          /    \
+;      Clara    David
+;        |        |
+;       Eva      Ben
+
+; (a) Anna is a grandparent of Eva.
+show parent(Anna, Clara) ∧ parent(Clara, Eva) ⇒ grandparent(Anna, Eva)
+proof
+    todo
+qed
+
+; (b) Clara is an aunt of Ben, the child of her sibling David.
+;     Hint: first prove `sibling(Clara, David)`, step by step.
+show female(Clara) ∧ parent(Anna, Clara) ∧ parent(Anna, David) ∧ Clara ≠ David ∧ parent(David, Ben) ⇒ aunt(Clara, Ben)
+proof
+    todo
+qed
+
+; (c) Nobody is their own sibling.
+show ∀ x ¬sibling(x, x)
+proof
+    todo
+qed
+
+; (d) Being siblings is symmetric.
+show ∀ x ∀ y (sibling(x, y) ⇒ sibling(y, x))
+proof
+    todo
+qed
+
+; (e) Two siblings have a common grandparent.
+;     Hint: `pick` their common parent p. Who is a parent of p? (Inside the block, don't call
+;     the new person `g`: `g` is bound in the `∃ g` you want to prove. Call it `q`.)
+show ∀ x ∀ y (sibling(x, y) ⇒ ∃ g (grandparent(g, x) ∧ grandparent(g, y)))
+proof
+    todo
+qed
+
+; (f) An only child: if David has no sibling, then every child of Anna is David.
+;     Hint: `let x`, `assume parent(Anna, x)`. To prove `x = David`, assume `¬(x = David)` and
+;     find a sibling of David.
+show parent(Anna, David) ∧ ¬∃ y sibling(David, y) ⇒ ∀ x (parent(Anna, x) ⇒ x = David)
+proof
+    todo
+qed

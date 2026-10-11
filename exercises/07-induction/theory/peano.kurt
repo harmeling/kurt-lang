@@ -1,0 +1,53 @@
+; PEANO ARITHMETIC
+;
+; The natural numbers built from scratch, as Giuseppe Peano did: there is a first number 0, and
+; every number n has a successor s n (the next number, "n + 1"). Addition and multiplication are
+; defined by recursion on the second argument. Every object in this scene is a natural number, so
+; `∀ $n (...)` means "for all natural numbers n".
+;
+;     0           zero
+;     s n         the successor of n (so 1 is `s 0`, 2 is `s (s 0)`, ...); `s` binds more
+;                 tightly than + and ·: `s m + n` is `(s m) + n`, write `s (m + n)` for the other
+;     m + n       addition
+;     m · n       multiplication (`·`, binds more tightly than +: `m · n + m` is `(m · n) + m`)
+;
+; There is no `calc` here: 0 and s are all there is, nothing is computed.
+;
+; The rules (with prop.kurt, logic.kurt, equality.kurt for ∧, ⇒, ¬, ∀, =, ≠):
+;
+;     "succ-ne-zero"  s n ≠ 0                          0 is no successor
+;     "succ-inj"      s m = s n ⇒ m = n                different numbers have different successors
+;     "add-zero"      m + 0 = m
+;     "add-succ"      m + s n = s (m + n)
+;     "mul-zero"      m · 0 = 0
+;     "mul-succ"      m · s n = m · n + m
+;     "induction"     A(0) ∧ ∀ n (A(n) ⇒ A(s n))  ⇒  ∀ n A(n)
+;
+; How to use "induction": to prove `∀ $n A($n)`, prove the base case A(0) and the step
+; `∀ $n (A($n) ⇒ A(s $n))` (with `let n` and `assume A(n)`); then Kurt finds `∀ $n A($n)` by
+; "induction". Inside `let m`, state the goal of an induction over n as a line of its own,
+; e.g. `∀ $n (m + $n = ...)`, right after the step.
+;
+; This file is the scene of the exercises 1 and 2: they load it with `load theory/peano`. Don't
+; change it.
+load prop, logic, equality
+
+const s
+arity s 1
+infix + 50 50
+infix · 60 60
+const +, ·
+
+; 0 is no successor, and the successor is injective
+use s $n ≠ 0                        "succ-ne-zero"
+use s $m = s $n ⇒ $m = $n           "succ-inj"
+
+; addition and multiplication, defined by recursion
+use $m + 0 = $m                     "add-zero"
+use $m + s $n = s ($m + $n)         "add-succ"
+use $m · 0 = 0                      "mul-zero"
+use $m · s $n = $m · $n + $m        "mul-succ"
+
+; induction: a property of 0 that goes over from each number to its successor holds for all
+; numbers
+use (sub $x 0 %A) ∧ ∀ $n (sub $x $n %A ⇒ sub $x (s $n) %A)  ⇒  ∀ $n (sub $x $n %A)   "induction"

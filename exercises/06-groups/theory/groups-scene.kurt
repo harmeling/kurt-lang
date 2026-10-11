@@ -1,0 +1,51 @@
+; GROUPS
+;
+; A group is a set G with an operation ∘ that is associative, has a neutral element e, and in
+; which every element a has an inverse inv(a). This scene asks for as little as possible: e is
+; only neutral from the LEFT (e ∘ a = a), and inv(a) is only an inverse from the LEFT
+; (inv(a) ∘ a = e). Exercise 1 shows that this is enough: both work from the right too.
+;
+;     G               the set of the group's elements
+;     a ∘ b           the operation (binds stronger than = and ∈: `a ∘ b = c` is `(a ∘ b) = c`)
+;     e               the neutral element
+;     inv(a)          the inverse of a
+;
+; The rules (with set.kurt and equality.kurt, which it loads):
+;
+;     "closed"         a ∈ G ∧ b ∈ G  ⇒  a ∘ b ∈ G
+;     "e-in-G"         e ∈ G
+;     "inv-in-G"       a ∈ G  ⇒  inv(a) ∈ G
+;     "assoc"          a ∈ G ∧ b ∈ G ∧ c ∈ G  ⇒  (a ∘ b) ∘ c = a ∘ (b ∘ c)
+;     "left-neutral"   a ∈ G  ⇒  e ∘ a = a
+;     "left-inverse"   a ∈ G  ⇒  inv(a) ∘ a = e
+;
+; Kurt applies a rule only when its conditions are facts: before you use, say, "assoc" for
+; a, inv(a) and b, the lines `a ∈ G`, `inv(a) ∈ G` and `b ∈ G` must be there -- write them as
+; lines of your proof ("inv-in-G" gives `inv(a) ∈ G`, "closed" gives `a ∘ b ∈ G`). If Kurt can't
+; derive an equation and mentions `extensionality`, a fact `... ∈ G` is usually missing.
+;
+; Calculations: write an equation as a chain, one step per line, each step one rule
+;
+;     a = e ∘ a                  ; left-neutral
+;       = (inv(b) ∘ b) ∘ a       ; left-inverse
+;       = inv(b) ∘ (b ∘ a)       ; assoc
+;
+; and Kurt concludes the equation from the first to the last term (`a = inv(b) ∘ (b ∘ a)`).
+; Each step after the first rewrites the previous term with one equation. The first step must
+; follow by itself (here: `a = e ∘ a` is an instance of "left-neutral"); for a first step such as
+; `a ∘ e = a ∘ (inv(a) ∘ a)`, which rewrites inside a term, write the equation it uses on a line
+; of its own before the chain (`inv(a) ∘ a = e`).
+;
+; This file is the scene of the exercises: they load it with `load theory/groups-scene`. Don't
+; change it.
+load set
+infix ∘ 70 70
+arity inv 1
+const G, e, ∘, inv
+
+use $a ∈ G ∧ $b ∈ G  ⇒  $a ∘ $b ∈ G                                  "closed"
+use e ∈ G                                                            "e-in-G"
+use $a ∈ G  ⇒  inv($a) ∈ G                                           "inv-in-G"
+use $a ∈ G ∧ $b ∈ G ∧ $c ∈ G  ⇒  ($a ∘ $b) ∘ $c = $a ∘ ($b ∘ $c)     "assoc"
+use $a ∈ G  ⇒  e ∘ $a = $a                                           "left-neutral"
+use $a ∈ G  ⇒  inv($a) ∘ $a = e                                      "left-inverse"

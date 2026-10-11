@@ -1,0 +1,77 @@
+; CALCULUS: DERIVATIVES AND INTEGRALS
+;
+; The exercises use Kurt's theories of derivatives and integrals (derivative.kurt, integral.kurt,
+; with analysis.kurt and numbers.kurt). Functions are written as terms in a variable, which the
+; operators bind:
+;
+;     cont x a T              T (a term in x) is continuous in x at the point a
+;     diff x a T              T is differentiable in x at a
+;     deriv x a T             the derivative of T in x at a, d/dx T at x = a (a number)
+;     integrable x (a, b) T   T is integrable in x on [a, b]
+;     integral x (a, b) T     the integral of T in x from a to b
+;     abs(t)                  the absolute value |t|
+;
+; e.g. `(deriv x 2 (x ^ 2)) = 4` and `(integral x (0, 1) (2 * x)) = 1`. In a rule below, T(a)
+; stands for T with a in place of the variable (`sub x a T`), and c for a constant (a term that
+; doesn't contain the variable).
+;
+; The definitions, by ε and δ:
+;
+;     "cont-def"      cont x a T ⇔ ∀ e > 0 ∃ d > 0 ∀ y (abs(y - a) < d ⇒ abs(T(y) - T(a)) < e)
+;     "diff-def"      diff x a T ⇔ ∃ L ∀ e > 0 ∃ d > 0 ∀ h ((0 < abs(h) ∧ abs(h) < d)
+;                                                        ⇒ abs((T(a + h) - T(a)) / h - L) < e)
+;     "deriv-intro"   (∀ e > 0 ∃ d > 0 ∀ h ((0 < abs(h) ∧ abs(h) < d)
+;                                ⇒ abs((T(a + h) - T(a)) / h - L) < e))  ⇒  deriv x a T = L
+;     "diff-cont"     diff x a T ⇒ cont x a T
+;
+; The rules of differentiation -- each one needs its parts differentiable:
+;
+;     "diff-const"    diff x a c                    "deriv-const"   deriv x a c = 0
+;     "diff-id"       diff x a x                    "deriv-id"      deriv x a x = 1
+;     "diff-pow"      n ∈ Nat ⇒ diff x a (x ^ n)    "deriv-pow"     n ∈ Nat ⇒ deriv x a (x ^ n) = n * a ^ (n - 1)
+;     "diff-add", "deriv-add"     diff x a S ∧ diff x a T ⇒ deriv x a (S + T) = deriv x a S + deriv x a T
+;     "diff-sub", "deriv-sub"     the same for S - T
+;     "diff-scale", "deriv-scale" diff x a T ⇒ deriv x a (c * T) = c * deriv x a T
+;     "diff-mul", "deriv-mul"     diff x a S ∧ diff x a T
+;                                   ⇒ deriv x a (S * T) = deriv x a S * T(a) + S(a) * deriv x a T
+;     "diff-div", "deriv-div"     the quotient rule, also with T(a) ≠ 0
+;     "diff-chain", "deriv-chain" the chain rule, for an outer function U (a term in another
+;                                 variable, say y) and an inner one S (in x):
+;                                   diff x a S ∧ diff y S(a) U
+;                                   ⇒ deriv x a U(S) = deriv y S(a) U * deriv x a S
+;
+; ("diff-..." gives `diff x a ...` with the same premises as "deriv-...".)
+;
+; Integrals:
+;
+;     "integrable-cont"   a <= b ∧ (∀ y ((a <= y ∧ y <= b) ⇒ cont x y T)) ⇒ integrable x (a, b) T
+;     "integrable-add", "integrable-scale", "integrable-split"   sums, constant multiples, parts
+;     "integral-add"      a <= b ∧ integrable x (a, b) S ∧ integrable x (a, b) T
+;                           ⇒ integral x (a, b) (S + T) = integral x (a, b) S + integral x (a, b) T
+;     "integral-scale"    a <= b ∧ integrable x (a, b) T ⇒ integral x (a, b) (c * T) = c * integral x (a, b) T
+;     "integral-const"    integral x (a, b) c = c * (b - a)
+;     "integral-split", "integral-swap", "integral-empty", "integral-mono"
+;     "ftc"               the fundamental theorem of calculus: for an antiderivative F of T on [a, b],
+;                           a <= b ∧ integrable x (a, b) T
+;                           ∧ (∀ y ((a <= y ∧ y <= b) ⇒ diff x y F ∧ deriv x y F = T(y)))
+;                           ⇒ integral x (a, b) T = F(b) - F(a)
+;     "ftc-diff", "ftc-deriv"   the integral as a function of its upper end
+;
+; and the laws of numbers (numbers.kurt) and of abs (analysis.kurt: "abs-nonneg", "abs-zero",
+; "abs-mul", "abs-triangle", ...).
+;
+; Computing: `calc on` computes with numbers (`2 * 3 + 1` is `7`, `2 ∈ Nat`). Kurt applies the
+; rules of derivatives and integrals best with `calc off`: switch it on for a step that computes
+; and off again, e.g.
+;
+;     calc on
+;     2 ∈ Nat
+;     calc off
+;     (deriv x 2 (x ^ 2)) = 2 * 2 ^ (2 - 1)       ; by deriv-pow
+;     calc on
+;     (deriv x 2 (x ^ 2)) = 4
+;     calc off
+;
+; This file is the scene of the exercises: they load it with `load theory/calculus`. Don't change
+; it.
+load derivative, integral

@@ -8,58 +8,68 @@ use $x ∈ V  ⇒  f($x) ∈ V                                             "f-ma
 use $x ∈ V ∧ $y ∈ V  ⇒  f($x + $y) = f($x) + f($y)                   "f-additive"
 use $a ∈ K ∧ $x ∈ V  ⇒  f($a · $x) = $a · f($x)                      "f-homogeneous"
 
-; v is an eigenvector of f for the eigenvalue λ
+; Definition: v is an eigenvector of f for the eigenvalue λ
 arity eigenvector 2
 def eigenvector($v, $l)  ⇔  f($v) = $l · $v ∧ $v ≠ 0                 "eigenvector"
 
-; E_λ = Kern(f - λ Id), the eigenspace
+; Definition: the eigenspace E_λ = Kern(f - λ Id)
 arity E 1
 def E($l) = { $v ∈ V | f($v) = $l · $v }                             "eigenspace"
 
-; Theorem: λ ≠ μ ⇒ E_λ ∩ E_μ = {0} -- "⊂": f(v) = λ v and f(v) = μ v give v = 0
-show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ f($v) = $l · $v ∧ f($v) = $m · $v  ⇒  $v = 0   "eigenspaces-meet"
+; Satz: λ ≠ μ ⇒ E_λ ∩ E_μ = {0}, i.e. (as on the slide) v ∈ E_λ ∩ E_μ ⇔ v = 0
+show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m  ⇒  ∀ $v ($v ∈ E($l) ∩ E($m)  ⇔  $v = 0)   "eigenspaces-meet"
 proof
-    assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m ∧ $v ∈ V ∧ f($v) = $l · $v ∧ f($v) = $m · $v
+    assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m
         $l ∈ K
         $m ∈ K
         $l ≠ $m
-        $v ∈ V
-        f($v) = $l · $v
-        f($v) = $m · $v
-        ; (λ - μ) v = λ v - μ v = 0
-        - $m ∈ K
-        $l + (- $m) ∈ K
-        $m · $v ∈ V
-        ($l + (- $m)) · $v = $l · $v + (- $m) · $v
-                           = $l · $v + (- ($m · $v))
-                           = $m · $v + (- ($m · $v))
-                           = 0
-        ; λ - μ ≠ 0, so we can divide by it
-        assume $l + (- $m) = 0
-            $l = $m ∧ ¬($l = $m)
-            ⊥
-        $l + (- $m) ≠ 0
-        inv ($l + (- $m)) ∈ K                           ; K-inv
-        $v = 1 · $v
-           = (inv ($l + (- $m)) · ($l + (- $m))) · $v
-           = inv ($l + (- $m)) · (($l + (- $m)) · $v)
-           = inv ($l + (- $m)) · 0
-           = 0
-qed
-
-; "⊃": 0 is in every eigenspace
-show $l ∈ K  ⇒  0 ∈ E($l)                                            "eigenspace-zero"
-proof
-    assume $l ∈ K
-        0 ∈ V
-        0 · 0 = 0                                       ; zero-times-vector
-        f(0) ∈ V
-        f(0) = f(0 · 0)
-             = 0 · f(0)
-             = 0
-        $l · 0 = 0                                      ; times-zero
-        f(0) = $l · 0
-        0 ∈ V ∧ f(0) = $l · 0
-        0 ∈ { $v ∈ V | f($v) = $l · $v }                ; separation
-        0 ∈ E($l)
+        let v
+            ; "⇒"
+            assume v ∈ E($l) ∩ E($m)
+                v ∈ E($l) ∧ v ∈ E($m)
+                v ∈ E($l)
+                v ∈ { $w ∈ V | f($w) = $l · $w }
+                v ∈ V ∧ f(v) = $l · v                   ; separation
+                v ∈ E($m)
+                v ∈ { $w ∈ V | f($w) = $m · $w }
+                v ∈ V ∧ f(v) = $m · v
+                v ∈ V
+                f(v) = $l · v
+                f(v) = $m · v
+                $l · v = $m · v
+                ; (λ - μ) v = λ v - μ v = 0
+                - $m ∈ K
+                $m · v ∈ V
+                $l - $m ∈ K
+                $l - $m = $l + (- $m)
+                ($l - $m) · v = ($l + (- $m)) · v
+                              = $l · v + (- $m) · v
+                              = $l · v + (- ($m · v))
+                              = $m · v + (- ($m · v))
+                              = 0
+                ; v = 0, since λ - μ ≠ 0
+                $l - $m ≠ 0                             ; difference-nonzero
+                inv ($l - $m) ∈ K
+                v = 1 · v
+                  = (inv ($l - $m) · ($l - $m)) · v
+                  = inv ($l - $m) · (($l - $m) · v)
+                  = inv ($l - $m) · 0
+                  = 0
+            ; "⇐": f(0) = 0 = λ 0 and f(0) = 0 = μ 0
+            assume v = 0
+                0 ∈ V
+                0 · 0 = 0                               ; zero-times-vector
+                f(0) ∈ V
+                f(0) = f(0 · 0)
+                     = 0 · f(0)
+                     = 0
+                f(0) = $l · 0
+                f(0) = $m · 0
+                0 ∈ { $w ∈ V | f($w) = $l · $w }        ; separation
+                0 ∈ E($l)
+                0 ∈ { $w ∈ V | f($w) = $m · $w }
+                0 ∈ E($m)
+                0 ∈ E($l) ∩ E($m)
+                v ∈ E($l) ∩ E($m)
+            v ∈ E($l) ∩ E($m)  ⇔  v = 0
 qed
