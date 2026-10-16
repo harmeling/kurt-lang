@@ -1,0 +1,19 @@
+; the first line of a chain may rewrite inside its left side, with a rule that has a condition --
+; as `L = L` were the line before it (since 2026-10-12; before, the equation it uses needed a line
+; of its own)
+load equality, logic, set
+const G, e, a
+infix ∘ 70 70
+arity inv 1
+use $a ∈ G  ⇒  inv($a) ∘ $a = e                     "left-inverse"
+use $a ∈ G  ⇒  e ∘ $a = $a                          "left-neutral"
+use a ∈ G
+
+a ∘ e = a ∘ (inv(a) ∘ a)                           ; by left-inverse, inside
+(e ∘ a) ∘ e = a ∘ e                                 ; by left-neutral, inside (from the right)
+; a chain that starts so
+a ∘ e = a ∘ (inv(a) ∘ a)
+      = a ∘ (inv(a) ∘ (e ∘ a))
+; not an equation that no rule gives
+expect "ProofError"
+    a ∘ e = e ∘ (a ∘ a)

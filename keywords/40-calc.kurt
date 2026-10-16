@@ -5,10 +5,12 @@
 ; `+ - * / ^` and the comparisons:
 ;
 ;     builtin + add, - subtract, - negate, * multiply, / divide, ^ power
-;     builtin = eq, ≠ ne, < lt, <= le, > gt, >= ge
+;     builtin = eq, < lt, <= le
 ;
-; and `calc on` / `calc off` switches computing on and off. Here, without
-; numbers.kurt, with a `+` of our own:
+; (`>`, `>=` and `≠` are read as `<`, `<=` and `¬(... = ...)` there, by
+; `inline`, 46-inline.kurt) and `calc on` / `calc off` switches computing on
+; and off. `builtin` itself is the topic of 45-builtin.kurt; used here a
+; little early. Here, without numbers.kurt, with a `+` of our own:
 
 load equality
 infix "+" 30 30
@@ -16,13 +18,14 @@ builtin + add         ; `+` is the calculator's addition
                       ; fixed calculator meaning also makes `+` a constant
 
 calc on
-1 + 1 = 2             ; computed to `2 = 2`, then "equal-intro"
+1 + 1 = 2             ; `1 + 1` is computed to `2`, then `2 = 2` holds by equal-intro
+                      ; (`=` isn't bound to the calculator here; the line stays as written)
 
-; With `calc off` (the default), the same claim really does fail: nothing
-; computes `1 + 1` anymore, and no axiom relates it to `2` (see 16-expect):
+; With `calc off` (the default), such a claim really does fail: nothing
+; computes `2 + 2` anymore, and no axiom relates it to `4` (see 16-expect):
 calc off
 expect "ProofError"
-    1 + 1 = 2
+    2 + 2 = 4
 
 ; A comparison of two numbers is computed too, once its symbol is bound:
 infix < 20 20

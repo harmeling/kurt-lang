@@ -1,9 +1,8 @@
 ; derivatives
 ;
-; covers: continuity `cont x a T` ("`T` is continuous in `x` at `a`"), differentiability
-; `diff x a T` ("`T` is differentiable in `x` at `a`") and the derivative `deriv x a T` (the
-; derivative of `T` in `x` at the point `a`, d/dx T at x = a) -- defined by ε and δ (as `lim` in
-; analysis.kurt); the rules of differentiation (constant, `x`, sum, difference, constant factor,
+; covers: for continuity `cont x a T`, differentiability `diff x a T` and the derivative
+; `deriv x a T` (d/dx T at x = a) -- declared and defined by ε and δ in continuity.kurt, which this
+; file loads -- the rules of differentiation (constant, `x`, sum, difference, constant factor,
 ; product, quotient, powers, chain rule), each with the differentiability it needs; Fermat's
 ; theorem (a local maximum or minimum where the derivative exists) and the mean value theorem.
 ; See proofs/analysis/ for worked examples.
@@ -23,22 +22,11 @@
 ; binders (the premise `$c = $c` of "deriv-const", the factor of "deriv-scale").
 ;
 ; These rules are theorems of real analysis, stated as axioms (their proofs need the
-; completeness of the real numbers, which numbers.kurt doesn't have): the definitions
-; "cont-def", "diff-def", "deriv-intro", and the rest -- each needs the conditions of the theorem.
+; completeness of the real numbers, which numbers.kurt doesn't have) -- each needs the conditions
+; of the theorem. (The definitions "cont-def", "diff-def", "deriv-intro" are continuity.kurt's.)
 load prop, equality, logic, set, numbers, natural, analysis
+load continuity             ; `cont`, `diff`, `deriv` and their definitions (by ε and δ)
 
-;; syntax
-const cont, diff, deriv
-arity cont 3, diff 3, deriv 3
-bindop cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
-bool cont 0, diff 0
-
-;; definitions, by ε and δ
-use (cont $v $a $T)  ⇔  ∀ $e > 0 ∃ $d > 0 ∀ $y (abs($y - $a) < $d  ⇒  abs((sub $v $y $T) - (sub $v $a $T)) < $e)   "cont-def"
-; differentiable: the difference quotient has a limit `$L` for `$h` going to 0 -- and then the
-; derivative is that limit
-use (diff $v $a $T)  ⇔  ∃ $L ∀ $e > 0 ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d)  ⇒  abs(((sub $v ($a + $h) $T) - (sub $v $a $T)) / $h - $L) < $e)   "diff-def"
-use (∀ $e > 0 ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d)  ⇒  abs(((sub $v ($a + $h) $T) - (sub $v $a $T)) / $h - $L) < $e))  ⇒  (deriv $v $a $T) = $L   "deriv-intro"
 
 ;; differentiable functions are continuous
 use (diff $v $a $T)  ⇒  cont $v $a $T                                    "diff-cont"
@@ -58,8 +46,9 @@ use (diff $v $a $S) ∧ (diff $v $a $T)  ⇒  diff $v $a ($S * $T)          "dif
 use (diff $v $a $S) ∧ (diff $v $a $T)  ⇒  (deriv $v $a ($S * $T)) = (deriv $v $a $S) * (sub $v $a $T) + (sub $v $a $S) * (deriv $v $a $T)   "deriv-mul"
 use (diff $v $a $S) ∧ (diff $v $a $T) ∧ (sub $v $a $T) ≠ 0  ⇒  diff $v $a ($S / $T)   "diff-div"
 use (diff $v $a $S) ∧ (diff $v $a $T) ∧ (sub $v $a $T) ≠ 0  ⇒  (deriv $v $a ($S / $T)) = ((deriv $v $a $S) * (sub $v $a $T) - (sub $v $a $S) * (deriv $v $a $T)) / (sub $v $a $T) ^ 2   "deriv-div"
-use $n ∈ Nat  ⇒  diff $v $a ($v ^ $n)                                    "diff-pow"
-use $n ∈ Nat  ⇒  (deriv $v $a ($v ^ $n)) = $n * $a ^ ($n - 1)            "deriv-pow"
+; (for `$n = 0`: `$v ^ 0` is undefined at 0 -- numbers.kurt leaves `0 ^ 0` open -- so not these rules)
+use ($n ∈ Nat ∧ 0 < $n)  ⇒  diff $v $a ($v ^ $n)                          "diff-pow"
+use ($n ∈ Nat ∧ 0 < $n)  ⇒  (deriv $v $a ($v ^ $n)) = $n * $a ^ ($n - 1)  "deriv-pow"
 ; the chain rule: `$T` is the outer function (of `$w`), `$S` the inner one (of `$v`)
 use (diff $v $a $S) ∧ (diff $w (sub $v $a $S) $T)  ⇒  diff $v $a (sub $w $S $T)   "diff-chain"
 use (diff $v $a $S) ∧ (diff $w (sub $v $a $S) $T)  ⇒  (deriv $v $a (sub $w $S $T)) = (deriv $w (sub $v $a $S) $T) * (deriv $v $a $S)   "deriv-chain"

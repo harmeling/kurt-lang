@@ -2,7 +2,7 @@
 ; parsed as one expression, its tokens are split at commas -- which used to split inside brackets
 ; too ("one `pick` per line")
 load set
-arity P 2
+arity P (_, _)
 const Q
 use ∃ $x P($x, $x)
 pick m with P(m, m)

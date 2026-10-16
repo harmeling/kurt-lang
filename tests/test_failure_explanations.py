@@ -51,5 +51,16 @@ class TestFailureExplanations(unittest.TestCase):
         self.assertNotIn('%%', result.error or '')
 
 
+
+class TestMissingConditions(unittest.TestCase):
+    def test_the_condition_of_a_fact_is_named_and_the_catch_alls_come_last(self):
+        # since 2026-10-12: before, the list had "bottom-elim" and "forall-elim" (and for an
+        # `=` "extensionality") but not the missing condition of the fact `∀ y ∈ A (y ∈ B)`
+        result = kurt.check_text('load set\nconst A, B, x\nuse ∀ y ∈ A (y ∈ B)\nx ∈ B\n')
+        self.assertFalse(result.ok)
+        self.assertIn('`line 3`: missing `x ∈ A`', result.error)
+        self.assertNotIn('bottom-elim', result.error)
+        self.assertNotIn('extensionality', result.error)
+
 if __name__ == '__main__':
     unittest.main()

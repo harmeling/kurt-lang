@@ -3,6 +3,7 @@ load integral
 calc on
 0 <= 1
 2 ∈ Nat
+0 < 2
 let y
     assume 0 <= y ∧ y <= 1
         diff x y (x ^ 2)

@@ -1,0 +1,14 @@
+; a theory that only declares (todo 28): its top-level declarations are its vocabulary, exported
+const pi
+infix ++ 50 50
+arity g (_, _)
+bool P 0 1
+tex pi \pi
+const helper local        ; not exported
+var x                     ; not exported: a loader's `x` stays its own
+sandbox
+    const inner           ; in a block: not exported
+    break
+load prop
+bool D
+def D iff true local "d"  ; a `local` def: its symbol stays with it, though declared

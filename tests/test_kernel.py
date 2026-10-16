@@ -60,6 +60,9 @@ def check_during_run(text: str, variants) -> list[tuple[kurt.Certificate, dict]]
     verify = kurt.kernel_verify
     def recording(cert, kb):
         verdicts = {'as is': verify(cert, kb)}
+        here = kurt.run_state.current_line[0]
+        if here is None or not here[0].endswith('kernel-test.kurt'):
+            return verdicts['as is']                # (a step of a theory it loads: checked when the cache is cold)
         for name, changed in variants(cert, kb).items():
             verdicts[name] = verify(changed, kb)
         seen.append((cert, verdicts))
@@ -152,6 +155,17 @@ class TestKernelRejects(unittest.TestCase):
         text = '\n'.join(['load logic', 'bool R, Q', 'arity R 2', 'const R, Q, c',
                           'use (forall $x (R $x $T)) implies Q', 'use R $a c', 'use R $b $b', 'Q'])
         self.assert_rejected(self.verdicts(text, variants), {'eigen': 'depends on the fresh variables'})
+
+    def test_the_fresh_variables_are_fresh(self):
+        # the `∀` premise stripped with a constant, or with the variable an `assume` fixed: "for all"
+        # out of "for this one" -- accepted until 2026-10-14 (the kernel only checked that the names
+        # got no value; found by the kernel bug hunt)
+        def variants(cert, kb):
+            return {'a constant': dataclasses.replace(cert, premise_fresh=('c',)),
+                    'a fixed variable': dataclasses.replace(cert, premise_fresh=('x',))}
+        text = '\n'.join(['load logic', 'bool R, Q', 'arity R 2', 'const R, Q, c', 'var x',
+                          'use (forall $x (R $x $T)) implies Q', 'use R $a c', 'assume R x x', '    Q'])
+        self.assert_rejected(self.verdicts(text, variants), {'a constant': 'not fresh', 'a fixed variable': 'not fresh'})
 
     def test_no_capture(self):
         # `$T` in `∃ $y (R $y $T)` is one fixed term: it can't be the bound `$y`
@@ -297,6 +311,12 @@ class TestCertCommand(unittest.TestCase):
         self.assertIn('; lines 2-3:', out)
         self.assertIn('"impl-intro", closing the block `assume P`', out)
         self.assertIn('; lines 7-8: no certificate', out)
+
+    def test_a_case_block_by_its_keyword(self):
+        # `case B` opens an `assume` level: its closing said "closing the block `assume B`" (2026-10-14)
+        out = self.output('load prop\nbool A, B, C\nuse A or B\nuse A implies C\nuse B implies C\nshow C\nproof\n'
+                          '    case A\n        C\n    case B\n        C\nqed\ncert 12')
+        self.assertIn('"impl-intro", closing the block `case B`', out)
 
     def test_a_failed_line_has_no_certificate(self):
         out = self.output('load prop\nbool A, B\nuse A\nexpect "ProofError"\n    A ∧ B\ncert 5')

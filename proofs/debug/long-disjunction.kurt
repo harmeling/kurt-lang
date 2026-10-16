@@ -1,0 +1,10 @@
+; a disjunction of 30 alternatives is derived at once (since 2026-10-12): rules like
+; "excluded-middle", `%A ∨ ¬%A`, were matched against it by splitting the 30 into two groups in
+; every way (2^29) -- now `¬%A`, which can only be one alternative, is matched first
+load set
+const a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, x, P
+use x ∈ {a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29}
+x = a0 ∨ x = a1 ∨ x = a2 ∨ x = a3 ∨ x = a4 ∨ x = a5 ∨ x = a6 ∨ x = a7 ∨ x = a8 ∨ x = a9 ∨ x = a10 ∨ x = a11 ∨ x = a12 ∨ x = a13 ∨ x = a14 ∨ x = a15 ∨ x = a16 ∨ x = a17 ∨ x = a18 ∨ x = a19 ∨ x = a20 ∨ x = a21 ∨ x = a22 ∨ x = a23 ∨ x = a24 ∨ x = a25 ∨ x = a26 ∨ x = a27 ∨ x = a28 ∨ x = a29
+use P ⇒ (x = a0 ∨ x = a1 ∨ x = a2 ∨ x = a3 ∨ x = a4 ∨ x = a5 ∨ x = a6 ∨ x = a7 ∨ x = a8 ∨ x = a9 ∨ x = a10 ∨ x = a11 ∨ x = a12 ∨ x = a13 ∨ x = a14 ∨ x = a15 ∨ x = a16 ∨ x = a17 ∨ x = a18 ∨ x = a19 ∨ x = a20 ∨ x = a21 ∨ x = a22 ∨ x = a23 ∨ x = a24 ∨ x = a25 ∨ x = a26 ∨ x = a27 ∨ x = a28 ∨ x = a29 ∨ x = x)
+use P
+x = a0 ∨ x = a1 ∨ x = a2 ∨ x = a3 ∨ x = a4 ∨ x = a5 ∨ x = a6 ∨ x = a7 ∨ x = a8 ∨ x = a9 ∨ x = a10 ∨ x = a11 ∨ x = a12 ∨ x = a13 ∨ x = a14 ∨ x = a15 ∨ x = a16 ∨ x = a17 ∨ x = a18 ∨ x = a19 ∨ x = a20 ∨ x = a21 ∨ x = a22 ∨ x = a23 ∨ x = a24 ∨ x = a25 ∨ x = a26 ∨ x = a27 ∨ x = a28 ∨ x = a29 ∨ x = x

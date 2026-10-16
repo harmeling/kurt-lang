@@ -5,8 +5,8 @@
 ; `∀ x ∀ y ((x, y) ∈ S ⇔ (x, y) ∈ R ∧ x ≠ y)` of each part. Replace each `todo` by a proof;
 ; don't change the `show` lines. Check with `kurt 4-strict-order.kurt`.
 ;
-; `x ≠ y` and `¬(x = y)` follow from each other ("not-equal-elim", "not-equal-intro" in
-; equality.kurt), and `x = x` holds for each x.
+; `x ≠ y` is read as `¬(x = y)` (equality.kurt): the same, nothing to switch; and `x = x` holds
+; for each x.
 
 load theory/relations
 const A, R, S

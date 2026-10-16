@@ -3,8 +3,7 @@
 ; covers: `Nat` membership (0 is a natural number, and the successor of any natural number is
 ; a natural number) and the induction principle (a property true at 0 and preserved by
 ; successor is true of every natural number) -- see proofs/natural-numbers/induction.kurt for
-; a worked example, including the "state base case and step as one conjunction" pattern
-; `impl_elim`'s single-hop derivation needs to apply "induction" in one step.
+; a worked example: with the base case and the step as two facts, "induction" applies in one step.
 ;
 ; also: `0 <= n`, so `n + 1 ≠ 0` and every n ≠ 0 has a predecessor; no natural number between
 ; n and n + 1; the well-ordering principle (from induction); even and odd numbers (every number is
@@ -20,6 +19,7 @@ load logic
 ;; inference rules
 const Nat
 builtin Nat naturals                   ; `calc on` proves `3 ∈ Nat`
+tex Nat \mathbb{N}
 
 use 0 in Nat  "nat-zero"
 use $n in Nat  implies  $n+1 in Nat  "nat-succ"
@@ -547,7 +547,7 @@ proof
 qed
 
 ; coprime: 1 is the only common divisor
-arity coprime 2
+arity coprime (_, _)
 def coprime($a, $b)  ⇔  ∀ $d ∈ Nat ($d ∣ $a ∧ $d ∣ $b  ⇒  $d = 1)     "coprime"
 
 show coprime($a, $b)  ⇒  ¬(even $a ∧ even $b)     "coprime-not-both-even"
@@ -569,3 +569,14 @@ proof
             2 = 1 ∧ ¬(2 = 1)
             false
 qed
+
+; sets of numbers with `...` (an arithmetic progression): `{a, ..., c}` the numbers from `a` to
+; `c` in steps of one, `{a, b, ..., c}` and `{a, b, ...}` in steps of `b - a` (for `a < b`), with
+; or without an end -- Kurt refuses other lists with `...`: their pattern would be a guess
+; (`{2, 3, 5, 7, 11, ...}`; write `{p ∈ Nat | ...}`), see dev/design-sets-and-brackets.md §7
+use $x ∈ {$a, ..., $c}  ≡  ∃ $k ∈ Nat ($x = $a + $k ∧ $x <= $c)                                 "range"
+use $x ∈ {$a, ...}  ≡  ∃ $k ∈ Nat ($x = $a + $k)                                              "range-infinite"
+use $a < $b ∧ $x ∈ {$a, $b, ..., $c}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($b - $a) ∧ $x <= $c)   "progression"
+use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a) ∧ $x <= $c))  ⇒  $x ∈ {$a, $b, ..., $c}  "progression-intro"
+use $a < $b ∧ $x ∈ {$a, $b, ...}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($b - $a))                  "progression-infinite"
+use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a)))  ⇒  $x ∈ {$a, $b, ...}                "progression-infinite-intro"

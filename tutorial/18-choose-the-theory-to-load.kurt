@@ -6,13 +6,17 @@
 ; |---|---|
 ; | `prop` | `not`, `or`, `iff`, contradiction, propositional introduction/elimination rules |
 ; | `logic` | `forall`, `exists`, conditioned quantifier rules; loads `prop` |
-; | `equality` | `=`, `!=`/`≠`, reflexivity and substitution; loads `prop` |
+; | `equality` | `=`, `≠` (`\ne`), reflexivity and substitution; loads `prop` |
 ; | `set` | membership, subsets, separation, union/intersection, products, tuples, mappings |
 ; | `numbers` | exact calculation bindings, algebraic laws, order, powers, factorial |
 ; | `natural` | natural numbers: induction, the predecessor, well-ordering, even and odd, divisibility `∣`, `coprime` |
 ; | `integer` | the integers `Int` |
 ; | `rational` | the rationals `Rat`, every positive rational in lowest terms |
 ; | `analysis` | absolute value, finite sums, extrema, suprema/infima, limits |
+; | `continuity` | continuity, differentiability and the derivative by their definitions; loads `analysis` |
+; | `derivative` | the rules for derivatives; loads `continuity` |
+; | `integral` | the integral and integrability, their rules |
+; | `sequences` | limits of sequences, series, the geometric series |
 ; | `group` | reusable group structure and derived group theorems |
 ; | `field` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1`: every axiom for the elements of `K`, subtraction |
 ; | `vectorspace` | vector spaces over `K`: `vectorspace($V)`, the axioms for its elements |
@@ -20,8 +24,9 @@
 ; | `modal` | modal logic T: `□`, `◇`, theorems `⊢ A`, modus ponens and necessitation (lesson 28) |
 ; | `lambda` | the simply typed lambda calculus: typing `Γ ⊢ M : A`, reduction `↦`, evaluation `⇝` (lesson 27) |
 ;
-; Nothing needs to be loaded for `implies`, `and`, and `true`: they belong to the core, which every
-; file starts with (`minimal.kurt`, which Kurt reads when it starts; it is never loaded).
+; Nothing needs to be loaded to write `implies`, `and`, and `true`: they belong to the core, which
+; every file starts with (`minimal.kurt`, which Kurt reads when it starts; it is never loaded). Their
+; rules beyond modus ponens and `and-intro` -- `and-elim`, ... -- come with `prop`.
 ;
 ; Numbers or structures: `numbers` (and `natural`, `integer`, `rational`, `analysis`, which load
 ; it) is about numbers -- its laws hold for everything written with `+`, `*`, ... For linear

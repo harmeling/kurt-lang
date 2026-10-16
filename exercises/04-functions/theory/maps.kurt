@@ -36,7 +36,7 @@ load set
 
 infix ∘ 60 60           ; stronger than ∈, ∪, ∩: `g ∘ f : A → C` is `(g ∘ f) : (A → C)`
 const ∘
-arity injective 2, surjective 3, bijective 3
+arity injective (_, _), surjective (_, _, _), bijective (_, _, _)
 bool injective 0, surjective 0, bijective 0
 
 ; a map takes the elements of A to elements of B

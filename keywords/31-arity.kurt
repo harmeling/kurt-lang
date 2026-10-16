@@ -10,7 +10,29 @@ arity f 2
 var a, b
 parse f a b              ; (f a b)
 
-; Compare this with `doc/kurt-doc.md`'s note on `arity` vs `prefix`: `arity`
+; the shape of the arguments, as the symbol is used: `_` for an argument, `(_, _)`
+; for a pair -- `g(a, b)` is `g` applied to one argument, the pair `(a, b)`, and
+; Kurt checks each use (`g(a, b, c)` is an error, and so is `g(c)` for a constant `c`;
+; `g(a)` with the variable `a` is fine: a variable may stand for a pair)
+arity g (_, _)
+parse g(a, b)            ; (g (() (, a b))): `()` is the tuple, `,` the list in it
+
+; the shape can mix both: a finite sum `mysum i (1, n) T` takes the variable,
+; the range as a pair, and the body -- three arguments, the second a pair. This is
+; how analysis.kurt declares its `sum` (`arity sum _ (_, _) _`, also a `bindop`,
+; 32-bindop.kurt), and integral.kurt its `integral`.
+load numbers
+var n
+arity mysum _ (_, _) _
+parse mysum i (1, n) (i * i)          ; (mysum i (() (, 1 n)) (* i i))
+expect "EvalError" "got `mysum i 1 (i * i)`"
+    parse mysum i 1 (i * i)           ; the range must be a pair
+
+; without `arity`, a symbol is curried and nothing is checked: `h a b` is
+; `(h a) b`, stored as one call
+parse h a b              ; (h a b)
+
+; Compare `arity` with `prefix` (28-prefix.kurt; doc/dev-notes.md has the history): `arity`
 ; fixes both how many arguments a symbol takes *and* the binding power used
 ; to grab them (space's), while `prefix` lets you pick a custom binding
 ; power for a single argument instead.

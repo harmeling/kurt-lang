@@ -1,0 +1,26 @@
+; a rewriting step may change a part of the arguments of a flat operator (since 2026-10-12): in
+; `x·x + x + (- x) + (- 1)` the part `x + (- x)`, though flattening removed that node -- any part
+; for a `sym` operator, only neighbours otherwise; before, the rule "x + (-x) = 0" didn't reach it
+load equality, logic, set
+const K, x, y, a, b, l, L
+infix + 60 60
+infix · 70 70
+prefix - 72
+flat +, ·
+sym +
+use $c ∈ K  ⇒  $c + (- $c) = 0                     "plus-minus"
+use $c ∈ K  ⇒  $c + 0 = $c                         "plus-zero"
+use $c ∈ K ∧ $d ∈ K  ⇒  $c · $d = $d · $c          "times-commutative"
+use x ∈ K
+use l ∈ K
+use a ∈ K
+use - 1 ∈ K
+
+use L = x · x + x + (- x) + (- 1)
+L = x · x + 0 + (- 1)                               ; `x + (- x)` inside the sum
+  = x · x + (- 1)                                   ; `0 + (- 1)`, a part again
+use y = b · l · a
+y = b · a · l                                       ; neighbours swapped
+; not two factors that aren't neighbours (`·` is not `sym`)
+expect "ProofError"
+    y = a · l · b

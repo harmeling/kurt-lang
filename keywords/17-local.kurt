@@ -16,10 +16,11 @@ expect "ProofError" "never declared"
     Q
 ; (`use Q` would not be an error: it just adds `Q` as a new axiom of this file.)
 
-; a symbol itself is exported exactly when some exported fact actually
-; mentions it -- there's no separate "export this symbol" step. `P` came
-; along because the exported fact "exported" mentions it; `Q` didn't, because
-; nothing exported mentions it.
+; a symbol itself is exported when an exported fact mentions it, or when the
+; file declares it at its top level (`const pi`, `bool P`, `infix ++ 50 50`,
+; ...: the file's vocabulary). `local` at the end of a declaration keeps it
+; inside: local-helper.kurt says `bool Q local`, and nothing exported
+; mentions `Q`, so `Q` didn't come along.
 
 ; `local` works the same way for `def` -- a defined symbol and the fact
 ; defining it travel together, or stay together:

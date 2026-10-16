@@ -47,7 +47,7 @@ jobs:
         run: python -m unittest
 
   lean:
-    # scripts/kurt2lean.py, checked again by the Lean of scripts/lean-toolchain (the tests are
+    # `kurt --lean`, checked again by the Lean of scripts/lean-toolchain (the tests are
     # skipped without Lean elsewhere; here KURT_REQUIRE_LEAN makes a missing or older Lean fail)
     runs-on: ubuntu-latest
     steps:
@@ -66,7 +66,7 @@ jobs:
         run: |
           pip install -e .
           lean --version
-          KURT_REQUIRE_LEAN=1 python -m unittest -v tests.test_kurt2lean
+          KURT_REQUIRE_LEAN=1 python -m unittest -v tests.test_export_lean
 
   package:
     # what users get from `pip install`: build the sdist and the wheel, install each into a clean
@@ -81,6 +81,7 @@ jobs:
 
       - name: Build the sdist and the wheel
         run: |
+          python scripts/build_certificates.py       # (the certificates of the theories, shipped)
           pip install build
           python -m build
 
@@ -95,4 +96,5 @@ jobs:
             cp modus-ponens.kurt /tmp/check/
             printf 'load natural, analysis, group\n0 ∈ Nat\n' > /tmp/check/theories.kurt
             (cd /tmp/check && /tmp/env/bin/kurt modus-ponens.kurt && /tmp/env/bin/python -m kurt theories.kurt)
+            /tmp/env/bin/python -c "import kurt.kurt as k, pathlib; assert len(list(pathlib.Path(k.__file__).parent.glob('theories/*.kurtc'))) > 10, 'no certificates of the theories'"
           done

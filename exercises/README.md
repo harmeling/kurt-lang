@@ -21,11 +21,20 @@ Replace the `todo` by your proof, and check the file:
     cd exercises/01-knights-and-knaves
     kurt 2-two-islanders.kurt
 
+(`kurt` is the command after `pip install -e .`, see the README; without it, `python -m kurt
+2-two-islanders.kurt` from the repository.)
+
 Kurt checks each line and says why it follows, or where it gets stuck. As long as `todo`s are
 left, it ends with `Proof almost checked: N todos.`; when every part is proven, with `Proof
 checked`. Don't change the `show` lines or the scene, and don't add axioms (`use`): your proof
 must follow from the scene. You may add lemmas of your own (`show ... proof ... qed`) before a
 part that needs them.
+
+**In the browser**, without installing Kurt: the playground ([www.kurt-lang.org](https://www.kurt-lang.org))
+has the exercises in its menu "exercises", and a link opens one directly, e.g.
+[`www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt`](https://www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt)
+-- a link a teacher can hand out. The playground keeps your text in the browser (download it
+with File, for grading).
 
 New to Kurt? The tutorial (`../tutorial/`, one task per lesson) shows how to prove an implication
 (`assume`), a negation (by contradiction), a `∀` (`let`), how to use a `∃` (`pick`), and how to
@@ -53,8 +62,8 @@ exercise, not the student's.
 | `05-relations/` | relations: equivalence relations and classes, partial and strict orders | `theory/relations.kurt` |
 | `06-groups/` | groups from weak axioms: right inverse and neutral element, uniqueness, equations, subgroups | `theory/groups-scene.kurt` |
 | `07-induction/` | induction: Peano arithmetic from scratch; sums and powers | `theory/peano.kurt`, `theory/recursion.kurt` |
-| `08-limits/` | limits of sequences with ε and N: first limits, limit laws, uniqueness | `theory/sequences.kurt` |
-| `09-calculus/` | derivatives and integrals: the rules, ε-δ, the fundamental theorem | `theory/calculus.kurt` |
+| `08-limits/` | limits of sequences with ε and N: first limits, limit laws, uniqueness | `theory/limits.kurt` |
+| `09-calculus/` | derivatives and integrals: the rules, ε-δ, the fundamental theorem | `theory/calculus.kurt`, `theory/definitions.kurt` |
 
 ## Writing an exercise
 

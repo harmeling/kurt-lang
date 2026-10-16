@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 import kurt
 
@@ -95,11 +97,40 @@ false
         self.assertIn('bool [ 0 1', result.output)
         self.assertNotIn('$$$', result.output)
         self.assert_rejected('brackets [ ]\nbool ]\n', 'left bracket')
-        self.assert_rejected('brackets [ ]\nbuiltin ] matrix\n', 'left bracket')
-        calc = kurt.check_text('brackets [ ]\nbuiltin [ matrix\n')
+        calc = kurt.check_text('brackets [ ]\nbuiltin [ ] matrixbrackets\n')
         self.assertTrue(calc.ok, calc.error)
-        self.assertIn('builtin [ matrix', calc.output)
+        self.assertIn('builtin [ ] matrixbrackets', calc.output)
         self.assertNotIn('$$$', calc.output)
+
+    def test_a_role_of_brackets_needs_a_declared_bracket_pair(self):
+        # until 2026-10-12 `builtin [ matrix` took any symbol, also one never declared a bracket
+        # (then nothing happened), and a bracket pair took any role (`builtin [ add`)
+        self.assert_rejected('builtin [ ] matrixbrackets\n', 'not a declared bracket pair')
+        self.assert_rejected('brackets ⟨ ⟩\nbuiltin [ ] matrixbrackets\n', 'not a declared bracket pair')
+        self.assert_rejected('brackets [ ]\nbrackets ⟨ ⟩\nbuiltin [ ⟩ matrixbrackets\n', 'not a declared bracket pair')
+        self.assert_rejected('brackets [ ]\nbuiltin ] [ matrixbrackets\n', 'not a declared bracket pair')
+        self.assert_rejected('brackets [ ]\nbuiltin [ matrixbrackets\n', 'give both brackets')
+        self.assert_rejected('brackets [ ]\nbuiltin [ add\n', 'only takes a role of a bracket pair')
+        self.assert_rejected('brackets [ ]\nbuiltin ] add\n', 'only takes a role of a bracket pair')
+        self.assert_rejected('brackets [ ]\nbuiltin [ ] add\n', 'not a role of a bracket pair')
+        shown = kurt.check_text('brackets [ ]\nbuiltin [ ] matrixbrackets\nbuiltin\n')
+        self.assertTrue(shown.ok, shown.error)
+        self.assertIn('builtin [ ] matrixbrackets', shown.output)
+
+    def test_the_roles_of_sets_only_in_a_theory_of_kurt(self):
+        # `builtin { } setbrackets` changes which terms `{ }` makes (since 2026-10-12): a role of
+        # the engine, not for a file of one's own; `setbuilder` needs an infix binder and the
+        # brackets of sets
+        self.assert_rejected('brackets { }\nbuiltin { } setbrackets\n', 'only be given by a theory that comes with Kurt')
+        self.assert_rejected('infix | 10 10\nbindop |\nbuiltin | setbuilder\n', 'only be given by a theory that comes with Kurt')
+        for source, text in (('infix | 10 10\nbindop |\nbuiltin | setbuilder\n', 'brackets of sets first'),
+                             ('brackets { }\nbuiltin { } setbrackets\nconst |\nbuiltin | setbuilder\n', 'infix binder'),
+                             ('brackets { }\nbuiltin { } setbrackets\nuse {} = {}\n', 'emptyset')):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as folder:
+                Path(folder, 'roles.kurt').write_text(source, encoding='utf-8')     # trusted: found via `-p`
+                result = kurt.check_text('load roles\n', session=kurt.new_session(kurt.RunConfig(paths=(folder,))))
+                self.assertFalse(result.ok, result.output)
+                self.assertIn(text, result.error or '')
 
     def test_failed_declaration_batches_do_not_change_shell_state(self):
         cases = (

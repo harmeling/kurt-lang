@@ -58,7 +58,7 @@ qed
 ; (f) No number is its own successor. Induction on n again, now with "succ-ne-zero" for the base
 ;     case and "succ-inj" for the step.
 ;     Hint: in the step, assume `s (s n) = s n` and derive `false`. Kurt needs the induction
-;     hypothesis in the form `¬(s n = n)` for that; `s n ≠ n` gives it ("not-equal-elim").
+;     hypothesis in the form `¬(s n = n)` for that -- which is what `s n ≠ n` is read as.
 show ∀ $n (s $n ≠ $n)
 proof
     todo

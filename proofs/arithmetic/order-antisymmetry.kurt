@@ -1,6 +1,7 @@
-; coverage test: numbers.kurt's "le-ge-antisym" axiom, never exercised by any real proof before.
+; coverage test: numbers.kurt's "le-ge-antisym" axiom. `a`, `b` are constants: with `var a, b`
+; (until 2026-10-14) `use a <= b` was the schema `$a <= $b`, and `1 <= 0` followed.
 load numbers
-var a, b
+const a, b
 
 use a <= b
 use a >= b

@@ -37,6 +37,7 @@ use $c >= 0 ∧ $a <= $b  ⇒  $a * $c <= $b * $c    "le-mul-nonneg"
 ;; absolute value
 const abs
 arity abs 1
+tex abs \left|$1\right|
 use $a >= 0  ⇒  abs($a) = $a                "abs-nonneg"
 use $a < 0  ⇒  abs($a) = -$a                "abs-neg"
 use abs($a) >= 0                            "abs-ge-zero"
@@ -47,8 +48,9 @@ use abs($a + $b) <= abs($a) + abs($b)       "abs-triangle"
 
 ;; finite sums: `sum i (a, b) T` is T(a) + T(a+1) + ... + T(b)
 const sum
-arity sum 3
+arity sum _ (_, _) _      ; the variable, the range `(a, b)`, the body
 bindop sum
+tex sum \sum_{$1=$2}^{$3} $4
 use (sum $i ($a, $a) $T) = sub $i $a $T                                       "sum-one"
 use (sum $i ($a, $b + 1) $T) = (sub $i ($b + 1) $T) + (sum $i ($a, $b) $T)   "sum-last"
 use (sum $i ($b + 1, $b) $T) = 0                                              "sum-empty"
@@ -58,6 +60,8 @@ const max, min
 arity max 2
 arity min 2
 bindop max, min
+tex max \max_{$1} $2
+tex min \min_{$1} $2
 use (sub $x $a %C) ∧ (∀ (sub $x $w %C) ((sub $v $w $T) <= (sub $v $a $T)))  ⇒  (max (sub $x $v %C) $T) = sub $v $a $T   "max-intro"
 use (sub $x $a %C) ∧ (∀ (sub $x $w %C) ((sub $v $w $T) >= (sub $v $a $T)))  ⇒  (min (sub $x $v %C) $T) = sub $v $a $T   "min-intro"
 
@@ -69,6 +73,8 @@ const argmax, argmin
 arity argmax 2
 arity argmin 2
 bindop argmax, argmin
+tex argmax \operatorname{arg\,max}_{$1} $2
+tex argmin \operatorname{arg\,min}_{$1} $2
 use ($a ∈ $A) ∧ (∀ ($w ∈ $A) ((sub $v $w $T) <= (sub $v $a $T)))  ⇒  (argmax $v ∈ $A $T) ∈ $A   "argmax-in"
 use ($a ∈ $A) ∧ (∀ ($w ∈ $A) ((sub $v $w $T) <= (sub $v $a $T)))  ⇒  ∀ ($w ∈ $A) ((sub $v $w $T) <= (sub $v (argmax $v ∈ $A $T) $T))   "argmax-max"
 use ($a ∈ $A) ∧ (∀ ($w ∈ $A) ((sub $v $w $T) >= (sub $v $a $T)))  ⇒  (argmin $v ∈ $A $T) ∈ $A   "argmin-in"
@@ -80,6 +86,8 @@ const sup, inf
 arity sup 2
 arity inf 2
 bindop sup, inf
+tex sup \sup_{$1} $2
+tex inf \inf_{$1} $2
 use (∀ (sub $x $w %C) ((sub $v $w $T) <= $b)) ∧ (sub $x $a %C)  ⇒  (sub $v $a $T) <= sup (sub $x $v %C) $T   "sup-upper"
 use (∀ (sub $x $w %C) ((sub $v $w $T) <= $b)) ∧ (sub $x $a %C)  ⇒  (sup (sub $x $v %C) $T) <= $b           "sup-least"
 use (∀ (sub $x $w %C) ((sub $v $w $T) >= $b)) ∧ (sub $x $a %C)  ⇒  (sub $v $a $T) >= inf (sub $x $v %C) $T   "inf-lower"
@@ -91,5 +99,26 @@ use (∀ (sub $x $w %C) ((sub $v $w $T) >= $b)) ∧ (sub $x $a %C)  ⇒  (inf (s
 const lim
 arity lim 3
 bindop lim
+tex lim \lim_{$1 \to $2} $3
 use (∀ $e > 0 ∃ $d > 0 ∀ $y ((0 < abs($y - $a) ∧ abs($y - $a) < $d)  ⇒  abs((sub $v $y $T) - $L) < $e))  ⇒  (lim $v $a $T) = $L   "lim-intro"
 use (∀ $d > 0 ∃ $y ((sub $x $y %C) ∧ 0 < abs($y - $a) ∧ abs($y - $a) < $d)) ∧ (∀ $e > 0 ∃ $d > 0 ∀ $y (((sub $x $y %C) ∧ 0 < abs($y - $a) ∧ abs($y - $a) < $d)  ⇒  abs((sub $v $y $T) - $L) < $e))  ⇒  (lim (sub $x $v %C) $a $T) = $L   "lim-cond-intro"
+
+;; "T tends to L for v going to a": `tends v a L T` -- the statement that the limit exists and is
+;; `L` (by ε and δ), which `lim v a T = L` can't say, since `lim` has a value for every argument.
+;; The limit laws are theorems of analysis, stated here as axioms (their proofs by ε and δ are
+;; long); continuity.kurt says continuity with it ("cont-tends").
+const tends
+arity tends 4
+bindop tends                    ; the variable, the point and the limit (outside), then the body
+bool tends 0
+tex tends $4 \underset{$1 \to $2}{\longrightarrow} $3
+use (tends $v $a $L $T)  ⇔  ∀ $e > 0 ∃ $d > 0 ∀ $y ((0 < abs($y - $a) ∧ abs($y - $a) < $d)  ⇒  abs((sub $v $y $T) - $L) < $e)   "tends-def"
+use (tends $v $a $L $T)  ⇒  (lim $v $a $T) = $L                                    "tends-lim"
+use (tends $v $a $L $T) ∧ (tends $v $a $M $T)  ⇒  $L = $M                          "tends-unique"
+use $c = $c  ⇒  tends $v $a $c $c                                                  "tends-const"    ; (`$c` doesn't depend on `$v`)
+use tends $v $a $a $v                                                              "tends-id"
+use (tends $v $a $L $S) ∧ (tends $v $a $M $T)  ⇒  tends $v $a ($L + $M) ($S + $T)   "tends-add"
+use (tends $v $a $L $S) ∧ (tends $v $a $M $T)  ⇒  tends $v $a ($L - $M) ($S - $T)   "tends-sub"
+use (tends $v $a $L $T)  ⇒  tends $v $a ($c * $L) ($c * $T)                         "tends-scale"    ; (`$c` doesn't depend on `$v`)
+use (tends $v $a $L $S) ∧ (tends $v $a $M $T)  ⇒  tends $v $a ($L * $M) ($S * $T)   "tends-mul"
+use (tends $v $a $L $S) ∧ (tends $v $a $M $T) ∧ $M ≠ 0  ⇒  tends $v $a ($L / $M) ($S / $T)   "tends-div"

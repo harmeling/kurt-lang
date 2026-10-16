@@ -14,12 +14,14 @@
 ;
 ; As in derivative.kurt, `$T` is any function of the bound variable, and the rules are
 ; theorems of real analysis stated as axioms, each with the conditions it needs.
-load prop, equality, logic, set, numbers, natural, analysis, derivative
+load prop, equality, logic, set, numbers, natural, analysis, continuity, derivative
 
 ;; syntax: as `sum`, the range in brackets after the variable
 const integral, integrable
-arity integral 3, integrable 3
+arity integral _ (_, _) _, integrable _ (_, _) _
 bindop integral, integrable
+tex integral \int_{$2}^{$3} $4 \, d$1
+tex integrable \operatorname{integrable}_{$1 \in [$2, $3]} $4
 bool integrable 0
 
 ;; what the integral is: the limit of the Riemann sums (n pieces of length (b - a) / n, each

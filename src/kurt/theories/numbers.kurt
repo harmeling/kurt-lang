@@ -30,15 +30,22 @@ infix   >= 20 20           ; greater than or equal
 
 flat +, *
 sym  +, *
-bool <  0, >  0, <= 0, >= 0
+bool <  0, <= 0
 chain   = <= <
-chain   = >= >
 alias   ≤ <=
 alias   ≥ >=
+; `a > b` is read as `b < a`, and `a >= b` as `b <= a`: one term, nothing to switch
+inline  $a > $b   iff  $b < $a
+inline  $a >= $b  iff  $b <= $a
+chain   = >= >
 
 ; `calc on` computes these with numbers, exactly (see doc/kurt-doc.md, `calc`)
 builtin + add, - subtract, - negate, * multiply, / divide, ^ power
-builtin = eq, ≠ ne, < lt, <= le, > gt, >= ge
+builtin = eq, < lt, <= le
+
+; how `kurt --latex` writes them
+tex / \frac{$1}{$2}
+tex ^ {$1}^{$2}
 
 ;; rules
 use $a = $b  ⇒  $a + $c = $b + $c   "add-eq"

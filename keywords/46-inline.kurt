@@ -1,0 +1,33 @@
+; 46-inline.kurt
+
+; `inline` defines a new symbol by what it is *read as*: each use is replaced by
+; the right-hand side while the line is read, so the symbol is in no stored
+; formula. `x > 0` and `0 < x` are then one and the same term -- there is nothing
+; to switch.
+
+load numbers           ; (numbers.kurt has `inline $a > $b iff $b < $a`)
+const x
+use 0 < x
+x > 0                  ; the same term: Kurt prints `0 < x`
+
+; A `def` is different: it adds a *fact*, `cube $y = $y * $y * $y`, and using it is
+; a step (here: `cube x = x * x * x` and `cube x = 8` give the line, by transitivity
+; of `=`, citing the definition). That is what a definition should be most of the time: a
+; name one reasons with -- `subspace(U)`, `even n`, `group(G, ·)` -- with
+; theorems of its own, unfolded where needed, visible to the reader.
+def cube($y) = $y * $y * $y
+use cube(x) = 8
+x * x * x = 8          ; one step, citing the `def` line and the `use` line
+
+; `inline` is for notation: the same thing written differently -- a converse
+; relation (`>` for `<`, `⊃` for `⊂`, a `child` for a `parent`), a negation
+; (`≠`, `∉`), a short abbreviation of a term. Inlined everywhere, a real concept
+; would disappear from the proofs and from Kurt's output, its formulas would
+; grow, and the search would get slower.
+inline sq $y = $y * $y
+use sq x = 4
+x * x = 4              ; the same term
+
+; The checks are those of `def`: a new symbol, on distinct variables (or tuples
+; of them, `child($x, $y)`); on the right only these variables, not the symbol
+; itself, and no binder (`∀`, `∃`: an argument could be captured -- use `def`).

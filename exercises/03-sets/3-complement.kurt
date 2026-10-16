@@ -4,7 +4,7 @@
 ; compl(A) = U - A is the complement of A in a fixed universe U. Replace each `todo` by a proof;
 ; don't change the `show` lines. Check with `kurt 3-complement.kurt`.
 ;
-; `x ∉ A` and `¬(x ∈ A)` are the same by the rule "not-in": write the one you need as a line.
+; `x ∉ A` is read as `¬(x ∈ A)` (set.kurt): the same, nothing to switch.
 
 load theory/sets
 const A, B

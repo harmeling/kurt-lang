@@ -1,0 +1,47 @@
+; sets by their elements: `{a, b, c}` (set.kurt's `builtin { } setbrackets`, since 2026-10-12).
+; Kurt adds the rules for them itself (`generate_enumeration_rules`): an element is one, in one
+; step, and `x ∈ {a, b, c}` is `x = a ∨ x = b ∨ x = c`, which `case` splits
+load set
+const a, b, c, d, x, A
+
+; each element is one
+c ∈ {a, b, c, d}
+
+; membership is the disjunction, both ways
+show x ∈ {a, b, c} ⇒ x = a ∨ x = b ∨ x = c
+proof
+    assume x ∈ {a, b, c}
+        x = a ∨ x = b ∨ x = c
+qed
+show x = b ⇒ x ∈ {a, b}
+proof
+    assume x = b
+        x = a ∨ x = b
+        x ∈ {a, b}
+qed
+
+; `case` over the elements
+use x ∈ {a, b}
+use a ∈ A
+use b ∈ A
+x = a ∨ x = b
+case x = a
+    x ∈ A
+case x = b
+    x ∈ A
+x ∈ A
+
+; a set with the constant of a block: the rule for its length (a rule for `{y, a}` itself would
+; mention `y` outside its block)
+show ∀ y (y ∈ {y, a})
+proof
+    let y
+        y ∈ {y, a}
+qed
+
+; not an element
+expect "ProofError"
+    d ∈ {a, b}
+; the elements of a list, not the list: `{(a, b)}` has one element
+expect "ProofError"
+    a ∈ {(a, b)}

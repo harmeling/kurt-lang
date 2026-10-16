@@ -23,6 +23,9 @@ use $A ∈ Mat  ⇒  $A · E = $A                                         "E-rig
 use $A ∈ GL  ⇒  inv $A ∈ Mat                                         "inv-in"
 use $A ∈ GL  ⇒  $A · (inv $A) = E                                    "inv-right"
 use $A ∈ GL  ⇒  (inv $A) · $A = E                                    "inv-left"
+; a one-sided inverse is the inverse: for n × n matrices, A B = E makes A invertible (lecture 15,
+; with the rank: A B = E gives rank A = n)
+use $A ∈ Mat ∧ $B ∈ Mat ∧ $A · $B = E  ⇒  $A ∈ GL                     "one-sided-inverse"
 
 ; the transposed matrix (lecture 15, Theorem 5.27, "Übungsaufgabe" there)
 use $A ∈ Mat ∧ $B ∈ Mat  ⇒  T($A · $B) = T($B) · T($A)              "T-times"

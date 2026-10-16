@@ -28,7 +28,7 @@
 ;
 ;     "diff-const"    diff x a c                    "deriv-const"   deriv x a c = 0
 ;     "diff-id"       diff x a x                    "deriv-id"      deriv x a x = 1
-;     "diff-pow"      n ∈ Nat ⇒ diff x a (x ^ n)    "deriv-pow"     n ∈ Nat ⇒ deriv x a (x ^ n) = n * a ^ (n - 1)
+;     "diff-pow"      n ∈ Nat ∧ 0 < n ⇒ diff x a (x ^ n)      "deriv-pow"   n ∈ Nat ∧ 0 < n ⇒ deriv x a (x ^ n) = n * a ^ (n - 1)
 ;     "diff-add", "deriv-add"     diff x a S ∧ diff x a T ⇒ deriv x a (S + T) = deriv x a S + deriv x a T
 ;     "diff-sub", "deriv-sub"     the same for S - T
 ;     "diff-scale", "deriv-scale" diff x a T ⇒ deriv x a (c * T) = c * deriv x a T
@@ -66,6 +66,7 @@
 ;
 ;     calc on
 ;     2 ∈ Nat
+;     0 < 2
 ;     calc off
 ;     (deriv x 2 (x ^ 2)) = 2 * 2 ^ (2 - 1)       ; by deriv-pow
 ;     calc on

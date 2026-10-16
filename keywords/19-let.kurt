@@ -5,25 +5,21 @@
 ; you proved about the fresh constant, inside the block, now holds for *all*
 ; objects, via a `forall`.  The quantifiers come with `logic.kurt`, so a file
 ; with `let` needs `load logic` (the core has no quantifiers).  A fact
-; `forall $x A $x` is stored as the schema `A $x`, so it is instantiated
+; `forall $x A($x)` is stored as the schema `A($x)`, so it is instantiated
 ; directly; the rule "forall-elim" is needed for a `forall` inside a bigger
-; formula, e.g.
-; in `(∀ $x A $x) implies B`:
+; formula, e.g. in `(∀ $x A($x)) implies B`.
 
-; `arity` (below) itself isn't taught until lesson 31 -- used here a little early since a
-; demonstration of `forall`/`let` needs *some* predicate that actually takes an argument
-; (`arity A 1` just means "A takes one").
+; `A($x)` applies `A` to one argument; Kurt finds out by itself that `A` is a
+; constant and gives a truth value (`arity`, lesson 31, would also check that `A`
+; always takes one argument).
 load logic
-bool A
-const A
-arity A 1
 
-use forall $x A $x   ; "for every x, A holds of x"
+use forall $x A($x)   ; "for every x, A holds of x"
 
-show forall x A x
+show forall x A(x)
 proof
     let x            ; `x` is a brand-new constant, could be anything
-        A x           ; the axiom above, instantiated at `x`
+        A(x)          ; the axiom above, instantiated at `x`
 qed                    ; since `x` was arbitrary, this generalises back to `∀ x A x`
 
 ; `let` can also attach a condition to the new constant, e.g. `let x > 0` --

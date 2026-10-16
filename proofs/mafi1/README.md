@@ -27,7 +27,7 @@ of its own (`17a`). The memberships themselves are lines of the proof (`0 · $l 
 
 | lecture | statements | file |
 |---|---|---|
-| 01 sets | A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C) | `001-two-equal-sets.kurt` |
+| 01 sets | A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C) | `01-two-equal-sets.kurt` |
 | 03 formulas | negating ∀ and ∃; A = B ⇔ A ⊂ B ∧ B ⊂ A (as the slides' chain); the two forms of injectivity (by contraposition, with x1, x2) | `03-formulas.kurt` |
 | 04 real vector spaces | the zero vector and the inverse are unique | `vectorspace.kurt` |
 | 06 subspaces | (U1) as U ≠ ∅; 0 ∈ U, −x ∈ U; a subspace satisfies (V3), (V4) (by the two lemmas) and (V1) in U; exercise: U ∩ W is a subspace | `06-subspaces.kurt` |

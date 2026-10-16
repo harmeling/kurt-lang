@@ -9,15 +9,15 @@ use $x ∈ V ∧ $y ∈ V  ⇒  f($x + $y) = f($x) + f($y)                   "f-
 use $a ∈ K ∧ $x ∈ V  ⇒  f($a · $x) = $a · f($x)                      "f-homogeneous"
 
 ; Definition: v is an eigenvector of f for the eigenvalue λ
-arity eigenvector 2
+arity eigenvector (_, _)
 def eigenvector($v, $l)  ⇔  f($v) = $l · $v ∧ $v ≠ 0                 "eigenvector"
 
 ; Definition: the eigenspace E_λ = Kern(f - λ Id)
 arity E 1
 def E($l) = { $v ∈ V | f($v) = $l · $v }                             "eigenspace"
 
-; Satz: λ ≠ μ ⇒ E_λ ∩ E_μ = {0}, i.e. (as on the slide) v ∈ E_λ ∩ E_μ ⇔ v = 0
-show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m  ⇒  ∀ $v ($v ∈ E($l) ∩ E($m)  ⇔  $v = 0)   "eigenspaces-meet"
+; Satz: λ ≠ μ ⇒ E_λ ∩ E_μ = {0}
+show $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m  ⇒  E($l) ∩ E($m) = {0}               "eigenspaces-meet"
 proof
     assume $l ∈ K ∧ $m ∈ K ∧ $l ≠ $m
         $l ∈ K
@@ -52,7 +52,6 @@ proof
                 inv ($l - $m) ∈ K
                 v = 1 · v
                   = (inv ($l - $m) · ($l - $m)) · v
-                  = inv ($l - $m) · (($l - $m) · v)
                   = inv ($l - $m) · 0
                   = 0
             ; "⇐": f(0) = 0 = λ 0 and f(0) = 0 = μ 0
@@ -72,4 +71,6 @@ proof
                 0 ∈ E($l) ∩ E($m)
                 v ∈ E($l) ∩ E($m)
             v ∈ E($l) ∩ E($m)  ⇔  v = 0
+            v ∈ E($l) ∩ E($m)  ⇔  v ∈ {0}               ; singleton
+        E($l) ∩ E($m) = {0}                             ; extensionality
 qed

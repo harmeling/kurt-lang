@@ -36,12 +36,12 @@
 ; "abs-zero" (abs(x) = 0 ⇔ x = 0), "abs-mul" (abs(x * y) = abs(x) * abs(y)), "abs-sub-sym"
 ; (abs(x - y) = abs(y - x)), "abs-triangle" (abs(x + y) <= abs(x) + abs(y)).
 ;
-; This file is the scene of the exercises: they load it with `load theory/sequences`. Don't
+; This file is the scene of the exercises: they load it with `load theory/limits`. Don't
 ; change it.
 load analysis
 
 const converges
-arity converges 2
+arity converges (_, _)
 bool converges 0
 
 ; the limit of a sequence
@@ -67,8 +67,7 @@ qed
 
 show $x > $y  ⇒  $x >= $y                               "gt-ge"
 proof
-    assume $x > $y
-        $y < $x
+    assume $x > $y                                      ; (read as `$y < $x`: `>` is `<` the other way round)
         $y <= $x
         $x >= $y
 qed
@@ -76,11 +75,8 @@ qed
 show $x >= $y ∧ $x ≠ $y  ⇒  $x > $y                     "ge-ne-gt"
 proof
     assume $x >= $y ∧ $x ≠ $y
-        $x >= $y
-        $x ≠ $y
         $x < $y ∨ $x = $y ∨ $x > $y
         case $x < $y
-            ¬($x >= $y)
             false
             $x > $y
         case $x = $y ∨ $x > $y

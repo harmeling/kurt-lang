@@ -16,7 +16,7 @@ class TestList(unittest.TestCase):
         self.assertTrue(result.ok, result.error)
         self.assertIn('; retained content from natural.kurt', result.output)
         self.assertIn('const Nat', result.output)
-        self.assertIn('natural.kurt:21', result.output)
+        self.assertRegex(result.output, r'const Nat +; level 1, natural.kurt:\d+')   # (its line, wherever the header ends)
         self.assertIn('infix ∣ 20 20', result.output)
         self.assertIn('use ', result.output)
 

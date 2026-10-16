@@ -1,0 +1,43 @@
+; sequences and series
+;
+; covers: the limit of a sequence, `converges n L T` ("T, a term in the natural number n, tends to
+; L for n going to ∞": from some N on, |T(n) - L| < ε, for every ε > 0), its value `seqlim n T`,
+; the limit laws, the Archimedean property, and series: `series i a T` is the value of
+; T(a) + T(a+1) + ..., the limit of the partial sums `sum i (a, n) T`; the geometric series.
+;
+; As with `lim` and `tends` (analysis.kurt), `seqlim` and `series` have a value for every argument,
+; also where there is no limit: only `converges` says that it exists. The limit laws and the
+; geometric series are theorems of analysis, stated here as axioms (their proofs by ε and N are
+; long); proofs/analysis/sequences-and-series.kurt proves 1/n → 0 from the definition.
+load prop, equality, logic, set, numbers, natural, analysis
+
+const converges, seqlim, series
+arity converges 3, seqlim 2, series 3
+bindop converges, seqlim, series      ; the variable, then (outside) the limit or the start, then the body
+bool converges 0
+tex converges $3 \underset{$1 \to \infty}{\longrightarrow} $2
+tex seqlim \lim_{$1 \to \infty} $2
+tex series \sum_{$1=$2}^{\infty} $3
+
+;; the limit of a sequence, by ε and N
+use (converges $n $L $T)  ⇔  ∀ $e > 0 ∃ $N ∀ $m ∈ Nat ($m > $N  ⇒  abs((sub $n $m $T) - $L) < $e)   "converges-def"
+use (converges $n $L $T)  ⇒  (seqlim $n $T) = $L                                    "converges-seqlim"
+use (converges $n $L $T) ∧ (converges $n $M $T)  ⇒  $L = $M                         "converges-unique"
+use $c = $c  ⇒  converges $n $c $c                                                  "converges-const"   ; (`$c` doesn't depend on `$n`)
+use (converges $n $L $S) ∧ (converges $n $M $T)  ⇒  converges $n ($L + $M) ($S + $T)   "converges-add"
+use (converges $n $L $S) ∧ (converges $n $M $T)  ⇒  converges $n ($L - $M) ($S - $T)   "converges-sub"
+use (converges $n $L $T)  ⇒  converges $n ($c * $L) ($c * $T)                       "converges-scale"   ; (`$c` doesn't depend on `$n`)
+use (converges $n $L $S) ∧ (converges $n $M $T)  ⇒  converges $n ($L * $M) ($S * $T)   "converges-mul"
+use (converges $n $L $S) ∧ (converges $n $M $T) ∧ $M ≠ 0  ⇒  converges $n ($L / $M) ($S / $T)   "converges-div"
+
+;; the Archimedean property: the natural numbers are unbounded
+use ∃ $n ∈ Nat ($n > $x)                                                          "archimedes"
+
+;; series: the value of T(a) + T(a+1) + ..., the limit of the partial sums
+use (series $i $a $T) = seqlim $n (sum $i ($a, $n) $T)                              "series-def"
+; (from "series-def" and "converges-seqlim" -- stated, not proved: in a proved theorem `$T` couldn't
+; depend on the variable `$i` of the sum, doc/kurt-soundness.md §8.31)
+use (converges $n $L (sum $i ($a, $n) $T))  ⇒  (series $i $a $T) = $L               "series-intro"
+; the geometric series, for |q| < 1
+; (the first summand is `$q ^ 0`: not for `$q = 0`, whose `0 ^ 0` numbers.kurt leaves open)
+use (abs($q) < 1 ∧ $q ≠ 0)  ⇒  converges $n (1 / (1 - $q)) (sum $i (0, $n) ($q ^ $i))   "geometric"

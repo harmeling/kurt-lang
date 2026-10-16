@@ -54,5 +54,11 @@ class TestReasons(unittest.TestCase):
         self.assertEqual(r['B'], '5 by 3(4)')
 
 
+    def test_a_closed_sandbox_by_its_lines(self):
+        # numbered by the line after it -- at the end of a file of 4 lines: "5 closed" (2026-10-14)
+        out = kurt.check_text('load prop\nbool A\nsandbox\n    use A\n    A\n').output
+        self.assertIn('; 3-5 closed, its content is discarded', out)   # (from the `sandbox` line that opened it, like any block; 2026-10-15)
+
+
 if __name__ == '__main__':
     unittest.main()

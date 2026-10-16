@@ -105,7 +105,7 @@ examples = [
     # one function call
     ("f (17, 42)",
      '[(SYMBOL "f"), (SYMBOL "("), (INT "17"), (SYMBOL ","), (INT "42"), (SYMBOL ")"), (END "$$$")]',
-     "(f (, 17 42))"),
+     "(f (() (, 17 42)))"),
     # one function call
     ("f 17",
      '[(SYMBOL "f"), (INT "17"), (END "$$$")]',
@@ -117,11 +117,11 @@ examples = [
     # one function call
     ("f (17, 42)",
      '[(SYMBOL "f"), (SYMBOL "("), (INT "17"), (SYMBOL ","), (INT "42"), (SYMBOL ")"), (END "$$$")]',
-     "(f (, 17 42))"),
+     "(f (() (, 17 42)))"),
     # one function call
     ("f(a, b)",
      '[(SYMBOL "f"), (SYMBOL "("), (SYMBOL "a"), (SYMBOL ","), (SYMBOL "b"), (SYMBOL ")"), (END "$$$")]',
-     "(f (, a b))"),
+     "(f (() (, a b)))"),
     # 
     ("1 key1 2+3 key2",
      '[(INT "1"), (SYMBOL "key1"), (INT "2"), (SYMBOL "+"), (INT "3"), (SYMBOL "key2"), (END "$$$")]',
@@ -130,10 +130,10 @@ examples = [
     ("(a b) + (c d)",
      '[(SYMBOL "("), (SYMBOL "a"), (SYMBOL "b"), (SYMBOL ")"), (SYMBOL "+"), (SYMBOL "("), (SYMBOL "c"), (SYMBOL "d"), (SYMBOL ")"), (END "$$$")]',
      "(+ (a b) (c d))"),
-    # space binds stronger than comma; the comma is right-associative, a triple is `(a, (b, c))`
+    # space binds stronger than comma; `a, b, c` is one list, and in round brackets a tuple `()`
     ("f (a, b c, d), e",
      '[(SYMBOL "f"), (SYMBOL "("), (SYMBOL "a"), (SYMBOL ","), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL ","), (SYMBOL "d"), (SYMBOL ")"), (SYMBOL ","), (SYMBOL "e"), (END "$$$")]',
-     "(f (, a (, (b c) d)))"),
+     "(f (() (, a (b c) d)))"),
     # two expressions
     ("a * b c + d",
      '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "+"), (SYMBOL "d"), (END "$$$")]',

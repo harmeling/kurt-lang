@@ -4,7 +4,8 @@
 ; make available. Not a lesson on its own -- but it's discovered and loaded like any
 ; other `.kurt` file, so it needs to work standalone too.
 
-bool P, Q
+bool P
+bool Q local       ; declared, but `local` -- the declaration stays inside this file
 
 use P             "exported"        ; labelled -- travels to whoever loads this file
 use Q local       "hidden"          ; labelled, but `local` -- stays inside this file

@@ -4,8 +4,8 @@
 ; lines. Check with `kurt 3-siblings.kurt`.
 ;
 ; Two people are siblings if they are different and have a common parent ("sibling"). Read
-; `x ≠ y` as `¬(x = y)`: equality.kurt has the rules "not-equal-intro" and "not-equal-elim" to
-; go from one to the other, and `≠` is symmetric, like `=`.
+; `x ≠ y` as `¬(x = y)`: equality.kurt reads the one as the other, nothing to switch, and `≠` is
+; symmetric, like `=`.
 
 load theory/family
 const Anna, Ben, Clara, David, Eva

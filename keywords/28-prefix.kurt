@@ -10,6 +10,7 @@ parse -a               ; (- a)
 
 ; Space (function application, built into `minimal.kurt`) already lets you
 ; write `f a` for "f applied to a" -- `prefix` is for when you want a
-; *different* binding power than space's, e.g. so that `- a + b` parses as
-; `(- a) + b` rather than `- (a + b)` (see `doc/dev-notes.md`, "difference
-; between prefix and function").
+; *different* binding power than space's: without `prefix`, `- f a` is `-`
+; applied to `f` and `a`, `(- f a)`; with `prefix "-" 50` it is the negation of
+; `f a`, `(- (f a))`, since space (90) binds more tightly than 50 (see
+; `doc/dev-notes.md`, "difference between prefix and function").

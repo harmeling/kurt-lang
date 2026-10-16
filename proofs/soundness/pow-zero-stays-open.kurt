@@ -1,0 +1,28 @@
+; numbers.kurt leaves `0 ^ 0` open ("pow-zero" needs `$a ≠ 0`). derivative.kurt's "diff-pow" and
+; "deriv-pow" with `$n = 0` would decide it: `v ↦ v ^ 0` differentiable at 0, so continuous there,
+; and `y ^ 0 = 1` for `y ≠ 0` gave `0 ^ 0 = 1` in 53 lines; sequences.kurt's "geometric" with
+; `$q = 0` (its first summand is `0 ^ 0`) the same. Since 2026-10-15 the rules need `0 < $n`, `$q ≠ 0`.
+load derivative, sequences
+calc on
+0 ∈ Nat
+expect "ProofError"
+    diff v 0 (v ^ 0)
+expect "ProofError"
+    (deriv v 0 (v ^ 0)) = 0 * 0 ^ (0 - 1)
+abs(0) = 0
+0 < 1
+abs(0) < 1
+expect "ProofError"
+    converges n (1 / (1 - 0)) (sum i (0, n) (0 ^ i))
+
+; with the conditions, as before
+3 ∈ Nat
+0 < 3
+diff v 2 (v ^ 3)
+(deriv v 2 (v ^ 3)) = 3 * 2 ^ (3 - 1)
+1 / 2 ≠ 0
+1 / 2 >= 0
+1 / 2 < 1
+abs(1 / 2) = 1 / 2
+abs(1 / 2) < 1
+converges n (1 / (1 - 1 / 2)) (sum i (0, n) ((1 / 2) ^ i))

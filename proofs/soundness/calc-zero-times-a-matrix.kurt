@@ -1,0 +1,10 @@
+; `calc on` with matrix.kurt computed `0 · y` as the number `0` -- but for a matrix `y` it is a zero
+; matrix (`0 · [1, 2]` is `[0, 0]`), so `[0, 0] = [[0], [0]]` followed, and `false` (found by the
+; soundness hunt, 2026-10-14; `calculate`, "mul-zero")
+load matrix, logic
+calc on
+expect "ProofError"
+    let y
+        0 · y = 0
+0 · [1, 2] = [0, 0]           ; with numbers and matrices: computed, as before
+0 · 5 = 0

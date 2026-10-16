@@ -13,12 +13,9 @@ proof
         T($P) · $A ∈ Mat
         $P · T($P) ∈ Mat
         ($P · T($P)) · $A ∈ Mat
-        ; multiply D = Pᵀ A P with P from the left and Pᵀ from the right, regrouped with (M1):
+        ; multiply D = Pᵀ A P with P from the left and Pᵀ from the right (`·` is flat: no regrouping):
         ; P D Pᵀ = P (Pᵀ A P) Pᵀ = (P Pᵀ) A (P Pᵀ) = E A E = A
         ($P · $D) · T($P) = ($P · ((T($P) · $A) · $P)) · T($P)
-                          = (($P · (T($P) · $A)) · $P) · T($P)
-                          = ((($P · T($P)) · $A) · $P) · T($P)
-                          = (($P · T($P)) · $A) · ($P · T($P))
                           = (E · $A) · E
                           = $A · E
                           = $A

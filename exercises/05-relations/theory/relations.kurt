@@ -38,7 +38,7 @@
 ; change it.
 load set
 
-arity reflexive 2, symmetric 1, transitive 1, antisymmetric 1, equivalence 2, order 2, class 3
+arity reflexive (_, _), symmetric 1, transitive 1, antisymmetric 1, equivalence (_, _), order (_, _), class (_, _, _)
 bool reflexive 0, symmetric 0, transitive 0, antisymmetric 0, equivalence 0, order 0
 
 def reflexive($R, $A) ⇔ ∀ x ∈ $A ((x, x) ∈ $R)                                     "reflexive"

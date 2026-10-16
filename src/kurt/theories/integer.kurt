@@ -5,6 +5,7 @@
 load prop, equality, set, numbers, natural
 const Int
 builtin Int integers                   ; `calc on` proves `-3 ∈ Int`
+tex Int \mathbb{Z}
 
 use $n ∈ Nat  ⇒  $n ∈ Int                         "int-nat"
 use $n ∈ Nat  ⇒  -$n ∈ Int                        "int-neg-nat"

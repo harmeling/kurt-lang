@@ -70,7 +70,7 @@ Deriving `f = g` via this axiom:
    that instance.
 
 The same defect independently broke a genuine proof that had nothing to do
-with equality at all: `proofs/mafi1/001-two-equal-sets.kurt` (a real
+with equality at all: `proofs/mafi1/01-two-equal-sets.kurt` (a real
 distributive-law proof, `A∩(B∪C) = (A∩B)∪(A∩C)`) turned out to have been
 passing *only* because of this exact bug — several steps silently jumped
 straight from `x ∈ (A∩B)` to `x ∈ (A∩B)∪(A∩C)` via the same "eigenvariable
@@ -135,11 +135,11 @@ doesn't apply to them.
 - After the fix, ran the *entire* proof suite and manually inspected every
   regression: two genuine proofs initially broke
   (`proofs/linear-algebra/injective2.kurt`,
-  `proofs/mafi1/001-two-equal-sets.kurt`) — traced both to confirm they were
+  `proofs/mafi1/01-two-equal-sets.kurt`) — traced both to confirm they were
   passing *only* via this same unsound shortcut, not a false positive in
   the fix. `injective2.kurt` needed no content change (a missing
   independent-conclusion-stripping case in the fix itself, see above);
-  `001-two-equal-sets.kurt` needed real, additional `or-intro` steps that
+  `01-two-equal-sets.kurt` needed real, additional `or-intro` steps that
   the original proof had been silently skipping.
 - Regression tests: `proofs/soundness/forall-elim-cannot-prove-arbitrary-equality.kurt`
   (the minimal reproduction, now correctly rejected) and
@@ -256,8 +256,8 @@ simple enough that their correctness rests mostly on `impl_elim`'s
 unification being correct (§3) rather than on rule-specific side
 conditions.
 
-`src/kurt/theories/minimal.kurt` (never actually loadable — it starts with
-`false` on purpose) used to describe two *additional* hard-coded rules,
+`src/kurt/theories/minimal.kurt` (never loadable — it is the core, which every
+file starts with; `load minimal` is refused) used to describe two *additional* hard-coded rules,
 `"restatement"` (`$A implies $A`) and a generalized `"impl-intro"` schema,
 that turned out not to exist: a bare `A implies A` does not derive from
 nothing. Fixed by rewriting `minimal.kurt`'s inference-rules section to
@@ -360,6 +360,10 @@ did not find a way to turn that into an accepted false proof; see
 `proofs/soundness/forall-intro-vocabulary-not-scoped.kurt` and
 `exists-elim-vocabulary-not-scoped.kurt` for the confirming regression
 tests (these must now *pass*, unlike the two leak tests above).
+
+(Historical: since 2026-10-09 the quantifiers come with logic.kurt again, declared
+with `builtin forall universal, exists existential`; without `load logic`, `forall`
+is an ordinary word -- see §8.30. The paragraph describes the state in between.)
 
 **Update, since fixed: `forall`/`exists` are now hard-coded syntax, not just
 `logic.kurt` declarations.** The wrinkle above used to read "`let`'s
@@ -512,8 +516,8 @@ pattern (the `scanner` regex in `kurt.py`) is `[$%@]?[A-Za-z][A-Za-z0-9]*` —
 at most **one** leading `$`/`%`/`@`, immediately followed by a letter. A
 doubled prefix like `$$foo`/`%%foo` cannot match that (or any other
 branch); it falls through to the lexer's catch-all `ERROR` group and raises
-a `SyntaxError` before parsing even begins — confirmed directly (`var
-$$foo` → `SyntaxError: scanning error while scanning \`$\``). So no source
+a `ScanError` before parsing even begins — confirmed directly (`var
+$$foo` → `ScanError: scanning error while scanning \`$\``). So no source
 text a user writes can ever lex into a token that collides with a generated
 name: the invariant holds **by construction** (grammar-level), not merely
 by convention as the original comment implied. No code change was needed.
@@ -812,9 +816,11 @@ file make visible? Implemented as: a `use`/`def` axiom or a proved
 that isn't marked `local` (`EXPR local "label"`, a new low-binding-power
 continuation registered directly on `initial_kb` — see `local_led`); an
 unlabelled fact defaults to *not* exported, same as an explicitly `local`
-one. A symbol has no export marking of its own — it's exported exactly
-when some exported fact's free symbols (`free_symbols`, mirroring
-`contains`'s bound-variable-aware traversal) actually mention it. See
+one. A symbol is exported when some exported fact's free symbols
+(`free_symbols`, mirroring `contains`'s bound-variable-aware traversal)
+mention it, or (since 0.9, todo 28) when the file declares it at its top
+level without `local` (`KnowledgeBase.vocabulary`) -- except a symbol whose
+`def` is `local`, which stays with its definition (below). See
 `doc/kurt-doc.md`'s `load` section for the user-facing description.
 
 **Soundness-relevant guarantee, not just an encapsulation nicety:** a
@@ -850,7 +856,7 @@ missing).
    pulling the raw `lbracket`/`rbracket` characters into the exported-symbol
    set whenever their synthetic combined name is found. Exercised for real
    by `set.kurt`'s `{ ... | ... }`/`[ ... ]` (loaded by
-   `proofs/mafi1/001-two-equal-sets.kurt`), and directly regression-tested
+   `proofs/mafi1/01-two-equal-sets.kurt`), and directly regression-tested
    for the alias case in
    `proofs/soundness/load-export-alias-of-exported-symbol-survives.kurt`.
 
@@ -985,7 +991,7 @@ Fixed both the same way: added a genuine, unconditionally-true axiom that
 actually mentions the symbol (`$a ^ 1 = $a` for `^`, chosen over
 `$a ^ 0 = 1` specifically to dodge the 0^0-undefined edge case; the
 natural `(%A invimplies %B) iff (%B implies %A)` for `invimplies`).
-Regression: `proofs/soundness/load-numbers-power-syntax-survives.kurt` and
+Regression: `proofs/soundness/load-arith-power-syntax-survives.kurt` and
 `load-prop-invimplies-syntax-and-def-survive.kurt`.
 
 **Also added a general safeguard**, since "check whether every retrofitted
@@ -995,12 +1001,12 @@ forget to re-check by hand after some future edit:
 `prefix`/`postfix` symbol found in each shipped theory's own source text
 and asserts each one survives that file's own `load` — confirmed this
 would have caught both bugs above (reverting the two fixes reproduces
-both failures). One symbol pair is deliberately exempted: `set.kurt`'s
-`:`/`→` (mapping notation) genuinely has no axioms written yet at all
-(the file's own comment admits "two mappings are equal if they give the
-same output for all inputs" was never implemented) — that's a real,
-separate incompleteness, not the same kind of oversight, so it's excluded
-from the check rather than papered over with an invented axiom.
+both failures). One symbol is deliberately exempted: `set.kurt`'s `:` is
+only an alias of `in` (`alias : in`, for `f : A → B`), never an operator of
+its own in an axiom, so it's excluded from the check rather than papered
+over with an invented axiom. (`→` used to be exempted too, while mappings
+had no axioms; since set.kurt's "function-space", "apply" and
+"function-extensionality" use it, it is checked like every other symbol.)
 
 ### 7.4 Bug found and fixed: a failed conditioned-quantifier goal crashed instead of raising `ProofError`
 
@@ -1116,7 +1122,7 @@ subset if `sym`, consecutive ranges otherwise), and (b) each subterm occurring m
 and commutativity, and still goes through `bound_var_safe`. Candidates whose hole cuts into a
 binder's condition (e.g. the `∈` of `∀ $k ∈ Nat`) are now skipped rather than raising an
 `EvalError` from `free_bound_vars` (a pre-existing crash). Substitution results
-(`trigger_sub`, `generate_one_combination`) are normalized again (`normalize_expr`) so that
+(`trigger_sub`, `sub_holds`) are normalized again (`normalize_expr`) so that
 e.g. `a + (b + c)` compares equal to the typed `a + b + c`. Regressions:
 `proofs/debug/flat-group-rewrite.kurt`,
 `proofs/natural-numbers/induction-several-occurrences.kurt`,
@@ -1257,7 +1263,7 @@ weakened, swapped, or leaked; no capture in the body).
 
 The cost: `∀ $x ∈ A (x ∈ B)` (from `let x ∈ A`) and `∀ $c ($c ∈ A ⇒ $c ∈ B)` (the definition of
 `⊂`) are no longer identified silently -- one "forall-cond-def" step connects them
-(`proofs/mafi1/001-two-equal-sets.kurt`, `proofs/natural-numbers/induction.kurt`).
+(`proofs/mafi1/01-two-equal-sets.kurt`, `proofs/natural-numbers/induction.kurt`).
 
 The functions of `analysis.kurt` (`lim`, `sup`, `max`, ...) give a value for every argument, so
 it has only introduction rules: `(lim $v $a $T) = $L ⇔ ε-δ` would, by reflexivity of `=`, prove
@@ -1280,15 +1286,22 @@ but returned the last one, so the continuation rows `a = b`, `< c`, `= d` claime
 instead of `a < d`. The claim then simply failed to derive (a false rejection, not a false
 proof). Regression: the end of `proofs/arithmetic/chains.kurt`.
 
-### 8.14 The comma is right-associative, not flat
+### 8.14 Tuples keep their brackets; the comma is not flat
 
 The comma used to be `flat`, so `(x, (y, z))`, `((x, y), z)` and `(x, y, z)` were one and the same
 expression. That's harmless for argument lists, but makes a theory of pairs unsound: the natural
 axiom `($a, $b) = ($c, $d) ⇔ $a = $c ∧ $b = $d` would give `x = (x, y)`, with `$a := x`,
-`$b := (y, z)`, `$c := (x, y)`, `$d := z`. Now the comma is right-associative (`infix , 5 4`): a
-triple is the pair `(a, (b, c))`, as in set theory, and set.kurt's "pair-eq" is sound. Lists of
-formulas (`use A, B, C`) and of arguments (`g(a, b, c)`) follow the right-nested commas.
-Regression: `proofs/soundness/tuples-are-nested-pairs.kurt`.
+`$b := (y, z)`, `$c := (x, y)`, `$d := z` -- flat matching splits a list of three into two
+parts either way. Then the comma was right-associative (`infix , 5 4`, a triple was the pair
+`(a, (b, c))`), and the round brackets went, so `{(a, b)}` and `{a, b}` were one term.
+
+Since 0.9, the parser collects `a, b, c` into one list `(, a b c)` (not `flat`: a rule for a list
+of two matches only a list of two), and round brackets around a list stay, as the tuple
+(`post_process`): `(x, y, z)`, `(x, (y, z))` and `((x, y), z)` are three different terms, and
+`{(a, b)}` is not `{a, b}`. Tuples are free -- two tuples are equal only if they have the same
+length and equal components (set.kurt's "pair-eq", "triple-eq") -- which is what makes `def
+f($x, $y) = ...`, a definition by the components of a tuple, conservative. Regression:
+`proofs/soundness/tuples-keep-their-brackets.kurt`.
 
 ### 8.15 Bug found and fixed: the variables of an assumption counted as "for all"
 
@@ -1358,7 +1371,7 @@ packaged theories. What they found, and what was fixed (each with its regression
   held for every base (`((-1) ^ 2) ^ (1 / 2) = (-1) ^ 1` gave `1 = -1`); now they need `$a > 0`
   and `0 ^ 0` stays as it is. Big numbers crashed Kurt (Python prints no integer with more than
   4300 digits) or hung it (`(3 ^ 10000) ^ 10000`): `calc` computes no result with more than 1000
-  digits, and a longer literal is a `SyntaxError`. Not a soundness bug, but a misreading: `^` was
+  digits, and a longer literal is a `ScanError`. Not a soundness bug, but a misreading: `^` was
   left-associative and weaker than the prefix `-` (`- 2 ^ 2` was `4`); now `infix ^ 75 74` and
   `prefix - 72`. (`powers-and-big-numbers.kurt`)
 - Crashes (a Python traceback instead of an error; not unsound, but a student can't tell): a chain
@@ -1404,8 +1417,18 @@ level made it a constant. That uncovered a second gap the first one had hidden: 
 counted a `%`-name as boolean only while it was a variable, so the `let` constant `%E` was not
 boolean, and and-elim no longer applied to `%E ∧ %F`. A `%`-name is boolean now also as a
 constant. Found while translating `proofs/natural-deduction/lemma.kurt` to Lean
-(`scripts/kurt2lean.py`): Lean's kernel didn't accept the step.
+(`kurt --lean` writes the Lean file): Lean's kernel didn't accept the step.
 (`let-constant-stays-constant-in-nested-blocks.kurt`)
+
+### 8.19 The scope of a binder's middle arguments
+
+Every argument of a binder used to be inside the scope of its variable: in `sum x (0, n) (sum x
+(0, x) x)`, the inner range `(0, x)` was the inner `x` -- not what it means in mathematics -- and
+the kernel was inconsistent about it (`k_dependencies` treated the middle arguments as outside,
+`k_instantiate` as inside). Since 2026-10-05, only the condition and the last argument (the body)
+are inside (`binder_scope`), in the search (free and bound variables, renaming, substitution,
+alpha-equivalence, matching of binders) and in the kernel (`k_equal`, `k_free`, `k_instantiate`,
+`k_replace`, `k_constants`). (`binder-middle-arguments-outside-scope.kurt`)
 
 ### 8.20 Conditional rewriting (2026-10-05)
 
@@ -1418,16 +1441,6 @@ usual -- nothing new in the kernel. A derived instance with a fixed variable of 
 stays in the block like every fact there; one with free variables outside a block holds for all
 values, since it was derived for arbitrary ones (blocked as domain).
 (`conditional-rewriting-needs-the-conditions.kurt`, `proofs/debug/conditional-rewriting.kurt`)
-
-### 8.19 The scope of a binder's middle arguments
-
-Every argument of a binder used to be inside the scope of its variable: in `sum x (0, n) (sum x
-(0, x) x)`, the inner range `(0, x)` was the inner `x` -- not what it means in mathematics -- and
-the kernel was inconsistent about it (`k_dependencies` treated the middle arguments as outside,
-`k_instantiate` as inside). Since 2026-10-05, only the condition and the last argument (the body)
-are inside (`binder_scope`), in the search (free and bound variables, renaming, substitution,
-alpha-equivalence, matching of binders) and in the kernel (`k_equal`, `k_free`, `k_instantiate`,
-`k_replace`, `k_constants`). (`binder-middle-arguments-outside-scope.kurt`)
 
 ### 8.21 The variable of a binder with a condition is stored (2026-10-06)
 
@@ -1634,7 +1647,100 @@ stays a fixed term, so the counterexample of §8.10, `exists $y (not ($x = $y))`
 (`dependent-summand.kurt`: "sum-add", and "sum-other": a binder over another variable doesn't
 count.)
 
+### 8.32 Sets by their elements, and the rules Kurt adds for them (2026-10-12, 0.9)
+
+The singleton `{a}` couldn't simply be an axiom: `{a}` and the set-builder `{z ∈ A | P}` were the
+same kind of term, the bracket `{ }` around one expression, so `$x ∈ {$y} ≡ $x = $y` also read the
+inside of a set-builder as `$y`, and `false` followed in four lines (from `(z ∈ ∅ | z = z) ∈ {z ∈
+∅ | z = z}` by it, then "separation"); and `{a, b}` was `{(a, b)}`. No released theory had such a
+law. Now set.kurt's roles (`builtin { } setbrackets, | setbuilder`, `builtin ∅ emptyset`, only
+for a trusted theory) make three kinds of terms (`set_terms`): `({} a b)` by the elements, the
+`|` term itself for a set-builder (`|` outside braces is an error), `∅` for `{}`; and "singleton"
+is in set.kurt. (`sets-by-their-elements.kurt`, in `proofs/soundness/`)
+
+For each set by its elements in a line, Kurt adds rules to the level of the file, read from the
+source `<set enumeration>` like the generated rules of `chain` (`generate_enumeration_rules`;
+trusted, `local`, checked by the kernel like any rule): "element-i-of-n", `$yi ∈ {$y1, ..., $yn}`;
+"enumeration-n", `$x ∈ {$y1, ..., $yn} ≡ $x = $y1 ∨ ... ∨ $x = $yn`; and for a set of constants,
+"enumeration" of that set itself (with free `$y`s, the disjunction fits a goal in all n! orders).
+Found by the kernel while writing the test: a set with the constant of a block (`let y`, then `y ∈
+{y, a}`) first counted as a set of constants, so its rule mentioned `y` at the level of the file,
+and the kernel refused the closing `∀ y (...)`: `y` was not new in the `let`. Only constants of
+the file's level count now (`proofs/set-theory/sets-by-their-elements.kurt`).
+
+
+### 8.33 Bug found and fixed: the kernel didn't check that the fresh names are fresh (2026-10-14)
+
+A certificate names the fresh variables with which the search stripped the `∀`s of a premise
+(`premise_fresh`, `fact_fresh`), and the kernel strips with exactly those names; it checked that
+they get no value and that no value depends on them -- but not that they are fresh. A certificate
+that stripped `∀ y P(y)` with the constant `c` was accepted with the fact `P c` ("from `P(c)`
+conclude `∀ y P(y)`"), and one that stripped with the variable `x` fixed by `assume R(x)` turned
+"for this `x`" into "for all". The search never makes such certificates, and `.kurtc` files can't
+name these variables (their names are mapped to new ones), so nothing was proved wrongly -- but
+it is the class of bug the kernel exists to catch (§0). Now each fresh name must be one that only
+the search makes (`$$07`, `%%07`), named once, not fixed by a block, and in neither the goal nor a
+cited fact. Found by a hunt for kernel bugs with hand-made certificates; regression:
+`tests/test_kernel.py` (`test_the_fresh_variables_are_fresh`).
+
+### 8.34 Bug found and fixed: `calc` computed `3 ∉ S` for any set (2026-10-14)
+
+`numeric_comparison_holds` read a negated membership `¬(a ∈ S)` as computable when `a` was a
+number -- without asking whether `S` is a set of the calculator (`CALCULATOR_SETS`: `Nat`, `Int`,
+...). Then the positive check was false, so the negation "held": `3 ∈ {3}`, `3 ∉ {3}`, `false`,
+also with `--strict`. The kernel's `calc` step calls the same function, so it agreed. Now the set
+must be one of the calculator's. Regression: `proofs/soundness/calc-membership-needs-a-set-of-the-calculator.kurt`.
+
+### 8.35 Bug found and fixed: `calc` made `0 · y` the number `0`, also for a matrix (2026-10-14)
+
+`calculate`'s shortcut "mul-zero" turned a product with a factor `0` into the number `0`, also
+when another factor was symbolic. With matrix.kurt, `0 · [1, 2]` is the zero matrix `[0, 0]`, so
+the normal form changed under substitution: `0 · y = 0` for every `y`, hence `0 · [1, 2] = 0 =
+0 · [[1], [2]]`, `[0, 0] = [[0], [0]]` and (computed) `[0, 0] ≠ [[0], [0]]`. Now the shortcut is
+taken only where no matrix can stand (no matrix brackets bound to the calculator), or with
+numbers only. The kernel trusts `calculate_normalized` (§9), so it agreed. Regression:
+`proofs/soundness/calc-zero-times-a-matrix.kurt`.
+
+### 8.36 Bug found and fixed: an `alias` before a `load` changed a theory's symbol (2026-10-14)
+
+`validate_against_loader` compared the declarations and definitions of the symbols a loaded file
+shares with its loader, but not the loader's aliases: after `alias Nat ∅`, `load natural` made
+every fact about `Nat` one about `∅` (`∀ n ∈ Nat (n + 1 = n)` was proved), and `alias false true`
+before `load prop` made `false` provable -- with `--strict`, so a graded exercise counted as
+complete. The same `alias` after the `load` was refused already. Now a symbol of the loaded file
+that is an alias in the loader is an error. Regression: `proofs/soundness/alias-before-load-is-rejected.kurt`.
+
+All three were found by a hunt for soundness bugs with adversarial files (2026-10-14).
+
+### 8.37 Bug found and fixed: `...` was a value of a variable (2026-10-14)
+
+The rules for the elements of a set of n, `$y2 ∈ {$y1, $y2, $y3}` "element-2-of-3" (generated
+once a set of three is used), matched a range like `{1, ..., 3}` -- three items in braces, the
+middle one `...` -- with `$y2 := ...`. So `... ∈ {1, ..., 3}` and `... ∈ {5, ..., 7}` followed, and
+with natural.kurt's "range" `... <= 3` and `5 <= ...`: `false`. (The rules of a set of constants
+were not made for a set with `...`, but the general ones matched it.) `...` alone is no term: now
+no variable takes it as its value -- in the search (`unify_exprs_with_patterns`, `is_ellipsis`) and
+in the kernel, which rejects a certificate with such a value. Found while looking into a slow
+search; regression: `proofs/soundness/ellipsis-is-no-term.kurt`.
+
+### 8.38 Bugs found and fixed: an `alias` in a loaded file, and a claim withdrawn by `break` (2026-10-15)
+
+The mirror image of §8.36: `const foo`, `use foo ≠ d "fd"`, then `load lib` where lib.kurt has
+`alias foo bar` and `use bar = d "bd"` -- after the load, `foo` here was an alias of `bar`, and `foo
+= d` followed "by bd" (no `false`: the stored `foo` of "fd" is a token of its own, so the
+contradiction didn't match -- but the loaded file changed what the loader's symbol means, which no
+check saw). `validate_against_loader` now refuses an alias of the loaded file whose name is a
+symbol the loader knows, unless the loader has the same alias (a theory loaded twice). The same
+hunt found that `show X`, `break` (which withdraws the claim, §9.5 of the reference) left nothing
+open and nothing to do: a file of withdrawn claims was complete, and the grader
+(`scripts/grade_exercise.py`) gave it full marks -- a withdrawn claim is a `todo` now. And a
+`const q local` that an exported fact needs went out with the fact (the `def` case was refused
+already, §7): refused too. Regressions: `tests/test_load_boundary.py`,
+`tests/test_exercises.py` (`test_a_withdrawn_claim_is_not_complete`).
+
 ## 9. The kernel: every step is checked again
+
+(Step by step, with examples and diagrams: `doc/kurt-kernel.md`.)
 
 The search (unification, `sub` matching, stripping quantifiers, blocked and eigen variables,
 dependent variables) is where almost all the bugs above were. So each step it accepts comes with a
@@ -1653,8 +1759,10 @@ without any search:
 - the instance of the conclusion is the goal, and the instance of the premise consists of instances
   of the facts (a conjunct, a group of flat conjuncts, or the body of a `∀` with a recorded fresh
   name);
-- the eigen condition: the fresh names of `∀` premises get no value, and no non-boolean variable of
-  the rule depends on them (§0, §8.9); the free variables of the goal get no value.
+- the eigen condition: the fresh names of `∀` premises are fresh (names only the search makes,
+  `$$07`/`%%07`, each once, in neither the goal nor a cited fact -- §8.33), get no value, and no
+  non-boolean variable of the rule depends on them (§0, §8.9); the free variables of the goal get
+  no value.
 
 **What the kernel trusts** (since 2026-10-05), besides its own code (`kernel_verify`,
 `kernel_verify_block`, the `k_*` functions):

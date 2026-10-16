@@ -91,11 +91,10 @@ qed
 const f
 arity f 1
 
-; contraposition, with x ≠ y for ¬(x = y) ("not-equal", equality.kurt)
+; contraposition, with x ≠ y for ¬(x = y) (read as the same, equality.kurt's `inline`)
 show ($a ≠ $b ⇒ $c ≠ $d)  ⇔  ($c = $d ⇒ $a = $b)                     "contraposition-neq"
 proof
-    ($a ≠ $b ⇒ $c ≠ $d) ⇔ (¬($a = $b) ⇒ $c ≠ $d)                     ; not-equal
-                        ⇔ (¬($a = $b) ⇒ ¬($c = $d))                  ; not-equal
+    ($a ≠ $b ⇒ $c ≠ $d) ⇔ (¬($a = $b) ⇒ ¬($c = $d))                  ; the same, read so
                         ⇔ (¬¬($c = $d) ⇒ ¬¬($a = $b))                ; contraposition
                         ⇔ ($c = $d ⇒ ¬¬($a = $b))                    ; not-not
                         ⇔ ($c = $d ⇒ $a = $b)                        ; not-not

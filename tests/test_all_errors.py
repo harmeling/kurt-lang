@@ -39,7 +39,7 @@ class TestAllErrors(unittest.TestCase):
         self.assertEqual((result.error_kind, result.error_line), ('ProofError', 6))    # the first
         self.assertIn('can not derive `C`', result.error)
         # the lines after them are checked: `C` is admitted, so line 8 follows from it
-        self.assertTrue(numbered(result.output, 8, 'by and-intro(5, 6)'), result.output)
+        self.assertTrue(numbered(result.output, 8, 'by and-intro(5, 6 (todo))'), result.output)
         self.assertIn('Proof not checked: 2 errors.', result.output)
         self.assertLess(result.output.index('can not derive `C`'), result.output.index('B and C'))   # at its place
         # admitted internally: only the real `todo` is one
@@ -54,7 +54,7 @@ class TestAllErrors(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual([e['line'] for e in result.errors], [6])
         self.assertNotIn('Proof not checked', result.output)
-        self.assertFalse(numbered(result.output, 8, 'by and-intro(5, 6)'))
+        self.assertFalse(numbered(result.output, 8, 'by and-intro(5, 6 (todo))'))
 
     def test_a_proof_that_does_not_reach_its_goal(self):
         # its claim is admitted, and the line that ends it has its own content
@@ -152,7 +152,7 @@ D
             self.assertEqual(run.returncode, 1)
             self.assertEqual(run.stderr.count('ProofError: can not derive'), 2)
             self.assertIn('Proof not checked: 2 errors.', run.stdout)
-            self.assertTrue(numbered(run.stdout, 8, 'by and-intro(5, 6)'), run.stdout)
+            self.assertTrue(numbered(run.stdout, 8, 'by and-intro(5, 6 (todo))'), run.stdout)
             self.assertFalse(os.path.exists(path + 'c'))         # no `.kurtc` with errors
             # the result as JSON: all of them
             run = subprocess.run([sys.executable, '-m', 'kurt', '--json', '--all-errors', path], capture_output=True, text=True, cwd=tmp, env=env)
@@ -161,6 +161,19 @@ D
             # without it, the first one only
             run = subprocess.run([sys.executable, '-m', 'kurt', path], capture_output=True, text=True, cwd=tmp, env=env)
             self.assertEqual((run.returncode, run.stderr.count('ProofError')), (1, 1))
+
+    def test_an_error_that_stops_the_file_ends_with_the_summary(self):
+        # the end of the file inside a statement: with `-a`, the summary was missing, and the error
+        # named the line after the end ("started around line 4"; 2026-10-14, found by the docs hunt)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'eof.kurt')
+            with open(path, 'w', encoding='utf-8') as stream:
+                stream.write('bool A, B\nA\nfoo ( bar\n')
+            env = dict(os.environ, PYTHONPATH=str(PROJECT_ROOT / 'src'))
+            run = subprocess.run([sys.executable, '-m', 'kurt', '-a', '--no-kurtc', path], capture_output=True, text=True, cwd=tmp, env=env)
+            self.assertEqual(run.returncode, 1)
+            self.assertIn('the statement that started at line 3', run.stderr)
+            self.assertIn('Proof not checked: 2 errors.', run.stdout)
 
     def test_no_kurtc_for_a_claim_without_proof(self):
         # (a `.kurtc` was written before the end of the file was checked)

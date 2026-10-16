@@ -14,18 +14,14 @@ chain =        ; equality is chainable
 builtin = equality  ; `def` may define with `=` (the engine's equality)
 
 
-infix ≠ 20 20 ; inequality, note it is not chainable
-bool  ≠ 0
-sym   ≠
-; chain ≠  ; not chainable
+infix ≠ 20 20                        ; inequality -- a relation (`bool`), so `a ≠ b ≠ c` on one line is `a ≠ b ∧ b ≠ c`; not transitive (no `chain`)
+bool ≠ 0
+inline $a ≠ $b  iff  not ($a = $b)    ; `a ≠ b` is read as `not (a = b)`: one term, nothing to switch
 
 ;; inference rules
 use $a = $a                                               "equal-intro"
 use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
 
-use not ($a = $b) implies  $a ≠ $b                        "not-equal-intro"
-use $a ≠ $b       implies  not ($a = $b)                  "not-equal-elim"
-use $a ≠ $b       iff      not ($a = $b)                  "not-equal"        ; to rewrite inside a formula
 
 ;; anything else?
 ;  we can also combine both rules

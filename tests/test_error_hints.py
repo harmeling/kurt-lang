@@ -22,15 +22,29 @@ class TestErrorHints(unittest.TestCase):
         self.assertTrue(kurt.check_text('load prop\nconst oddsum, odd2\n').ok)
         self.assertIn('e.g. `oddsum`', error)
         self.assertIn('`a_b` is not one name', self.error('load prop\nflat a_b\n'))   # (the other declarations)
-        self.assertIn('wrong number of arguments', self.error('load prop\nconst a b\n'))   # (not glued)
+        self.assertIn('wrong arguments', self.error('load prop\nconst a b\n'))   # (not glued)
 
-    def test_def_without_the_arity(self):
-        error = self.error('load equality\nbool child 0\ndef child($x, $y) ⇔ $x = $y\n')
-        self.assertIn('without `arity child 2` before the `def`', error)
+    def test_def_by_a_tuple_of_variables(self):
+        # `child($x, $y)` is `child` of the pair (since 2026-10-12, before: an error without `arity
+        # child 2`): a tuple of distinct variables is a left-hand side, a tuple with a constant isn't
+        result = kurt.check_text('load equality\nconst a, b\nbool child 0\ndef child($x, $y) ⇔ $x = $y\nuse a = b\nchild(a, b)\n')
+        self.assertTrue(result.ok, result.error)
+        error = self.error('load equality\nconst a\nbool child 0\ndef child($x, a) ⇔ $x = a\n')
+        self.assertIn('applied to variables on the left-hand side', error)
+        error = self.error('load equality\nbool child 0\ndef child($x, $x) ⇔ $x = $x\n')
+        self.assertIn('distinct variables', error)
 
     def test_def_of_a_declared_constant(self):
         error = self.error('load equality\nconst c\ndef c = 1\n')
         self.assertIn('`c` is declared already', error)
+
+    def test_a_relation_as_a_parameter(self):
+        # `$R(x, x)` is a term: the error says how to write a relation as a parameter (2026-10-12)
+        error = self.error('load logic, set\nbool reflexive 0\ndef reflexive($R, $A) ⇔ ∀ x ∈ $A ($R(x, x))\n')
+        self.assertIn('`var R`, `bool R 0`', error)
+        result = kurt.check_text('load logic, set\nconst A, lt\nbool lt 0\nbool reflexive 0\nvar R\nbool R 0\n'
+                                 'def reflexive((R), $A) ⇔ ∀ x ∈ $A (R(x, x))\nuse ∀ x ∈ A (lt(x, x))\nreflexive(lt, A)\n')
+        self.assertTrue(result.ok, result.error)
 
 
 if __name__ == '__main__':

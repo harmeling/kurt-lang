@@ -6,12 +6,12 @@ import unittest
 import kurt.kurt as kurt
 
 
-M = [('[', ']')]          # a pair bound to `matrix`
+M = [('[', ']')]          # a pair bound to `matrixbrackets`
 
 
 class TestRowsByLine(unittest.TestCase):
     # a statement over several lines: line breaks are spaces, except in a bracket pair bound to
-    # `matrix` (matrix.kurt's `builtin [ matrix`) without another one inside: there each line is a row
+    # `matrixbrackets` (matrix.kurt's `builtin [ ] matrixbrackets`) without another one inside: there each line is a row
 
     def test_rows(self):
         self.assertEqual(kurt.rows_by_line('A = [1, 2, 3\n     4, 5, 6]', M), 'A = [[1, 2, 3], [4, 5, 6]]')

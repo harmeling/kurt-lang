@@ -1,6 +1,6 @@
 ; EXERCISE 2: LIMIT LAWS
 ;
-; Limits of sequences built from convergent ones (theory/sequences.kurt). Each sequence built
+; Limits of sequences built from convergent ones (theory/limits.kurt). Each sequence built
 ; from others is given by a premise, e.g. `∀ n ∈ Nat (s(n) = a(n) + b(n))` for the sum.
 ;
 ; Here you use convergence and prove it. To use `converges(a, L)` for an e > 0: get the right
@@ -21,7 +21,7 @@
 ; The algebra you need is in the scene as tools ("sub-add", "sub-mul", "halves", ...). Replace
 ; each `todo` by a proof; don't change the `show` lines. Check with `kurt 2-limit-laws.kurt`.
 
-load theory/sequences
+load theory/limits
 const a, b, s, t, p, c, K, L, M
 arity a 1, b 1, s 1, t 1, p 1
 

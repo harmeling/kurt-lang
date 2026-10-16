@@ -77,3 +77,19 @@ proof
         ; the inverse is unique
         T(inv $A) = inv $A                              ; inv-unique-right
 qed
+
+; (Aᵀ)⁻¹ = (A⁻¹)ᵀ: Aᵀ has the inverse (A⁻¹)ᵀ, since Aᵀ (A⁻¹)ᵀ = (A⁻¹ A)ᵀ = E ("one-sided-inverse")
+show $A ∈ GL  ⇒  T($A) ∈ GL ∧ inv T($A) = T(inv $A)                    "transpose-inverse"
+proof
+    assume $A ∈ GL
+        $A ∈ Mat
+        inv $A ∈ Mat
+        T($A) ∈ Mat
+        T(inv $A) ∈ Mat
+        T($A) · T(inv $A) = T((inv $A) · $A)            ; T-times
+                          = T(E)                        ; inv-left
+                          = E                           ; T-E
+        T($A) ∈ GL                                      ; one-sided-inverse
+        T(inv $A) = inv T($A)                           ; inv-unique-right
+        T($A) ∈ GL ∧ inv T($A) = T(inv $A)
+qed

@@ -38,5 +38,13 @@ class TestSummary(unittest.TestCase):
             self.assertNotIn(word, kurt.keywords)
         self.assertIn('summary', kurt.keywords)
 
+    def test_no_trailing_space(self):
+        # `; next, e.g.: implies ` (the step as Tab writes it, with its space; 2026-10-14)
+        from tests.utils import PROJECT_ROOT
+        out = kurt.Session(kurt.RunConfig()).check_file(str(PROJECT_ROOT / 'keywords' / '23-summary.kurt')).output
+        nexts = [line for line in out.splitlines() if line.startswith('; next')]
+        self.assertTrue(nexts, out)
+        self.assertFalse([line for line in nexts if line != line.rstrip()], nexts)
+
 if __name__ == '__main__':
     unittest.main()

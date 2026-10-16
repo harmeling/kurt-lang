@@ -1,0 +1,14 @@
+; a symbol declared at the top level of a loaded file comes along, with all that is known about it
+; (todo 28, 2026-10-14) -- before, only the symbols of an exported fact did: `pi` was "not
+; declared" with --strict, `1 ++ 2` "never declared", `g(1, 2)` lost its shape
+load "helpers/vocabulary.kurt"
+load equality
+expect "EvalError" "already a constant"
+    const pi                  ; `pi` came along
+1 ++ 2 = 1 ++ 2               ; `++` is an infix operator here
+expect "EvalError" "takes"
+    g(1, 2, 3) = g(1, 2, 3)   ; the shape of `g` came along
+const helper                  ; `local`: it stayed in the theory
+const inner                   ; declared in a block there: it stayed there
+const x                       ; `var x` of the theory isn't this file's
+bool D                        ; `D`'s `def` is `local`: the symbol stayed with it (doc/kurt-soundness.md §7)

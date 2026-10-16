@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kurt-lang"
 dynamic = ["version"]     # from `version` in src/kurt/kurt.py
-description = "Kurt: a small language for mathematical proofs close to how humans write them, checked automatically."
+description = "Kurt: a programming language for mathematical proofs close to how humans write them, checked automatically."
 authors = [ { name = "Stefan Harmeling", email = "stefan.harmeling@cs.tu-dortmund.de" } ]
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -44,4 +44,4 @@ where = ["src"]
 version = {attr = "kurt.kurt.version"}
 
 [tool.setuptools.package-data]
-kurt = ["theories/*.kurt"]
+kurt = ["theories/*.kurt", "theories/*.kurtc"]   # the certificates: scripts/build_certificates.py

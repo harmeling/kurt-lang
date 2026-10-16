@@ -22,7 +22,7 @@ proof
                 A ∨ ¬A
                 contradiction
             ¬¬(A ∨ ¬A)
-            A ∨ ¬A                ; by not-elim
+            A ∨ ¬A                ; by excluded-middle (the double negation above isn't needed)
             ¬A ∨ B                ; by case-elim
     qed
     show (¬A ∨ B)  ⇒  (A ⇒ B)

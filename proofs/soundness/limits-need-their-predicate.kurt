@@ -1,0 +1,17 @@
+; limits (analysis.kurt `tends`, sequences.kurt `converges`, since 2026-10-13): `lim`, `seqlim` and
+; `series` have a value for every argument, so a value alone says nothing about convergence; and
+; the rules for a constant (`$c = $c ⇒ converges $n $c $c`) don't take a term with the variable
+load sequences
+
+; a constant: not the sequence n itself
+expect "ProofError"
+    converges n n n
+expect "ProofError"
+    tends x 0 x x
+; the value of `seqlim` or `lim` alone: no convergence
+expect "ProofError"
+    converges n (seqlim n n) n
+expect "ProofError"
+    tends x 0 (lim x 0 (1 / x)) (1 / x)
+expect "ProofError"
+    converges n (series i 0 1) (sum i (0, n) 1)

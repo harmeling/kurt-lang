@@ -7,7 +7,7 @@
 
 ;; syntax
 brackets ( )                                 ; for grouping during parsing
-infix    ","  5  4                           ; for lists and tuples, right associative: `(a, b, c)` is `(a, (b, c))`
+infix    ","  5  4                           ; for lists and tuples: `a, b, c` is one list, `(a, b, c)` the triple, `(a, (b, c))` a pair
                                              ; (quoted, because a comma separates declarations)
 const    ","                                 ; the fixed tuple/list constructor
 infix    " " 90 90                           ; space for function applications, binds most tightly
@@ -60,7 +60,7 @@ sym   and                                    ; `A and B` is the same as `B and A
 ; nothing has such a meaning by its name: a trusted theory assigns it with `builtin` (doc/kurt-
 ; doc.md §10) -- prop.kurt `builtin iff equivalence, or disjunction, not negation, false falsum`,
 ; equality.kurt `builtin = equality`, and the calculator's operations, e.g. numbers.kurt `builtin
-; + add, * multiply, ...` and matrix.kurt `builtin [ matrix` (computed with `calc on`). The
+; + add, * multiply, ...` and matrix.kurt `builtin [ ] matrixbrackets` (computed with `calc on`). The
 ; quantifiers too: logic.kurt declares `forall`/`exists` with `builtin forall universal, exists
 ; existential` -- without `load logic` there are no quantifiers, and no `let`/`pick`.
 

@@ -26,5 +26,6 @@ C
 expect "ProofError"
     D
 
-; Use `break` to abandon an open block immediately. A sandbox is discarded whether it closes by a
-; dedent or by `break`.
+; Use `break` to abandon an open block immediately -- in the `proof` of a `show`, only the proof:
+; the claim stays open for a new `proof`, and a second `break` withdraws it. A sandbox is
+; discarded whether it closes by a dedent or by `break`.

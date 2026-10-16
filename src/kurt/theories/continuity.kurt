@@ -1,0 +1,30 @@
+; continuity and derivatives by their definitions
+;
+; covers: continuity `cont x a T` ("`T` is continuous in `x` at `a`"), differentiability
+; `diff x a T` ("`T` is differentiable in `x` at `a`") and the derivative `deriv x a T` -- their
+; definitions by ε and δ ("cont-def", "diff-def", "deriv-intro"), and nothing else: derivative.kurt
+; loads this and adds the rules of differentiation. Without the rules, a proof of `cont x 3 (2 * x
+; + 1)` goes through the definition (exercises/09-calculus, exercise 2).
+;
+; The definitions are stated as axioms, as in derivative.kurt (see there).
+load prop, equality, logic, set, numbers, natural, analysis
+
+;; syntax
+const cont, diff, deriv
+arity cont 3, diff 3, deriv 3
+bindop cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
+bool cont 0, diff 0
+tex cont \operatorname{cont}_{$1=$2} $3
+tex diff \operatorname{diff}_{$1=$2} $3
+tex deriv \left.\frac{d}{d$1} $3\right|_{$1=$2}
+
+;; definitions, by ε and δ
+use (cont $v $a $T)  ⇔  ∀ $e > 0 ∃ $d > 0 ∀ $y (abs($y - $a) < $d  ⇒  abs((sub $v $y $T) - (sub $v $a $T)) < $e)   "cont-def"
+; differentiable: the difference quotient has a limit `$L` for `$h` going to 0 -- and then the
+; derivative is that limit
+use (diff $v $a $T)  ⇔  ∃ $L ∀ $e > 0 ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d)  ⇒  abs(((sub $v ($a + $h) $T) - (sub $v $a $T)) / $h - $L) < $e)   "diff-def"
+use (∀ $e > 0 ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d)  ⇒  abs(((sub $v ($a + $h) $T) - (sub $v $a $T)) / $h - $L) < $e))  ⇒  (deriv $v $a $T) = $L   "deriv-intro"
+
+; continuity with the limit (analysis.kurt's `tends`): `T` tends to its value at `a` -- the same as
+; "cont-def" (at `y = a` both hold anyway), stated as an axiom like the definitions
+use (cont $v $a $T)  ⇔  tends $v $a (sub $v $a $T) $T                                "cont-tends"

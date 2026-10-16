@@ -1,19 +1,29 @@
-; `g(a, b)` for a `g` of arity 2 means `g a b`: a comma list in round brackets gives the
-; arguments -- where `g` wouldn't get enough arguments otherwise; so `g (a, b) c` is still `g`
-; applied to the pair `(a, b)` and to `c`, and for a `f` of arity 1, `f(a, b)` is `f` of the pair
+; `g(a, b)` is `g` applied to one argument, the pair `(a, b)` -- a list in round brackets is never
+; spread into arguments (since 2026-10-12; before, `g(a, b)` was `g a b` for a `g` of arity 2).
+; `arity g (_, _)` says that `g` takes a pair, and Kurt checks each use; a symbol without arity is
+; curried: `k a b` is `(k a) b`
 load equality
-const a, b, c, f, g, h
+const a, b, c, f, g, h, k
 arity f 1
-arity g 2
-arity h 3
+arity g (_, _)
+arity h (_, _, _)
 
 use g(a, b) = c
-g a b = c                       ; the same
+g (a, b) = c                    ; the same: a space before the bracket doesn't matter
+g((a, b)) = c                   ; and brackets that only group neither
 use h(a, f(b), g(a, c)) = a
-h a (f b) (g a c) = a
+h(a, f b, g(a, c)) = a
 use f(a, b) = a                 ; `f` of the pair `(a, b)`
 f (a, b) = a
-expect "EvalError"
-    use g(a, b, c) = a          ; `g` takes two arguments
+use k a b = c
+(k a) b = c                     ; curried: the same
+expect "EvalError" "takes"
+    use g(a, b, c) = a          ; `g` takes a pair
+expect "EvalError" "takes"
+    use g a b = a               ; `g` takes a pair, not `a`
+expect "EvalError" "got `g (f b)`"
+    use g (f b) = a             ; the message shows a compound argument in its brackets (was `g f b`, 2026-10-14)
 expect "ProofError"
-    g b a = c                   ; the order of the arguments counts
+    g(b, a) = c                 ; the order of the components counts
+expect "ProofError"
+    k(a, b) = c                 ; `k` of the pair is not `k a b`

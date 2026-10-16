@@ -2279,3 +2279,34 @@ unchanged, line by line (every reason the same): all three only skip work whose 
 **Where to go on:** `unify_exprs_with_patterns` is now the largest part (11 of 17 s of natural.kurt
 under the profiler), mostly from the generic rules ("equal-elim", "iff-subst") -- see the first
 round above (the lemmas with a general conclusion, remembering failures within a line).
+
+## 2026-10-15: speed, a false membership -- the places a rewrite can't change
+
+A false `5 ∈ {1, ..., 3}` after a set of three was used took 36 s, `1 ∈ {-1, 2}` 81 s (the second
+bug hunt, todo 43/48). The profile: `multi_rewrite` (the rewrite of several places at once) took
+the *generated schema facts* -- "element-2-of-2", `$y2 ∈ {$y1, $y2}`, a fact without an
+implication, so among the latest facts -- as bases, and tried to rewrite their variables into
+numbers, place by place; each attempt a `conditional_rewrite`, all generic rules against each pair,
+and each partial result a nested search. A budget of six nested searches per line
+(`MULTI_REWRITE_TRIES`) first brought 36 s to 16 s; then `cannot_be_rewritten`: a place with a
+variable (a schema is matched, never rewritten), with `...`, or with two numbers of different
+values (`number_value(calculate(...))`: `2` into `5`, `1` into `-1`, would need the fact `2 = 5`) is
+skipped -- in `multi_rewrite`'s bases, `conditional_rewrite`'s pairs and `guided_rewrite`'s
+candidates. The search gets no new result from it, it only stops looking where nothing can be
+found. `5 ∈ {1, ..., 3}` 5 s, `1 ∈ {-1, 2}` 6 s, proofs/soundness/ellipsis-is-no-term.kurt 16 → 5 s.
+scripts/bench.py, before (a worktree of the commit before) and after, on the same quiet node:
+natural 4.84/4.71 s, analysis 4.73/4.78, group 2.16/2.17, set 1.06/1.06, rational 8.04/8.22, field
+6.86/6.97, self-adjoint 16.08/16.11, contraposition 0.43/0.43, cauchy-schwarz 6.22/6.10 -- total
+50.4/50.6 s, unchanged within noise (the representative files have no false goals of that kind).
+Regression: tests/test_robustness.py `test_a_false_membership_fails_fast` (a bound of 45 s).
+
+## 2026-10-11: readable proofs, and proofs found by language models
+
+An idea of the author, recorded here (and, briefly, in the README and the reference): Kurt was
+designed as a tool for teaching, and so its proofs are human-readable -- one claim per line, no
+tactics, each step with the reason the search found. That quality might also matter now that
+language models are becoming useful tools for finding proofs of hard problems: a checked proof
+says *that* something holds, a readable one also lets a person see *why*. Kurt might be one way
+to write proofs that a model finds and a person reads. It is only an idea; nothing in Kurt was
+built for it, and time will tell whether Kurt is useful for it or not. (Not to be oversold: Kurt
+covers far less mathematics than Lean, Isabelle or Coq.)

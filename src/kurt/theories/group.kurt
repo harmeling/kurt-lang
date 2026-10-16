@@ -12,11 +12,11 @@
 load prop, equality, logic, set
 var ∘
 infix ∘ 70 70           ; like `*`: `a ∘ b ∈ G` is `(a ∘ b) ∈ G`
-arity group 4
-arity closed 2
-arity associative 2
-arity identity 3
-arity inverse 4
+arity group (_, _, _, _)
+arity closed (_, _)
+arity associative (_, _)
+arity identity (_, _, _)
+arity inverse (_, _, _, _)
 def closed($G, (∘))  ⇔  ∀ $a ∈ $G ∀ $b ∈ $G ($a ∘ $b ∈ $G)                                  "closed"
 def associative($G, (∘))  ⇔  ∀ $a ∈ $G ∀ $b ∈ $G ∀ $c ∈ $G (($a ∘ $b) ∘ $c = $a ∘ ($b ∘ $c))    "associative"
 def identity($G, (∘), $e)  ⇔  $e ∈ $G ∧ (∀ $a ∈ $G ($e ∘ $a = $a ∧ $a ∘ $e = $a))                "identity"

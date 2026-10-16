@@ -17,13 +17,13 @@ show x + -x = 0                     "G4" ; right inverse
 proof
     let x
         0 = -(x + -x) + (x + -x)                ; by G3
-          = -(x + -x) + (x + (0 + -x))          ; by G2  (wrong reason)
+          = -(x + -x) + (x + (0 + -x))          ; by G2
           = -(x + -x) + (x + ((-x + x) + -x))   ; by G3
           = -(x + -x) + ((x + (-x + x)) + -x)   ; by G1
           = -(x + -x) + (((x + -x) + x) + -x)   ; by G1
           = -(x + -x) + ((x + -x) + (x + -x))   ; by G1
           = (-(x + -x) + (x + -x)) + (x + -x)   ; by G1
-          = 0 + (x + -x)                        ; by G3  (wrong reason)
+          = 0 + (x + -x)                        ; by the lines above (G3 rewritten)
           = x + -x                              ; by G2
 qed
 
@@ -32,8 +32,8 @@ show x + 0 = x                      "G5" ; right neutral
 proof
     let x
         x + 0 = x + 0              ; by "equal-intro"
-              = x + (-x + x)       ; by G3  (wrong reason)
+              = x + (-x + x)       ; by G3
               = (x + -x) + x       ; by G1
-              = 0 + x              ; by G4  (wrong reason)
+              = 0 + x              ; by G4
               = x                  ; by G2
 qed

@@ -1,0 +1,45 @@
+; `inline`: a definition applied while reading (since 2026-10-12) -- `x > 0` is the term `0 < x`,
+; so nothing is to be switched; before, `>`, `≠`, `⊃` were symbols of their own, and a
+; line went from one to the other
+load numbers, logic, set
+const x, y, A, B
+
+use 0 < x
+x > 0                                   ; the same term
+use x ≠ y
+¬(x = y)                                ; the same term
+use B ⊂ A
+A ⊃ B
+use ¬(y ∈ A)
+y ∉ A
+calc on
+2 ≠ 3
+5 >= 4
+calc off
+; a term
+inline sq $x = $x * $x
+use sq y = 4
+y * y = 4
+; over a tuple, as a function of a pair: `child(a, b)` is `parent(b, a)`
+const a, b
+bool parent 0
+arity parent (_, _), child (_, _)
+inline child($x, $y) iff parent($y, $x)
+use parent(a, b)
+child(b, a)
+expect "EvalError" "takes"
+    use child(a)                        ; the arity says it first
+inline kid($x, $y) iff parent($y, $x)   ; (without `arity`)
+expect "EvalError" "tuple of 2"
+    use kid(a)
+; the checks of `def`
+expect "EvalError" "not new"
+    inline $a > $b iff $a < $b
+expect "EvalError" "never end"
+    inline loop $x = loop $x
+expect "EvalError" "binder"
+    inline pos $x iff ∃ z (z < $x)
+expect "EvalError" "distinct variables"
+    inline twice $x $x = $x + $x
+expect "EvalError" "must occur on the left-hand side"
+    inline more $x = $x + $y

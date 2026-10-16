@@ -5,8 +5,8 @@
 ; by a proof; don't change the `show` lines. Check with `kurt 2-classes.kurt`.
 ;
 ; `c ∈ class(a, R, A)` and `c ∈ {y ∈ A | (a, y) ∈ R}` follow from each other (by "class"), and
-; the latter and `c ∈ A ∧ (a, c) ∈ R` ("separation"). Two sets are equal if they have the same elements ("extensionality"); to prove
-; X = Y:
+; the latter and `c ∈ A ∧ (a, c) ∈ R` ("separation"). Two sets are equal if they have the same
+; elements ("extensionality"); to prove X = Y:
 ;
 ;     let c
 ;         assume c ∈ X

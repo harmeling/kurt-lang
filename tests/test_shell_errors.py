@@ -81,8 +81,9 @@ class TestLatexShortcuts(unittest.TestCase):
         # `\b` is the modal box shortcut, but `\bot` was replaced by `□ot`
         self.assertEqual(kurt.replace_latex_syntax(r'\b A'), '□ A')
         self.assertEqual(kurt.replace_latex_syntax(r'\cap\cup'), '∩∪')
-        for command in (r'\bot', r'\div', r'\bigcup'):
+        for command in (r'\boxed', r'\div', r'\bigcup'):
             self.assertEqual(kurt.replace_latex_syntax(command), command)
+        self.assertEqual(kurt.replace_latex_syntax(r'\bot'), '⊥')     # since 2026-10-14 a command of its own (LaTeX's)
 
 
 if __name__ == '__main__':

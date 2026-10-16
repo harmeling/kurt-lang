@@ -1,0 +1,29 @@
+; `break` gives up the innermost open thing (todo 31, 2026-10-14): in the `proof` of a `show`, only
+; the `proof` -- the claim stays open for a new `proof`; right after the `show`, or after that
+; `break`, a `break` withdraws the claim. Before, the first `break` discarded the claim too. A
+; withdrawn claim is a `todo` (2026-10-15: the grader counted a file of withdrawn claims as complete).
+load prop
+bool A, B
+use A
+
+show A and A
+proof
+    break
+proof                         ; a new attempt at the same claim (before: "no claim to prove")
+    A and A
+qed
+
+show B                        ; withdrawn at once: nothing open, nothing added -- a `todo`
+break
+expect "ProofError"
+    B
+
+show B
+proof
+    break
+break                         ; the proof, then the claim
+expect "ProofError"
+    B
+
+expect "ProofError" "has no proof"
+    load "helpers/break-leaves-the-claim-open.kurt"

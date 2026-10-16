@@ -3,15 +3,14 @@
 ; `bindop` marks a symbol as a *variable-binding operator*: its first
 ; argument is the variable (or a condition on it, e.g. `forall x>0 F(x)`) that
 ; is then considered bound inside the rest of the expression.  `forall` and `exists` (used already in lessons
-; 19-let.kurt and 20-pick.kurt) are declared exactly this way -- as of this
-; writing, directly as part of Kurt's hard-coded core, not by `logic.kurt`
-; (only their axioms, "forall-elim" etc., still come from there):
+; 19-let.kurt and 20-pick.kurt) are declared exactly this way, in `logic.kurt`,
+; next to their axioms ("forall-elim" etc.):
 ;
-;     arity  forall 2
-;     bindop forall
+;     arity  forall 2, exists 2
+;     bindop forall, exists
 ;
-; A symbol needs an `arity` (31-arity.kurt) before it can be declared a
-; `bindop`. The binding scope is fixed semantics, so `bindop` also makes the
+; A symbol needs an `arity` (31-arity.kurt), or an `infix` (set.kurt's `|`),
+; before it can be declared a `bindop`. The binding scope is fixed semantics, so `bindop` also makes the
 ; symbol a constant and prints that implied declaration. Here is a minimal binder of our own:
 
 arity myforall 2
@@ -41,3 +40,32 @@ expect "TypeError" "no variable to bind"
 ; unbound variable; the actual
 ; reasoning rules ("forall-elim" etc.) are ordinary `use` axioms, exactly
 ; like the ones in `logic.kurt`.
+
+; The binding operators of the theories that come with Kurt, for ideas -- a
+; binder is the right tool whenever a notation has a variable that only lives
+; inside it:
+;
+;     sub x a T            minimal.kurt     T with a for x (substitution)
+;     forall x P, ∀        logic.kurt       for all
+;     exists x P, ∃        logic.kurt       there is
+;     existsunique x P, ∃! logic.kurt       there is exactly one
+;     { x ∈ A | P x }      set.kurt         the set-builder: `|` is an infix binder
+;     sum i (a, b) T       analysis.kurt    T(a) + ... + T(b)
+;     max x T, min x T     analysis.kurt    the largest/smallest value of T
+;     argmax x T, argmin   analysis.kurt    where T is largest/smallest
+;     sup x T, inf x T     analysis.kurt    the least upper/greatest lower bound
+;     lim v a T            analysis.kurt    the limit of T for v towards a
+;     tends v a L T        analysis.kurt    T tends to L for v towards a
+;     cont x a T           continuity.kurt  T is continuous in x at a
+;     diff x a T           continuity.kurt  T is differentiable in x at a
+;     deriv x a T          continuity.kurt  the derivative of T in x at a
+;     converges n L T      sequences.kurt   the sequence T converges to L
+;     seqlim n T           sequences.kurt   the limit of the sequence T
+;     series i a T         sequences.kurt   the series of T, from i = a
+;     integral x (a, b) T  integral.kurt    the integral of T from a to b
+;     integrable x (a, b) T  integral.kurt  T is integrable on [a, b]
+;     λ x M                lambda.kurt      a function of x (lambda calculus)
+;
+; The arguments before the body that aren't the variable -- the point `a`,
+; the range `(a, b)`, the limit `L` -- are outside the scope: `x` is bound
+; only in the body (and in a condition, `∀ x > 0 ...`).

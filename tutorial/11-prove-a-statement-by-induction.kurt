@@ -2,8 +2,8 @@
 ;
 ; Prove a statement by induction
 ;
-; `natural.kurt` provides the induction principle. Supply the base case and induction step as one
-; conjunction, because application of the induction rule is a single inference step.
+; `natural.kurt` provides the induction principle. Its premise is the base case and the induction
+; step, as two facts or as one conjunction: the application of the rule is a single inference step.
 
 load natural
 bool P
@@ -16,5 +16,5 @@ forall $n in Nat P($n)
 forall $n ($n in Nat implies P($n))
 5 in Nat implies P(5)
 
-; For a real proof, derive the base and step in a preceding proof block instead of introducing
-; them with `use`. Keep the resulting conjunction available as one fact before invoking induction.
+; For a real proof, derive the base and step in preceding proof blocks instead of introducing
+; them with `use`; both must be facts before the line that invokes induction.

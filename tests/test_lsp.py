@@ -72,6 +72,76 @@ class TestLanguageServer(unittest.TestCase):
             finally:
                 client.close()
 
+    def test_hover_shows_what_a_line_printed(self):
+        # `builtin`, `infix` without arguments, `cert 5`: their output doesn't fit into the reason
+        # at the end of the line -- the hover shows it (wanted, 2026-10-13; before: nothing)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'h.kurt')
+            text = 'load prop\nbool A, B\nuse A implies B\nuse A\nB\ncert 5\nbuiltin\ntheory\n'
+            uri = 'file://' + path
+            server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
+            server.HOVER_OUTPUT_LINES = 10              # (`theory` of prop.kurt has about 35)
+            server.texts[uri], server.versions[uri] = text, 1
+            server.check(uri)
+            def hover(line):
+                found = server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})
+                return found['contents']['value'] if found else None
+            self.assertIn('; premise:   `A` (line 4)', hover(5))
+            self.assertIn('builtin not negation', hover(6))
+            theory = hover(7)
+            self.assertIn('"and-intro"', theory)
+            self.assertIn('more lines', theory)                       # (long: only the first lines)
+            self.assertLessEqual(theory.count('\n'), 10 + 5)
+            self.assertIn('; by 3(4)', hover(4))                      # (a step: its reason, as before)
+            self.assertIn('**boolean:** `A`, `B` are statements', hover(1))   # (until 2026-10-14: nothing)
+
+    def test_hover_says_what_a_declaration_does(self):
+        # every line that isn't a comment has a hover (todo 32, 2026-10-14): a declaration, a toggle,
+        # an inspection says what it does, with its own symbols
+        with tempfile.TemporaryDirectory() as tmp:
+            uri = 'file://' + os.path.join(tmp, 'd.kurt')
+            text = ('var a, b\nconst pi    ; a comment\ninfix ++ 50 50\ninfix ^^ 75 74\narity f 2\narity g (_, _)\n'
+                    'load numbers\ncalc on\ntex pi \\pi\n; only a comment\n')
+            server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
+            server.texts[uri], server.versions[uri] = text, 1
+            server.check(uri)
+            def hover(line):
+                found = server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})
+                return found['contents']['value'] if found else None
+            self.assertIn('`a`, `b` stand for anything', hover(0))
+            self.assertIn('**constants:** `pi`', hover(1))
+            self.assertIn('left-associative', hover(2))
+            self.assertIn('right-associative', hover(3))
+            self.assertIn('`f` takes 2 arguments', hover(4))
+            self.assertIn('`g (_, _)`', hover(5))
+            self.assertIn('**theory:**', hover(6))                    # (a reason: as before)
+            self.assertIn('**calculator on:**', hover(7))
+            self.assertIn('write `pi` as `\\pi`', hover(8))
+            self.assertIsNone(hover(9))                               # a comment: nothing
+
+    def test_an_open_theory_of_kurt_stays_trusted(self):
+        # clicking through the repository opened equality.kurt: every open file was an unsaved
+        # text, never trusted, so its `builtin = equality` was refused -- and the error was shown
+        # at line 14 of the file being checked, the line of equality.kurt (2026-10-13)
+        theory = PROJECT_ROOT / 'src' / 'kurt' / 'theories' / 'equality.kurt'
+        lesson = PROJECT_ROOT / 'tutorial' / '05-rewrite-with-equality.kurt'
+        server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
+        for path in (theory, lesson):
+            server.texts[path.as_uri()], server.versions[path.as_uri()] = path.read_text(encoding='utf-8'), 1
+        server.check(lesson.as_uri())
+        self.assertEqual(server.results[lesson.as_uri()].errors, [])
+        # edited and unsaved: not trusted -- the error at the `load` line, saying where and why
+        server.texts[theory.as_uri()] += '\n; edited\n'
+        server.writer = io.BytesIO()
+        server.check(lesson.as_uri())
+        body = server.writer.getvalue().decode('utf-8')
+        diagnostics = json.loads(body[body.index('{'):])['params']['diagnostics']
+        self.assertEqual(len(diagnostics), 1)
+        load_line = lesson.read_text(encoding='utf-8').split('\n').index('load equality')
+        self.assertEqual(diagnostics[0]['range']['start']['line'], load_line)
+        self.assertTrue(diagnostics[0]['message'].startswith('in equality.kurt, line '))
+        self.assertIn('unsaved in the editor', diagnostics[0]['message'])
+
     def test_protocol_position_and_uri_conversions(self):
         self.assertEqual(kurt.lsp_uri_path('file:///tmp/a%20b.kurt'), '/tmp/a b.kurt')
         self.assertEqual(kurt.lsp_uri_path('file://localhost/tmp/a.kurt'), '/tmp/a.kurt')

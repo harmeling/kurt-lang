@@ -1,0 +1,15 @@
+; the limit of 3x + 1 for x going to 2 is 7, by the limit laws of analysis.kurt instead of ε and
+; δ (as in limit-of-linear-function.kurt): `tends x a L T` says that the limit exists and is `L`
+load analysis
+
+tends x 2 2 x                                       ; tends-id
+tends x 2 (3 * 2) (3 * x)                           ; tends-scale
+tends x 2 1 1                                       ; tends-const
+tends x 2 (3 * 2 + 1) (3 * x + 1)                   ; tends-add
+calc on
+tends x 2 7 (3 * x + 1)
+calc off
+lim x 2 (3 * x + 1) = 7                             ; tends-lim
+; `lim` alone says nothing: it has a value for every argument (no limit of 1/x at 0 exists)
+expect "ProofError"
+    tends x 0 (lim x 0 (1 / x)) (1 / x)

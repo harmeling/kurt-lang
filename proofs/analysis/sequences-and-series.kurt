@@ -1,0 +1,58 @@
+; sequences and series (sequences.kurt): 1/n → 0 from the definition, by ε and N; then limits by
+; the limit laws, a geometric series, and that a value of `seqlim` alone says nothing
+load sequences
+
+; 1/n → 0: for ε > 0, N = 1/ε will do -- from m > 1/ε follows 1/m < ε
+show converges n 0 (1 / n)
+proof
+    let e > 0
+        calc on
+        1 > 0
+        calc off
+        1 / e > 0
+        e ≠ 0
+        let m ∈ Nat
+            assume m > 1 / e
+                m > 0
+                m * e > (1 / e) * e
+                (1 / e) * e = 1
+                m * e > 1
+                m ≠ 0
+                (m * e) / m > 1 / m
+                (m * e) / m = e
+                e > 1 / m
+                1 / m > 0
+                1 / m >= 0
+                abs((1 / m) - 0) = abs(1 / m)
+                                 = 1 / m
+                                 < e
+        ∃ $N ∀ $m ∈ Nat ($m > $N  ⇒  abs((1 / $m) - 0) < e)
+qed
+
+; by the limit laws: 3 + 2/n → 3
+converges n 0 (1 / n)
+converges n (2 * 0) (2 * (1 / n))                   ; converges-scale
+converges n 3 3                                     ; converges-const
+converges n (3 + 2 * 0) (3 + 2 * (1 / n))           ; converges-add
+calc on
+converges n 3 (3 + 2 * (1 / n))
+calc off
+seqlim n (3 + 2 * (1 / n)) = 3                      ; converges-seqlim
+
+; the geometric series 1 + 1/2 + 1/4 + ... = 2
+calc on
+1 / 2 >= 0
+1 / 2 < 1
+1 / 2 ≠ 0
+calc off
+abs(1 / 2) = 1 / 2
+abs(1 / 2) < 1
+converges n (1 / (1 - 1 / 2)) (sum i (0, n) ((1 / 2) ^ i))      ; geometric
+series i 0 ((1 / 2) ^ i) = 1 / (1 - 1 / 2)                      ; series-intro
+calc on
+series i 0 ((1 / 2) ^ i) = 2
+calc off
+
+; `seqlim` has a value for every sequence, also one that doesn't converge
+expect "ProofError"
+    converges n (seqlim n n) n

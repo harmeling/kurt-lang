@@ -9,5 +9,7 @@
 ; if kurt says a proof is fine, it must be fine. Fixed by raising a clear `ParseError`
 ; instead of breaking when EOF is hit while still mid-parse (`continued == True`).
 ; (the file that ends inside the statement is a helper, loaded here)
-expect "ParseError" "unexpected end of file while still parsing a statement"
+; The message names the line where the statement started (until 2026-10-14: the line after the
+; end of the file, "around line 5").
+expect "ParseError" "unexpected end of file while still parsing the statement that started at line 3"
     load "helpers/eof-mid-statement.kurt"

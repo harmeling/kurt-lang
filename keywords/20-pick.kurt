@@ -6,20 +6,15 @@
 ; triggers "exists-elim": as long as the goal doesn't mention `a`, it also
 ; holds without ever knowing the witness by name.
 
-; `arity` (below) itself isn't taught until lesson 34 -- used here a little early, same
-; reason as in 19-let.kurt: `exists`/`pick` needs some predicate that actually takes an
-; argument to demonstrate on.
+; `P(a)` applies `P` to one argument, as in 19-let.kurt (no `arity` needed).
 load logic
-bool P, B
-const P, B
-arity P 1
 
-use ∀ a (P a implies B)
-use ∃ x P x
+use ∀ a (P(a) implies B)
+use ∃ x P(x)
 
 show B
 proof
-    pick a with P a
-        P a implies B
+    pick a with P(a)
+        P(a) implies B
         B
 qed

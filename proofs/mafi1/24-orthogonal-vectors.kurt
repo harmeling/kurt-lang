@@ -71,8 +71,8 @@ proof
         subspace(Perp($M))
 qed
 
-; Satz: 0 ∈ M ⇒ M ∩ M^⊥ = {0}, with the set {0} written out
-show $M ⊂ V ∧ 0 ∈ $M  ⇒  ∀ $v ($v ∈ $M ∩ Perp($M)  ⇔  $v = 0)        "Perp-meet"
+; Satz: 0 ∈ M ⇒ M ∩ M^⊥ = {0}
+show $M ⊂ V ∧ 0 ∈ $M  ⇒  $M ∩ Perp($M) = {0}                         "Perp-meet"
 proof
     assume $M ⊂ V ∧ 0 ∈ $M
         $M ⊂ V
@@ -95,4 +95,6 @@ proof
                 0 ∈ $M ∩ Perp($M)
                 v ∈ $M ∩ Perp($M)
             v ∈ $M ∩ Perp($M)  ⇔  v = 0
+            v ∈ $M ∩ Perp($M)  ⇔  v ∈ {0}               ; singleton
+        $M ∩ Perp($M) = {0}                             ; extensionality
 qed

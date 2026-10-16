@@ -1,0 +1,24 @@
+; let's proof that the Integers form a group
+
+load integer
+load group
+
+let $a ∈ Int, $b ∈ Int
+    $a + $b ∈ Int
+closed(Int, (+))
+
+let $a ∈ Int, $b ∈ Int, $c ∈ Int
+    ($a + $b) + $c = $a + ($b + $c)
+associative(Int, (+))
+
+let $a ∈ Int
+    $a + 0 = $a
+    0 + $a = $a
+    $a + 0 = $a ∧ 0 + $a = $a
+identity(Int, (+), 0)
+
+let $v ∈ Int
+    ((($v + (- $v)) = 0) ∧ (((- $v) + $v) = 0) ∧ ((- $v) ∈ Int))
+inverse(Int, (+), 0, (-))
+
+group(Int, (+), 0, (-))

@@ -1,13 +1,13 @@
 ; EXERCISE 3: THE LIMIT IS UNIQUE
 ;
-; A sequence can't converge to two different numbers (theory/sequences.kurt). The proof has
+; A sequence can't converge to two different numbers (theory/limits.kurt). The proof has
 ; three parts: (a) a number that is smaller in absolute value than every e > 0 is 0; (b) if a
 ; converges to L and to M, then abs(L - M) < e for every e > 0; (c) so L = M.
 ;
 ; Replace each `todo` by a proof; don't change the `show` lines. Check with
 ; `kurt 3-uniqueness.kurt`.
 
-load theory/sequences
+load theory/limits
 const a, L, M
 arity a 1
 
@@ -15,7 +15,7 @@ arity a 1
 ;     Kurt uses the fact for any term in place of `$x`, e.g. for `L - M` in (c).)
 ;     Hint: prove `$x = 0` by contradiction: assume ¬($x = 0). Then abs($x) ≠ 0 ("abs-zero"),
 ;     so abs($x) > 0 ("abs-ge-zero", "ge-ne-gt"), and e = abs($x) gives abs($x) < abs($x).
-;     Kurt reads `x ≠ y` and `¬(x = y)` as different facts; one step turns one into the other.
+;     Kurt reads `x ≠ y` as `¬(x = y)`, the same fact (equality.kurt's `inline`).
 show (∀ $e > 0 (abs($x) < $e)) ⇒ $x = 0     "small-is-zero"
 proof
     todo

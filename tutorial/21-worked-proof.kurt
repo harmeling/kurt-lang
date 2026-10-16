@@ -9,7 +9,8 @@
 ; full in proofs/natural-deduction/de-morgan.kurt if you want the complete picture afterward.)
 
 ; Step 1: what do you need loaded? The goal mentions `not`, `and`, `or` -- `and` is
-; hard-coded (minimal.kurt), but `not`/`or` and their inference rules live in `prop.kurt`.
+; in the core (minimal.kurt), but `not`/`or` and the inference rules (`and-elim` too) live in
+; `prop.kurt`.
 load prop
 bool p, q
 

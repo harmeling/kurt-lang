@@ -1,0 +1,21 @@
+; a line may rewrite several places at once (up to four): Kurt adds the steps in between as
+; lines of their own, `6a`, ... -- one place each (since 2026-10-12; before, a line per place,
+; as in mafi1: "= 0 + 0" from `⟨x,u⟩ + ⟨y,u⟩`)
+load equality, logic, set
+const x, y, z, a, b, K
+infix + 60 60
+infix · 70 70
+use x = 0
+use y = 0
+x + y = 0 + 0                           ; two places, from `L = L`
+use z = x + y
+z = x + y
+  = 0 + 0                               ; two places, from the line before
+; with a rule that has a condition (as in a chain of a field)
+use $c ∈ K  ⇒  1 · $c = $c              "one-times"
+use a ∈ K
+use b ∈ K
+(1 · a) + (1 · b) = a + b
+; not if a place has no equation
+expect "ProofError"
+    x + a = 0 + 0

@@ -1,0 +1,34 @@
+; the parts of an assumption `A ∧ B` are facts (shown as `6a`, `6b`, by and-elim), and `pick`
+; takes its witness also from an `∃` that one rule gives (shown as a line `13a`) -- since
+; 2026-10-12; before, both needed a line of their own
+load prop, logic, set
+bool A, B, C, R
+const G, c
+arity P 1, Q 1
+
+use A implies C
+show A and B implies C
+proof
+    assume A and B
+        C                              ; by the part `A` of the assumption
+qed
+; a block that is only its assumption still gives it back whole
+show A and B implies A and B
+proof
+    assume A and B
+        A and B
+qed
+
+use P(c)
+use P($x) implies ∃ y (Q(y))
+use Q($x) implies R
+pick b with Q(b)                       ; the `∃` by the rule above, in one step
+    R
+use P($x) implies ∃ y ∈ G (Q(y))
+pick d with d ∈ G ∧ Q(d)               ; with its condition
+    d ∈ G                              ; a part of the fact
+    R
+; not from a fact that needs two steps
+use ∀ z (Q(z) ⇒ ∃ y (P(y) ∧ Q(y)))
+expect "ProofError" "nor derive"
+    pick e with P(e) ∧ Q(e)

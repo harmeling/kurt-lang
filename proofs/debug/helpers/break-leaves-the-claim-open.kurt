@@ -1,0 +1,5 @@
+; a `break` in the `proof` leaves its claim open: at the end of the file, it has no proof
+bool A
+show A implies A
+proof
+    break

@@ -19,7 +19,7 @@ const f
 arity f 1
 
 ; (a) A polynomial: the derivative of x² + 3x at x = 2.
-;     Hint: `2 ∈ Nat` (with `calc on`) for "diff-pow" and "deriv-pow".
+;     Hint: `2 ∈ Nat` and `0 < 2` (with `calc on`) for "diff-pow" and "deriv-pow".
 show (diff x 2 (x ^ 2 + 3 * x)) ∧ (deriv x 2 (x ^ 2 + 3 * x)) = 7
 proof
     todo

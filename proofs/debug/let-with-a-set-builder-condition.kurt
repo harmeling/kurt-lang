@@ -1,0 +1,9 @@
+; a `let` whose condition is a set-builder closes: the check that the condition binds the same
+; variable outside the block counted the set-builder's own variable `y` too, and refused it
+; ("would bind another variable outside the block", since 2026-10-12 fixed in search and kernel)
+load set
+const A
+arity P 1
+let c ∈ { y ∈ A | P(y) }
+    c ∈ { y ∈ A | P(y) }
+∀ c ∈ { y ∈ A | P(y) } (c ∈ { y ∈ A | P(y) })

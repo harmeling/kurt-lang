@@ -70,7 +70,7 @@ def grade(exercise: Path, solution: Path) -> tuple[bool, str]:
         checked = Path(tmp) / exercise.name
         solution_text = solution.read_text(encoding='utf-8')
         checked.write_text(solution_text, encoding='utf-8')
-        session = kurt.Session(kurt.RunConfig(strict=True, paths=(str(tmp_theory),)))
+        session = kurt.Session(kurt.RunConfig(strict=True, paths=(str(tmp_theory),), search_cwd=False))   # (only the scene and Kurt's theories, not the grader's directory)
         result = kurt.check_file(str(checked), session=session)
     problems = compare_statements(exercise.read_text(encoding='utf-8'), solution_text)
     report = []
@@ -78,6 +78,7 @@ def grade(exercise: Path, solution: Path) -> tuple[bool, str]:
         report.append(f'not checked: line {result.error_line}: {result.error}')
     elif result.todos:
         report.append(f'not complete: {len(result.todos)} todo(s)')
+        report += [f'  {todo}' for todo in result.todos]       # (a `todo`, or a claim withdrawn by `break`)
     else:
         report.append('checked (strict)')
     report += problems

@@ -23,7 +23,7 @@
 ;     "in-intersection" x ∈ A ∩ B ⇔ x ∈ A ∧ x ∈ B
 ;     "empty-set"       ¬(x ∈ ∅)
 ;     "power-set"       B ∈ Pow(A) ⇔ B ⊂ A
-;     "not-in"          x ∉ A ⇔ ¬(x ∈ A)
+;     (`x ∉ A` is read as `¬(x ∈ A)`: set.kurt's `inline`, nothing to switch)
 ;     "in-difference"   x ∈ A - B ⇔ x ∈ A ∧ x ∉ B
 ;     "in-complement"   x ∈ compl(A) ⇔ x ∈ U ∧ x ∉ A
 ;
@@ -34,9 +34,6 @@
 ; This file is the scene of the exercises: they load it with `load theory/sets`. Don't change it.
 load set
 
-infix ∉ 25 25
-bool ∉ 0
-def $a ∉ $A ⇔ ¬($a ∈ $A)                                    "not-in"
 
 infix - 35 35
 def $A - $B = { $x ∈ $A | $x ∉ $B }                         "difference"

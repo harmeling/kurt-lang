@@ -82,32 +82,17 @@ proof
                    = $a · h($x)
 qed
 
-; Kern f and Bild f; Null is {0} ⊂ V
+; Kern f and Bild f
 def Kern = { $v ∈ V | f($v) = 0 }                                    "Kern"
-def Null = { $v ∈ V | $v = 0 }                                       "Null"
 def Bild = { $w ∈ W | ∃ $v ($v ∈ V ∧ $w = f($v)) }                   "Bild"
 
-; in V, x - y = 0 gives x = y
-show $x ∈ V ∧ $y ∈ V ∧ $x + (- $y) = 0  ⇒  $x = $y                   "V-minus-zero"
-proof
-    assume $x ∈ V ∧ $y ∈ V ∧ $x + (- $y) = 0
-        $x ∈ V
-        $y ∈ V
-        $x + (- $y) = 0
-        - $y ∈ V
-        (- $y) + $x = $x + (- $y)                       ; (V2)
-        (- $y) + $x = 0
-        $y + (- $y) = 0                                 ; (V4)
-        (- $y) + $y = $y + (- $y)                       ; (V2)
-        (- $y) + $y = 0
-        $x = $y                                         ; vector-minus-unique, with -y as the vector
-qed
+; in V, x - y = 0 gives x = y: vectorspace.kurt's "vector-minus-zero"
 
 ; Theorem: Kern f = {0} ⇔ f injective
-show Kern = Null  ⇔  ∀ $x ∈ V ∀ $y ∈ V (f($x) = f($y) ⇒ $x = $y)     "kernel-injective"
+show Kern = {0}  ⇔  ∀ $x ∈ V ∀ $y ∈ V (f($x) = f($y) ⇒ $x = $y)      "kernel-injective"
 proof
     ; "⇒"
-    assume Kern = Null
+    assume Kern = {0}
         let x ∈ V
             let y ∈ V
                 assume f(x) = f(y)
@@ -119,16 +104,14 @@ proof
                                  = 0
                     x + (- y) ∈ { $v ∈ V | f($v) = 0 }
                     x + (- y) ∈ Kern
-                    x + (- y) ∈ Null
-                    x + (- y) ∈ { $v ∈ V | $v = 0 }
-                    x + (- y) ∈ V ∧ x + (- y) = 0
-                    x + (- y) = 0
+                    x + (- y) ∈ {0}
+                    x + (- y) = 0                       ; singleton
                     x = y
     ; "⇐"
     assume ∀ $x ∈ V ∀ $y ∈ V (f($x) = f($y) ⇒ $x = $y)
         0 ∈ V
         f(0) = 0                                        ; f-zero
-        ; Kern ⊂ Null
+        ; Kern ⊂ {0}
         let x
             assume x ∈ Kern
                 x ∈ { $v ∈ V | f($v) = 0 }
@@ -139,21 +122,18 @@ proof
                 ∀ $y ∈ V (f(x) = f($y) ⇒ x = $y)       ; f injective
                 f(x) = f(0) ⇒ x = 0
                 x = 0
-                x ∈ { $v ∈ V | $v = 0 }
-                x ∈ Null
-        Kern ⊂ Null
-        ; Null ⊂ Kern
+                x ∈ {0}                                 ; singleton
+        Kern ⊂ {0}
+        ; {0} ⊂ Kern
         let x
-            assume x ∈ Null
-                x ∈ { $v ∈ V | $v = 0 }
-                x ∈ V ∧ x = 0
+            assume x ∈ {0}
+                x = 0                                   ; singleton
                 x ∈ V
-                x = 0
                 f(x) = 0
                 x ∈ { $v ∈ V | f($v) = 0 }
                 x ∈ Kern
-        Null ⊂ Kern
-        Kern = Null
+        {0} ⊂ Kern
+        Kern = {0}
 qed
 
 ; Theorem: Bild f = W ⇔ f surjective

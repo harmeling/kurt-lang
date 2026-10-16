@@ -1,6 +1,6 @@
 ; EXERCISE 1: FIRST LIMITS
 ;
-; Prove that some sequences converge, by the definition (theory/sequences.kurt, "converges-def"):
+; Prove that some sequences converge, by the definition (theory/limits.kurt, "converges-def"):
 ;
 ;     converges(a, L)  ⇔  ∀ e > 0 ∃ N ∀ n ∈ Nat (n > N ⇒ abs(a(n) - L) < e)
 ;
@@ -16,12 +16,12 @@
 ;     converges(a, L)
 ;
 ; Kurt finds the N for the `∃` itself, from the `let n ∈ Nat` block above it. Two things to know:
-; Kurt reads `e > 0` and `0 < e` as different facts (one step turns one into the other), and a
+; Kurt reads `e > 0` as `0 < e`, the same fact (numbers.kurt's `inline`), and a
 ; fact like `∀ n ∈ Nat (a(n) = 1 / n)` gives `a(n) = 1 / n` for an `n` with `n ∈ Nat`.
 ; Replace each `todo` by a proof; don't change the `show` lines. Check with
 ; `kurt 1-first-limits.kurt`.
 
-load theory/sequences
+load theory/limits
 const a, b, c, L
 arity a 1, b 1
 

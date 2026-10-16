@@ -1,0 +1,9 @@
+; 3x + 1 is continuous at 2: it tends to its value 7 there (the limit laws, analysis.kurt), and
+; continuity is exactly that ("cont-tends", continuity.kurt) -- without ε and δ
+load continuity
+
+tends x 2 2 x                                       ; tends-id
+tends x 2 (3 * 2) (3 * x)                           ; tends-scale
+tends x 2 1 1                                       ; tends-const
+tends x 2 (3 * 2 + 1) (3 * x + 1)                   ; tends-add
+cont x 2 (3 * x + 1)                                ; cont-tends: the limit is the value at 2

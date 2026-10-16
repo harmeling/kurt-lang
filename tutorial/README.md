@@ -3,7 +3,7 @@
 Task by task, one lesson each: "How do I prove an implication?", "How do I introduce a universal
 quantifier?", or "Why did this step fail?" Every lesson is a Kurt file: run it
 (`kurt 02-prove-an-implication.kurt`), change it, run it again. (It used to be the cookbook,
-`doc/kurt-cookbook.md`.)
+a document that is gone.)
 
 - [`00-check-a-proof-file.kurt`](00-check-a-proof-file.kurt): Check a proof file
 - [`01-apply-an-implication-modus-ponens.kurt`](01-apply-an-implication-modus-ponens.kurt): Apply an implication: modus ponens
@@ -42,7 +42,8 @@ The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one
 - `proofs/arithmetic/`: calculation, algebraic rewriting, order, exponents, and factorial.
 - `proofs/natural-numbers/`: induction, Peano-style examples, √2 is irrational.
 - `proofs/set-theory/`: membership, products, powersets, tuples, and mappings.
-- `proofs/analysis/`: maxima, suprema, and epsilon-delta limit proofs.
+- `proofs/analysis/`: maxima, suprema, epsilon-delta limits, limit laws, continuity, derivatives,
+  integrals, sequences and series.
 - `proofs/linear-algebra/`: groups, injective maps, matrix literals, Cauchy-Schwarz.
 - `proofs/mafi1/`: the proofs of a linear algebra lecture.
 - `proofs/lambda-calculus/`: typing, evaluation, preservation, and confluence of lambda terms.

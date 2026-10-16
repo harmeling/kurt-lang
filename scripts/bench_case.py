@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# The runtime of n-ary `case` (dev/todo.md, item 2): for n alternatives `A1 or ... or An`, the goal
+# The runtime of n-ary `case` (the speed of the search, doc/dev-notes.md): for n alternatives `A1 or ... or An`, the goal
 # `G` from one implication per alternative -- written directly (`use Ai implies G`) or as real
 # `case Ai` blocks -- with n unrelated disjunctions and implications in scope. For each n: the time
 # of a fresh process, the time of a check in a session and of the same check again in that
@@ -11,6 +11,7 @@
 import argparse
 import contextlib
 import io
+import re
 import subprocess
 import sys
 import tempfile
@@ -78,7 +79,7 @@ def in_session(text: str) -> tuple[float, float, int, float, str]:
     t2 = time.perf_counter() - start
     if not first.ok:
         raise SystemExit(f'session check failed: {first.error}')
-    last = [line for line in first.output.splitlines() if line.startswith('G ')][-1]
+    last = [line for line in first.output.splitlines() if re.match(r'\s*\d+[a-z]*\s+G\s', line)][-1]   # (after the line number)
     return t1, t2, calls[0], case_seconds[0], last.split(';', 1)[1].strip()
 
 

@@ -31,6 +31,21 @@ class TestStrictMode(unittest.TestCase):
                 with self.assertRaises(kurt.KurtException):
                     self.check(source, tmp)
 
+    def test_a_chain_needs_its_rules_proved_before_it(self):
+        # todo 3 (2026-10-14; before, `chain` was refused with --strict): it generates no rules, each
+        # of them must be a fact before it, and its notation uses them; a missing one is named
+        with tempfile.TemporaryDirectory() as tmp:
+            self.check('load natural\ninfix ≺ 20 20\ndef $x ≺ $y iff $x < $y   "prec"\nshow ($a ≺ $b) and ($b ≺ $c) implies ($a ≺ $c)\nproof\n    assume ($a ≺ $b) and ($b ≺ $c)\n        $a < $b\n        $b < $c\n        ($a < $b) and ($b < $c)\n        $a < $c\n        $a ≺ $c\nqed\nchain ≺\nconst p, q, r\nshow (p ≺ q) and (q ≺ r) implies p ≺ r\nproof\n    assume (p ≺ q) and (q ≺ r)\n        p ≺ q\n          ≺ r\nqed\n', tmp)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(kurt.KurtException) as caught:      # `x R y` for `y = x + 1` isn't transitive
+                self.check('load natural\ninfix R 20 20\ndef $x R $y iff $y = $x + 1\nchain R\n', tmp)
+            self.assertIn('show ($a R $b) and ($b R $c) implies ($a R $c)', caught.exception.msg)
+
+    def test_a_chain_has_at_most_three_operators(self):
+        kurt.run_state.strict_mode = False
+        result = kurt.check_text('infix a1 20 20, a2 20 20, a3 20 20, a4 20 20\nchain a1 a2 a3 a4\n')
+        self.assertIn('at most three operators', result.error)
+
     def test_requires_declarations(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(kurt.KurtException):

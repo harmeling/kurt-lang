@@ -1,0 +1,12 @@
+; `calc on` computed `3 ∉ S` for every set `S`: only the element was a number, the set wasn't one
+; of the calculator's (`Nat`, `Int`, ...) -- `3 ∈ {3}`, `3 ∉ {3}`, `false` was accepted, also with
+; --strict (found by the soundness hunt, 2026-10-14; `numeric_comparison_holds`)
+load natural
+calc on
+3 ∈ {3}
+expect "ProofError"
+    3 ∉ {3}
+const A
+expect "ProofError"
+    3 ∉ A
+-3 ∉ Nat                      ; a set of the calculator: computed, as before

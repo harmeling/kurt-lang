@@ -9,12 +9,12 @@
        expect "ProofError" "can not derive `q`"
            q
 
-4. An error that only a whole file can make (a block still open at its end, `break` at its top
-   level, a circular `load`, an export that `load` rejects, ...) goes into a helper file in a
+4. An error that only a whole file can make (a proof still unfinished at its end, `break` at its
+   top level, a circular `load`, an export that `load` rejects, ...) goes into a helper file in a
    directory `helpers/` next to the test -- the test discovery skips those -- and the test loads
    it inside `expect`:
 
-       expect "EvalError" "not all blocks closed"
+       expect "ProofError" "isn't finished at the end of the file"
            load "helpers/not-all-blocks-close.kurt"
 
    The same for something that is allowed inside `expect` (`use`, `load`, `def`, `chain` in a

@@ -4,37 +4,7 @@ const V
 use vectorspace(V)                                                  "V-vectorspace"
 arity subspace 1
 
-; two facts about ∅, for (U1) (they belong to set.kurt)
-show $U ≠ ∅  ⇒  ∃ $x ($x ∈ $U)                                       "nonempty-element"
-proof
-    assume $U ≠ ∅
-        assume not ∃ $x ($x ∈ $U)
-            let c
-                assume c ∈ $U
-                    ∃ $x ($x ∈ $U)
-                    false
-                    c ∈ ∅
-            $U ⊂ ∅
-            let c
-                assume c ∈ ∅
-                    false
-                    c ∈ $U
-            ∅ ⊂ $U
-            $U = ∅
-            not ($U = ∅)
-            false
-        ∃ $x ($x ∈ $U)
-qed
-
-show $x ∈ $U  ⇒  $U ≠ ∅                                              "element-nonempty"
-proof
-    assume $x ∈ $U
-        assume $U = ∅
-            $x ∈ ∅
-            false
-        not ($U = ∅)
-        $U ≠ ∅
-qed
+; two facts about ∅, for (U1): set.kurt's "nonempty-element", "element-nonempty"
 
 ; Definition: U ⊂ V is a subspace of V if (U1), (U2) and (U3) hold
 def subspace($U)  ⇔  $U ⊂ V ∧ $U ≠ ∅ ∧ (∀ $x ∈ $U ∀ $y ∈ $U ($x + $y ∈ $U)) ∧ (∀ $a ∈ K ∀ $x ∈ $U ($a · $x ∈ $U))   "subspace"
@@ -128,6 +98,60 @@ proof
                     z ∈ V
                     (x + y) + z = x + (y + z)
         (∃ $o ∈ $U ∀ $x ∈ $U ($x + $o = $x)) ∧ (∀ $x ∈ $U ∃ $y ∈ $U ($x + $y = 0)) ∧ (∀ $x ∈ $U ∀ $y ∈ $U ∀ $z ∈ $U (($x + $y) + $z = $x + ($y + $z)))
+qed
+
+; so a subspace is a vector space, by the definition of one ("vectorspace-intro", vectorspace.kurt)
+show subspace($U)  ⇒  vectorspace($U)                               "subspace-is-vectorspace"
+proof
+    assume subspace($U)
+        0 ∈ $U
+        let x ∈ $U
+            let y ∈ $U
+                x + y ∈ $U
+        let a ∈ K
+            let x ∈ $U
+                a · x ∈ $U
+        let x ∈ $U
+            - x ∈ $U
+        ; (V1)-(V8) hold in V, so in U
+        let x ∈ $U
+            let y ∈ $U
+                let z ∈ $U
+                    x ∈ V
+                    y ∈ V
+                    z ∈ V
+                    (x + y) + z = x + (y + z)
+        let x ∈ $U
+            let y ∈ $U
+                x ∈ V
+                y ∈ V
+                x + y = y + x
+        let x ∈ $U
+            x ∈ V
+            x + 0 = x
+        let x ∈ $U
+            x ∈ V
+            x + (- x) = 0
+        let a ∈ K
+            let b ∈ K
+                let x ∈ $U
+                    x ∈ V
+                    a · (b · x) = (a · b) · x
+        let x ∈ $U
+            x ∈ V
+            1 · x = x
+        let a ∈ K
+            let x ∈ $U
+                let y ∈ $U
+                    x ∈ V
+                    y ∈ V
+                    a · (x + y) = a · x + a · y
+        let a ∈ K
+            let b ∈ K
+                let x ∈ $U
+                    x ∈ V
+                    (a + b) · x = a · x + b · x
+        vectorspace($U)
 qed
 
 ; exercise ("Beweis?"): the intersection of two subspaces is a subspace

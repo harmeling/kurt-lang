@@ -1,0 +1,25 @@
+; round brackets around a list are a tuple (since 2026-10-12): `(x, y, z)` is a triple, `(x, (y, z))`
+; and `((x, y), z)` are two different pairs -- before, the comma was right-associative and the
+; brackets went, so `(x, y, z)` was the pair `(x, (y, z))`. A flat comma would be wrong: "pair-eq"
+; would then also take a triple apart, `(x, y, z)` as `(x, (y, z))` and as `((x, y), z)`, and give
+; `x = (x, y)` (doc/kurt-soundness.md §8.14)
+load set
+const x, y, z
+
+expect "ProofError"
+    (x, y, z) = (x, (y, z))
+expect "ProofError"
+    (x, (y, z)) = ((x, y), z)
+use (x, y, z) = (x, y, z)
+expect "ProofError"
+    x = (x, y)
+; the rules for pairs don't take a triple: `fst` has no rule for it
+expect "ProofError"
+    fst(x, y, z) = x
+; a list in other brackets is a list: `{x, y}` is not `{(x, y)}`
+expect "ProofError"
+    {x, y} = {(x, y)}
+; and a pair's components can't be swapped
+use (x, y) = (x, y)
+expect "ProofError"
+    (x, y) = (y, x)

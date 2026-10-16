@@ -8,13 +8,14 @@ import unittest
 
 from tests.utils import PROJECT_ROOT
 
-# scripts/kurt2lean.py writes a checked Kurt proof as a Lean 4 file; where Lean is installed
-# (`lean` on the PATH, or ~/.elan/bin/lean), Lean checks it again -- otherwise only the
-# translation itself is tested. The translation is tested with the Lean of scripts/lean-toolchain
-# (the CI job `lean` installs it); an older Lean is skipped, since it may not know an option or a
-# tactic the translation uses. KURT_REQUIRE_LEAN=1 (in CI): no Lean, or an older one, is an error.
+# `kurt --lean FILE` (`export_lean`, before 2026-10-13 scripts/kurt2lean.py) writes a checked Kurt
+# proof as a Lean 4 file; where Lean is installed (`lean` on the PATH, or ~/.elan/bin/lean), Lean
+# checks it again -- otherwise only the translation itself is tested. The translation is tested with
+# the Lean of scripts/lean-toolchain (the CI job `lean` installs it); an older Lean is skipped, since
+# it may not know an option or a tactic the translation uses. KURT_REQUIRE_LEAN=1 (in CI): no Lean,
+# or an older one, is an error.
 
-SCRIPT = PROJECT_ROOT / 'scripts' / 'kurt2lean.py'
+KURT = PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'
 LEAN = shutil.which('lean') or next((p for p in [os.path.expanduser('~/.elan/bin/lean')] if os.path.isfile(p)), None)
 TOOLCHAIN = (PROJECT_ROOT / 'scripts' / 'lean-toolchain').read_text(encoding='utf-8').strip()
 TESTED = tuple(int(n) for n in re.search(r'v(\d+)\.(\d+)', TOOLCHAIN).groups())
@@ -38,41 +39,42 @@ PROOFS = ['proofs/readme/contrapositive.kurt', 'proofs/natural-deduction/neg-for
           'proofs/natural-deduction/lemma.kurt']
 
 
-def translate(proof: str, output: str) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, str(SCRIPT), str(PROJECT_ROOT / proof), '-o', output, '--strict-lean'],
-                          capture_output=True, text=True, timeout=120)
+def translate(proof: str, tmp: str) -> tuple[subprocess.CompletedProcess, str]:
+    # `kurt --lean` on a copy of the proof in `tmp` (it writes the `.lean` next to the file)
+    copy = os.path.join(tmp, 'proof.kurt')
+    shutil.copy(PROJECT_ROOT / proof, copy)
+    result = subprocess.run([sys.executable, str(KURT), '--lean', '--no-kurtc', copy], capture_output=True, text=True, timeout=120)
+    return result, os.path.join(tmp, 'proof.lean')
 
 
 def lean(path: str) -> subprocess.CompletedProcess:
     return subprocess.run([LEAN, os.path.basename(path)], cwd=os.path.dirname(path), capture_output=True, text=True, timeout=300)
 
 
-class TestKurt2Lean(unittest.TestCase):
+class TestExportLean(unittest.TestCase):
     def test_lean_is_there_where_required(self):
         if os.environ.get('KURT_REQUIRE_LEAN'):
             self.assertTrue(USABLE, WHY_NOT)
 
     def test_translates_completely(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            for proof in PROOFS:
-                with self.subTest(proof=proof):
-                    out = os.path.join(tmp, 'proof.lean')
-                    result = translate(proof, out)
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    text = open(out, encoding='utf-8').read()
-                    self.assertIn('theorem ', text)
-                    self.assertNotIn('sorry', text)
+        for proof in PROOFS:
+            with self.subTest(proof=proof), tempfile.TemporaryDirectory() as tmp:
+                result, out = translate(proof, tmp)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('wrote', result.stdout)
+                self.assertEqual(result.stdout.strip().splitlines()[-1], f'lean {out}')   # the command, last
+                text = open(out, encoding='utf-8').read()
+                self.assertIn('theorem ', text)
+                self.assertNotIn('sorry', text)
 
     @unittest.skipUnless(USABLE, WHY_NOT)
     def test_lean_checks_the_translation(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            for proof in PROOFS:
-                with self.subTest(proof=proof):
-                    out = os.path.join(tmp, 'proof.lean')
-                    translate(proof, out)
-                    result = lean(out)
-                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                    self.assertNotIn('error', result.stdout)
+        for proof in PROOFS:
+            with self.subTest(proof=proof), tempfile.TemporaryDirectory() as tmp:
+                _, out = translate(proof, tmp)
+                result = lean(out)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertNotIn('error', result.stdout)
 
     @unittest.skipUnless(USABLE, WHY_NOT)
     def test_lean_rejects_a_false_theorem(self):
@@ -80,11 +82,10 @@ class TestKurt2Lean(unittest.TestCase):
         # converse of the contrapositive), Lean fails -- at the theorem, for its type, while the
         # same file with the true theorem passes (so the failure isn't an option Lean doesn't know)
         with tempfile.TemporaryDirectory() as tmp:
-            out = os.path.join(tmp, 'proof.lean')
-            translate('proofs/readme/contrapositive.kurt', out)
+            _, out = translate('proofs/readme/contrapositive.kurt', tmp)
             text = open(out, encoding='utf-8').read()
             true, false = '((A → B) → ((¬ B) → (¬ A)))', '((A → B) → ((¬ A) → (¬ B)))'
-            self.assertIn(f'theorem f', text)
+            self.assertIn('theorem f', text)
             self.assertIn(true, text)
             control = lean(out)
             self.assertEqual(control.returncode, 0, control.stdout + control.stderr)

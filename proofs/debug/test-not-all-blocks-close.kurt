@@ -1,3 +1,3 @@
-; error: a block still open at the end of the file
+; error: a proof still unfinished at the end of the file (other blocks close there, as by a dedent)
 expect "ProofError" "isn't finished at the end of the file"
     load "helpers/not-all-blocks-close.kurt"

@@ -1,0 +1,28 @@
+; a chain continued over lines with `>` or `>=` (numbers.kurt: `chain = >= >`, and `inline $a > $b
+; iff $b < $a`): the chain is about the line as written, `a > b`, not about the `b < a` it is read
+; as. Until 2026-10-15 the chain took its operator and left side from the read form, so `> c` was
+; "invalid chain of operators `[<, >]`" (found by the soundness hunt), and `a > b`, `= c` claimed
+; `a > c` with `>` not read as `c < a`.
+load numbers
+const a, b, c, d
+
+use a > b
+use b > c
+use c = d
+use d >= a
+
+a > b
+  > c                         ; a > c, by chain-trans with the fact b > c
+  = d                         ; a > d
+a > d                         ; (restated: the chain's result)
+c < a
+
+a >= b
+  >= c
+c <= a
+
+; a mixed chain is still refused: `>` continued with `<` is no chain
+use a < d
+expect "ParseError" "invalid chain"
+    a > b
+      < d

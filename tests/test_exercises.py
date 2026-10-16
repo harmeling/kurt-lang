@@ -114,6 +114,39 @@ class TestGrading(unittest.TestCase):
         self.assertFalse(complete)
         self.assertIn('`use` is not allowed', report)
 
+    def test_a_withdrawn_claim_is_not_complete(self):
+        # `show X`, `break` for every claim: no `todo`, no `use`, nothing open -- COMPLETE (2026-10-15,
+        # found by the boundary hunt); a withdrawn claim is a `todo` now
+        import re
+        import tempfile
+        text = self.exercise.read_text(encoding='utf-8')
+        cheat = re.sub(r'\nproof\n(    .*\n)+qed\n', '\nbreak\n', text)
+        self.assertNotIn('\nproof\n', cheat)
+        with tempfile.TemporaryDirectory() as tmp:
+            solution = Path(tmp) / 'solution.kurt'
+            solution.write_text(cheat, encoding='utf-8')
+            complete, report = grade_exercise.grade(self.exercise, solution)
+        self.assertFalse(complete)
+        self.assertIn('not complete', report)
+        self.assertIn('withdrew the claim', report)
+
+    def test_the_grader_does_not_search_its_working_directory(self):
+        # a graded file found `.kurt` files where the teacher ran the grader (todo 46, 2026-10-15)
+        import tempfile
+        text = self.exercise.read_text(encoding='utf-8')
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'helper.kurt').write_text('load prop\nbool H\nuse H "h"\n', encoding='utf-8')
+            solution = Path(tmp) / 'solution.kurt'
+            solution.write_text(text.replace('load theory/island\n', 'load theory/island\nload helper\n', 1), encoding='utf-8')
+            cwd = os.getcwd()
+            os.chdir(tmp)
+            try:
+                complete, report = grade_exercise.grade(self.exercise, solution)
+            finally:
+                os.chdir(cwd)
+        self.assertFalse(complete)
+        self.assertIn('unable to open `helper.kurt`', report)
+
 
 if __name__ == '__main__':
     unittest.main()

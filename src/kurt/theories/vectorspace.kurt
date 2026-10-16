@@ -41,7 +41,6 @@ proof
         0 ∈ $V                                          ; zero-vector-in
         0 + $o = 0                                      ; (vector-plus-zero) for 0'  with x = 0
         $o = $o + 0
-           = 0 + $o
            = 0
 qed
 
@@ -110,7 +109,6 @@ proof
         $a · $x ∈ $V
         (- 1) · $a = - $a                               ; minus-one-times
         (- $a) · $x = ((- 1) · $a) · $x
-                    = (- 1) · ($a · $x)
                     = - ($a · $x)
 qed
 
@@ -129,8 +127,22 @@ proof
         $z + $y ∈ $V
         $y + $u ∈ $V
         ($x + $y) + ($z + $u) = $x + ($y + ($z + $u))
-                              = $x + (($y + $z) + $u)
-                              = $x + (($z + $y) + $u)
-                              = $x + ($z + ($y + $u))
-                              = ($x + $z) + ($y + $u)
 qed
+
+; in a vector space, x - y = 0 gives x = y (mafi1 10, 2026-10-12)
+show vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $x + (- $y) = 0  ⇒  $x = $y   "vector-minus-zero"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $x + (- $y) = 0
+        - $y ∈ $V
+        (- $y) + $x = $x + (- $y)                       ; vector-plus-commutative
+        (- $y) + $x = 0
+        $y + (- $y) = 0                                 ; vector-plus-minus
+        (- $y) + $y = $y + (- $y)                       ; vector-plus-commutative
+        (- $y) + $y = 0
+        $x = $y                                         ; vector-minus-unique, with -y as the vector
+qed
+
+; the definition the other way: a set with the zero vector, closed under `+`, `·` and `-`, in which
+; (V1)-(V8) hold, is a vector space (mafi1 06: a subspace is one) -- `vectorspace($V)` is read as
+; exactly these properties, so this is consistent with the rules above
+use 0 ∈ $V ∧ (∀ $x ∈ $V ∀ $y ∈ $V ($x + $y ∈ $V)) ∧ (∀ $a ∈ K ∀ $x ∈ $V ($a · $x ∈ $V)) ∧ (∀ $x ∈ $V (- $x ∈ $V)) ∧ (∀ $x ∈ $V ∀ $y ∈ $V ∀ $z ∈ $V (($x + $y) + $z = $x + ($y + $z))) ∧ (∀ $x ∈ $V ∀ $y ∈ $V ($x + $y = $y + $x)) ∧ (∀ $x ∈ $V ($x + 0 = $x)) ∧ (∀ $x ∈ $V ($x + (- $x) = 0)) ∧ (∀ $a ∈ K ∀ $b ∈ K ∀ $x ∈ $V ($a · ($b · $x) = ($a · $b) · $x)) ∧ (∀ $x ∈ $V (1 · $x = $x)) ∧ (∀ $a ∈ K ∀ $x ∈ $V ∀ $y ∈ $V ($a · ($x + $y) = $a · $x + $a · $y)) ∧ (∀ $a ∈ K ∀ $b ∈ K ∀ $x ∈ $V (($a + $b) · $x = $a · $x + $b · $x)) ⇒  vectorspace($V)   "vectorspace-intro"

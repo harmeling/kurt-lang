@@ -23,5 +23,12 @@ class TestFileFingerprint(unittest.TestCase):
         with mock.patch('builtins.open', side_effect=OSError('no such file')):
             self.assertEqual(kurt.file_fingerprint(), 'unknown')
 
+    def test_banner_names_the_sha256_of_the_running_kurt_py(self):
+        # the banner says what its hash is: the first 12 characters of `sha256sum kurt.py`
+        import hashlib
+        with open(kurt_module.__file__, 'rb') as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+        self.assertTrue(kurt.hello().endswith(f', {digest[:12]} (SHA-256 of kurt.py)'), kurt.hello())
+
 if __name__ == '__main__':
     unittest.main()

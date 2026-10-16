@@ -1,0 +1,29 @@
+; `pick c with F` finds its existential with the parts of a conjunction in any order, and with the
+; written `-3 + k` against the derived `k + -3` (2026-10-15, todo 52): the derived `∃` of
+; natural.kurt's "range" is compared normalized -- `- 3` is the number `-3` -- and a `sym` operator's
+; arguments as a set.
+load logic, natural
+const y
+calc on
+use y ∈ { -3, ..., 8 }
+show y <= 8
+proof
+    ∃ $k ∈ Nat (y = -3 + $k ∧ y <= 8)
+    pick k with k ∈ Nat ∧ y = -3 + k ∧ y <= 8
+        y <= 8
+qed
+
+; and not the fact as written when a declared `var` is in it: `use ∃ z (R z x)` with `var x` is
+; `∀ x ∃ z (R z x)`, and one `c` with `R c x` for every `x` would be wrong -- the search accepted it
+; for a moment on 2026-10-15, the kernel refused (the "false rejection" of todo 48 was a right one)
+var x
+const R
+arity R 2
+bool R 0
+use ∃ z (R z x)
+expect "ProofError"
+    show ∃ w (R w x)
+    proof
+        pick c with R c x
+            ∃ w (R w x)
+    qed

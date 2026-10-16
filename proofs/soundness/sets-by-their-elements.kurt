@@ -1,0 +1,37 @@
+; sets by their elements, `{a}`, `{a, b}`, and the set-builder `{x ∈ A | P}` are three different
+; kinds of terms (set.kurt's `builtin { } setbrackets, | setbuilder`, since 2026-10-12): before, all
+; were the bracket `{ }` around one expression, so the rule "singleton", `$x ∈ {$y} ≡ $x = $y`,
+; also read the inside of a set-builder as the element `$y`, and Kurt proved `false` in four lines
+; (dev/design-sets-and-brackets.md, section 1):
+;     (z ∈ ∅ | z = z) ∈ {z ∈ ∅ | z = z}                           ; by singleton
+;     (z ∈ ∅ | z = z) ∈ ∅ ∧ (z ∈ ∅ | z = z) = (z ∈ ∅ | z = z)     ; by separation
+;     (z ∈ ∅ | z = z) ∈ ∅
+;     false
+load set
+const a, b, c
+
+; the inside of a set-builder is no term of its own any more
+expect "ParseError" "only inside"
+    (z ∈ ∅ | z = z) ∈ {z ∈ ∅ | z = z}
+; the set-builder is an element of its singleton, but not of itself, and of nothing in ∅
+{z ∈ ∅ | z = z} ∈ {{z ∈ ∅ | z = z}}                               ; by singleton
+expect "ProofError"
+    {z ∈ ∅ | z = z} ∈ {z ∈ ∅ | z = z}
+expect "ProofError"
+    false
+
+; `{a, b}` has two elements, `{(a, b)}` one, the pair
+expect "ProofError"
+    {a, b} = {(a, b)}
+(a, b) ∈ {(a, b)}                                                 ; by singleton
+expect "ProofError"
+    b ∈ {(a, b)}
+; "singleton" doesn't read a list as one element: from `c ∈ {a, b}` not `c = (a, b)`
+use c ∈ {a, b}
+expect "ProofError"
+    c = (a, b)
+
+; `{}` is `∅`
+{} = ∅
+expect "ProofError"
+    a ∈ {}

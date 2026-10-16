@@ -22,4 +22,4 @@ b + a                 ; matches the axiom above even though the order differs (s
 ; `=` (12-def.kurt, declared `sym` in `equality.kurt`) and `or` (declared
 ; `sym` in `prop.kurt`) are both declared `sym` for exactly this reason.
 ; `and` is *also* symmetric, but -- unlike `or` -- it's declared that way
-; hard-coded directly in `kurt.py`, not in `prop.kurt` (see `minimal.kurt`).
+; in the core, `minimal.kurt` (`sym and`), not in `prop.kurt`.

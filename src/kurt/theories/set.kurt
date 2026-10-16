@@ -4,7 +4,7 @@
 ; extensionality, empty set, intersection, union, subset, power set, ordered pairs and tuples
 ; (`(a, b)`, `fst`, `snd`), Cartesian products (`A × B`), and mappings (`:`/`→`,
 ; `f : A → B` for "f is a function from A to B", as sets of pairs, with function extensionality) -- see
-; proofs/mafi1/001-two-equal-sets.kurt for a real distributive-law proof and
+; proofs/mafi1/01-two-equal-sets.kurt for a real distributive-law proof and
 ; proofs/set-theory/ for more.
 ;
 ; This follows Zermelo-Fraenkel set theory, in a small version: there is no unrestricted
@@ -21,14 +21,18 @@ infix    in 25 25        ; element
 infix    |  10 10        ; separator for set comprehension
 bindop   |               ; `{ $z ∈ $A | P $z }` binds `$z`, like `∀ $z ∈ $A ...`
 infix    ⊂  18 18        ; subset
-infix    ⊃  18 18        ; superset: `A ⊃ B` is `B ⊂ A`
+infix    ⊃  18 18        ; superset: `A ⊃ B` is read as `B ⊂ A` (the `inline` below)
+infix    ∉  25 25        ; not an element: `x ∉ A` is read as `not (x ∈ A)`
 infix    ∪  30 30        ; union
 infix    ∩  40 40        ; intersection
 bool     in 0
 bool     ⊂ 0
-bool     ⊃ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
+; sets written with braces: `{a, b, c}` by its elements, `{x ∈ A | P}` by a property (the
+; set-builder), `{}` the empty set -- three different kinds of terms, so that the rule for `{$y}`
+; ("singleton") reads neither a set-builder nor a list as one element
+builtin  { } setbrackets, | setbuilder
 ; `A → B` is the *set* of all mappings from A to B; `f : A → B` reads as `f ∈ (A → B)` --
 ; "f is a member of the set of A→B mappings" -- exactly like `∈` is already just an alias of
 ; `in`
@@ -50,7 +54,23 @@ use $a ∈ { $z ∈ $A | %F }  ≡  $a ∈ $A ∧ sub $z $a %F               "se
 
 ; subset
 def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)                    "subset"
-def $a ⊃ $b ≡ $b ⊂ $a                                            "superset"
+inline $a ⊃ $b  iff  $b ⊂ $a                                     ; one term: nothing to switch
+inline $x ∉ $A  iff  not ($x ∈ $A)
+; the same with a condition on the bound variable, as on the slides: `A ⊂ B ⇔ ∀ c ∈ A (c ∈ B)`
+show $a ⊂ $b  ≡  ∀ $c ∈ $a ($c ∈ $b)                               "subset-cond"
+proof
+    assume $a ⊂ $b
+        ∀ $c ($c ∈ $a implies $c ∈ $b)
+        let c ∈ $a
+            c ∈ $b
+        ∀ $c ∈ $a ($c ∈ $b)
+    assume ∀ $c ∈ $a ($c ∈ $b)
+        let c
+            assume c ∈ $a
+                c ∈ $b
+        ∀ $c ($c ∈ $a implies $c ∈ $b)
+        $a ⊂ $b
+qed
 ; This is a characterization of two existing relations, hence not a conservative `def`; it is a
 ; derived theorem of extensionality and the definition of subset.
 show ∀ $M ∀ $N ($M = $N  ≡  $M ⊂ $N  ∧  $N ⊂ $M)                 "eq-def"
@@ -85,7 +105,38 @@ qed
 
 ; the empty set, unions and power sets exist
 const ∅
+builtin ∅ emptyset       ; `{}` is `∅`
 use not ($a ∈ ∅)                                                 "empty-set"
+use $x ∈ {$y}  ≡  $x = $y                                         "singleton"
+
+; a set is not empty exactly when it has an element (from mafi1 06, 2026-10-12)
+show $U ≠ ∅  ⇒  ∃ $x ($x ∈ $U)                                       "nonempty-element"
+proof
+    assume $U ≠ ∅
+        assume not ∃ $x ($x ∈ $U)
+            let c
+                assume c ∈ $U
+                    ∃ $x ($x ∈ $U)
+                    false
+                    c ∈ ∅
+            $U ⊂ ∅
+            let c
+                assume c ∈ ∅
+                    false
+                    c ∈ $U
+            ∅ ⊂ $U
+            $U = ∅
+            false
+        ∃ $x ($x ∈ $U)
+qed
+show $x ∈ $U  ⇒  $U ≠ ∅                                              "element-nonempty"
+proof
+    assume $x ∈ $U
+        assume $U = ∅
+            $x ∈ ∅
+            false
+        $U ≠ ∅
+qed
 use $c ∈ $a ∪ $b  ≡  $c ∈ $a ∨ $c ∈ $b                           "union"
 use $b ∈ Pow($a)  ≡  $b ⊂ $a                                     "power-set"
 
@@ -98,11 +149,11 @@ proof
     $x ∈ $A ∩ $B  ≡  $x ∈ $A ∧ $x ∈ $B
 qed
 
-; ordered pairs and tuples: `(a, b)`. The comma is right-associative, so the triple `(a, b, c)`
-; is the pair `(a, (b, c))` -- as in set theory, where n-tuples are built from pairs. So the
-; rules for pairs are also those for tuples: two triples are equal if their first components are,
-; and the pairs of their other components.
+; ordered pairs and tuples: `(a, b)`, `(a, b, c)` -- a list in round brackets is a tuple of its
+; own: `(a, b, c)` is a triple, `(a, (b, c))` a pair whose second component is a pair. Two tuples
+; are equal if their components are.
 use ($a, $b) = ($c, $d)  ≡  $a = $c ∧ $b = $d                      "pair-eq"
+use ($a, $b, $c) = ($d, $e, $f)  ≡  $a = $d ∧ $b = $e ∧ $c = $f    "triple-eq"
 const fst, snd
 arity fst 1
 arity snd 1

@@ -90,6 +90,21 @@ class TestApi(unittest.TestCase):
             self.assertTrue(session.check_file(path).ok)
             self.assertTrue(os.path.exists(path + 'c'))
 
+    def test_the_files_a_text_loads_use_their_certificates(self):
+        # `check_text` switched `.kurtc` off for the files it loads too: the playground checked
+        # natural.kurt etc. from scratch each time
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, 'lemma.kurt'), 'w') as f:
+                f.write('load equality\nconst a, b\nuse a = b\nb = a  "flipped"\n')
+            text = 'load lemma\nb = a\n'
+            first = kurt.new_session(kurt.RunConfig(kurtc=True, paths=(tmp,)))
+            self.assertTrue(first.check_text(text).ok)
+            self.assertTrue(os.path.exists(os.path.join(tmp, 'lemma.kurtc')))
+            self.assertFalse(os.path.exists('proof.kurtc'))         # (the text has none)
+            second = kurt.new_session(kurt.RunConfig(kurtc=True, paths=(tmp,)))
+            self.assertTrue(second.check_text(text).ok)
+            self.assertGreater(second._state.replayed, 0)
+
     def test_restating_a_labelled_fact_is_a_step(self):
         # the events come from the reasons as data, not from parsing their text: `by "lbl"` was
         # read as a line with the label `lbl` (2026-10-09)

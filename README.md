@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/harmeling/kurt-syntax/main/images/logo.svg" alt="the logo of Kurt: ⊢kurt" width="96" align="right">
 
-Kurt is a small language for writing mathematical proofs in a form close to how people write
+Kurt is a programming language for writing mathematical proofs in a form close to how people write
 them — one claim per line, blocks for assumptions and cases — and a checker that tells you
 immediately, line by line, whether each step follows. It is meant for students learning to prove
 things, much like running tests while learning to program. Kurt has been developed by Stefan
@@ -13,7 +13,10 @@ proof written for 0.8 may need small changes for 1.0.
 
 **Try it in your browser**, without installing anything:
 [www.kurt-lang.org](https://www.kurt-lang.org), the playground. It runs the same Kurt in the
-browser, with the tutorial, the keyword lessons, and the proofs of a lecture (mafi1).
+browser, with the tutorial, the keyword lessons, the exercises, and the proofs of a lecture
+(mafi1). A link can open one of these files, e.g. for a course:
+[`www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt`](https://www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt)
+(`#file=` and the file's path in the playground; see `doc/kurt-doc.md`, §1).
 
 ## A first proof
 
@@ -28,7 +31,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.8.3 (made by Stefan Harmeling, 2016-2026), file 022f67e99ab6
+    This is Kurt, v0.9.0 (made by Stefan Harmeling, 2016-2026), 1d7ba64c4139 (SHA-256 of kurt.py)
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -72,6 +75,10 @@ same indentation rules as a file.
 - **Exact arithmetic** with `calc on`: `0.1 + 0.2 = 0.3` holds, and `1 / 3` stays a fraction.
 - **For grading**: `kurt --strict` rejects axioms (`use`), `todo` and new rules outside the
   theories that come with Kurt.
+- **Documents**: `kurt --latex FILE` and `kurt --markdown FILE` write the checked proof with its
+  reasons in mathematical notation (`-o OUT` elsewhere, `-o -` to the standard output);
+  `kurt --lean FILE` a Lean 4 file (a prototype); `kurt --unused FILE` names the lines of the
+  proofs that nothing cites.
 - **No dependencies**: one Python file. It's also available as a single self-contained script
   with all theories embedded, to hand out in a course.
 
@@ -113,7 +120,7 @@ in parallel, use processes.
 - [`tutorial/`](tutorial/): the tutorial, 29 lessons (00 to 28), task by task: prove an implication, argue by
   contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
   derive". Each one is a Kurt file you can run and change.
-- [`keywords/`](keywords/): 46 short lessons (00 to 45), one keyword or idea each
+- [`keywords/`](keywords/): 47 short lessons (00 to 46), one keyword or idea each
   ([plan](keywords/plan.md)).
 - [`exercises/`](exercises/): exercises for students, by topic (logic puzzles, quantifiers, sets,
   functions, relations, groups, induction, limits, calculus): each loads the scene of its topic
@@ -133,6 +140,16 @@ loaded before. A `def` must be conservative. Adversarial test files (`proofs/sou
 every bug found so far from coming back. Kurt is not a small-kernel system like Metamath or HOL
 Light yet: the kernel still shares the parser and the normal forms with the search.
 `doc/kurt-soundness.md` says exactly what is trusted.
+
+## Proofs people can read
+
+Kurt was made for teaching, and so a Kurt proof is meant to be read by a person: one claim per
+line, each with the reason Kurt found for it. That may matter beyond teaching too. As language
+models get better at finding proofs, a person still needs to understand what was proven and how;
+a checker says that a proof is correct, a readable proof also lets someone follow it. Kurt could
+be one way to write such proofs. This is an idea, not a result: Kurt is a small checker, far from
+the libraries and the reach of Lean, Isabelle or Coq, and time will tell whether it is useful for
+this.
 
 ## AI assistance
 
@@ -154,7 +171,8 @@ line. The design of the language, and the responsibility for it, remain the auth
 ## Editor support
 
 `kurt --lsp` is a language server for editors: the errors and `todo`s at their lines, the reason
-of each checked line at its end and on hover, and completion with the state at the cursor. It
+of each checked line at its end and on hover (also what a line like `cert 14` or `builtin`
+prints), and completion with the state at the cursor. It
 checks after open and save, and can check edits after a short debounce; two open files use each
 other's unsaved text when one loads the other.
 
@@ -162,10 +180,11 @@ The [kurt-syntax](https://github.com/harmeling/kurt-syntax) repository has edito
 `.kurt` files: highlighting, comments and indentation, LSP clients for VS Code, Emacs/Eglot and
 Neovim, and, in VS Code and Emacs, LaTeX-style shortcuts such as `\forall` → `∀`.
 
-- **VS Code**: the extension **Kurt** (`harmeling.kurt`), from the command line:
+- **VS Code**: the extension **Kurt Proof Language** (`harmeling.kurt-lang`), from the command
+  line:
 
-      curl -LO https://github.com/harmeling/kurt-syntax/releases/latest/download/kurt.vsix
-      code --install-extension kurt.vsix
+      curl -LO https://github.com/harmeling/kurt-syntax/releases/latest/download/kurt-lang.vsix
+      code --install-extension kurt-lang.vsix
 
   It comes with Kurt itself (only Python 3.10 or newer is needed), and uses an installed `kurt`
   first.
@@ -189,9 +208,10 @@ a file (`kurt -a` on the command line; by default it stops at the first).
 The implementation is the single file `src/kurt/kurt.py`. The theories are in
 `src/kurt/theories/`.
 
-The banner's `file <hash>` is a fingerprint of the exact `kurt.py` you're running. When you
-compare unexpected behavior with someone else, it tells you whether you really run the same
-code.
+The banner's hash is the beginning of the SHA-256 of the exact `kurt.py` you're running. When
+you compare unexpected behavior with someone else, it tells you whether you really run the same
+code. To check it: `sha256sum kurt.py` (Linux), `shasum -a 256 kurt.py` (macOS),
+`Get-FileHash kurt.py` (PowerShell) -- the first 12 characters are the banner's.
 
 ## License
 

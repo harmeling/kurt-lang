@@ -1,0 +1,12 @@
+; `a ≠ b ≠ c` on one line is `a ≠ b ∧ b ≠ c` (2026-10-15): `≠` is a relation (`bool ≠ 0` in
+; equality.kurt) like `=` and `<`, so it chains on a line as they do -- before, `≠` had no `bool`
+; and `a ≠ b ≠ c` was read as `not ((not (a = b)) = c)`, the equality of a formula and a term.
+; (`≠` is not transitive: no `chain`, so no `a ≠ b`, `  ≠ c` over two lines.)
+load equality
+const a, b, c
+use a ≠ b ≠ c
+a ≠ b
+b ≠ c
+¬(a = b) ∧ ¬(b = c)
+use a = b ≠ c
+a = b

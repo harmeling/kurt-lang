@@ -16,14 +16,28 @@ sandbox
 A                   ; still fine, `A` is a real axiom from outside the sandbox
 ; false             ; would fail: `false` only ever existed inside the sandbox
 
-; `break` works on any open block, not just `sandbox` -- e.g. abandoning a
-; `proof` you've started but don't want to finish yet also gives up the
-; `show` it was trying to prove, not just the `proof` block itself:
+; `break` works on any open block, not just `sandbox` -- it always gives up
+; the innermost open thing. In the `proof` of a `show`, that is the `proof`:
+; the claim stays open, and a new `proof` can try again (no `show` to repeat):
 
+load prop
 show A implies A
 proof
-    break
+    break            ; this attempt is given up -- the claim `A implies A` is still open
+proof
+    assume A
+        A
+qed
 
-; note that there's no `qed` above -- `break` already closed the `proof`
-; block itself (and the `show` promise along with it), so there's nothing
-; left to write; adding a `qed` here would be an error (nothing open to close).
+; Right after a `show` (or after the `break` of its `proof`), no block is open
+; for the claim -- so the innermost open thing is the claim itself, and `break`
+; withdraws it. `break`, `break` gives up a proof completely -- the claim is
+; still to do (the file ends with "Proof almost checked", the claim as a `todo`):
+
+show A and not A
+proof
+    break            ; the proof
+break                ; and the claim -- nothing is left open, nothing was added
+
+; A `show` that is neither proved nor withdrawn is an error at the end of the
+; file ("the claim ... has no proof").

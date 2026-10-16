@@ -8,7 +8,7 @@
 ; and the relations defined from them (with `def`, so each one is an abbreviation: Kurt replaces
 ; one side by the other when you write it as a step):
 ;
-;     "child"         child(x, y)       ⇔  parent(y, x)                      x is a child of y
+;     child(x, y)  is read as  parent(y, x)  (an `inline`: the same term, nothing to switch)
 ;     "mother"        mother(x, y)      ⇔  female(x) ∧ parent(x, y)
 ;     "father"        father(x, y)      ⇔  ¬female(x) ∧ parent(x, y)
 ;     "grandparent"   grandparent(x, z) ⇔  ∃ y (parent(x, y) ∧ parent(y, z))
@@ -26,14 +26,14 @@
 load logic, equality
 
 bool parent 0, female 0
-arity parent 2, female 1
-arity child 2, mother 2, father 2, grandparent 2, sibling 2, aunt 2
+arity parent (_, _), female 1
+arity child (_, _), mother (_, _), father (_, _), grandparent (_, _), sibling (_, _), aunt (_, _)
 const parent, female
 
 use parent($x, $y) ⇒ ¬parent($y, $x)                                     "asymmetric"
 use ∀ x ∃ y parent(y, x)                                                 "has-parent"
 
-def child($x, $y) ⇔ parent($y, $x)                                        "child"
+inline child($x, $y)  iff  parent($y, $x)                                 ; the same term: nothing to switch
 def mother($x, $y) ⇔ female($x) ∧ parent($x, $y)                         "mother"
 def father($x, $y) ⇔ ¬female($x) ∧ parent($x, $y)                        "father"
 def grandparent($x, $z) ⇔ ∃ $y (parent($x, $y) ∧ parent($y, $z))          "grandparent"

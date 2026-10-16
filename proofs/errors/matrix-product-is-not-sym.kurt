@@ -1,0 +1,12 @@
+; with matrix literals (matrix.kurt), an operator bound to `multiply` can't be `sym`: the factors
+; would be sorted, and the true product `[[1, 2], [3, 4]] * [[0, 1], [1, 0]] = [[2, 1], [4, 3]]`
+; rejected while the swapped one is accepted (2026-10-15, the theories' audit)
+load matrix, logic
+infix * 70 70
+expect "EvalError" "commutative"
+    sym *
+    builtin * multiply
+infix ** 70 70
+builtin ** multiply
+expect "EvalError" "commutative"
+    sym **

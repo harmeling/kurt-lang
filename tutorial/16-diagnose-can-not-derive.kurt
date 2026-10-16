@@ -12,7 +12,8 @@
 ; 3. Use `theory` or `theory OPERATOR` to see which facts are currently available.
 ; 4. Write the missing intermediate conclusion explicitly. Do not expect multi-hop search.
 ; 5. For an implication rule, make its entire premise available as facts. Some rules require a
-;    conjunction as one fact, notably induction.
+;    conjunction as one fact; most split their premise into its parts (induction takes the base
+;    case and the step as two facts too).
 ; 6. Check whether a fact was kept inside a block or was not exported by a loaded file.
 ; 7. Turn `calc` on only when concrete arithmetic should be normalized; turn it off when the
 ;    unreduced expression is needed for a rewrite.

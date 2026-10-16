@@ -1,0 +1,22 @@
+; `calc on` justifies a step, it doesn't change the line (since 2026-10-12): a line is
+; stored as written, and it follows as computed (as before) or as written -- so an instance of a
+; rule stays one, and an `∃` finds its witness in a computed line; `calc on` ends with its block
+load natural
+
+calc on
+const n
+use n ∈ Nat
+(1 + n) * (1 + n) = 1 * (1 + n) + n * (1 + n)     ; by distrib-add, as written
+6 ∈ Nat ∧ 7 = 1 + 6 ∧ 7 <= 10                     ; computed, stored as written
+∃ k ∈ Nat (7 = 1 + k ∧ 7 <= 10)                   ; the witness 6, from the line above
+17 * 42 = 714                                     ; by calc
+calc off
+
+; `calc on` in a block ends with it
+show 2 + 3 = 5
+proof
+    calc on
+    2 + 3 = 5
+qed
+expect "ProofError"
+    3 + 4 = 7                                     ; not computed here

@@ -74,6 +74,7 @@ jobs:
 
       - name: Build
         run: |
+          python scripts/build_certificates.py       # (the certificates of the theories, shipped)
           pip install build
           python -m build
 

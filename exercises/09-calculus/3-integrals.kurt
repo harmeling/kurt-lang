@@ -18,7 +18,7 @@ const f, g
 arity f 1, g 1
 
 ; (a) The integral of 2x from 0 to 1.
-;     Hint: x² is an antiderivative of 2x. With `calc on`, "deriv-pow" gives
+;     Hint: x² is an antiderivative of 2x. With `calc on` (`2 ∈ Nat`, `0 < 2`), "deriv-pow" gives
 ;     `(deriv x y (x ^ 2)) = 2 * y ^ (2 - 1)`, which calc turns into 2 * y in two steps
 ;     (`= 2 * y ^ 1`, `= 2 * y`).
 show (integral x (0, 1) (2 * x)) = 1

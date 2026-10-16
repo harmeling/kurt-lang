@@ -16,6 +16,15 @@ proof
         C
 qed
 
+; `assume` doesn't need a `proof`: at the top level, the block closes the
+; same way, and the line `A implies C` is a fact of the file from then on --
+; without a `show` that promised it first.
+assume A
+    B
+    C
+    B and C
+A implies (B and C)             ; Kurt: by 22-25, the lines of the block
+
 ; The same mechanism gives "not-intro": assume `P`, derive `false`, and you
 ; get `not P`.  `not` and `false`'s proof rules live in `prop.kurt`
 ; (lesson 10):

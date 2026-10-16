@@ -24,10 +24,19 @@ class TestStandaloneBundle(unittest.TestCase):
     `theories/` copy covered by `test_standalone_script.py`, this file must be the only thing
     that exists."""
 
+    @classmethod
+    def setUpClass(cls):
+        cls.bundle_dir = tempfile.mkdtemp()
+        build_bundle(Path(cls.bundle_dir) / "kurt.py")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.bundle_dir, ignore_errors=True)
+
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
-        build_bundle(Path(self.tmpdir) / "kurt.py")
+        shutil.copy(Path(self.bundle_dir) / "kurt.py", Path(self.tmpdir) / "kurt.py")
 
     def run_bundle(self, kurt_source: str) -> subprocess.CompletedProcess:
         proof_path = os.path.join(self.tmpdir, "proof.kurt")
@@ -70,6 +79,22 @@ class TestStandaloneBundle(unittest.TestCase):
         self.assertEqual(starts.pop('proof.kurt'), 2)
         self.assertIn('<embedded>/prop.kurt', starts)       # (loaded by set.kurt too)
         self.assertEqual(set(starts.values()), {1}, starts)
+
+    def test_the_certificates_of_the_theories_are_embedded(self):
+        # the bundle can't write certificates next to its theories: without the embedded ones,
+        # `load rational` took 8 s every time (and `load field` 15 s), instead of about 1 s
+        script = (
+            "import kurt\n"
+            "session = kurt.new_session(kurt.RunConfig(kurtc=True))\n"
+            "assert session.check_text('load rational\\n').ok\n"
+            "print(session._state.replayed)\n")
+        env = dict(os.environ, XDG_CACHE_HOME=os.path.join(self.tmpdir, "cache"))
+        env.pop("PYTHONPATH", None)
+        result = subprocess.run([sys.executable, "-c", script], cwd=self.tmpdir, env=env,
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertGreater(int(result.stdout), 500)
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, "cache")))   # (nothing to write)
 
     def test_no_directory_named_theories_exists(self):
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, "theories")))

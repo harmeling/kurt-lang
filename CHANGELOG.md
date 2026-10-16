@@ -1,5 +1,202 @@
 # Changelog
 
+## 0.9.0 (2026-10-15)
+
+A change of the language (dev/design-sets-and-brackets.md, §10):
+
+- Round brackets around a list are a tuple, a term of its own: `(a, b)` a pair, `(a, b, c)` a
+  triple, `(a, (b, c))` a pair whose second component is a pair (before: the comma was
+  right-associative, and `(a, b, c)` was `(a, (b, c))`); `{(a, b)}` is no longer `{a, b}`.
+  set.kurt: "triple-eq".
+- `f(a, b)` is `f` applied to one argument, the pair -- never `f a b` (before: `f a b` for an `f`
+  of arity 2). `arity` takes the shape of the arguments, written as they are used:
+  `arity g (_, _)`, `arity sum _ (_, _) _`; Kurt checks each use. The theories and examples are
+  changed accordingly (group.kurt, natural.kurt's `coprime`, the exercises' scenes, ...).
+- `def f($x, $y) = ...` defines `f` on pairs by their components (tuples are free).
+- Sets by their elements: `{a}`, `{a, b, c}` -- set.kurt's `builtin { } setbrackets, | setbuilder`,
+  `builtin ∅ emptyset` make three kinds of terms, by the elements, the set-builder `{x ∈ A | P}`,
+  and `{}` (which is `∅`), so that set.kurt's new "singleton" never reads a set-builder or a list
+  as one element. For each listed set, Kurt adds its rules (kernel-checked): an element is one in
+  one step, membership is the disjunction of the equalities, and `case` splits it.
+- `...` in sets of numbers (natural.kurt): `{1, ..., n}`, `{1, 3, ..., 99}`, `{0, 2, ...}`
+  ("range", "progression", ...); a list whose pattern would be a guess, `{2, 3, 5, 7, 11, ...}`,
+  is refused.
+- `assume A ∧ B` (and `case`, `pick ... with A ∧ B`): the parts are facts too, shown as `6a`, `6b`.
+- `pick` also takes its witness from an `∃` that follows in one step (shown as a line `13a`).
+- Names may end in primes, `a'`, `f''`; a Greek letter may have digits, `λ1`. `~` and the symbols
+  `∼` (`\sim`), `≈` (`\approx`), `≺` (`\prec`), `≼` (`\preceq`) for relations; `$R(x, x)` says how
+  to write a relation as a parameter (`var R`, `bool R 0`).
+- `format` without an argument also names the other options.
+- The first line of a chain rewrites inside its left side as the later lines do (`L = L` as the line
+  before it), also with a rule that has a condition.
+- A line may rewrite up to four places at once; Kurt shows the steps in between (`17a`, ...).
+- A rewrite may change a part of the arguments of a flat operator (`x + (- x)` inside a longer
+  sum; for a non-`sym` operator, neighbours). field.kurt: `+` is `flat` and `sym`, `·` is `flat`
+  (not `sym`: it is mafi1's matrix product too) -- the regrouping lines in field.kurt,
+  vectorspace.kurt and mafi1 are gone; bench.py 60.6 s (68.5 s).
+- A `let` whose condition is a set-builder closes (`let c ∈ { y ∈ A | P(y) }`).
+- `inline` over a tuple: `inline child($x, $y) iff parent($y, $x)` (the scene of 02-family-tree);
+  doc/kurt-doc.md §6.2 and keywords/46-inline.kurt: why not every `def` is an `inline`.
+- A long disjunction is found at once (20 alternatives took more than a minute): a part of a
+  pattern of a flat `sym` operator with a fixed head, like `¬%A` in "excluded-middle", is matched
+  to one argument first instead of trying every grouping. bench.py 49.8 s (60.6 s).
+- `inline`: a definition applied while reading -- `inline $a > $b iff $b < $a` reads `x > 0` as
+  `0 < x`, one term, so nothing is to be switched. numbers.kurt: `>`, `>=` (no longer bound to the
+  calculator: there is nothing left to compute); equality.kurt: `≠` (its rules "not-equal",
+  "not-equal-intro", "not-equal-elim" are gone, `calc on` proves `¬(2 = 3)`); set.kurt: `⊃` (was a
+  `def`, "superset"), and the new `∉`.
+- `calc on` justifies a step instead of changing the line: a line is stored as written, and it
+  follows computed (as before) or as written -- an instance of a rule stays one (`1 * (1 + n)`),
+  `∃ k (7 = 1 + k)` finds `7 = 1 + 6`. `calc on` ends with its block (it stayed on after `qed`).
+- A failed step names the missing condition of a fact `∀ y ∈ A (...)` ("line 3: missing `x ∈ A`");
+  rules that fit almost any goal ("bottom-elim", "extensionality", ...) are listed only without
+  others.
+- set.kurt: "nonempty-element", "element-nonempty" (`U ≠ ∅ ⇔ ∃ x (x ∈ U)`), "subset-cond"
+  (`A ⊂ B ⇔ ∀ c ∈ A (c ∈ B)`); vectorspace.kurt: "vector-minus-zero", "vectorspace-intro" (the
+  definition the other way, so a subspace is a vector space). proofs/mafi1: `{0}` (10, 24, 26), the
+  one-sided inverse of a matrix and (Aᵀ)⁻¹ = (A⁻¹)ᵀ (15).
+- `kurt --latex FILE`, `kurt --markdown FILE`: the checked file as a document (`FILE.tex`,
+  `FILE.md`), each line in mathematical notation with its reason, and the certificates; how a
+  symbol is written is declared in its theory, `tex sum \sum_{$1=$2}^{$3} $4` (the theories that
+  come with Kurt have them). `kurt --lean FILE` writes `FILE.lean`. They replace
+  scripts/kurt2latex.py and scripts/kurt2lean.py.
+- `arity sum _ (_, _) _`, `arity integral _ (_, _) _`: the range is checked to be a pair.
+- Limits, sequences and series: analysis.kurt `tends v a L T` (the limit exists and is `L`), with
+  the limit laws; continuity.kurt "cont-tends"; the new sequences.kurt: `converges n L T`,
+  `seqlim n T`, the limit laws, "archimedes", series `series i a T` and the geometric series.
+  Examples in proofs/analysis/ (1/n → 0 by ε and N, limit laws, 1 + 1/2 + 1/4 + ... = 2).
+- continuity.kurt: only the definitions of `cont`, `diff`, `deriv` (derivative.kurt loads it);
+  exercise 2 of 09-calculus asks `cont x 3 (2 * x + 1)` directly, by the definition.
+- The matching of a symmetric operator with as many patterns as arguments stops a branch as soon
+  as a pattern fits no remaining argument (it went through all n! orders).
+- A symbol without arity is curried: `(g a) b` is `g a b`.
+- New symbols: `∖` (`\setminus`), `∁` (`\complement`), `⟂` (`\perp`), `∋` (`\ni`), `⁻¹` (`\inv`).
+- The standard LaTeX names as shortcuts too: `\le`, `\ge`, `\ne`, `\lnot`, `\land`, `\wedge`,
+  `\lor`, `\vee`, `\Rightarrow`, `\Leftrightarrow`, `\bot` (what Kurt writes keeps its own).
+- The error of an argument of the wrong shape shows a compound argument in brackets: "got `mysum
+  i 1 (i * i)`" (was `mysum i 1 i * i`).
+- `kurt --latex/--markdown/--lean FILE -o OUT`: the document to `OUT` instead of next to the file,
+  `-o -` to the standard output (`kurt --lean p.kurt -o - | lean --stdin`); then nothing of a
+  proof that doesn't check.
+- `--latex`, `--markdown`: a line continuing a chain is `= x`, without the repeated left side; the
+  document of a proof that doesn't check keeps the theories' notation (it had none).
+- doc/kurt-kernel.md: the kernel step by step -- certificates, what it checks, `.kurtc`, what is trusted, with examples and diagrams.
+- The lines of a proof that nothing cites are greyed out in the editors (an LSP hint with the tag
+  "unnecessary"), and `kurt --unused FILE` names them: backwards from the top-level lines, the
+  labelled ones and `qed`, along what each step cites -- a block whose result nothing needs is
+  greyed out entirely. A line that restates a block's result, an assumption or the line before it
+  isn't (the hover says that Kurt doesn't need it); `unused_lines`. A line continuing a chain
+  (`  ⇔ C`) cites the chain's first line, where its left side comes from (the event's `chain`): when
+  the last line of a chain is found directly, the middle lines are greyed out, the first isn't.
+- The hover of the editors for every line that isn't a comment: a declaration, a toggle or an
+  inspection says what it does, with its symbols (`var a, b`, `infix ^ 75 74`, `arity g (_, _)`,
+  `calc on`, `tex`, ...).
+- The shell edits its lines itself, the same on macOS, Linux and Windows, without `readline`
+  (`LineEditor`, `Terminal`): the line starts with the indentation of the block, also on macOS
+  (libedit couldn't), a backspace over it dedents; ←/→, Home/End, Delete, Ctrl-A/E/K/U/W, the
+  history with ↑/↓ and Ctrl-R (`~/.kurt_history`, also one libedit wrote), Tab (a second Tab
+  lists the possibilities), Ctrl-C drops the line, Ctrl-D ends; long lines wrap, pasted lines are
+  read one after the other. Not at a terminal: plain lines. Windows (`msvcrt`): not tried yet.
+- `break` gives up the innermost open thing: in the `proof` of a `show`, only the `proof` -- the
+  claim stays open for a new `proof` (the shell says so); right after the `show`, or after that
+  `break`, it withdraws the claim (`break`, `break`). Before, the first `break` withdrew the claim
+  too. keywords/22-break.kurt. A withdrawn claim is a `todo` ("Proof almost checked"; the grader
+  counted a file of `show X`, `break` lines as complete).
+- A declaration at the top level of a file is exported with all that is known about the symbol
+  (`const pi`, `infix ++ 50 50`, `arity g (_, _)`, `tex`, ...) -- before, a symbol crossed `load`
+  only with an exported fact (`pi` "not declared" with `--strict`, `1 ++ 2` "never declared").
+  `local` at the end keeps it inside (`const helper local`); not `var`, not in a block, not the
+  constants Kurt adds by itself.
+- Soundness: `calc on` computed `3 ∉ S` for any set `S` (only for the calculator's sets now:
+  `Nat`, `Int`, ...); with matrix.kurt, `calc` made `0 · y` the number `0` though `y` may be a
+  matrix (`[0, 0] = [[0], [0]]` followed); an `alias` before a `load` gave a theory's symbol
+  another meaning (`alias false true`, then `load prop`) -- now an error. All three also with
+  `--strict` (doc/kurt-soundness.md §8.34-8.36).
+- Soundness: `...` was matched as an element of a range (`$y2 ∈ {$y1, $y2, $y3}` with `{1, ..., 3}`),
+  and `false` followed; now no variable takes `...` as its value, also in the kernel (§8.37).
+- The kernel checks that the fresh names of a `∀` premise are fresh (only the search's own
+  `$$07`, once, not fixed by a block, not in the goal or a fact): a certificate that stripped
+  `∀ y P(y)` with a constant was accepted (doc/kurt-soundness.md §8.33; never made by the search).
+- `load`: a loaded file can't `alias` a symbol the loader knows (`const foo` here, `alias foo bar`
+  there made the loader's facts about `foo` ones about `bar`, the mirror image of the `alias`
+  before `load` above; doc/kurt-soundness.md §8.38); `const q local` that an exported fact needs is
+  refused like a local `def`; `lib/../lib/x` and `lib/x` are one file.
+- A chain continued with `>` or `>=` works (`a > b`, `  > c`): the chain is about the line as
+  written, not about the `b < a` that `inline` reads it as ("invalid chain of operators `[<, >]`"
+  before; and `a > b`, `  = c` claimed `a > c` without reading `>`).
+- The editor (`kurt --lsp`) shares its cache of checked theories among its checks: the second check
+  of a file didn't know the cached theory's dependent variables and sorts, so a clean file showed
+  errors after a save (argmax.kurt), or the check crashed (gauss.kurt). What a run knows about a
+  theory's variables travels with the `ExportBundle` now, and a bundle of another run is used only
+  if its variable names are new in this run.
+- No Python traceback for: a `.kurtc` nested too deep, a binary or unreadable file (also a `load`ed
+  one), `-o` to a place that can't be written, `save 42`, the line editor's Ctrl-R search once the
+  query matches nothing, a malformed message to `--lsp`, a user label `"enumeration"` (and
+  `"element-1-of-2"` no longer suppresses the rules of a pair), `--latex`/`--markdown` of a file
+  with the listing of `theory`, `infix`, `cert`, ... (26 shipped files), `--lean` of a file without
+  a step at its top level.
+- `a ≠ b ≠ c` on one line is `a ≠ b ∧ b ≠ c` (`≠` is a relation, `bool ≠ 0`; before it was read as
+  `not ((not (a = b)) = c)`). `pick c with F` finds a derived `∃` of natural.kurt's "range" (its parts in
+  another order, `k + -3` for the written `-3 + k`). A block is numbered from
+  the line that opened it (`let x` without a condition: `4-5`, not `5`). A line only admitted
+  (`todo F`, or a failed line with `--all-errors`) is cited as `5 (todo)`. `help use` explains that
+  keyword. A `use` that only relates declared variables (`var a, b`, `use a <= b`) warns: it holds
+  for every value of them. A constant used in a term can't become a statement later; `def c = (a =
+  a)` is a type error; the right side of an `inline` counts as a use of its symbols; `bool Nat` here
+  and `const Nat` in a loaded file is an error (and the other way round). A multi-place rewrite shows
+  only the step it uses, and follows at most six partial rewrites by a search (a false `5 ∈ {1, ...,
+  3}` took 36 s, now 16). The grader (`scripts/grade_exercise.py`) searches only the scene and
+  Kurt's theories for `load`, not the directory it runs in (`RunConfig.search_cwd`).
+- A false membership in a set of numbers took long (`5 ∈ {1, ..., 3}` 36 s, `1 ∈ {-1, 2}` 81 s after
+  a set of three was used): the multi-place rewrite took the generated schema `$y2 ∈ {$y1, $y2}`
+  as a base and tried to rewrite its variables into numbers, and a numeral into another. A place
+  with a variable, with `...`, or with two numbers of different values is never rewritten now
+  (`cannot_be_rewritten`); both take 6 s, the general search.
+- `load prop numbers` loaded `numbers` only (`prop` was dropped silently): now an error that says
+  `load prop, numbers`. The same file through a symlink is one file. `kurt notes.txt` checks that
+  file (a `load` still adds `.kurt`). `python3 -m kurt.kurt FILE` without a RuntimeWarning (the
+  package imports Kurt when first used). The hover of a `load` line links the files it loads.
+  doc/kurt-doc.md §3.2 says how Kurt handles variables (`$x`, `var`, `let $x`, across `load`) and
+  why `var` stays.
+- derivative.kurt's "diff-pow", "deriv-pow" need `0 < $n`, sequences.kurt's "geometric" `$q ≠ 0`:
+  with `$n = 0`, `$q = 0` they decided `0 ^ 0 = 1`, which numbers.kurt leaves open
+  (proofs/soundness/pow-zero-stays-open.kurt). With matrix literals, an operator bound to
+  `multiply` can't be `sym` (the factors would be sorted). Exercise 09-calculus/2's scene
+  (definitions.kurt) writes out the three definitions instead of loading continuity.kurt, so the
+  limit rules give no shortcut; exercises/08-limits/theory/sequences.kurt is `limits.kurt`.
+- `chain` with `--strict` (it was refused there): it generates no rules -- each of the n² rules it
+  stands for (`($a Ri $b) ∧ ($b Rj $c) ⇒ ($a Rk $c)`, the later relation absorbing the earlier)
+  must be proved before it, and the error lists the missing ones as `show` lines; its notation
+  then uses the proved facts. A chain has at most three operators (everywhere).
+- VS Code (kurt-syntax): `kurt.reasons.column` is `"auto"` by default -- the reasons two columns
+  after the 95th percentile of the widths of the lines with a reason, at least 20.
+- Output: empty brackets as written (`[] = []`, was `[$$$] = [$$$]`); `cert` names a `case` block
+  by its keyword (was `assume B`); `--latex` writes `R(x, x)` with the tuple's brackets only once;
+  a closed `sandbox` is numbered by its lines (at the end of a file it said "5 closed" for 4
+  lines); `summary` without a trailing space.
+- The banner says what its hash is: `This is Kurt, v0.8.3 (...), 955dc8f61f77 (SHA-256 of
+  kurt.py)` (was `file 955dc8f61f77`); the README says how to check it.
+- The editors: a theory of Kurt that was only open in the editor (e.g. equality.kurt, opened to
+  read it) counted as unsaved text, which is never trusted -- `load equality` failed with "the
+  role `equality` of the engine can only be given by a theory that comes with Kurt". Now only a
+  text that differs from its file counts as unsaved (and the message says so). An error in a
+  loaded file is shown at the line of its `load` ("in equality.kurt, line 14: ..."), not at its
+  own line number in the file being checked; `error_line` (`--json`, `CheckResult`) is that line.
+- The editors (`kurt --lsp`): the hover over a line that prints something besides a reason --
+  `builtin`, `infix`, `arity`, `theory`, `load` without arguments, `cert 14`, ... -- shows that
+  output (its first 60 lines).
+- The theories come with their certificates (`.kurtc`; in the package next to them, in the
+  single-file `kurt.py` embedded, made by `scripts/build_certificates.py`): `load rational` in the
+  single-file `kurt.py` (and the playground) took 8 s each time, now 1.2 s. A theory's
+  certificates name it `<kurt>/rational.kurt`, not by its place; where its directory isn't
+  writable, they go to `~/.cache/kurt`. An unchanged `.kurtc` isn't written again (0.5 s). The
+  files loaded by `check_text` use their certificates too (only the text has none).
+- A line with certificates, none of them for the line as a whole (a step of a chain that rewrites
+  a part): the search was the slow one, without its order of facts and rules -- `load field` with
+  its `.kurtc` took 15 s, without it 7 s; now 4.5 s.
+- `builtin [ ] matrixbrackets` (was `builtin [ matrix`): a role of a bracket pair takes both
+  brackets of a declared pair.
+
 ## 0.8.3 (2026-10-11)
 
 - Fixed a soundness bug: a derived fact `∀ c ((Q x 0 c) = (Q x 1 c))` (from a `let c`) could be

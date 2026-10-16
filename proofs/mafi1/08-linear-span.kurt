@@ -3,7 +3,7 @@
 ; (the slides take r vectors, which needs sums with indices; their scalars λi, μi, κ are
 ; written ai, bi, k here, since Kurt reads λ1 as λ 1)
 load 06-subspaces
-arity L 2
+arity L (_, _)
 def L($v1, $v2) = { $u ∈ V | ∃ $a1 ∃ $a2 ($a1 ∈ K ∧ $a2 ∈ K ∧ $u = $a1 · $v1 + $a2 · $v2) }   "span"
 
 ; Theorem: for v1, v2 ∈ V, U := L(v1, v2) is a subspace of V
@@ -59,7 +59,6 @@ proof
                                 (a1 · $v1 + a2 · $v2) + (b1 · $v1 + b2 · $v2) = (a1 · $v1 + b1 · $v1) + (a2 · $v2 + b2 · $v2)   ; (V1), (V2): vector-shuffle
                                 x + y = (a1 · $v1 + a2 · $v2) + y
                                       = (a1 · $v1 + a2 · $v2) + (b1 · $v1 + b2 · $v2)
-                                      = (a1 · $v1 + b1 · $v1) + (a2 · $v2 + b2 · $v2)
                                       = (a1 + b1) · $v1 + (a2 · $v2 + b2 · $v2)         ; (V8)
                                       = (a1 + b1) · $v1 + (a2 + b2) · $v2               ; (V8)
                                 a1 + b1 ∈ K

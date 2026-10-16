@@ -34,8 +34,9 @@ true
 ; rule "top-intro".
 ;
 ; The rules are from natural deduction (look it up, or see links below).
-; Each line gets a number, e.g., `9 by top-intro`, which refers to the line
-; in the input file.  If a rule refers to other, it will use that number.
+; Each line is printed with its number in front, e.g. `9  true  ; by top-intro`,
+; which refers to the line in the input file.  If a rule refers to other lines,
+; it will use their numbers (`; by 9`).
 ;
 ; That's it for the beginning!
 ;

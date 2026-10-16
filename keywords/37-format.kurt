@@ -5,7 +5,8 @@
 ; s-expressions, useful for seeing the exact tree structure Kurt parsed).
 ; `source` replays the spelling saved on each stored formula. In normal
 ; format, matrices with several rows are aligned over several screen lines.
-; (For a LaTeX document of a proof, see `scripts/kurt2latex.py`.)
+; (For a LaTeX or Markdown document of a proof: `kurt --latex FILE`, `kurt --markdown FILE`,
+; with `-o OUT` or `-o -` for another file or the standard output.)
 
 load prop
 bool A, B, C

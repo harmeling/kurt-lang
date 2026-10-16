@@ -3,12 +3,16 @@ import dataclasses
 import io
 import json
 import contextlib
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import kurt.kurt as kurt
-from tests.utils import numbered
+from tests.utils import numbered, PROJECT_ROOT
 
 
 class KurtcTestCase(unittest.TestCase):
@@ -61,19 +65,40 @@ class TestWriting(KurtcTestCase):
         self.assertEqual([Path(d['file']).name for d in content['depends']], ['lemma.kurt'])
 
 
+    def test_unchanged_certificates_are_not_written_again(self):
+        # (every run wrote the `.kurtc` of each file again, 0.5 s for `load rational`)
+        path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        self.run_file(path)
+        kurtc = Path(str(path) + 'c')
+        os.utime(kurtc, ns=(1_000_000_000, 1_000_000_000))
+        self.run_file(path)
+        self.assertEqual(kurtc.stat().st_mtime_ns, 1_000_000_000)
+        path.write_text('bool A, B\nuse A implies B\nuse A\nB\nB\n')
+        self.run_file(path)
+        self.assertNotEqual(kurtc.stat().st_mtime_ns, 1_000_000_000)      # (changed: written)
+
+    def test_a_theory_of_kurt_is_named_without_its_place(self):
+        # so that the certificates of the theories fit wherever Kurt is (the package, the bundle)
+        path = self.write('eq.kurt', 'load equality\nconst a, b, f\narity f 1\nuse a = b\nf a = f b\n')
+        self.run_file(path)
+        content = json.loads(Path(str(path) + 'c').read_text())
+        self.assertEqual(content['steps']['5'][0]['rule']['file'], '<kurt>/equality.kurt')     # (equal-elim)
+        self.assertEqual(content['depends'][0]['file'], '<kurt>/equality.kurt')
+
+
 class TestReplay(KurtcTestCase):
-    def count_searches(self, path: Path) -> tuple[str, int]:
-        # the output, and how often the search (`impl_elim`) runs
+    def count_searches(self, path: Path, function: str = 'impl_elim') -> tuple[str, int]:
+        # the output, and how often the search (`impl_elim`, or another `function` of it) runs
         calls = [0]
-        impl_elim = kurt.impl_elim
-        def counting(*args):
+        original = getattr(kurt, function)
+        def counting(*args, **kwargs):
             calls[0] += 1
-            return impl_elim(*args)
-        kurt.impl_elim = counting
+            return original(*args, **kwargs)
+        setattr(kurt, function, counting)
         try:
             return self.run_file(path), calls[0]
         finally:
-            kurt.impl_elim = impl_elim
+            setattr(kurt, function, original)
 
     def test_second_run_needs_no_search(self):
         path = self.write('eq.kurt', 'load equality\nconst a, b, f\narity f 1\nuse a = b\nuse f a = a\nf b = a\nb = a\n')
@@ -82,6 +107,20 @@ class TestReplay(KurtcTestCase):
         self.assertEqual(out1, out2)
         self.assertGreater(searches1, 0)
         self.assertEqual(searches2, 0)
+
+    def test_a_chain_step_is_not_slower_with_certificates(self):
+        # a step that rewrites a part: its certificate is for the part, not for the line, and the
+        # line's search was then the slow one, without the order of facts and rules (field.kurt:
+        # 15 s with its `.kurtc`, 7 s without)
+        path = self.write('chain.kurt', 'load field\nconst x\nuse x ∈ K\n- 1 ∈ K\nx + 1 ∈ K\n'
+                                        '(x + 1) · (- 1) ∈ K\n(x + 1) · x ∈ K\n'
+                                        '(x + 1) · (x + (- 1)) = (x + 1) · x + (x + 1) · (- 1)\n'
+                                        '                      = (x · x + 1 · x) + (x + 1) · (- 1)\n')
+        self.run_file(self.write('warm.kurt', 'load field\n'))      # (field.kurt checked: only the lines below count)
+        out1, searches1 = self.count_searches(path, 'match_all_theory')
+        out2, searches2 = self.count_searches(path, 'match_all_theory')
+        self.assertEqual(out1, out2)
+        self.assertLessEqual(searches2, searches1)
 
     def test_conditional_rewriting_checks_again(self):
         # the certificate of a rewriting step with a derived instance (`7a`) refers to that step,
@@ -225,6 +264,38 @@ class TestForgedCertificates(KurtcTestCase):
             kurt.kernel_verify = verify
         self.assertIn('only variables get values', verdicts['constant'])
         self.assertIn('not in the theory', verdicts['direction'])
+
+
+class TestCache(unittest.TestCase):
+    # the theories in a directory without write access (an installed Kurt): their certificates
+    # go to the cache directory, and are used from there
+    def test_certificates_of_a_read_only_theory_go_to_the_cache(self):
+        if hasattr(os, 'geteuid') and os.geteuid() == 0:
+            self.skipTest('root may write anywhere')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            shutil.copy(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py', root / 'kurt.py')
+            theories = root / 'theories'
+            shutil.copytree(PROJECT_ROOT / 'src' / 'kurt' / 'theories', theories, ignore=shutil.ignore_patterns('*.kurtc'))
+            (root / 'work').mkdir()
+            (root / 'work' / 'p.kurt').write_text('load set\nconst A\nA = A\n')
+            theories.chmod(0o555)
+            try:
+                env = dict(os.environ, XDG_CACHE_HOME=str(root / 'cache'))
+                env.pop('PYTHONPATH', None)
+                def run():
+                    result = subprocess.run([sys.executable, str(root / 'kurt.py'), 'p.kurt'], cwd=root / 'work',
+                                            env=env, capture_output=True, text=True, timeout=120)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                run()
+                cached = sorted(p.name.split('-', 1)[1] for p in (root / 'cache' / 'kurt').iterdir())
+                self.assertIn('set.kurtc', cached)
+                self.assertEqual(list(theories.glob('*.kurtc')), [])
+                stamps = {p: p.stat().st_mtime_ns for p in (root / 'cache' / 'kurt').iterdir()}
+                run()
+                self.assertEqual(stamps, {p: p.stat().st_mtime_ns for p in (root / 'cache' / 'kurt').iterdir()})
+            finally:
+                theories.chmod(0o755)
 
 
 if __name__ == '__main__':

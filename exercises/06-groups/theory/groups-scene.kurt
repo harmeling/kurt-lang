@@ -31,10 +31,8 @@
 ;       = inv(b) ∘ (b ∘ a)       ; assoc
 ;
 ; and Kurt concludes the equation from the first to the last term (`a = inv(b) ∘ (b ∘ a)`).
-; Each step after the first rewrites the previous term with one equation. The first step must
-; follow by itself (here: `a = e ∘ a` is an instance of "left-neutral"); for a first step such as
-; `a ∘ e = a ∘ (inv(a) ∘ a)`, which rewrites inside a term, write the equation it uses on a line
-; of its own before the chain (`inv(a) ∘ a = e`).
+; Each step rewrites the previous term with one equation -- also the first, which rewrites its
+; left side: `a ∘ e = a ∘ (inv(a) ∘ a)` by "left-inverse", inside the term.
 ;
 ; This file is the scene of the exercises: they load it with `load theory/groups-scene`. Don't
 ; change it.
