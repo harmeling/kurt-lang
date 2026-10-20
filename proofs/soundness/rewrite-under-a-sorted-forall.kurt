@@ -1,0 +1,40 @@
+; a rule of logic.kurt written for every sort (`$$x`, todo 35) rewrites under a `∀` over any sort:
+; "forall-iff", `(∀ $$x (%A ⇔ %B)) ⇒ ((∀ $$x %A) ⇔ (∀ $$x %B))`, used for a binder over the sets, over
+; the numbers and over all objects. Its `∀` premise is a fresh variable of the rule that stands
+; for the goal's binder (`binder_target`); the kernel lets a polymorphic fresh variable stand
+; for a fresh variable that only the search makes (doc/kurt-soundness.md §8.42), nothing else
+load natural
+const A, B, P
+prop P
+arity P 1
+
+show (%X ⇔ %Y)  ⇔  (%X ⇒ %Y) ∧ (%Y ⇒ %X)       "iff-as-and"
+proof
+    assume %X ⇔ %Y
+        %X ⇒ %Y
+        %Y ⇒ %X
+        (%X ⇒ %Y) ∧ (%Y ⇒ %X)
+    assume (%X ⇒ %Y) ∧ (%Y ⇒ %X)
+        %X ⇒ %Y
+        %Y ⇒ %X
+        %X ⇔ %Y
+qed
+
+sandbox
+    default set
+    (∀ x (x ∈ A ⇔ x ∈ B)) ⇔ ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))
+sandbox
+    default any
+    (∀ x (x ∈ A ⇔ x ∈ B)) ⇔ ∀ x ((x ∈ A ⇒ x ∈ B) ∧ (x ∈ B ⇒ x ∈ A))
+sandbox
+    default real
+    (∀ n (n + 0 = n ⇔ P n)) ⇔ ∀ n ((n + 0 = n ⇒ P n) ∧ (P n ⇒ n + 0 = n))
+
+; ... but not for a binder that the rule's premise doesn't give: the premise `∀ x:set` is not `∀ x` over the numbers
+sandbox
+    default set
+    use ∀ x (x ∈ A ⇔ x ∈ B)
+    sandbox
+        default real
+        expect "ProofError"
+            ∀ n (n ∈ A ⇔ n ∈ B) ⇒ ∀ n ((n ∈ A ⇒ n ∈ B) ∧ (n ∈ B ⇒ n ∈ A))

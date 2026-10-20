@@ -1,6 +1,6 @@
 ; inside an `expect`, a line that first closes a nested block and then fails is the expected error
 ; (it was reported as an error of the file: the `expect` was looked for from the closed block)
-bool P, Q
+prop P, Q
 expect "ProofError" "can not derive"
     assume P
         P

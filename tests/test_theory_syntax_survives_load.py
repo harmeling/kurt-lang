@@ -11,13 +11,14 @@ import kurt.kurt as kurt
 # in that same file ever mentions it, its syntax is silently dropped when the theory is
 # `load`ed -- even though the file's own source clearly intends the symbol to be usable
 # (declaring `infix ^ 75 75` is not an accident). Found two real casualties this way: `^` in
-# numbers.kurt and `invimplies` in prop.kurt, both fixed by adding a genuine axiom that
+# numbers.kurt and `invimplies` in propositional.kurt, both fixed by adding a genuine axiom that
 # mentions the symbol. This test declares every `infix`/`prefix`/`postfix` symbol found in
 # each shipped theory's own source text and asserts each one survived that file's `load`, so
 # a future edit can't reintroduce this silently.
 
-THEORIES = ['prop', 'equality', 'logic', 'set', 'numbers', 'natural', 'modal', 'lambda',
-            'analysis', 'group']
+# every shipped theory (a list of ten missed the nine added later: integer, rational, field, ...)
+THEORIES = sorted(p.name[:-len('.kurt')] for p in res.files('kurt.theories').iterdir()
+                  if p.name.endswith('.kurt') and p.name != 'minimal.kurt')   # (the core, not loadable)
 
 # genuinely, deliberately unaxiomatized syntax -- `:` is only ever used as an alias for `in`
 # (see set.kurt's `alias : in`), never as its own standalone operator, so it never appears as
@@ -43,6 +44,7 @@ def declared_operators(theory: str) -> set[str]:
 
 class TestTheorySyntaxSurvivesLoad(unittest.TestCase):
     def test_every_declared_operator_survives_its_own_load(self):
+        self.assertIn('vectorspace', THEORIES)
         for theory in THEORIES:
             with self.subTest(theory=theory):
                 kb = copy.deepcopy(kurt.initial_kb)

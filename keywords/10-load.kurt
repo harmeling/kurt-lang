@@ -4,9 +4,9 @@
 ; inference rules -- are not hard-coded in Python.  They live in ordinary
 ; `.kurt` files under `src/kurt/theories/`, and `load` pulls one in.
 
-load prop             ; propositional logic: or, not, iff, and-elim, ...
+load propositional             ; propositional logic: or, not, iff, and-elim, ...
 
-bool A, B
+prop A, B
 use A and B
 A                      ; "and-elim" is now available, unlike in 04-and.kurt
 B
@@ -16,7 +16,7 @@ B
 ; yourself.  A file is only ever loaded once, even if several files (or the
 ; same file, twice) ask for it -- a second `load` just says so:
 
-load prop             ; already loaded, skipped
+load propositional             ; already loaded, skipped
 
 ; `load` with no arguments lists every file loaded so far:
 load

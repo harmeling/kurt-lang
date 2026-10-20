@@ -2,7 +2,7 @@
 ; found in the soundness review of 2026-09-29. The search must reject them itself (the first
 ; four are false), or find the right step (the last)
 load analysis
-bool P, Q, R, S
+prop P, Q, R, S
 arity P 1
 arity Q 2
 arity R 1

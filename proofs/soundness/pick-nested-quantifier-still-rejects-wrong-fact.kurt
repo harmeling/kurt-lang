@@ -3,7 +3,7 @@
 ; still be rejected -- alpha-renaming leniency only applies to the bound-variable *names*
 ; themselves, never to any other symbol.
 load logic
-bool R, Q
+prop R, Q
 arity R 2
 arity Q 2
 use exists x (forall y (R x y))

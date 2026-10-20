@@ -1,0 +1,97 @@
+; one sort per use, rule by rule (dev/todo-order-sorted.md item 1, doc/kurt-soundness.md §8.42):
+; every rule of logic.kurt with more than one polymorphic binder, used once over one sort (it
+; works) and once over two (`x` over `any`, `n` over `real`: refused). Some of the refused uses are
+; valid (restriction, widening) -- they take a `let` or `pick` (restriction-and-widening.kurt); the
+; others are not, and some of those were accepted before (proofs/soundness/one-sort-per-use.kurt)
+load natural
+
+any x, y
+real n, m
+prop P, Q
+arity P 1
+arity Q 1
+const S
+
+; "forall-cond-def": `∀ (sub $$x $$v %C) %P ⇔ ∀ $$w (... ⇒ ...)`
+sandbox
+    use ∀ x ∈ S (P x)
+    ∀ y (y ∈ S ⇒ P y)                       ; one sort
+sandbox
+    use ∀ n (n ∈ S ⇒ P n)
+    expect "ProofError"
+        ∀ x ∈ S (P x)                       ; from the numbers to all objects: false
+sandbox
+    use ∀ x ∈ S (P x)
+    expect "ProofError"
+        ∀ n (n ∈ S ⇒ P n)                   ; (valid, but two sorts: a `let`)
+
+; "exists-cond-def"
+sandbox
+    use ∃ x ∈ S (P x)
+    ∃ y (y ∈ S ∧ P y)                       ; one sort
+sandbox
+    use ∃ x ∈ S (P x)
+    expect "ProofError"
+        ∃ n (n ∈ S ∧ P n)                   ; from all objects to a number: false
+sandbox
+    use ∃ n (n ∈ S ∧ P n)
+    expect "ProofError"
+        ∃ x ∈ S (P x)                       ; (valid, but two sorts: a `pick`)
+
+; "forall-iff" and "exists-iff": the premise's `∀ $$x` and the conclusion's binders
+sandbox
+    use ∀ x (P x ⇔ Q x)
+    (∀ y (P y)) ⇔ (∀ y (Q y))               ; one sort
+    (∃ y (P y)) ⇔ (∃ y (Q y))
+sandbox
+    use ∀ n (P n ⇔ Q n)
+    expect "ProofError"
+        (∀ x (P x)) ⇔ (∀ x (Q x))           ; P and Q agree on the numbers only: false
+    expect "ProofError"
+        (∃ x (P x)) ⇔ (∃ x (Q x))
+    expect "ProofError"
+        (∀ x (P x)) ⇔ (∀ n (Q n))
+    expect "ProofError"
+        (∃ n (P n)) ⇔ (∃ x (Q x))
+
+; "existsunique-def" and "existsunique-cond-def"
+sandbox
+    use ∃! x (P x)
+    ∃ x (P x ∧ ∀ y (P y ⇒ y = x))           ; one sort
+sandbox
+    use ∃! x (P x)
+    expect "ProofError"
+        ∃ x (P x ∧ ∀ n (P n ⇒ n = x))       ; (valid, but two sorts)
+sandbox
+    use ∃ x (P x ∧ ∀ n (P n ⇒ n = x))
+    expect "ProofError"
+        ∃! x (P x)                          ; uniqueness among the numbers only: false
+sandbox
+    use ∃ n (P n ∧ ∀ x (P x ⇒ x = n))
+    expect "ProofError"
+        ∃! x (P x)                          ; (valid, but two sorts)
+sandbox
+    use ∃! x ∈ S (P x)
+    ∃! y (y ∈ S ∧ P y)                      ; one sort
+sandbox
+    use ∃! n (n ∈ S ∧ P n)
+    expect "ProofError"
+        ∃! x ∈ S (P x)                      ; unique among the numbers: false for all objects
+
+; "existsunique-intro" and "existsunique-exists"
+sandbox
+    const a
+    use P a
+    use ∀ y (P y ⇒ y = a)
+    ∃! x (P x)                              ; one sort
+sandbox
+    const a
+    use P a
+    use ∀ m (P m ⇒ m = a)
+    expect "ProofError"
+        ∃! x (P x)                          ; uniqueness among the numbers only: false
+sandbox
+    use ∃! x (P x)
+    ∃ y (P y)                               ; one sort
+    expect "ProofError"
+        ∃ n (P n)                           ; the one object need not be a number: false

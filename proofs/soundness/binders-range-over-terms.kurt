@@ -1,0 +1,21 @@
+; Binders range over terms (decided 2026-10-20): `∀`, `∃` (and every other binder) bind a term
+; variable, never a statement. A statement variable is schematic: free in a `use` or `show`, `%A`
+; says "for every statement" -- `use %A ∨ ¬%A`. Before, `∀ p (p ∨ ¬p)` with `var p; prop p` was
+; accepted (sound, over the two truth values, but used by no file); now statements are neither
+; objects nor the range of a quantifier (doc/kurt-doc.md §5.1).
+load logic, equality
+var p
+prop p
+expect "TypeError" "a binder ranges over terms"
+    use ∀ p (p ∨ ¬p)
+expect "TypeError" "a binder ranges over terms"
+    use ∀ %A (%A ∨ ¬%A)
+expect "TypeError" "a binder ranges over terms"
+    use ∃ q (q ∧ true)
+expect "TypeError" "a binder ranges over terms"
+    use ∀ r r
+use %A ∨ ¬%A  "lem"
+use ∀ x (x = x)
+prop P
+arity P 1
+use ∀ x (P x ∨ ¬P x)

@@ -43,7 +43,7 @@ expect "ParseError"
 
 ; an operator in parentheses is a term, not a function (`(implies) A` was an `IndexError`, and
 ; `(implies) A B C` ignored `C`)
-bool A, B, C
+prop A, B, C
 expect "ParseError"
     use (implies) A
 expect "ParseError"

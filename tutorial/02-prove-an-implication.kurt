@@ -11,7 +11,7 @@
 ; at the indentation of `proof` again, and closes the `assume` block and then the `proof` block.
 ; Blocks nest: the `assume` block is inside the `proof` block, so its lines are indented twice.
 
-bool A, B, C
+prop A, B, C
 use A implies B
 use B implies C
 

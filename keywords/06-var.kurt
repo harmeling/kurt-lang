@@ -16,9 +16,9 @@ var x, y
 ;
 ; - `$x`, `$a`, ... stand for terms (objects), e.g. `equality.kurt` contains
 ;   `use $a = $a "equal-intro"` -- every object is equal to itself;
-; - `%A`, `%B`, ... stand for boolean formulas, e.g. `prop.kurt` contains
+; - `%A`, `%B`, ... stand for boolean formulas, e.g. `propositional.kurt` contains
 ;   `use %A and %B implies %A "and-elim"` -- for any formulas `%A`, `%B`.
 ;
 ; Mixing them up is a type error: `$A implies $A` is rejected, since
 ; `implies` needs formulas on both sides.  You'll see plenty of these once we
-; `load prop` in lesson 10.
+; `load propositional` in lesson 10.

@@ -1,7 +1,7 @@
 ; the rules of the blocks, from the soundness review of 2026-09-29 (§8.17) -- each of these
 ; used to give `false`, `P d` from `P c`, or `a = b`
 load numbers, logic
-bool P, Q
+prop P, Q
 arity P 1
 arity Q 1
 const P, Q, a, b, c, d
@@ -26,17 +26,20 @@ expect "ProofError"
     let x < $y
         x < 0
 
-; the witness of a `pick` never leaves the block, even if it is a "vocabulary" symbol
+; the witness of a `pick` never leaves the block, even if it is a "vocabulary" symbol; since
+; operators are no objects (doc/kurt-doc.md §5.3), an operator `w` can't even be the witness: the
+; type check stops `w = x` before the block rules are asked
 arity w 1
-expect "ProofError"
+expect "TypeError" "`w` is an operator without its arguments"
     let x
         x = x
         ∃ $y ($y = x)
         pick w with w = x
             w = x
-expect "ProofError"
+; (a statement witness: since 2026-10-20 binders range over terms, so `∃ %X` is a type error itself)
+expect "TypeError" "a binder ranges over terms"
     let x
-        ∃ %X (%X iff P x)
+        use ∃ %X (%X iff P x)
         pick D with D iff P x
             D iff P x
 
@@ -58,5 +61,5 @@ expect "ProofError"
 
 ; an empty `sandbox` just closes
 sandbox
-    bool R
+    prop R
 true

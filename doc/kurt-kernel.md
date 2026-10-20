@@ -5,6 +5,9 @@ certificate is, what the kernel does with it, and why that makes the result trus
 long form of `doc/kurt-soundness.md` §9, with examples. Every output below is what Kurt printed
 for the example (Kurt 0.8.3/0.9), not made up.
 
+(The same kernel read as code, function by function, with each chunk cited from kurt.py and kept
+the code by a test: `doc/kurt-kernel-code.md`.)
+
 ## 1. Two parts: the search and the kernel
 
 Kurt has to find a proof of each line: which rule, which facts, which values for the variables.
@@ -59,7 +62,7 @@ A `Certificate` (kurt.py) has:
 example, modus ponens:
 
 ```
-bool A, B
+prop A, B
 use A implies B
 use A
 B
@@ -140,8 +143,8 @@ normal form (§7).
 ### 3.2 A rule of a theory, with values
 
 ```
-load prop
-bool A, B
+load propositional
+prop A, B
 use A and B
 A
 ```
@@ -149,7 +152,7 @@ A
 ```
 line 4: A
   goal:      `A`
-  rule:      `(%A and %B) implies %A` (prop.kurt:76 "and-elim")
+  rule:      `(%A and %B) implies %A` (propositional.kurt:76 "and-elim")
   read as:   premise ⇒ conclusion
   values:    %A := `A`
              %B := `B`
@@ -233,7 +236,7 @@ contain the bound `$x`; a term variable `$T` couldn't (§3, step 6).
 ### 4.1 `true` and `calc`
 
 ```
-load prop, numbers
+load propositional, numbers
 true
 calc on
 2 + 3 = 5
@@ -265,8 +268,8 @@ as the goal.
 ### 4.2 `case`: n alternatives
 
 ```
-load prop
-bool A, B, C
+load propositional
+prop A, B, C
 use A or B
 use A implies C
 use B implies C
@@ -284,7 +287,7 @@ line 12: qed
   ...
   goal:      `C`
   by:        n-ary case elimination
-  rule:      `((%%31 implies %%32) and (%%33 implies %%32) and (%%31 or %%33)) implies %%32` (prop.kurt:82 "or-elim")
+  rule:      `((%%31 implies %%32) and (%%33 implies %%32) and (%%31 or %%33)) implies %%32` (propositional.kurt:82 "or-elim")
   split:     `A or B` (line 3)
   cases:     `A implies C` (line 8-9)
              `B implies C` (line 10-11)
@@ -326,8 +329,8 @@ And for each: no individual constant of the block occurs in the result (`no_esca
 witness of a `pick` never.
 
 ```
-load prop, logic
-bool A, B, C
+load propositional, logic
+prop A, B, C
 use A implies B
 use B implies C
 assume A
@@ -401,7 +404,7 @@ without `.kurtc`.
 A forged certificate: the file
 
 ```
-bool A, B
+prop A, B
 use A
 use B implies A
 B
@@ -440,6 +443,10 @@ The kernel can only be as right as what it relies on. Besides its own code, that
   variables, and not inside a proof block -- so that a definition adds no new truths about the old
   symbols (`doc/kurt-soundness.md` §8.17).
 - **Plain helpers** (`is_forall`, `get_token_set`, ...), and `expr_str`, only for messages.
+- **The reading of sorts.** The declarations (`sort`, `real x`, `default`), the sorts inference
+  gives when a line is read, and the sort of a binder (`binder_node_sorts`) are what a formula
+  *means*, like the parse: the kernel reads them (`k_binder_sorts`, `pos_sort`, `variable_sorts`)
+  but doesn't recompute them. What makes that safe is that the reading is stable (§8.4).
 
 Not trusted: everything of the search -- its unification, its alpha-equivalence, its substitution,
 its reading of a binder's condition. The kernel has its own (`k_equal`, `k_replace`, `k_bound`).
@@ -461,7 +468,113 @@ read-only view, so it can't change anything while it checks.
    └──────────────────────────┘    └──────────────────────────────┘
 ```
 
-## 8. How the kernel itself is tested
+## 8. Why the kernel's checks are sound: the order-sorted semantics
+
+This section argues that a step the kernel accepts is valid: its goal is true in every model of
+the facts it uses. It is the argument behind the conditions of `doc/kurt-soundness.md` §10, and it
+shows which check each part rests on.
+
+### 8.1 Models
+
+A model `M` has:
+
+- a non-empty set `D` of objects (the sort `any`);
+- for each user sort `S`, a non-empty subset `D_S ⊆ D`, with `D_T ⊆ D_S` for `T ⊂ S`;
+- for each constant an object of its sort's set;
+- for each operator a total function. Its result lies in the set of its result sort, *for every
+  argument*: a value outside the intended domain gives some object of the result sort, never
+  "undefined".
+- `prop` operators are relations, `=` is identity, and the calculator's operations are the real
+  ones on `D_num ⊇ ℝ`.
+
+An assignment `ρ` maps each variable of sort `S` to an object of `D_S`, and a variable without a
+sort to one of `D`. A formula is true in `M` iff it is true under every assignment. `∀ x:S φ` is
+true iff `φ` is true for every object of `D_S`, and `∃ x:S φ` iff for one. A fact (`use`, a
+proved line) with schematic variables is true iff every instance is. A polymorphic rule (`$$x`)
+is true iff, for every sort `σ`, its instance with all `$$` binders over `D_σ` is true.
+
+Two lemmas carry most of the weight:
+
+- **Sorts of values.** If `k_has_sort(t, S)` holds, `t` denotes an object of `D_S` under every
+  assignment.
+  - A variable or constant of sort `T ⊆ S` denotes an object of `D_T ⊆ D_S`.
+  - An application denotes an object of its result sort, by the totality above. That is why the
+    kernel needn't check the arguments.
+  - A number denotes an object of `D_num`.
+  - Without a sort, only `S = any` holds.
+- **Substitution.** `φ[x := t]` under `ρ` is `φ` under `ρ[x ↦ value of t]`, provided that the
+  value is in `D_sort(x)` (checked by `k_has_sort`) and the substitution doesn't capture
+  (`k_replace` renames).
+
+### 8.2 Each check, and why it suffices
+
+- **A fact's instance (§3.1).** Each value fits its variable's sort (step 3; `k_instance` for a
+  bound variable renamed to another one). By the two lemmas, the instance is true wherever the
+  fact is.
+- **A rule with a premise (§3.2).** Each part of the premise is an instance of a fact, so it is
+  true. By modus ponens in the model, so is the conclusion's instance.
+- **A `∀` premise (§3.4).** The fresh name `y` is in no fact the premise comes from, gets no
+  value, and no other value depends on it. So the facts prove the body for an arbitrary object of
+  `y`'s sort, which is the `∀`.
+  - Here the sort matters: the `∀` must range over `y`'s sort and no bigger one. A stripped
+    binder's fresh variable has the binder's sort, and a polymorphic one the sort of the use (8.3).
+- **`let z` (§5).** `z` is new in the block, and the result's binder has `z`'s sort
+  (`block_result_sorts`; the kernel compares it, `sorts_kept`). Without a sort that is `any`, and
+  no fact about a smaller sort applies to `z` inside the block (`k_has_sort`). The block's lines
+  hold for every object of that sort, so the `∀` does.
+- **`pick w` (§5).** The witness is new and has the sort of the `∃`'s variable, so the existential
+  fact provides an object for it. The result doesn't mention `w`.
+- **`assume` (§5).** The deduction theorem: the block's lines hold under the assumption. Its fixed
+  variables are arbitrary objects of their sort, like `let`'s constants.
+- **Binders compared (`k_equal`, `k_binder_sorts`).** Two binders are the same only over the same
+  sort, so the conclusion's `∀ x:S` is the goal's `∀ x:S`, not one over a bigger or smaller sort.
+- **Normal forms.** A `flat` operator is associative and a `sym` one commutative: the theory
+  declares it, which is an axiom like a `use`. `calc` computes on `D_num`.
+
+### 8.3 Polymorphic rules: one sort per use
+
+A `$$` rule is valid only as a schema: one instance per sort `σ`, all of its `$$` binders over
+`D_σ`. The kernel accepts its use only if every `$$` binder of the step is matched with a variable
+of one sort `σ` (`k_poly_sorts`). The instance then is the `σ`-instance, which is true. Two sorts
+would make another formula, not an instance: `∃! x` over `any` from uniqueness among the numbers.
+
+That each `$$` rule holds for every sort is the theory author's claim:
+
+- For logic.kurt, Lean proves each rule for an arbitrary type. That covers every `D_σ`.
+- The mark restriction (`k_parametric_binders`: `$$x` only in its binder, in `sub` and in `=`)
+  guards the claim. In such a rule the sort enters only through the range of the binders, and
+  through `sub`, whose values are checked. A rule whose body depends on the sort (`$$c ∈ $a` of
+  extensionality, false over the numbers alone) is refused.
+
+### 8.4 Why reading the sorts is safe: stability
+
+The kernel reads the sorts of a formula; it doesn't compute them. That is sound if a formula means
+the same each time it is read (soundness §8.43, §8.45):
+
+- **A stored fact keeps the sorts of its binders.** They are recorded with its renamed variables
+  when it is stored (`internal_variable_sorts`). A renamed binder without a recorded sort is read
+  like the written one (`k_binder_sorts`).
+- **An operator's place gets no sort after its first use.** Inference gives a place a sort only at
+  its first use, and a sort declaration after a symbol occurs in a fact is refused
+  (`add_sort_signature`, `occurs_in_theory`; before 2026-10-19 only an implicitly declared symbol
+  counted, so a late `real P 1` for a `const P` was accepted). A stored formula over it reads the
+  same later (`proofs/soundness/stable-reading.kurt`).
+- **A constant's sort is final after its first sorted use.** Before it, the constant is any object;
+  the first sorted use gives it its sort, and no later line changes it (doc/kurt-soundness.md
+  §8.46). A step accepted before, for every object, holds for the objects of that sort too. (A
+  disjoint `term` for the constants without a sort broke this, soundness §8.45.)
+- **"No sort" has one meaning, `any`**, for a binder, a variable, a block's constant and a
+  constant (§8.43, §8.45).
+
+### 8.5 What this argument assumes
+
+- **The models exist.** Each sort is non-empty, the declared `flat`/`sym` hold, the theories'
+  axioms hold, and the operators can be extended totally into their result sorts. The theories of
+  Kurt have such a model: the Lean export's `ZFSet`, with the reals embedded.
+- **Each polymorphic rule holds for every sort** (8.3). Lean checks this for logic.kurt.
+- **The parser and the normal forms** (§7).
+
+## 9. How the kernel itself is tested
 
 - Every step of every proof file, theory, lesson and exercise in the test suite goes through the
   kernel -- a rejection anywhere fails the tests.

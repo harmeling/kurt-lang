@@ -1,10 +1,10 @@
 ; helper theory for the `load`-export regression tests (load-export-*.kurt in this
-; directory). Auto-discovered and run on its own too, so it needs a valid marker. Mixes
+; directory). Auto-discovered and run on its own too, so it must check without an error. Mixes
 ; exported and local facts/defs so the consumer tests can check both directions. See
 ; doc/kurt-doc.md's `load` section and doc/kurt-soundness.md #7.
-load prop
-bool P, U
-bool Q, R local     ; a top-level declaration is exported (todo 28) -- not with `local`
+load propositional
+prop P, U
+prop Q, R local     ; a top-level declaration is exported (todo 28) -- not with `local`
 use P  "exported-fact"
 use Q  local "local-fact"
 use R  ; no label at all -- also stays local, same as an explicit `local` marking

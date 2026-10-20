@@ -1,0 +1,53 @@
+; the errors of sorts with subsorts, defaults and inferred sorts (todo 34, doc/kurt-doc.md §5.2)
+load propositional, equality
+
+; subsorts: `sort set real int` is `int ⊂ real ⊂ set`, read like `chain`
+sort set real int, vec
+expect "EvalError" "a sort is not a subsort of itself"
+    sort real real
+expect "EvalError" "would be a cycle"
+    sort int set
+expect "EvalError" "`prop` declares statements -- it is no sort"
+    sort prop real
+expect "EvalError" "wrong arguments"
+    sort set "real"
+; a sort name where a symbol is declared: the hint for a subsort
+expect "EvalError" "a subsort is declared with `sort set real`"
+    set real
+
+; `default`: a sort, at the top of a file
+expect "EvalError" "`foo` is not a sort -- declare it first with `sort foo`"
+    default foo
+expect "EvalError" "`prop` can not be the default sort"
+    default prop
+expect "EvalError" "`default` takes one sort"
+    default real, set
+expect "EvalError" "`default` is not allowed inside `assume`"
+    load "helpers/default-in-assume.kurt"
+
+; the sort of the elements of a set is no declaration (`real ∈ Nat` is gone, todo 35): `∈` is no position
+infix ∈ 25 25
+prop ∈ 0
+builtin ∈ element
+const Odd
+expect "EvalError" "positions must be integers"
+    real ∈ Odd
+
+; an inferred sort: a use that doesn't fit is an error naming both places
+infix + 60 60
+infix · 70 70
+real + 0 1 2
+vec · 0 1 2
+const x, v
+use x + x = x
+expect "TypeError" "`x` has the sort `real` (inferred at line 42), but here it is used as `vec`"
+    x · v = v
+; ... and in one line, two uses that don't fit
+const y
+expect "TypeError" "`y` is used as `real` and as `vec` in this line"
+    use y + y = y · y
+; a declared sort is checked as declared: a set is no number (and doesn't become one)
+set S
+const z
+expect "TypeError" "must have sort `real`"
+    use S + z = z

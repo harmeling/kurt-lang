@@ -1,0 +1,276 @@
+; Towards Lagrange's theorem: the left cosets of a subgroup H of a group G partition G, and each of
+; them is in bijection with H (h ↦ a ∘ h, a mapping of set.kurt built as a set of pairs).
+;
+; Lagrange's theorem itself, |G| = [G : H] · |H| for a finite group, is the counting step on top of
+; this: it needs the number of elements of a finite set, which no theory of Kurt has -- a library
+; gap, not a limit of the language (doc/kurt-current-limits.md §5). Hypotheses: `G` is a group and
+; `H` a subgroup, as `use` lines about new constants (nothing else is known about them).
+load group
+
+; a group G, with the operation ∘ (group.kurt), the identity e and the inverse inv -- the hypothesis
+; "let G be a group" (a `use` about new constants, nothing else is known about them)
+const G, e, inv
+use group(G, (∘), e, inv)                                              "G-group"
+
+; a subgroup H of G: a subset with e, closed under ∘ and the inverse -- the hypothesis "let H be a
+; subgroup"
+const H
+use H ⊂ G                                                              "H-subset"
+use e ∈ H                                                              "H-identity"
+use ∀ $a ∈ H ∀ $b ∈ H ($a ∘ $b ∈ H)                                    "H-closed"
+use ∀ $a ∈ H (inv $a ∈ H)                                              "H-inverse"
+
+; the left coset aH -- a `def`
+def coset($a) = {x ∈ G | ∃ h ∈ H (x = $a ∘ h)}                         "coset"
+
+show $h ∈ H  ⇒  $h ∈ G                                                 "H-in-G"
+proof
+    assume $h ∈ H
+        ∀ $c ($c ∈ H ⇒ $c ∈ G)
+        $h ∈ G
+qed
+
+; a ∈ aH
+show $a ∈ G  ⇒  $a ∈ coset($a)                                         "coset-self"
+proof
+    assume $a ∈ G
+        $a ∘ e = $a                                    ; group-right-identity
+        $a = $a ∘ e
+        e ∈ H ∧ $a = $a ∘ e
+        ∃ h ∈ H ($a = $a ∘ h)
+        $a ∈ G ∧ ∃ h ∈ H ($a = $a ∘ h)
+        $a ∈ {x ∈ G | ∃ h ∈ H (x = $a ∘ h)}            ; separation
+        $a ∈ coset($a)
+qed
+
+; b ∈ aH, b = a h: then bH ⊂ aH (b k = a (h k)) and aH ⊂ bH (a k = b (h⁻¹ k)), so bH = aH
+show $b ∈ coset($a) ∧ $a ∈ G  ⇒  coset($b) = coset($a)                 "coset-of-member"
+proof
+    assume $b ∈ coset($a) ∧ $a ∈ G
+        $b ∈ {x ∈ G | ∃ h ∈ H (x = $a ∘ h)}
+        $b ∈ G ∧ ∃ h ∈ H ($b = $a ∘ h)                 ; separation
+        $b ∈ G
+        ∃ h ∈ H ($b = $a ∘ h)
+        pick h with h ∈ H ∧ $b = $a ∘ h
+            h ∈ G                                      ; H-in-G
+            inv h ∈ H
+            inv h ∈ G
+            ; bH ⊂ aH
+            let y
+                assume y ∈ coset($b)
+                    y ∈ {x ∈ G | ∃ k ∈ H (x = $b ∘ k)}
+                    y ∈ G ∧ ∃ k ∈ H (y = $b ∘ k)       ; separation
+                    y ∈ G
+                    ∃ k ∈ H (y = $b ∘ k)
+                    pick k with k ∈ H ∧ y = $b ∘ k
+                        k ∈ G
+                        ∀ $m ∈ H (h ∘ $m ∈ H)          ; H-closed
+                        h ∘ k ∈ H
+                        y = ($a ∘ h) ∘ k
+                          = $a ∘ (h ∘ k)               ; group-associative
+                        h ∘ k ∈ H ∧ y = $a ∘ (h ∘ k)
+                        ∃ l ∈ H (y = $a ∘ l)
+                        y ∈ G ∧ ∃ l ∈ H (y = $a ∘ l)
+                        y ∈ {x ∈ G | ∃ l ∈ H (x = $a ∘ l)}    ; separation
+                        y ∈ coset($a)
+            coset($b) ⊂ coset($a)
+            ; aH ⊂ bH
+            $b ∘ inv h = ($a ∘ h) ∘ inv h
+                       = $a ∘ (h ∘ inv h)              ; group-associative
+                       = $a ∘ e                        ; group-right-inverse
+                       = $a                            ; group-right-identity
+            let y
+                assume y ∈ coset($a)
+                    y ∈ {x ∈ G | ∃ k ∈ H (x = $a ∘ k)}
+                    y ∈ G ∧ ∃ k ∈ H (y = $a ∘ k)       ; separation
+                    y ∈ G
+                    ∃ k ∈ H (y = $a ∘ k)
+                    pick k with k ∈ H ∧ y = $a ∘ k
+                        k ∈ G
+                        ∀ $m ∈ H (inv h ∘ $m ∈ H)      ; H-closed
+                        inv h ∘ k ∈ H
+                        y = ($b ∘ inv h) ∘ k
+                          = $b ∘ (inv h ∘ k)           ; group-associative
+                        inv h ∘ k ∈ H ∧ y = $b ∘ (inv h ∘ k)
+                        ∃ l ∈ H (y = $b ∘ l)
+                        y ∈ G ∧ ∃ l ∈ H (y = $b ∘ l)
+                        y ∈ {x ∈ G | ∃ l ∈ H (x = $b ∘ l)}    ; separation
+                        y ∈ coset($b)
+            coset($a) ⊂ coset($b)
+            coset($b) ⊂ coset($a) ∧ coset($a) ⊂ coset($b)
+            coset($b) = coset($a)                      ; eq-def
+qed
+
+; two cosets are equal or disjoint
+show $a ∈ G ∧ $b ∈ G  ⇒  coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅     "cosets-equal-or-disjoint"
+proof
+    assume $a ∈ G ∧ $b ∈ G
+        (∃ x (x ∈ coset($a) ∩ coset($b))) ∨ ¬(∃ x (x ∈ coset($a) ∩ coset($b)))     ; excluded-middle
+        case ∃ x (x ∈ coset($a) ∩ coset($b))
+            pick x with x ∈ coset($a) ∩ coset($b)
+                x ∈ coset($a) ∧ x ∈ coset($b)          ; in-intersection
+                x ∈ coset($a)
+                x ∈ coset($b)
+                coset(x) = coset($a)                   ; coset-of-member
+                coset(x) = coset($b)                   ; coset-of-member
+                coset($a) = coset($b)
+            coset($a) = coset($b)
+            coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅
+        case ¬(∃ x (x ∈ coset($a) ∩ coset($b)))
+            let c
+                assume c ∈ coset($a) ∩ coset($b)
+                    ∃ x (x ∈ coset($a) ∩ coset($b))
+                    false
+                    c ∈ ∅
+                assume c ∈ ∅
+                    ¬(c ∈ ∅)                           ; empty-set
+                    false
+                    c ∈ coset($a) ∩ coset($b)
+                c ∈ coset($a) ∩ coset($b)  ⇔  c ∈ ∅
+            ∀ $c ($c ∈ coset($a) ∩ coset($b)  ⇔  $c ∈ ∅)
+            coset($a) ∩ coset($b) = ∅                  ; extensionality
+            coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅
+        coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅
+qed
+
+; ... and every element of G is in one: G is the disjoint union of the cosets
+show $x ∈ G  ⇒  ∃ a (a ∈ G ∧ $x ∈ coset(a))                            "cosets-cover"
+proof
+    assume $x ∈ G
+        $x ∈ coset($x)                                 ; coset-self
+        $x ∈ G ∧ $x ∈ coset($x)
+        ∃ a (a ∈ G ∧ $x ∈ coset(a))
+qed
+
+; h ↦ a ∘ h is a bijection from H onto aH: all cosets have as many elements as H
+set $m          ; a mapping is a set (a fact gives no sort, doc/kurt-doc.md §5.3)
+def injective($m, $A)  ⇔  ∀ x ∈ $A ∀ y ∈ $A ($m x = $m y  ⇒  x = y)                 "injective"
+def surjective($m, $A, $B)  ⇔  ∀ y ∈ $B ∃ x ∈ $A ($m x = y)                          "surjective"
+def bijection($m, $A, $B)  ⇔  $m ∈ ($A → $B) ∧ injective($m, $A) ∧ surjective($m, $A, $B)   "bijection"
+
+; the mapping h ↦ a ∘ h, as a set of pairs (`arity shift 1`: `shift(a) h` is the mapping `shift(a)`
+; applied to h, not `shift` with the two arguments a and h)
+arity shift 1
+def shift($a) = {p ∈ H × coset($a) | ∃ h ∈ H (p = (h, $a ∘ h))}       "shift"
+
+show $a ∈ G ∧ $h ∈ H  ⇒  ($h, $a ∘ $h) ∈ shift($a)                     "shift-pair"
+proof
+    assume $a ∈ G ∧ $h ∈ H
+        $h ∈ G                                         ; H-in-G
+        $a ∘ $h = $a ∘ $h
+        $h ∈ H ∧ $a ∘ $h = $a ∘ $h
+        ∃ k ∈ H ($a ∘ $h = $a ∘ k)
+        $a ∘ $h ∈ G                                    ; group-closed
+        $a ∘ $h ∈ G ∧ ∃ k ∈ H ($a ∘ $h = $a ∘ k)
+        $a ∘ $h ∈ {x ∈ G | ∃ k ∈ H (x = $a ∘ k)}       ; separation
+        $a ∘ $h ∈ coset($a)
+        ($h, $a ∘ $h) ∈ H × coset($a)                  ; product
+        ($h, $a ∘ $h) = ($h, $a ∘ $h)
+        $h ∈ H ∧ ($h, $a ∘ $h) = ($h, $a ∘ $h)
+        ∃ k ∈ H (($h, $a ∘ $h) = (k, $a ∘ k))
+        ($h, $a ∘ $h) ∈ H × coset($a) ∧ ∃ k ∈ H (($h, $a ∘ $h) = (k, $a ∘ k))
+        ($h, $a ∘ $h) ∈ {p ∈ H × coset($a) | ∃ k ∈ H (p = (k, $a ∘ k))}     ; separation
+        ($h, $a ∘ $h) ∈ shift($a)
+qed
+
+; a pair of shift(a) is (h, a ∘ h)
+show ($x, $y) ∈ shift($a)  ⇒  $x ∈ H ∧ $y = $a ∘ $x                     "shift-pair-elim"
+proof
+    assume ($x, $y) ∈ shift($a)
+        ($x, $y) ∈ {p ∈ H × coset($a) | ∃ k ∈ H (p = (k, $a ∘ k))}
+        ($x, $y) ∈ H × coset($a) ∧ ∃ k ∈ H (($x, $y) = (k, $a ∘ k))      ; separation
+        ∃ k ∈ H (($x, $y) = (k, $a ∘ k))
+        pick k with k ∈ H ∧ ($x, $y) = (k, $a ∘ k)
+            $x = k ∧ $y = $a ∘ k                       ; pair-eq
+            $x = k
+            $y = $a ∘ k
+            $x ∈ H
+            $y = $a ∘ $x
+            $x ∈ H ∧ $y = $a ∘ $x
+qed
+
+show $a ∈ G  ⇒  shift($a) ∈ (H → coset($a))                           "shift-mapping"
+proof
+    assume $a ∈ G
+        let c
+            assume c ∈ shift($a)
+                c ∈ {p ∈ H × coset($a) | ∃ k ∈ H (p = (k, $a ∘ k))}
+                c ∈ H × coset($a)                      ; separation-in
+        shift($a) ⊂ H × coset($a)
+        let h ∈ H
+            (h, $a ∘ h) ∈ shift($a)                    ; shift-pair
+            ∃ y ((h, y) ∈ shift($a))
+        ∀ h ∈ H ∃ y ((h, y) ∈ shift($a))
+        let x, y, z
+            assume (x, y) ∈ shift($a) ∧ (x, z) ∈ shift($a)
+                x ∈ H ∧ y = $a ∘ x                     ; shift-pair-elim
+                x ∈ H ∧ z = $a ∘ x                     ; shift-pair-elim
+                y = $a ∘ x
+                z = $a ∘ x
+                y = z
+        ∀ x ∀ y ∀ z ((x, y) ∈ shift($a) ∧ (x, z) ∈ shift($a)  ⇒  y = z)
+        shift($a) ⊂ H × coset($a) ∧ (∀ h ∈ H ∃ y ((h, y) ∈ shift($a))) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ shift($a) ∧ (x, z) ∈ shift($a)  ⇒  y = z)
+        shift($a) ∈ (H → coset($a))                    ; function-space
+qed
+
+show $a ∈ G ∧ $h ∈ H  ⇒  shift($a) $h = $a ∘ $h                        "shift-apply"
+proof
+    assume $a ∈ G ∧ $h ∈ H
+        shift($a) ∈ (H → coset($a))                    ; shift-mapping
+        ($h, $a ∘ $h) ∈ shift($a)                      ; shift-pair
+        shift($a) $h = $a ∘ $h                         ; apply
+qed
+
+; the cosets of H all have as many elements as H: shift(a) is a bijection from H onto aH
+show $a ∈ G  ⇒  bijection(shift($a), H, coset($a))                     "coset-bijection"
+proof
+    assume $a ∈ G
+        shift($a) ∈ (H → coset($a))                    ; shift-mapping
+        inv $a ∈ G                                     ; group-inverse-in
+        ; injective: a ∘ x = a ∘ y gives x = y
+        let x ∈ H
+            let y ∈ H
+                assume shift($a) x = shift($a) y
+                    x ∈ G
+                    y ∈ G
+                    shift($a) x = $a ∘ x               ; shift-apply
+                    shift($a) y = $a ∘ y               ; shift-apply
+                    $a ∘ x = $a ∘ y
+                    (inv $a) ∘ ($a ∘ x) = (inv $a) ∘ ($a ∘ y)
+                    (inv $a) ∘ ($a ∘ x) = ((inv $a) ∘ $a) ∘ x     ; group-associative
+                                        = e ∘ x                   ; group-left-inverse
+                                        = x                       ; group-left-identity
+                    (inv $a) ∘ ($a ∘ y) = ((inv $a) ∘ $a) ∘ y     ; group-associative
+                                        = e ∘ y                   ; group-left-inverse
+                                        = y                       ; group-left-identity
+                    x = y
+        ∀ x ∈ H ∀ y ∈ H (shift($a) x = shift($a) y  ⇒  x = y)
+        injective(shift($a), H)
+        ; surjective: an element a ∘ h of aH is shift(a) h
+        let y ∈ coset($a)
+            y ∈ {x ∈ G | ∃ k ∈ H (x = $a ∘ k)}
+            y ∈ G ∧ ∃ k ∈ H (y = $a ∘ k)               ; separation
+            ∃ k ∈ H (y = $a ∘ k)
+            pick k with k ∈ H ∧ y = $a ∘ k
+                shift($a) k = $a ∘ k                   ; shift-apply
+                shift($a) k = y
+                k ∈ H ∧ shift($a) k = y
+                ∃ x ∈ H (shift($a) x = y)
+        ∀ y ∈ coset($a) ∃ x ∈ H (shift($a) x = y)
+        surjective(shift($a), H, coset($a))
+        shift($a) ∈ (H → coset($a)) ∧ injective(shift($a), H) ∧ surjective(shift($a), H, coset($a))
+        bijection(shift($a), H, coset($a))
+qed
+
+; as far as Lagrange's theorem goes in Kurt: G is the disjoint union of the cosets of H, and each is
+; in bijection with H. The last step -- |G| = (number of cosets) · |H| for a finite G -- needs the
+; number of elements of a finite set, which set.kurt doesn't have (doc/kurt-current-limits.md §5).
+; (A size is expressible -- `hassize(A, n) ⇔ ∃ m bijection(m, {1, ..., n}, A)` -- but what Lagrange
+; needs of it, the size of a disjoint union and of a union of k disjoint sets of size m, is a theory
+; of finite sets of its own.)
+show $a ∈ G  ⇒  ∃ m bijection(m, H, coset($a))                         "cosets-as-large-as-H"
+proof
+    assume $a ∈ G
+        bijection(shift($a), H, coset($a))             ; coset-bijection
+        ∃ m bijection(m, H, coset($a))
+qed

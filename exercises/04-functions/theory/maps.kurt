@@ -14,7 +14,7 @@
 ; elements x of A with the property P(x). The image of S under f is the set
 ; `{y ∈ B | ∃ x ∈ S (f x = y)}`, the preimage of T is the set `{x ∈ A | f x ∈ T}`.
 ;
-; The rules (with set.kurt, and with it prop.kurt, logic.kurt and equality.kurt):
+; The rules (with set.kurt, and with it propositional.kurt, logic.kurt and equality.kurt):
 ;
 ;     "map"           f : A → B ∧ x ∈ A ⇒ f x ∈ B                     (proven below)
 ;     "injective"     injective(f, A) ⇔ ∀ x ∈ A ∀ y ∈ A (f x = f y ⇒ x = y)
@@ -37,14 +37,15 @@ load set
 infix ∘ 60 60           ; stronger than ∈, ∪, ∩: `g ∘ f : A → C` is `(g ∘ f) : (A → C)`
 const ∘
 arity injective (_, _), surjective (_, _, _), bijective (_, _, _)
-bool injective 0, surjective 0, bijective 0
+prop injective 0, surjective 0, bijective 0
 
 ; a map takes the elements of A to elements of B
-show $f : $A → $B ∧ $x ∈ $A ⇒ $f $x ∈ $B                                       "map"
+set $m                          ; a mapping is a set of pairs (a fact `m : A → B` gives no sort)
+show $m : $A → $B ∧ $x ∈ $A ⇒ $m $x ∈ $B                                       "map"
 proof
-    assume $f : $A → $B ∧ $x ∈ $A
-        ($x, $f $x) ∈ $f ∧ $f $x ∈ $B                   ; apply-in (set.kurt)
-        $f $x ∈ $B
+    assume $m : $A → $B ∧ $x ∈ $A
+        ($x, $m $x) ∈ $m ∧ $m $x ∈ $B                   ; apply-in (set.kurt)
+        $m $x ∈ $B
 qed
 
 def injective($f, $A) ⇔ ∀ $x ∈ $A ∀ $y ∈ $A ($f $x = $f $y ⇒ $x = $y)          "injective"

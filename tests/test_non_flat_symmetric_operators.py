@@ -1,9 +1,5 @@
 import unittest
-import sys
-import os
 
-# Add the parent directory to the path to import kurt
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import kurt.kurt as kurt
 
 class TestNonFlatSymmetricOperators(unittest.TestCase):

@@ -11,9 +11,10 @@ from tests.utils import with_quantifiers
 # to mention `$x` at all, so `%A == expr` unchanged and `$a` is unconstrained) -- see
 # doc/kurt-soundness.md #6 for why that candidate has to exist. Besides replacing one
 # occurrence, a value occurring several times is also replaced at all of its occurrences at
-# once (e.g. `(17, [g, $%1, $%1])`), but not in any other combination (`old_examples` below
-# still has those too, which were dropped for performance) -- see
-# `all_single_hole_decompositions`.
+# once (e.g. `(17, [g, $%1, $%1])`), and at some of them (two or more, `h 17 17 17` below) -- see
+# `all_single_hole_decompositions`. The hole is at an operator position only for an operator that
+# yields a term (`f` of `f 17`; todo 31), never at a boolean one or a binder (`forall`): it ranges
+# over statements and terms (`hole_nodes`, soundness §8.40).
 examples = [
     # f 17
     [[Token(label='SYMBOL', value='f'), Token(label='INT', value='17')],
@@ -77,79 +78,13 @@ examples = [
       '(None, [h, $x])']],
 
     # more examples where we check that $a does not contain freely any bound variables of $A
-    # forall $z f $z -- `forall` is declared a bindop in `initial_kb` itself now (it used not
-    # to be, in a bare `initial_kb`), so this exercises the real bound-variable-aware behavior;
-    # see the second `forall` example below for the same input with more commentary
+    # forall $z f $z -- `forall` as logic.kurt declares it (`with_quantifiers`: the core has no
+    # quantifiers), so this exercises the bound-variable-aware behavior
     [[Token(label='SYMBOL', value='forall'), Token(label='SYMBOL', value='$z'), [Token(label='SYMBOL', value='f'), Token(label='SYMBOL', value='$z')]],
      ['($z, [forall, $%1, [f, $z]])',
       '([forall, $z, [f, $z]], $%1)',
       '(f, [forall, $z, [$%1, $z]])',
-      '(forall, [$%1, $z, [f, $z]])',
       '(None, [forall, $z, [f, $z]])']]
-
-     ]
-
-old_examples = [
-    # f 17
-    [[Token(label='SYMBOL', value='f'), Token(label='INT', value='17')], 
-     ['([f, 17], $%1)',
-      '(f, [$%1, 17])',
-      '(17, [f, $%1])',
-      '(None, [f, 17])']],
-
-    # g 17 17
-    [[Token(label='SYMBOL', value='g'), Token(label='INT', value='17'), Token(label='INT', value='17')],
-     ['([g, 17, 17], $%1)',
-      '(g, [$%1, 17, 17])',
-      '(17, [g, $%1, $%1])',
-      '(17, [g, $%1, 17])',
-      '(17, [g, 17, $%1])',
-      '(None, [g, 17, 17])']],
-
-    # h 17 42
-    [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='42')],
-     ['([h, 17, 42], $%1)',
-      '(h, [$%1, 17, 42])',
-      '(17, [h, $%1, 42])',
-      '(42, [h, 17, $%1])',
-      '(None, [h, 17, 42])']],
-
-    # h 17 42 17
-    [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='42'), Token(label='INT', value='17')],
-     ['([h, 17, 42, 17], $%1)',
-      '(h, [$%1, 17, 42, 17])',
-      '(17, [h, $%1, 42, 17])',
-      '(42, [h, 17, $%1, 17])',
-      '(17, [h, 17, 42, $%1])',
-      '(17, [h, $%1, 42, $%1])',
-      '(None, [h, 17, 42, 17])']],
-
-    # h 17 17 17 
-    [[Token(label='SYMBOL', value='h'), Token(label='INT', value='17'), Token(label='INT', value='17'), Token(label='INT', value='17')],
-     ['([h, 17, 17, 17], $%1)',
-      '(h, [$%1, 17, 17, 17])',
-      '(17, [h, $%1, 17, 17])',
-      '(17, [h, 17, $%1, 17])',
-      '(17, [h, 17, 17, $%1])',
-      '(17, [h, $%1, 17, $%1])',
-      '(17, [h, 17, $%1, $%1])',
-      '(17, [h, $%1, $%1, 17])',
-      '(17, [h, $%1, $%1, $%1])',
-      '(None, [h, 17, 17, 17])']],
-
-    # h $z
-    [[Token(label='SYMBOL', value='h'), Token(label='SYMBOL', value='$z')],
-     ['([h, $z], $%1)',
-      '(h, [$%1, $z])',
-      '($z, [h, $%1])',
-      '(None, [h, $z])']],
-
-    # h $x
-    [[Token(label='SYMBOL', value='h'), Token(label='SYMBOL', value='$x')],
-     ['([h, $x], $%1)',
-      '(h, [$%1, $x])',
-      '($x, [h, $%1])',
-      '(None, [h, $x])']],
 
      ]
 

@@ -24,7 +24,7 @@ sandbox
 
 ; a constant before the variable is skipped (`a < z` binds `z`); a predicate too (`P(z)`)
 const a
-bool P
+prop P
 arity P 1
 use ∀ a < z (a ≤ z)
 use ∀ (P(z)) (z = z)

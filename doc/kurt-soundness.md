@@ -161,10 +161,10 @@ stated.
 
 ### 0b.1 Mechanism
 
-Minimal reproduction, `load prop` alone:
+Minimal reproduction, `load propositional` alone:
 
     var a
-    bool C
+    prop C
     a iff C
 
 This "derives" `a iff C` — for two symbols with *no axiom whatsoever*
@@ -315,7 +315,7 @@ Verified with adversarial tests (`proofs/soundness/`):
 The check above uses `kb.const` — every symbol *first registered as a
 constant at this level* — as its starting point for "must not leak". But a
 symbol only gets explicitly classified when it's actually *used* in an
-expression (declaring `bool P`/`arity P 1` alone doesn't register it; the
+expression (declaring `prop P`/`arity P 1` alone doesn't register it; the
 first `use`/claim that mentions `P` does) — so if a predicate, function, or
 plain boolean proposition happens to be used for the very first time
 *inside* a `let`/`pick` block, it was being registered as a constant of
@@ -325,7 +325,7 @@ forbade it from appearing in the conclusion at all — rejecting perfectly
 valid proofs like:
 
     load logic
-    bool P
+    prop P
     arity P 1
     let x
         use P x
@@ -340,7 +340,7 @@ so it's recorded here rather than filed separately.
 
 **Fix:** added `KnowledgeBase.is_vocabulary_symbol(s)` — true if `s` has
 arity > 0, is a declared operator (`infix`/`prefix`/`postfix`/`brackets`),
-is a `bindop`, or is declared `bool` — and excluded vocabulary symbols from
+is a `bindop`, or is declared `prop` — and excluded vocabulary symbols from
 `not_allowed` in both the shared check and `pick`'s own earlier one.
 
 **Why this doesn't reopen the hole it's excluding from:** the thing that
@@ -380,7 +380,7 @@ produces the wrong shape, and the very first formula mentioning it crashed
 with a raw, uncaught `AssertionError` — reachable with nothing more than
 `use forall x A x` and no `load logic`, no `let` involved at all.
 
-**Fixed two ways:** (1) `forall`/`exists`'s syntax (arity, `bindop`, bool
+**Fixed two ways:** (1) `forall`/`exists`'s syntax (arity, `bindop`, prop
 signature) is now declared directly in `initial_kb`
 (`kurt.py`) and documented in `minimal.kurt`, exactly like `and`/`implies`'s
 syntax already was. The `∀`/`∃` aliases later moved to `logic.kurt`, together with their
@@ -685,7 +685,7 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   is allowed outright) — and it deliberately only pattern-matches these
   specific shapes rather than trying to decide in general whether an
   arbitrary formula is a tautology (undecidable/intractable for arbitrary
-  user-declared connectives). Confirmed against all of `prop.kurt`/`logic.kurt`'s
+  user-declared connectives). Confirmed against all of `propositional.kurt`/`logic.kurt`'s
   real axioms that none of them false-positive (e.g. `%A implies %A or %B`
   "or-intro" doesn't warn, since `%A` reappears in the conclusion — the
   premise still has to be matched against something you actually derived,
@@ -699,7 +699,7 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   the hardcoded names `'implies'`/`'='`/`'iff'`. This is not new: `eval_def`'s
   own dispatch (§3.1) already recognizes `def`'s `=`/`iff` the same
   name-based way, and `iff` itself is not hardcoded at all — it's declared
-  via `infix iff ...` in `prop.kurt`, like any user symbol. So if a theory
+  via `infix iff ...` in `propositional.kurt`, like any user symbol. So if a theory
   ever repurposed the *name* `iff` for an operator unrelated to logical
   equivalence, this warning would still fire (or stay silent) based on that
   name match alone. Not a soundness problem — the warning never blocks
@@ -843,7 +843,7 @@ missing).
    symbol" of any fact — the first version of the closure computation
    missed this, so `¬` silently lost its alias status on export even
    though `not` (its target) survived. Confirmed by a real failure:
-   `proofs/natural-deduction/neg-forall.kurt` (`load logic` → `prop`,
+   `proofs/natural-deduction/neg-forall.kurt` (`load logic` → `propositional`,
    writes `¬P(x)`) misparsed as soon as this closure ran. Fixed by
    iterating alias membership to a fixed point: any alias whose target is
    already exported gets pulled in too.
@@ -862,7 +862,7 @@ missing).
 
 **Retrofitting note:** every shipped theory needed auditing for this
 change, since an unlabelled `use`/`def` (previously always exported)
-silently stops being exported. `prop.kurt`/`logic.kurt`/`equality.kurt`
+silently stops being exported. `propositional.kurt`/`logic.kurt`/`equality.kurt`
 were already fully labelled. `numbers.kurt` (previously all ~50 rules
 unlabelled), `set.kurt` (one unlabelled rule), and `modal.kurt` (5 of 6
 unlabelled) were retrofitted with labels. `natural.kurt` turned out to
@@ -979,8 +979,8 @@ a `0! = 1`-style axiom — but `^` was missed during that same retrofit
 pass, because "does every *retrofitted* theory still parse the same way"
 was never actually checked file-by-file, only "does the existing test
 suite still pass" (§7's own retrofit note). A second, independent instance
-of the same gap turned up in the same pass: `prop.kurt`'s `invimplies`
-(backwards implication, alias `⇐`) had full syntax (`infix`, `bool`,
+of the same gap turned up in the same pass: `propositional.kurt`'s `invimplies`
+(backwards implication, alias `⇐`) had full syntax (`infix`, `prop`,
 `chain`, `alias`) but — unlike every other operator in that file — no
 defining axiom relating it to `implies` at all; a pre-existing gap that
 simply didn't matter before selective export (everything was
@@ -1065,8 +1065,8 @@ became provable — but it made the whole file close to useless for actual
 reasoning: you could only ever apply `K` (or anything else in the file)
 to two hardcoded atoms, never to a proposition you actually cared about.
 
-Fixed by rewriting all six axioms with `%p`/`%q` (matching `prop.kurt`'s
-`%A`/`%B` convention), and removing the now-unneeded `bool A, B, p, q`
+Fixed by rewriting all six axioms with `%p`/`%q` (matching `propositional.kurt`'s
+`%A`/`%B` convention), and removing the now-unneeded `prop A, B, p, q`
 declaration — only `b`/`d` (the box/diamond operator symbols) are real
 constants now. Regression: `proofs/modal-logic/*.kurt`, deliberately
 using `X`/`Y` rather than the file's own `p`/`q` example symbols so they
@@ -1152,13 +1152,13 @@ checked neither whether the operator was already used nor where it came from: af
 numbers`, `sym -` made `a - b = b - a` derivable, and `chain ≠` generated the "transitivity"
 `$a ≠ $b and $b ≠ $c implies $a ≠ $c`, which derives `a ≠ a` from the true facts `a ≠ b` and
 `b ≠ a`. Now (a) `flat`/`sym` are rejected for an operator already used in a formula (like
-`bool`/`brackets` already were), and (b) the symbols declared by a trusted theory file (packaged,
+`prop`/`brackets` already were), and (b) the symbols declared by a trusted theory file (packaged,
 or via `-p`) are frozen (`KnowledgeBase.frozen`, filled in `load_file`; the core's symbols are
 frozen in `initial_kb`): other files can't declare them `flat`/`sym`, and a `chain`
 from another file may only put frozen operators first and in an order their theory already
 chains them in (`check_chain_not_frozen`) -- so its generated conclusions only ever use the
 file's own operators. In addition, packaged theories can't be shadowed by a local file of the
-same name, and `def` only accepts `=`/`iff` from the packaged `equality.kurt`/`prop.kurt`,
+same name, and `def` only accepts `=`/`iff` from the packaged `equality.kurt`/`propositional.kurt`,
 since a definition is conservative only if they are reflexive. Regression:
 `proofs/soundness/frozen-operators-cannot-be-changed.kurt`.
 
@@ -1167,11 +1167,16 @@ since a definition is conservative only if they are reflexive. Regression:
 `use` inside `proof`/`assume`/`case`/`let`/`pick` is rejected: `assume A` with `use B` inside
 used to close as `A implies B` "by impl-intro", a seemingly proven fact that rests on an
 unproven axiom. It stays allowed at a file's top level and inside `sandbox`/`expect`, whose
-content is discarded (`block_forbidding_use`). With `--strict`, untrusted files may not contain
-`use`, `todo` or `chain` at all, so a checked file is proven entirely from trusted theories.
-What `--strict` doesn't cover: the trusted theories themselves (their axioms are trusted by
-definition), and statements that are safe by construction (`def`, syntax declarations for new
-operators). Regressions: `proofs/debug/use-not-allowed-in-proof-blocks.kurt`,
+content is discarded (`block_forbidding_declaration`, shared with `load`/`def`/`chain`/`inline`
+and, since 2026-10-16, every grammar declaration -- `infix`, `prefix`, `postfix`, `brackets`,
+`arity`, `bindop`, `flat`, `sym`, `alias`, `sort`: not a soundness issue by itself, but their
+notation was never actually scoped to the block either, since a surviving formula that needs it
+locks the declaration in for good, doc/kurt-doc.md §11.2; regression:
+`proofs/errors/grammar-declaration-in-a-block.kurt`). With `--strict`, untrusted files may not
+contain `use`, `todo` or `chain` at all, so a checked file is proven entirely from trusted
+theories. What `--strict` doesn't cover: the trusted theories themselves (their axioms are
+trusted by definition), and statements that are safe by construction (`def`, syntax declarations
+for new operators). Regressions: `proofs/debug/use-not-allowed-in-proof-blocks.kurt`,
 `tests/test_strict_mode.py`.
 
 ### 8.7 Bug found and fixed: set.kurt was inconsistent, and had an unsound axiom
@@ -1348,7 +1353,7 @@ packaged theories. What they found, and what was fixed (each with its regression
 - The block rules: `let`/`pick` could take a variable that an enclosing assumption fixed (which
   then became "for all"); the free variables of a `let` condition counted as "for all" in the
   block (the bug of §8.15, for `let`); the witness of a `pick` could leave the block if it was a
-  "vocabulary" symbol (`bool`, `arity`); a condition could bind another variable once its block
+  "vocabulary" symbol (`prop`, `arity`); a condition could bind another variable once its block
   was closed (`let (0 < a)` / `let (a < x)`: outside, `a < x` binds `a`); `load` in a proof
   block got around the ban on `use`. Fixed, each also in the kernel's block check; a guard
   compares the variables bound in a block's result inside and outside the block. Also: an empty
@@ -1393,7 +1398,7 @@ packaged theories. What they found, and what was fixed (each with its regression
   match, `BinderMisread`); an operator variable matched a binder like `max`; and a bound
   variable of the goal was proposed as the value to substitute (`subterm_candidates`).
   (`search-bugs-the-kernel-caught.kurt`)
-- Minor: the symbols of a trusted theory could be declared anew (`bool Nat`, `infix Nat 50 50`,
+- Minor: the symbols of a trusted theory could be declared anew (`prop Nat`, `infix Nat 50 50`,
   after which `0 ∈ Nat` didn't parse) -- now `check_not_frozen` for every declaration; `save`
   could overwrite any file, also with `--strict` and from a loaded file -- now only `.kurt` files,
   not named like a theory of Kurt, and neither with `--strict` nor in a loaded file; a `local`
@@ -1519,15 +1524,15 @@ both search and the kernel:
 Kurt now rejects prefix/`flat` overlap and every binder combination whose normalization or fixed
 meaning conflicts with scope (`prefix`, `flat`, `sym`, `chain`, `calc`, or `var`). `flat`, `sym`,
 `chain`, `bindop`, and calculator bindings imply `const`; chain members also imply boolean
-output. Variable operators may still have fixity, arity, and a bool signature, but not fixed
+output. Variable operators may still have fixity, arity, and a prop signature, but not fixed
 associativity, commutativity, binding, transitivity, or calculator semantics. This makes the
 distinction visible in ordinary output and keeps `group.kurt` intentional: its local `var ∘`
 is schematic and is not exported, while its exported `infix ∘ 70 70` still leaves a loader
 free to choose `var ∘` or let first formula use declare `const ∘`.
 
 The same audit made declaration categories order-independent: explicit `arity` cannot later be
-changed into fixity; brackets reject earlier arity/bool/calculator declarations; boolean
-positions must be distinct and within the known arity in either declaration order; and `bool [`
+changed into fixity; brackets reject earlier arity/prop/calculator declarations; boolean
+positions must be distinct and within the known arity in either declaration order; and `prop [`
 applies to the combined bracket expression. Calculator relations/membership imply boolean
 output, while arithmetic and literal operations reject a boolean-output declaration.
 `tests/test_syntax_soundness.py` and
@@ -1538,17 +1543,45 @@ and both declaration orders.
 
 Comma-separated declarations were applied one item at a time. In the shell and language server,
 `prefix f 10, f 20` reported an error for the second item but left the first `prefix f 10` in the
-live session; `const`, `bool`, and `arity` behaved likewise. Every declaration batch is now
+live session; `const`, `prop`, and `arity` behaved likewise. Every declaration batch is now
 validated in a disposable child knowledge base before any part is committed. Tests continue in
 the same `Shell` after each rejected line and verify that no prefix leaked.
 
 The audit also added semantic checks independent of Kurt's search and certificate kernel.
 `tests/test_prop_semantics.py` exhaustively truth-table checks all 21 pure propositional
-rules/theorems exported by `prop.kurt`. `tests/test_numbers_semantics.py` evaluates all 76
+rules/theorems exported by `propositional.kurt`. `tests/test_numbers_semantics.py` evaluates all 76
 `numbers.kurt` axioms over small exact integer/rational samples, skipping only individual
 samples where an operation is mathematically outside that sampled interpretation. Both pass.
 These finite checks catch incorrect trusted axioms in their covered domains; they are evidence,
 not a consistency proof for the theories or the implementation.
+
+`tests/test_first_order_semantics.py` (2026-10-16) extends the oracle to the theories with
+quantifiers, `sub` and binders. A small finite-model evaluator -- `∀`/`∃`/`∃!` by enumeration,
+also with a condition (`∀ $x ∈ $A ...`), `=` as identity, `sub $x $a %A` by substitution, and
+a schema variable `%A` as a table over the variables it may depend on: the hole of every `sub`
+applied to it and the variable of every binder it occurs under directly, but never a binder's
+variable `$w` it only reaches through `sub $x $w %A` (the proviso "`$w` not free in `%A`"; the
+reading of doc/kurt-doc.md §4.4, made executable) -- checks that every statement holds in
+*every* interpretation: all assignments of its free variables, all tables (the free variables
+need no tables: for a fixed assignment, a formula is just some predicate of the remaining
+variables, and the loop over the assignments covers each). It covers all 13 `use` rules of
+logic.kurt and both of equality.kurt over the domains of 1 to 5 elements, "iff-subst" of
+propositional.kurt (the one rule the truth tables skip, a `sub` over the two truth values), and all 23
+statements of set.kurt -- 14 axioms, the 2 definitions and the statements of the 7 theorems --
+in transitive universes of 5, 10 and 21 hereditarily finite sets: every object is a set, as the
+theory assumes, pairs are Kuratowski pairs `{{a}, {a, b}}`, and `×`, `Pow`, `A → B` (the set of
+all mappings, as sets of pairs) and `{$z ∈ $A | %F}` are computed. A budget of 60000 samples per
+statement and model picks the universes: the larger ones only for a statement with few free
+variables and binders ("function-space", with three free variables under three nested `∀`s,
+and "separation", with a table over the whole universe, stay in the one of 5 sets). No finite
+universe is closed under `Pow` and `→`, and `fst ∅` or `f a` of a non-mapping has no value, so
+a sample with an undefined value is skipped (as 1/0 is in the numbers test), and the test asserts
+that every statement keeps samples in which its antecedent holds -- no check passes vacuously.
+Everything holds; wrong rules built from the right ones (`∃ ⇒ ∀`, the converse of
+"forall-elim", "existsunique-unique" with `∃` for `∃!`, `∪` read as `∧`, `fst` as `snd`) fail,
+as the oracle's own sanity check. Not covered: natural.kurt and the other theories of numbers
+with `Nat` -- `n ∈ Nat ⇒ n + 1 ∈ Nat` has no finite model, and the `induction` schema would
+need one (test_numbers_semantics.py covers the arithmetic laws by sampling instead).
 
 ### 8.26 Optional sorts constrain schema instantiation (2026-10-08)
 
@@ -1602,9 +1635,9 @@ the original false derivation and certificates with a missing or malformed suppo
 
 ### 8.29 Bug found and fixed: an `alias` didn't count as a declaration of its name (2026-10-09)
 
-A symbol is declared by one file only (§7.0), but `alias` didn't record its file: prop.kurt's
+A symbol is declared by one file only (§7.0), but `alias` didn't record its file: propositional.kurt's
 `alias ∧ and` and modal.kurt's `∧` (an object-level constructor, not Kurt's `and`) loaded together
-without an error, and afterwards `∧` read as prop's meta-level `and` -- a modal formula written
+without an error, and afterwards `∧` read as propositional's meta-level `and` -- a modal formula written
 with `∧` silently became a different statement. Now `alias` declares its name like `infix` or
 `const` (`declare_origin`), so the two theories can't be loaded together, as modal.kurt says.
 (`alias-declares-its-name.kurt`)
@@ -1614,10 +1647,10 @@ with `∧` silently became a different statement. Now `alias` declares its name 
 The engine gave several symbols a meaning by their name alone: a fact `A iff B` was used as two
 implications, `case` split an `or`, an `assume` block ending in `false` gave `not`, and `def`
 defined with `=`/`iff` (checked against the packaged theories only for `def`). A file without
-prop.kurt that declared its own `iff` -- meant as any relation -- got `A` from `A iff B` and `B`
+propositional.kurt that declared its own `iff` -- meant as any relation -- got `A` from `A iff B` and `B`
 (§8.28 was the same for `or`). Now these meanings are roles that a trusted theory assigns with
-`builtin` (prop.kurt: `builtin iff equivalence, or disjunction, not negation, false falsum`,
-equality.kurt: `builtin = equality`), with the `bool` signature the role needs, one symbol per
+`builtin` (propositional.kurt: `builtin iff equivalence, or disjunction, not negation, false falsum`,
+equality.kurt: `builtin = equality`), with the `prop` signature the role needs, one symbol per
 role; the search and the kernel ask for the role, never the name. The calculator's bindings
 (formerly `calc + add`) are `builtin` too. (`engine-roles-not-by-name.kurt`)
 
@@ -1706,7 +1739,7 @@ numbers only. The kernel trusts `calculate_normalized` (§9), so it agreed. Regr
 `validate_against_loader` compared the declarations and definitions of the symbols a loaded file
 shares with its loader, but not the loader's aliases: after `alias Nat ∅`, `load natural` made
 every fact about `Nat` one about `∅` (`∀ n ∈ Nat (n + 1 = n)` was proved), and `alias false true`
-before `load prop` made `false` provable -- with `--strict`, so a graded exercise counted as
+before `load propositional` made `false` provable -- with `--strict`, so a graded exercise counted as
 complete. The same `alias` after the `load` was refused already. Now a symbol of the loaded file
 that is an alias in the loader is an error. Regression: `proofs/soundness/alias-before-load-is-rejected.kurt`.
 
@@ -1738,6 +1771,308 @@ open and nothing to do: a file of withdrawn claims was complete, and the grader
 already, §7): refused too. Regressions: `tests/test_load_boundary.py`,
 `tests/test_exercises.py` (`test_a_withdrawn_claim_is_not_complete`).
 
+### 8.39 Bug found and fixed: a `$`-variable took a formula through "iff-subst" (2026-10-16)
+
+A `$`-variable stands for a term, a `%`-variable for a formula (reference §3.2): after `load propositional,
+equality`, `prop Q`, `arity Q 1`, `const c` and `use Q $x "qx"`, the direct instance `Q (c = c)`
+is a type error. But the claim `Q (c = c)` was accepted, "by iff-subst(not-not, qx)". The search
+matched the goal against the conclusion `sub %x %b %A` of "iff-subst" and cut the hole at the
+*operator* `=` of `c = c` -- a node of the tree like any other, and a hole there is needed for a
+term (`f = g` rewrites `f a`): `%b := =`, `%A := Q (%x c c)`. `=` has a boolean result, so the
+`%b` took it; "not-not" (`%A ⇔ ¬¬%A`) gave `%a := ¬¬=`, and the premise `sub %x %a %A` became `Q
+((¬¬=) c c)` -- an application whose operator is itself an application. `bool_expr` had no case
+for such a node and called it no formula, so the unifier's kind check (`compatible` in
+`unify_exprs_with_patterns`, `$` with a term, `%` with a formula) let the fact's `$x` take `(¬¬=)
+c c`. The kernel checked the sorts of the values (§8.26) but not their kind, so it agreed. No route
+to `false` was found -- read untyped, a `$`-variable may stand for anything, and the instance is
+true -- but it contradicts the rule, and a proof the type checker would refuse written out went
+through. Now a node with a compound operator has the kind of its operator, in the search
+(`bool_expr`, which every binding of the unifier goes through, also guided rewriting) and in the
+kernel: each value of a certificate has the kind of its variable, read by the kernel's own
+`k_is_statement` (a boolean variable or symbol, an operator with a boolean result, also a
+compound one, a `sub` whose body is one); otherwise the step is rejected. Found while writing
+doc/kurt-spec.md; regressions: `proofs/soundness/term-variable-takes-no-formula.kurt` (with the
+right versions: a `%`-variable of the rule taking a formula, a `$`-variable a term, through the
+same rule), `tests/test_kernel.py` (`test_the_value_has_the_kind_of_its_variable`).
+
+### 8.40 Bug found and fixed: the hole of `sub` at an operator, a bare operator as a formula (2026-10-16)
+
+The case of §8.39 had a second fault: the hole of `sub` was cut at an *operator* position. After
+`load propositional, equality`, `prop R`, `arity R 1`, `const c` and `use R ((¬¬(=)) c c)` (an operator in
+round brackets is the operator itself, as a term), the claim `R (c = c)` was accepted, "by
+iff-subst(not-not, ...)": the hole of `sub %x %b %A` was cut at the `=` of `c = c` -- `%b := =`,
+`%A := R (%x c c)` --, "not-not" (`%A ⇔ ¬¬%A`, `iff` is `sym`) gave `%a := ¬¬=`, and the fact was
+the premise's instance. Both the unifier (`bool_expr`) and the kernel (`k_is_statement`) read the
+bare `=` as a formula, since its signature says that it yields one -- but that is the result of
+its *application*: `=` on its own is no statement. The same with a `prop P` of `arity P 2`: `R (P
+c c)` from `R ((¬¬P) c c)`, and back. No route to `false` was found (read untyped, `(¬¬=) c c` is
+`c = c`), but a bare operator is neither of the kinds the rule has (reference §3.2), and the
+search's generator of holes (`all_single_hole_decompositions`, over `iter_nodes`, which visits
+index 0 of every application) proposed it. Now the hole ranges over the subexpressions --
+statements and terms --, never over an operator position (`hole_nodes`, also for the holes at
+several occurrences, `replace_all_occurrences`); a `%`-variable takes no bare operator in the
+unifier (`bare_operator_for`); and the kernel reads a symbol that takes arguments (an operator, a
+function symbol with an arity) as a formula only at an operator position (`k_is_statement` with
+`as_operator`), so a certificate with `%b := =` or `%b := P` is rejected (`k_has_kind`: a
+`%`-variable a formula; a `$`-variable a term, i.e. no formula and no bare operator with a boolean
+result -- a bare `+` is a term, `(+)` in `group(R, (+), 0, (-))`). Operator variables (`var ∘`
+with `infix ∘`) are a kind of their own: they match an operator through the unifier, not through a
+hole, and take an operator whose result has their kind (`∘ := +`, a boolean `rel := sim`); the
+kernel tells them by their declaration, for the fresh internal name of a stored formula by its
+origin (`origin_names`). The first version of the fix also took the hole away from the operator
+position of a *function* symbol, so `f = g` and `R (f a)` no longer gave `R (g a)`; that was
+given back the same day (todo 31): an operator that yields a term is a term on its own (`f`, `+`,
+the `$inv := -` of group.kurt that the kernel already accepted), so the hole may be cut there
+(`term_operator`); only a boolean operator, a binder and a compound operator are never a hole --
+`P ⇔ Q` doesn't rewrite `P a`. And since todo 32 (also the same day) a bare boolean operator where
+a statement is required is a type error (`bare_operator_as_statement` in `type_check_expression`,
+which now also looks inside a compound operator): the attempts above can't be written any more
+(`R ((¬¬(=)) c c)` is refused at its `use`), so the defenses of the search and the kernel are tested
+with forged certificates. Regressions: `proofs/soundness/hole-never-at-an-operator.kurt` (the attempts
+with `=` and `P`; the hole at an argument, also one whose operator is an application; operator
+variables, also a boolean one), `tests/test_kernel.py` (`test_a_bare_operator_is_no_formula`: the
+forged certificates with `%b := =` and `%b := P`, in which everything else is right, accepted by
+the old kernel).
+
+### 8.41 Design: numbers and sets as sorts -- why extensionality has elements of every sort (2026-10-17)
+
+Not a bug found, but the soundness argument of todo 34 (sorts with subsorts, doc/kurt-doc.md
+§5.2). The objects of numbers.kurt and set.kurt are sets (objects.kurt: `sort set real`,
+`everything set`), the numbers among them (`real ⊂ set`); the rules of numbers.kurt are about
+numbers (`default real`), those of set.kurt about all sets (`default set`, and `set` is the sort of
+every object). So a number fits where a set is required -- `3 ∈ {3}` by "singleton", and the
+elements of `{n ∈ Nat | n > 2}` by "separation" -- and a set where a number is required is a type
+error (`{1, 2} + 0`, `Nat + 1`, `∅ < 1`; before todo 34 the first was accepted, by "add-identity":
+junk, a statement about nothing). In Lean (todo 34, point 6) the objects are `ZFSet`, the reals
+embedded; every rule must hold there, the `real` rules for the embedded reals.
+
+Extensionality must be written with elements of every sort. A copy restricted to the numbers,
+`(∀ c:real (c ∈ A ⇔ c ∈ B)) ⇒ A = B`, is false: `∅` and `{∅}` have the same numbers as elements
+(none, `∅` not being one of the embedded reals) but are different -- so it proves `∅ = {∅}`, then
+`∅ ∈ ∅`, then `false`. Kurt's extensionality has `$c` of sort `set`, all objects; a fact `∀ x (x
+∈ A ⇔ x ∈ B)` with `x` a number (in a file with `default real`) doesn't give `A = B`. That is what
+three rules of the implementation make sure of:
+
+- *a binder has a sort, and two binders are the same only over the same sort* (`binder_node_sorts`,
+  `equal_expr`, the kernel's `k_equal` with `k_binder_sorts`): `∀ x` over the numbers is not `∀ x`
+  over everything. The sort is a function of the formula (its places, the declarations, the
+  `default`), so a formula reads the same wherever it is read; a block's result gets the sorts of
+  its constants from the block (`block_result_sorts`), and a line restates a fact only if it reads
+  it with the same sorts (`sort_reading`) -- after `let c` with `c + 0 = c`, the result `∀ c (R c)`
+  is about the numbers, `∀ c (R c)` written again about everything, and neither follows from the
+  other (the first version accepted it as a restatement).
+- *a rule's binder is used for a binder of a smaller sort only if the author wrote it `$$x`
+  (polymorphic, todo 35) and the rule says nothing about its range* (`parametric_binders`, the
+  kernel's `k_parametric_binders`): a `$$x` occurs only where it is bound, in `sub`s and as a side
+  of `=` (the same identity in every sort), and each `sub` checks the sort of what it puts in
+  (`trigger_sub`, `k_evaluate`). Anywhere else (`$$c ∈ $a`) the rule is refused where it is stated
+  (`check_poly_marks`, `parametric_binders`), and a `$$x` that is free or bound by an outer `∀` too.
+  The mark is the author's, the rest is checked -- before, the search computed which rules qualified,
+  and a rule of analysis.kurt that happened to qualify was used for any binder. The quantifier
+  rules of logic.kurt (`∀ $$x %A ⇒ sub $$x $a %A`) are such rules; so is "separation" with its
+  `$$z`, which is why `4 ∈ {n ∈ Nat | n > 2}` follows for a number `4`. "extensionality" is not:
+  its `$c` is in the body (`$c ∈ $a`), so it stays an ordinary variable of its sort, and its
+  binder is matched only with one over the same sort. `proofs/soundness/poly-variables.kurt`. (A rule like `(∀ $x P($x)) ⇒ P($y)` is not either: relativized to the numbers it would give
+  `P` for every `$y`.) Relativizing assumes every sort is inhabited.
+- *`any` is a core sort* (`CORE_SORTS`, todo 35): every value fits `any` (the search's
+  `sort_expr`, the kernel's `k_has_sort`/`k_sort_fits`), nothing of sort `any` fits another sorted
+  position, and it is the sort of every symbol without one (§8.43, §8.45). A place of `any`
+  constrains nothing (`analyse_sorts`), and `any` is no `default` of an operator position
+  (`proofs/soundness/core-sort-any.kurt`). The rules of set.kurt about all objects (extensionality,
+  ...) are stated over `any` (`default any` in set.kurt, group.kurt, field.kurt, vectorspace.kurt).
+  (A second core sort `term`, of the symbols without a sort, was removed the same day, §8.45.)
+- *a polymorphic binder of a rule's `∀` premise may stand for a fresh variable of a sort* (todo 35,
+  `proofs/soundness/rewrite-under-a-sorted-forall.kurt`): "forall-iff", `(∀ $$x (%A ⇔ %B)) ⇒
+  ((∀ $$x %A) ⇔ (∀ $$x %B))`, rewrites under a `∀` over the sets or the numbers. The premise's outer
+  `∀` is stripped to a fresh variable, and the conclusion's `∀ $$x` is that variable, matched with
+  the goal's binder (`binder_target`: it stands for a fresh variable of the goal's sort). The kernel
+  accepts a value for such a fresh variable only if the variable is polymorphic (`k_is_poly_variable`)
+  and the value is a variable that only the search makes (`$$…`), not fixed, in no fact: a rename of
+  a bound variable, not a term (a premise `∀ x` with a concrete value for `x` is still refused:
+  "the fresh variables of a `∀` premise got a value"). The renamed copies of a polymorphic binder
+  are polymorphic (`note_origin`), and the kernel reads the conclusion's binders as such
+  (`k_parametric_binders` of the conclusion).
+- *the witness of `∃ x` has the sort of `x`*, and doesn't get a smaller one by a use (`eval_pick`,
+  the kernel's `exists-elim` check): a witness of `∃ x` over everything is no number.
+
+(Membership with a sort of its elements, `real ∈ Nat`, is dropped, todo 35: a sort never comes from a
+fact. `∀ n ∈ Nat` is over the numbers where `n` has that sort -- `default real`, or a place -- and
+induction applies to it only then.) Regressions: `proofs/soundness/sorts-of-sets-and-numbers.kurt`
+(the junk refused, the set rules for numbers, a rule about numbers not for a set nor for every
+object, extensionality for the numbers alone refused, a block result keeping its sort, a witness
+not made a number), `proofs/errors/sorts.kurt`, `tests/test_sorts.py` (also the kernel: forging a
+block result without its sorts, an instance of "extensionality" for a binder over the numbers).
+
+*Experiment B1 (design B, 2026-10-18):* objects.kurt has no `everything set` any more; no sort is
+the sort of all objects, `set` and `real` restrictions below it (`real ⊂ set`). set.kurt declares its
+set places and leaves the element places without a sort, so "extensionality"'s `$c` ranges over all
+objects, and the argument above holds for a binder over the sets as for one over the numbers: `∀ x`
+over the sets doesn't give `A = B` (a regression in `sorts-of-sets-and-numbers.kurt`). In the Lean
+model every object is a set, so `set` restricts nothing there and every rule still holds. (`set ∈
+→` and `set ∈ Pow`, the sort of the elements of a power set and of a function space, were declared
+like `real ∈ Nat` and are dropped with it, todo 35: a proof that needs an element `c ∈ Pow(A)` as a
+set says `set c`; the declaration form `SORT ∈ CONTAINER` and its storage are gone.)
+
+### 8.42 Bug found and fixed: two sorts in one use of a polymorphic rule (2026-10-19)
+
+The design (doc/kurt-spec.md §2.3) says *one sort per use*: all `$$` binders of one use of a rule
+range over the same sort. The search relativized each binder on its own (`binder_target`: a `$$x`
+has no sort, so every sort "fits" it), and the kernel checked each value on its own
+(`k_instance`). So "existsunique-intro", `(sub $$x $a %A) ∧ ∀ $$y ((sub $$x $$y %A) ⇒ $$y = $a) ⇒
+∃! $$x %A`, took its `∃! $$x` over `any` and its `∀ $$y` over `real`: with `S = {1, a}` (`a` no
+number), uniqueness among the numbers gave `∃! x (x ∈ S)` among all objects, then `a = 1`, then
+`false` -- from consistent facts, accepted by the kernel. A `$$y` over a sort the other one's
+values don't fit (`foo` against `real`) was refused only because a `sub` then checks the sort.
+
+Fixed in both:
+
+- the search keeps the sort of the use in the state (`State.poly_sort`): the first `$$` binder
+  matched fixes it (on either side, the goal may be the pattern), every later one must have it
+  (`binder_target`); a premise's `∀ $$y` that is stripped rather than matched -- a conjunct of the
+  premise (`match_all_theory`, `poly_sort_of_outer_foralls`) or the premise itself (`impl_elim`)
+  -- stands for a fresh variable of that sort (the kernel already accepts such a value, §8.41), and
+  `one_poly_sort` checks the eigen variables after the match;
+- the kernel collects the sorts of all `$$` binders of the step (`k_poly_sorts`: the sort of a
+  binder's value, else its own; a stripped outer `∀` of the premise by its fresh name, one of the
+  conclusion only by a value; not the variable of a `sub`, which ranges over no sort) and rejects
+  two (`tests/test_kernel.py` `test_one_sort_per_use`, a forged certificate).
+
+Regression: `proofs/soundness/one-sort-per-use.kurt` (the attack, and the same steps over one sort).
+Found while checking item 1 of dev/todo-sorts.md's handoff; the cost the design expected (a rule
+can't be used over two sorts at once) showed in no file of the suite.
+
+### 8.43 Bug found and fixed: two readings of a binder without a sort (2026-10-19)
+
+A binder without a sort (no declaration, no sorted place, no `default`) was read in two ways. Inside
+a formula it was over `term`, the objects without a sort (`binder_node_sorts` gave no sort, the
+same as `term`). A top-level line `∀ y ...`, on the other hand, is stored without its `∀`, and its
+variable, of no sort, took every value. So `T ⇒ ∀ y (¬(y ∈ Nat))`, which is consistent read over
+`term`, gave the line `∀ y (¬(y ∈ Nat))` and then `¬(1 ∈ Nat)`. The same hole showed with a declared
+`term y`, because `variable_sorts` dropped `term`, and with `let y`: the arbitrary `y`, of no sort,
+counted as a `term` inside the block, and the result `∀ y` held for every object.
+
+Decided (the author, 2026-10-19): one reading, *a binder without a sort is over all objects*
+(`any`), inside a formula as at its top. A constant without a sort stayed a `term` -- until §8.45
+removed `term`. Implemented (the `term` parts are gone with it):
+
+- `binder_node_sorts` reads such a binder as `any` (`ANY_SORTS`), and the kernel's `k_binder_sorts`
+  reads it through the same function. A student's inner `∀ x (x ∈ A ⇔ x ∈ B)` now meets
+  "extensionality" without `default any`, and the witness of `∃ x` without a sort is any object.
+- `term` constrains: a variable declared `term z` takes only a value of `term` (`variable_sorts`
+  keeps it). A variable or a block's constant without a sort (`stands_for_any_object`) stands for
+  any object and doesn't fit `term` (`sort_expr`, the kernel's `k_has_sort`).
+- In the checks of "one sort per use" (§8.42), no sort counts as `any`.
+
+Regression: `proofs/soundness/unsorted-binder-over-everything.kurt` (extensionality for an inner
+unsorted `∀`, the two readings agreeing, a `term` binder taking no number, nor a `let` constant).
+
+### 8.44 Bugs found and fixed: two gaps between the search and the kernel (2026-10-19)
+
+Both were found by `proofs/soundness/one-sort-per-rule.kurt` and the variant of exercise 03-sets
+(g). In both, the kernel rejected a step the search had accepted (a `KernelError`), so no proof was
+wrong, but the file stopped.
+
+- **"forall-cond-def" with the goal's `∀ n` over `real` and the fact's `∀ x ∈ S` over `any`.** The
+  conclusion's `∀ $$w` and the goal's binder were stripped together (`conclusion_fresh`), so the
+  search recorded no sort for them. `one_poly_sort` now counts a stripped binder of the conclusion
+  that has a value.
+- **"forall-cond-elim" with an unsorted `c` for the set-sorted `∀ X ∈ Pow(A)`.** The conclusion's
+  `sub $$v $a %P` was computed before the premise gave `$$v` its sort. `sub_sorts_hold` now checks
+  each `sub` of the conclusion again with the values of the whole match.
+
+### 8.45 Bug found and fixed: `term` and narrowing (2026-10-19); `term` removed
+
+`term` was a core sort disjoint from the user's sorts, the sort of a constant without one. But a
+constant without a sort gets one by its first sorted use and is narrowed by a later one (spec
+§2.4): from `term` to `real` it jumped to a disjoint sort, and a fact derived while it was a `term`
+stayed. With `term z` and the consistent `H ⇒ ∀ z (¬(z ∈ Nat))`, the constant `c` got `¬(c ∈ Nat)`,
+then `c + 0 = c + 0` made it a number, and `c = 1` gave `false`. Narrowing is sound only from a
+bigger sort: the lines before hold for every object of it, so for those of the smaller one too.
+
+Decided (the author, 2026-10-19): `term` is removed, with all its code (`CORE_SORTS`, the `term`
+branches of `sort_expr` and `k_has_sort`, `stands_for_any_object` and the kernel's
+`k_stands_for_any_object`). Every symbol without a sort is over `any` -- a constant until a use
+narrows it, a variable, a binder, a block's constant: one meaning of "no sort", and narrowing
+always from `any` down. `term` is an ordinary name again (lambda.kurt's sort, `lterm` for a day).
+The attack, with a declared sort `foo` instead of `term`, is refused:
+`proofs/soundness/core-sort-any.kurt`; the tests of §8.43 use `foo` too.
+
+### 8.46 Decided: the first sorted use is final; and a gap of `k_bound` (2026-10-19)
+
+Decided (the author, 2026-10-19): a constant's sort is decided by its first sorted use and doesn't
+change afterwards (before, a later use at a smaller sort narrowed it). Narrowing was sound (only
+from a bigger sort down, §8.45), but a sort that changes later is one more thing to keep in mind,
+and "the first sorted use decides" is the simpler rule. Two consequences in the code
+(`infer_line_sorts`, `commit_line_sorts`): a later use that doesn't fit is a type error with the hint
+to declare the sort before the first use; and a symbol at no sorted place gets no sort yet -- not
+from `default any` (which is the same as no default) -- while a real default (`default real`) still
+makes a new symbol a number at its first appearance. The meet of two sorts (§10.2) is that of the
+places of one line. A type error for a symbol that a fact puts in a set (`b ∈ Nat`) says that a
+fact gives no sort (decision 11 of dev/todo-sorts.md). Tests: `first-use-final.kurt` (formerly
+`narrowing.kurt`), `meet-of-sorts.kurt`, tests/test_sorts.py `TestFirstUseFinal`.
+
+The differential run of the search against the kernel (`~/.cache/kurt-os/fuzz_sorts.py`, SLURM job
+115524: every proof file with random sort declarations, 1728 variants) found one `KernelError`:
+`real x` before `let x with P(x)` -- the kernel's `k_bound` read the condition `P x` of the result
+as binding nothing, since `x` was known by its declared sort (`85f2a52` fixed this only for a
+relation, `x ∈ Nat`). Now a name known only by a declared sort (no constant, no operator) is a
+candidate for the bound variable with any condition (`proofs/soundness/let-of-a-declared-sort.kurt`).
+
+### 8.47 Bugs found and fixed: two forms of "all objects", and one sort per use checked at the end (2026-10-19)
+
+The second differential run (SLURM 115529, seed 2, 12 variants per file, 3468 runs; the first
+was §8.46) found two `KernelError`s, both from one cause: "over all objects" had two forms, the
+empty set of sorts and `{any}`.
+
+- A file's own rule stored while no user sort was in use (`existsunique.kurt`'s "eu-def") read its
+  binders as `{}`, a fact whose `y` the variant declared `any y` as `{any}`. The search matched
+  them, the kernel's `k_equal` didn't.
+- A witness declared `any c` against an existential whose variable has no sort: the kernel's
+  check of the witness's sort read `{}` as "no sort to fit", not as all objects.
+
+Fixed by one canonical form: a binder's sorts never contain `any` (`binder_node_sorts`,
+`k_binder_sorts`), `{}` is all objects; the kernel's block checks read `{}` as `{any}`. The
+special path of §8.43 for a renamed binder without a recorded sort (read again from its places) is
+gone -- it could make a stored fact depend on the `default` of the file reading it; a renamed
+binder has the sort it was stored with.
+
+With the canonical form, a `$$` binder of "forall-cond-def" got its value through a `sub` and its
+premise was compared as a whole with the fact: no matched binder recorded the sort of the use, and
+the search accepted the rule over `any` and `real` at once (`one-sort-per-rule.kurt`, a
+`KernelError`). The search now checks "one sort per use" at the end of every match exactly as the
+kernel does (`impl_elim` with `k_poly_sorts` and `stripped_binders`), so the two can't disagree on
+it.
+
+### 8.48 Bug found and fixed: a witness of a declared sort; `∃!` over the numbers (2026-10-19)
+
+The third differential run (SLURM 115536, seed 3, 3468 runs) found seven `KernelError`s of one
+kind: a name declared `real w` (or `set`, or a sort of its own) before `pick w` from an existential
+over all objects. The search took the declared sort, a number the existential doesn't promise; the
+kernel's `exists-elim` check rejected it. Now `pick` refuses it (`eval_pick`: the witness's
+declared sort must fit the existential's, a `TypeError` that says so). Test:
+`proofs/soundness/witness-of-a-declared-sort.kurt`.
+
+Not unsound but incomplete, also fixed: `∃! x` over the numbers wasn't derived at all, neither
+from its definition nor by "existsunique-intro". The `sub` of the rule put its polymorphic `$$y`
+(not yet matched) into the place of the `real`-sorted `$$x`, which the sort check of `trigger_sub`
+refused; and a stripped premise `∀ $$y`, bound to a fresh variable of the use's sort, was stripped
+under its old name, over all objects (`rename_outer_binders`). A polymorphic binder now passes the
+`sub`'s check -- one sort per use, checked at the end of the match, gives it the sort
+(`one-sort-per-use.kurt`). And a step that would use one rule over two sorts gets a hint: the fact
+that says it over a bigger sort (restriction, `let`) or a smaller one (widening, `pick`)
+(`restriction_hint`, `proofs/restriction-and-widening.kurt`).
+
+### 8.49 Bug found and fixed: the bound variable of a condition with an `inline` operator (2026-10-20)
+
+Found by the classic theorems (dev/todo.md 44). A binder with a condition binds the first symbol of
+the condition as written (doc/kurt-doc.md §4.4), but `mark_bound_variables` ran after
+`expand_inlines`: `∀ x >= y (P x)` was read as `y <= x` first, and with `y` new (or a variable,
+`∀ x >= $a`) `y` was bound and `x` became a constant -- silently a different statement. No wrong
+proof of the statement as Kurt read it (search and kernel agreed on the reading), but not the
+statement as written. Now the bound variable is marked before the `inline` rewrite, in
+`post_process` and in the claim of a chain. Test: `proofs/soundness/inline-condition-binds-the-written-variable.kurt`
+(`>`, `>=`, `⊃`, `$a`).
+
 ## 9. The kernel: every step is checked again
 
 (Step by step, with examples and diagrams: `doc/kurt-kernel.md`.)
@@ -1755,7 +2090,9 @@ without any search:
   bound variable (`k_dependencies`, the criterion of §8.10, written again) -- then `sub` is
   evaluated with the kernel's own capture-avoiding substitution, and a condition `sub $x $v C` in a
   binder must not contain `$v` (§8.11); every value also satisfies the optional sorts declared
-  for its schema variable (§8.26);
+  for its schema variable (§8.26), and has its kind: a formula for a `%`-variable, a term for a
+  `$`-variable (`k_is_statement`, §8.39), an operator for an operator variable -- a bare operator
+  is no formula (`k_has_kind`, §8.40);
 - the instance of the conclusion is the goal, and the instance of the premise consists of instances
   of the facts (a conjunct, a group of flat conjuncts, or the body of a `∀` with a recorded fresh
   name);
@@ -1828,6 +2165,200 @@ Decided (2026-10-06): when a schema variable may depend on a bound variable is d
 form of the rule, by the criterion of §8.10 -- not declared in the rule (like Isabelle's `?T i`),
 nor by Metamath's distinct-variable conditions. It is conservative, the kernel checks it, and no
 theory has needed more; a theory that does would reopen the question.
+
+## 10. Order-sorted logic: what it is, and how its soundness is checked
+
+Kurt's sorts make it an *order-sorted* first-order logic: the sorts form a partial order (the
+subsorts), a value of a sort fits wherever a bigger sort is required, and rules can be stated for
+every sort at once (`$$x`). This section says what that means, which conditions make it sound, and
+where each condition is enforced and tested. The checklist it answers is
+`dev/todo-order-sorted.md`; the normative text is doc/kurt-spec.md §2, and the argument that the
+kernel's checks are sound under these conditions (the models, each check, polymorphic rules,
+stability) is doc/kurt-kernel.md §8.
+
+### 10.1 The logic
+
+- **Sorts.** `prop` (the formulas), the core sort `any`, and the user's sorts (`sort set real`:
+  `real ⊂ set`). `any` is above every sort but `prop`, and the sort of every symbol without one.
+  The subsort relation has no cycle.
+- **Every symbol has one sort.**
+  - A constant gets its sort from a declaration, the `default`, or its first sorted use (the meet
+    of its places in that line), and that sort is final; before it, it is any object, `any`.
+  - An operator position gets its sort from a declaration or its first use.
+  - A variable or bound variable gets it per formula, from its places, else from the `default`,
+    else `any`. A binder without a sort is over all objects, inside a formula as at its top (§8.43).
+- **Fitting.** A value of sort `S` fits a place of sort `T` iff `S = T`, `S ⊂ T` (transitively), or
+  `T = any`. A sort is never inferred from a fact: `x ∈ Nat` says nothing about the sort of `x`.
+- **Polymorphic rules.** A rule whose bound variables are written `$$x` is a *schema over sorts*:
+  for each sort `σ`, its instance with all `$$` binders over `σ`.
+- **The models.** Each sort is a non-empty set of objects:
+  - `D_T ⊆ D_S` for `T ⊂ S`, and `D_any` is all objects;
+  - `∀ x:S φ` holds iff `φ` holds for every object of `D_S`;
+  - a rule holds iff each of its instances holds in every model.
+
+  In the Lean export the objects are `ZFSet` (Mathlib) or an opaque `Obj`, and the numbers are the
+  reals embedded into the sets. That is one model of all the theories.
+
+### 10.2 What makes it sound, and where it is enforced
+
+Order-sorted logic is sound when these conditions hold. Each is enforced twice: by the search,
+which finds a step, and by the kernel, which checks every step again without search (§9). Each is
+also tested by a file that must be rejected.
+
+1. **Every symbol has a sort, and "no sort" has one meaning: `any`.**
+   - A binder without a sort is over `any` (`binder_node_sorts`, which the kernel's
+     `k_binder_sorts` uses too; a renamed binder is read the same way).
+   - A value without a sort fits only where `any` or no sort is required (`sort_expr`,
+     `k_has_sort`), so a fact about a sort is about nothing without one.
+   - A constant's first sorted use is final (§8.46): the only change of its sort is from `any`
+     (no sort yet) to that one, and the lines before stay valid, since they hold for every object
+     (§8.45: a sort disjoint from the others for the symbols without one made this unsound).
+   - Tests: `unsorted-binder-over-everything.kurt`, `core-sort-any.kurt`, `first-use-final.kurt`;
+     §8.43, §8.45, §8.46.
+2. **Well-sorted substitution.** Every value put in for a variable fits its sort.
+   - The search checks this when it binds (`variable_sorts_allow`), when it computes a `sub`
+     (`trigger_sub`), and with the values of the whole match (`sub_sorts_hold`, §8.44). The kernel
+     checks it with its own reading (`k_evaluate`, `k_has_sort`, `k_instance`).
+   - Tests: `sorted-substitution.kurt` (facts, rules used backwards, `=`, chains, `pick`, `assume`),
+     `sort-of-a-sub-fixed-later.kurt`, `sorts-of-sets-and-numbers.kurt`, `tests/test_kernel.py`
+     `test_sorted_schema_value_is_checked_by_kernel` (a forged certificate).
+3. **Binders are the same only over the same sort.** `∀ x` over the numbers is not `∀ x` over all
+   objects (`equal_expr`, `k_equal` with `k_binder_sorts`).
+   - A block's result keeps the sorts of its constants (`block_result_sorts`).
+   - A witness has the sort of its existential (`eval_pick`, the kernel's `exists-elim`).
+   - Tests: `sorts-of-sets-and-numbers.kurt`, `tests/test_sorts.py` `TestBlocksKeepTheirSorts`,
+     `tests/test_kernel_differential.py`.
+4. **A polymorphic rule is used at one sort per use.** All `$$` binders of one step range over the
+   same sort: matched (`binder_target`), stripped from a premise (`poly_sort_of_outer_foralls`,
+   `impl_elim`), or stripped from a conclusion with a value (`one_poly_sort`); `State.poly_sort`
+   holds the sort. In the kernel: `k_poly_sorts`.
+   - Tests: `one-sort-per-use.kurt` (the attack that proved `false`), `one-sort-per-rule.kurt`
+     (every rule of logic.kurt with more than one `$$` binder), `tests/test_kernel.py`
+     `test_one_sort_per_use`; §8.42.
+5. **A `$$` variable occurs only where the sort doesn't matter.** That is its binder, a `sub`, and a
+   side of `=`. Not in `$$c ∈ $a`: extensionality over the numbers alone proves `∅ = {∅}`. The search
+   checks it where the rule is stated (`check_poly_marks`, `parametric_binders`), the kernel when the
+   rule is used (`k_parametric_binders`). Test: `poly-variables.kurt`; §8.41.
+6. **Each polymorphic rule holds for every sort.** This is the theory author's claim, checked by Lean.
+   - `kurt --lean` exports logic.kurt's 13 rules as theorems about an opaque type `Obj`, and Lean
+     proves each one (`tests/test_export_lean.py`
+     `test_every_rule_of_the_logical_theories_is_proved`). A theorem about an opaque type holds for
+     every type, so for every sort and for each of its subsorts; none needs `Nonempty`.
+   - set.kurt's "separation" is proved over `ZFSet` with Mathlib.
+7. **Sorts are non-empty.** `∀ x A ⊢ A` and "exists-intro" need an object in every sort. This is a
+   model obligation (spec §2.3), not checked. In the Lean export every user sort is `Obj` or a type
+   with elements (`ℝ`).
+8. **Regularity and meets.** Every term has a least sort: an operator position has one sort (no
+   overloading), and a constant's uses meet in the greatest sort that fits all of them: one of
+   them, else their one greatest common subsort (`sort_meet`). Without one it is a type error. Test:
+   `meet-of-sorts.kurt` (the diamond).
+9. **The reading is stable.** A formula means the same each time it is read: a stored fact keeps
+   its binders' sorts (recorded when it is stored), an operator's place gets no sort after its first
+   use, a constant's sort is final after its first sorted use. The kernel reads the sorts rather than recomputing them, which
+   is safe because of this (doc/kurt-kernel.md §8.4). Test: `stable-reading.kurt`.
+10. **Sorts across `load`.** A `default` doesn't cross `load`, the sorts it gave do. A loaded
+   symbol's sort is its file's, and conflicting declarations and subsort cycles are refused
+   (`validate_against_loader`). Tests: `sorts-across-load.kurt`, `first-use-final.kurt`.
+
+### 10.3 What is derived, not a rule
+
+- **Restriction** (`∀ x:S P ⊢ ∀ y:T P` for `T ⊂ S`) is a `let` with "forall-elim".
+- **Widening** (`∃ x:T P ⊢ ∃ y:S P`) is a `pick` with "exists-intro".
+- The converse directions are refused (`proofs/restriction-and-widening.kurt`).
+- A polymorphic rule used over two sorts at once is refused even where that use would be valid (a
+  restriction inside "forall-cond-def"). It takes two steps instead. That is the cost of condition 4.
+
+### 10.4 How we know: the checks, layered
+
+1. **Two implementations.** The search finds a step with its certificate, and the kernel checks it
+   with its own code (§9). A disagreement is a `KernelError`, which stops the file and fails the
+   suite. Each case found (§8.42, §8.44) became a test and a fix in the search.
+2. **Adversarial files.** `proofs/soundness/` has one file per condition, each written to fail
+   before the fix (checked against the code before it). Every file under `proofs/` is a test case
+   (`tests/test_kurt_proofs.py`).
+3. **Forged certificates.** `tests/test_kernel.py` changes real certificates (another sort, another
+   value) and asserts that the kernel rejects them, independently of the search.
+4. **Differential tests.** `tests/test_kernel_differential.py` compares the kernel's
+   alpha-equivalence and substitution with the search's on random terms with binders.
+5. **Lean.** The rules of the theories are proved in Lean (condition 6), and whole proofs are
+   exported and checked (`kurt --lean`, with Mathlib for the numbers and sets): a translation into
+   one model.
+6. **A semantic oracle** (`scripts/oracle_sorts.py`, `tests/test_oracle_sorts.py`). Every step the
+   kernel accepts with a rule of logic (propositional.kurt, logic.kurt, equality.kurt: valid in every model)
+   is an instance of it, so the instance itself, as the kernel builds it (`k_instance`), must be valid.
+   The oracle checks that in random small order-sorted models (1 to 3 objects, each sort a non-empty
+   subset respecting the subsorts, the symbols at random). It is independent of both the search and
+   the kernel's checks; on the code before 0ff9399 it finds the counterexample to "existsunique-intro"
+   over `any` and `real` (§8.42) by itself. It skips steps with `calc` and with `flat`/`sym` operators
+   other than the logical ones (their normal forms are laws, not modelled).
+
+### 10.5 What is not checked (yet)
+
+- Non-empty sorts (condition 7) are assumed.
+- A sort without a constant is not warned about.
+- The oracle (§10.4, 6) checks the instances of the rules of logic only, in small models, and not
+  the steps with `calc` or with a `flat`/`sym` operator. The rules of the other theories are axioms
+  (or proved in Lean); their instances follow by the same instantiation, which the oracle checks.
+- Incompleteness:
+  - one use of a rule over two sorts (§10.3);
+  - `∃!` over the numbers from its definition (dev/todo-sorts.md 1b);
+  - no retracts: a fact `b = 3` doesn't make `b` a number, by design.
+
+## 11. The theories' axioms: the audit (2026-10-20, dev/todo.md 11)
+
+The kernel checks that every step follows from the facts; it can't check that the facts are true.
+The facts that no proof stands behind are the `use`s of the theories that come with Kurt. This
+section accounts for every one of them. `python3 scripts/axiom_audit.py` lists them (`--list` the
+ones without a Lean proof); its table, 2026-10-20:
+
+| theory | `use` | proved in Lean | `def` | theorems | without a proof |
+|---|---|---|---|---|---|
+| propositional, logic, equality | 17, 13, 2 | all | | 5 | -- |
+| set | 15 | all | 2 | 7 | -- |
+| numbers, natural, integer, rational | 76, 12, 6, 5 | all | 4 | 29 | -- |
+| analysis, continuity, derivative, sequences | 41, 4, 22, 13 | all | | | -- |
+| integral | 15 | 14 | | | `integral-riemann` |
+| group | 0 | | 7 | 15 | -- |
+| vectorspace | 0 | | 4 | 20 | -- |
+| modal | 27 | all | | 1 | -- |
+| field | 17 | all | | 24 | -- |
+| lambda | 24 | | | | 24 |
+
+How each kind is accounted for:
+
+- **Proved in Lean** (`lean "label" TACTIC`): the rule is a theorem in the model of the Lean export.
+  - propositional, logic and equality hold in Lean's logic for an arbitrary type.
+  - set and the theories of numbers hold in Mathlib's ZF sets with the reals embedded (`lean Obj
+    ZFSet`, `lean real ℝ`).
+  - modal holds in Kripke semantics (`lean Obj ((Nat → Nat → Prop) → Nat → Prop)`): a formula is a
+    property of the worlds under an accessibility relation, `⊢ A` truth in every world of every
+    reflexive frame. All 27 rules of logic T are proved there (2026-10-20; before, all 27 were bare
+    axioms), so the theory has a model and is sound for reflexive frames.
+  - field holds in the reals (2026-10-20): `K` is the set of the reals embedded into the sets, `0`
+    and `1` the embedded ones, and the operations are Lean definitions (`lean + def ...`) that
+    decode their arguments (`k_dec`, the inverse of `k_emb`), compute in ℝ and embed the result --
+    so `+` is associative and commutative and `·` associative on all objects, as field.kurt's `flat`
+    and `sym` say. Lean proves all 17 axioms and checks the translation of the 24 theorems.
+
+  `tests/test_export_lean.py` (`THEORIES_WITH_A_MODEL`, `LOGIC_THEORIES`) fails if a rule loses its
+  proof. Where Mathlib is set up, Lean checks the proofs too.
+- **Defined, not assumed** (`def`, checked conservative, doc/kurt-spec.md §7): group.kurt and, since
+  2026-10-20, vectorspace.kurt. `vectorspace($V)` is the conjunction of three defined parts
+  (closure, the laws of `+`, the laws of `·`), and its 13 former axioms are theorems proved from
+  them, "vectorspace-intro" included. (Lean doesn't check vectorspace.kurt's own export: the
+  translation of the and-eliminations from the twelve-part premise of "vectorspace-intro" runs out
+  of time -- a limit of the translation, dev/todo.md 41; Kurt's kernel checks the proofs.)
+- **Axioms with a justification**, not proved:
+  - *lambda.kurt* (24): the clauses of inductively defined relations, in two notations: typing `Γ ⊢
+    M : A` / `has Γ M A`, beta reduction `↦`, evaluation `⇝`. An inductive definition is consistent
+    (the least relation closed under its clauses is a model), and the rules assert nothing else.
+  - *integral.kurt* "integral-riemann": true (the Riemann sums of a continuous function on `[a, b]`
+    converge to its integral), but not in Mathlib in this form; it stays an axiom
+    (`STAY_AXIOMS` in tests/test_export_lean.py).
+
+The defining axioms labelled `...-def` that are `use`s and not `def`s say why in a comment next to
+them (lab notes, 2026-10-08). The numeric counterexample checks the item asked for are superseded
+by Lean: every algebraic identity of the theories of numbers is proved for the reals.
 
 ## How to extend this
 

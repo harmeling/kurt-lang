@@ -5,7 +5,7 @@
 ; If the theory contains `A implies B` and `A`, write `B`. Kurt applies implication elimination
 ; automatically.
 
-bool A, B, C
+prop A, B, C
 
 use A implies B  "A-to-B"
 use A

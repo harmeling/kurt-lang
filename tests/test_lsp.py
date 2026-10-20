@@ -77,10 +77,10 @@ class TestLanguageServer(unittest.TestCase):
         # at the end of the line -- the hover shows it (wanted, 2026-10-13; before: nothing)
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'h.kurt')
-            text = 'load prop\nbool A, B\nuse A implies B\nuse A\nB\ncert 5\nbuiltin\ntheory\n'
+            text = 'load propositional\nprop A, B\nuse A implies B\nuse A\nB\ncert 5\nbuiltin\ntheory\n'
             uri = 'file://' + path
             server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
-            server.HOVER_OUTPUT_LINES = 10              # (`theory` of prop.kurt has about 35)
+            server.HOVER_OUTPUT_LINES = 10              # (`theory` of propositional.kurt has about 35)
             server.texts[uri], server.versions[uri] = text, 1
             server.check(uri)
             def hover(line):
@@ -93,7 +93,7 @@ class TestLanguageServer(unittest.TestCase):
             self.assertIn('more lines', theory)                       # (long: only the first lines)
             self.assertLessEqual(theory.count('\n'), 10 + 5)
             self.assertIn('; by 3(4)', hover(4))                      # (a step: its reason, as before)
-            self.assertIn('**boolean:** `A`, `B` are statements', hover(1))   # (until 2026-10-14: nothing)
+            self.assertIn('**statement:** `A`, `B` are statements', hover(1))   # (until 2026-10-14: nothing)
 
     def test_hover_says_what_a_declaration_does(self):
         # every line that isn't a comment has a hover (todo 32, 2026-10-14): a declaration, a toggle,
@@ -157,7 +157,7 @@ class TestLanguageServer(unittest.TestCase):
             os.mkdir(theories)
             os.mkdir(document)
             with open(os.path.join(theories, 'extra.kurt'), 'w', encoding='utf-8') as stream:
-                stream.write('bool Extra\nuse Extra "given"\n')
+                stream.write('prop Extra\nuse Extra "given"\n')
             uri = 'file://' + os.path.join(document, 'proof.kurt')
             client = Client(tmp)
             try:
@@ -206,13 +206,13 @@ class TestLanguageServer(unittest.TestCase):
             dependency = os.path.join(tmp, 'dep.kurt')
             main = os.path.join(tmp, 'main.kurt')
             with open(dependency, 'w', encoding='utf-8') as stream:
-                stream.write('bool DiskVersion\nuse DiskVersion "saved"\n')
+                stream.write('prop DiskVersion\nuse DiskVersion "saved"\n')
             dependency_uri = 'file://' + dependency
             main_uri = 'file://' + main
 
             output = io.BytesIO()
             server = kurt.LanguageServer(io.BytesIO(), output)
-            server.texts[dependency_uri] = 'bool EditorVersion\nuse EditorVersion "unsaved"\n'
+            server.texts[dependency_uri] = 'prop EditorVersion\nuse EditorVersion "unsaved"\n'
             server.versions[dependency_uri] = 4
             server.texts[main_uri] = 'load dep\nEditorVersion\n'
             server.versions[main_uri] = 7
@@ -236,10 +236,10 @@ class TestLanguageServer(unittest.TestCase):
             os.mkdir(trusted)
             trusted_dependency = os.path.join(trusted, 'teacher.kurt')
             with open(trusted_dependency, 'w', encoding='utf-8') as stream:
-                stream.write('bool SavedAxiom\nuse SavedAxiom "teacher"\n')
+                stream.write('prop SavedAxiom\nuse SavedAxiom "teacher"\n')
             trusted_uri = 'file://' + trusted_dependency
             server.extra_paths = (trusted,)
-            server.texts[trusted_uri] = 'bool UnsavedAxiom\nuse UnsavedAxiom "editing"\n'
+            server.texts[trusted_uri] = 'prop UnsavedAxiom\nuse UnsavedAxiom "editing"\n'
             server.versions[trusted_uri] = 1
             server.texts[main_uri] = 'load teacher\nUnsavedAxiom\n'
             server.versions[main_uri] = 9
@@ -263,7 +263,7 @@ class TestLanguageServer(unittest.TestCase):
                     release.wait(timeout=10)
                 return kurt.CheckResult(text == 'new', '', None if text == 'new' else 'old error')
 
-        server.session_for = lambda ignored_uri: ControlledSession()
+        server.session_for = lambda ignored_uri, **options: ControlledSession()     # (`cancel`: the check of a stale text stops, tests/test_budgets.py)
         old = threading.Thread(target=server.check, args=(uri, 1))
         old.start()
         self.assertTrue(started.wait(timeout=10))
@@ -290,8 +290,8 @@ class TestLanguageServer(unittest.TestCase):
                 with open(path, 'w', encoding='utf-8') as stream:
                     stream.write(text)
                 return path
-            write(launch, 'dep.kurt', 'bool P\nuse P "given"\n')
-            write(document, 'dep.kurt', 'bool P\nP "given"\n')
+            write(launch, 'dep.kurt', 'prop P\nuse P "given"\n')
+            write(document, 'dep.kurt', 'prop P\nP "given"\n')
             text = 'load dep\nP\n'
             path = write(document, 'main.kurt', text)
             uri = 'file://' + path
@@ -304,7 +304,7 @@ class TestLanguageServer(unittest.TestCase):
                 self.assertFalse(server.results[uri].ok)
                 self.assertEqual(server.results[uri].error, kurt.check_file(path).error)
                 # Completion must use the same sibling source, not the launch directory's P.
-                write(document, 'dep.kurt', 'bool DocumentFact\nuse DocumentFact "given"\n')
+                write(document, 'dep.kurt', 'prop DocumentFact\nuse DocumentFact "given"\n')
                 server.texts[uri] = 'load dep\nDoc'
                 items = server.completion({'textDocument': {'uri': uri},
                                            'position': {'line': 1, 'character': 3}})
@@ -318,7 +318,7 @@ class TestLanguageServer(unittest.TestCase):
             def write(name, text):
                 with open(os.path.join(tmp, name), 'w', encoding='utf-8') as stream:
                     stream.write(text)
-            write('dep.kurt', 'bool P\nuse P "given"\n')
+            write('dep.kurt', 'prop P\nuse P "given"\n')
             uri, dep_uri = 'file://' + os.path.join(tmp, 'main.kurt'), 'file://' + os.path.join(tmp, 'dep.kurt')
             checked = []
             original = kurt.checked_exports_now
@@ -333,7 +333,7 @@ class TestLanguageServer(unittest.TestCase):
                 self.assertEqual(checked.count('dep.kurt'), 1)
                 self.assertTrue(server.results[uri].ok)
                 # a change of the theory (open in the editor too) is seen at once
-                server.texts[dep_uri] = 'bool P\n'
+                server.texts[dep_uri] = 'prop P\n'
                 server.versions[uri] = 3
                 server.check(uri)
                 self.assertEqual(checked.count('dep.kurt'), 2)
@@ -341,15 +341,16 @@ class TestLanguageServer(unittest.TestCase):
 
     def test_a_proof_closed_without_qed_says_so_at_its_last_line(self):
         # (the end of the file, or a dedent, closes the proof: a derived line after its last one)
-        for text in ('load prop\nbool A, B, C\nuse A\nuse A implies B\nshow B or C\nproof\n    B\n',
-                     'load prop\nbool A, B, C\nuse A\nuse A implies B\nshow B or C\nproof\n    B\nA\n'):
+        for text in ('load propositional\nprop A, B, C\nuse A\nuse A implies B\nshow B or C\nproof\n    B\n',
+                     'load propositional\nprop A, B, C\nuse A\nuse A implies B\nshow B or C\nproof\n    B\nA\n'):
             result = kurt.check_text(text, name='closing.kurt')
             self.assertTrue(result.ok, result.error)
             self.assertIn('; 7a by or-intro(7)', result.output)
             server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
-            uri = 'file:///tmp/closing.kurt'
-            server.texts[uri] = text
-            server.check(uri)
+            with tempfile.TemporaryDirectory() as tmp:     # (not /tmp itself: a `/tmp/propositional.kurt` of anyone would be loaded)
+                uri = 'file://' + os.path.join(tmp, 'closing.kurt')
+                server.texts[uri] = text
+                server.check(uri)
             hints = server.inlay_hints({'textDocument': {'uri': uri},
                                         'range': {'start': {'line': 0, 'character': 0}, 'end': {'line': 10, 'character': 0}}})
             labels = {h['position']['line']: h['label'] for h in hints}
@@ -364,14 +365,14 @@ class TestLanguageServer(unittest.TestCase):
                 self.assertTrue(capabilities['hoverProvider'] and capabilities['inlayHintProvider'])
                 client.send('initialized', {}, request=False)
                 # an error: a diagnostic at its line
-                bad = 'load prop\nbool A, B\nuse A\nB\n'
+                bad = 'load propositional\nprop A, B\nuse A\nB\n'
                 client.send('textDocument/didOpen', {'textDocument': {'uri': uri, 'languageId': 'kurt', 'version': 1, 'text': bad}}, request=False)
                 diagnostics = client.notification('textDocument/publishDiagnostics')['diagnostics']
                 self.assertEqual(diagnostics[0]['range']['start']['line'], 3)
                 self.assertIn('can not derive', diagnostics[0]['message'])
                 self.assertEqual(diagnostics[0]['data']['failure']['kind'], 'not-derived')
                 # fixed and saved: no diagnostics, the reasons as inlay hints and on hover
-                good = 'load prop\nbool A, B\nuse A\nuse A implies B\nB\n'
+                good = 'load propositional\nprop A, B\nuse A\nuse A implies B\nB\n'
                 client.send('textDocument/didChange', {'textDocument': {'uri': uri, 'version': 2}, 'contentChanges': [{'text': good}]}, request=False)
                 client.send('textDocument/didSave', {'textDocument': {'uri': uri}}, request=False)
                 self.assertEqual(client.notification('textDocument/publishDiagnostics')['diagnostics'], [])
@@ -390,12 +391,12 @@ class TestLanguageServer(unittest.TestCase):
                 axiom = client.request('textDocument/hover', {'textDocument': {'uri': uri}, 'position': {'line': 2, 'character': 0}})
                 self.assertIn('**axiom:**', axiom['contents']['value'])
                 # completion with the state at the cursor: in a proof, its goal
-                text = 'load prop\nbool A, B\nuse A\nshow A or B\nproof\n    \n'
+                text = 'load propositional\nprop A, B\nuse A\nshow A or B\nproof\n    \n'
                 client.send('textDocument/didChange', {'textDocument': {'uri': uri, 'version': 3}, 'contentChanges': [{'text': text}]}, request=False)
                 items = client.request('textDocument/completion', {'textDocument': {'uri': uri}, 'position': {'line': 5, 'character': 4}})
                 self.assertIn('A or B', [i['label'] for i in items])
                 items = client.request('textDocument/completion', {'textDocument': {'uri': uri}, 'position': {'line': 0, 'character': 7}})
-                self.assertEqual([i['label'] for i in items], ['prop'])      # after `load pr`: the theory
+                self.assertEqual([i['label'] for i in items], ['propositional'])      # after `load pr`: the theory
                 client.request('shutdown', {})
                 client.send('exit', {}, request=False)
                 self.assertEqual(client.process.wait(timeout=10), 0)

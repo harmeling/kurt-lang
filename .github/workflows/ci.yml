@@ -68,6 +68,37 @@ jobs:
           lean --version
           KURT_REQUIRE_LEAN=1 python -m unittest -v tests.test_export_lean
 
+  lean-mathlib:
+    # `kurt --lean` of proofs about numbers (`import Mathlib`), checked by Lean with Mathlib in the
+    # lake project scripts/lean (Mathlib's prebuilt files by `lake exe cache get`, cached by the
+    # manifest); KURT_REQUIRE_MATHLIB makes a project that isn't set up fail instead of skip
+    # (written 2026-10-16, not yet run on GitHub)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Lean
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain "$(cat scripts/lean-toolchain)"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/cache@v4
+        with:
+          path: scripts/lean/.lake
+          key: mathlib-${{ hashFiles('scripts/lean/lake-manifest.json', 'scripts/lean/lean-toolchain') }}
+
+      - name: Set up Mathlib
+        run: cd scripts/lean && lake exe cache get
+
+      - name: Translate and check with Lean and Mathlib
+        run: |
+          pip install -e .
+          KURT_REQUIRE_LEAN=1 KURT_REQUIRE_MATHLIB=1 python -m unittest -v tests.test_export_lean
+
   package:
     # what users get from `pip install`: build the sdist and the wheel, install each into a clean
     # environment, and check a proof outside the checkout (so nothing comes from `src/`)

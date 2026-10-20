@@ -1,13 +1,20 @@
 ; 44-sort.kurt
 
-; Kurt's only required sort is `bool`, the built-in sort of judgments that can
-; be proved. Additional sorts are optional and deliberately lightweight.
+; Kurt's sorts are kinds of objects -- of terms: `any` (every object) is in every file, and a theory
+; declares its own below `any` (they may form a DAG). Statements (`prop`, lesson 01) are no sort and
+; no object: they are what is proved. The rules in short (the tutorial's
+; lesson 29 shows them at work; doc/kurt-soundness.md §10 why they are sound):
+;   - every symbol has a sort; without one it is `any`, and a constant gets its sort at its first
+;     sorted use -- which is final;
+;   - a value fits a place of its own sort or of a bigger one;
+;   - `∀ x` and `∃ x` range over the sort of `x`; a fact gives no sort;
+;   - a rule for every sort writes its bound variables `$$x`.
 
 sort nat, vec
 
-; A sort name becomes a declaration keyword parallel to `bool`. Position 0 is
-; the result; positions 1, 2, ... are arguments. Leaving positions unmentioned
-; leaves them unconstrained.
+; A sort name becomes a declaration keyword parallel to `prop`. Position 0 is
+; the result; positions 1, 2, ... are arguments. A position left out takes every
+; value (it is `any`).
 
 nat zero
 nat plus 0 1 2
@@ -21,6 +28,31 @@ arity plus 2, scale 2
 var n, v
 nat n
 vec v
+
+; Subsorts: a chain `sort big small` declares `small ⊂ big` -- a `small` fits where a `big` is
+; required (objects.kurt has `sort set real`: a number is a set).
+
+sort nat pos
+pos one
+
+; `any` declares a symbol of all objects: it fits only where `any` (or no sort) is required, and no
+; use changes it.
+
+any thing
+
+; A sort declaration comes before the symbol's first use, and its first sorted use decides a sort
+; for good: to use a constant as a smaller sort, declare that first.
+
+const g
+arity g 1
+pos g 1                               ; `g` takes a `pos`
+const k
+use plus k k = k                      ; `k` is a `nat` from here on
+expect "TypeError" "but here it is used as `pos`"
+    use g k = g k                     ; a smaller sort later: declare `pos k` before the first use
+
+; `default SORT` at the top of a file gives every new symbol without a sort that sort (a file about
+; numbers says `default real`); `default any` is the same as none.
 
 ; `sort`, and each individual sort name, list their declarations.
 

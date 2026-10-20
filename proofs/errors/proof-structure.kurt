@@ -2,7 +2,7 @@
 ; rejected -- each with its own error (see doc/kurt-doc.md §6, §7, §9)
 load logic, numbers
 const c, d
-bool P, Q
+prop P, Q
 arity P 1
 const P, Q
 

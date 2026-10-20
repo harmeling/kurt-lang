@@ -4,7 +4,7 @@
 ; declare to hold, without proof.  The keyword `use` adds such a formula to
 ; the theory.
 
-bool A
+prop A
 
 use A                  ; from now on `A` is an axiom
 A                       ; ...and so it can be checked
@@ -12,7 +12,7 @@ A                       ; ...and so it can be checked
 ; `use` accepts an optional label describing where the axiom comes from; it
 ; shows up in the log after "without proof", and later steps cite it by name:
 
-bool B
+prop B
 use B  "our-second-axiom"
 B
 

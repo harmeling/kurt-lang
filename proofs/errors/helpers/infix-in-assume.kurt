@@ -1,0 +1,4 @@
+; `infix` inside `assume` (see ../grammar-declaration-in-a-block.kurt)
+prop A
+assume A
+    infix foo 10 10

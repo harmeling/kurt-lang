@@ -1,10 +1,10 @@
 ; `sub` is for writing axiom schemas (`use`/`def`), not for ordinary claims -- there it would
 ; only stand for its own result, so write that instead
 load logic
-bool P
+prop P
 arity P 1
 const c
 use P c
-expect "EvalError"
+expect "EvalError" "`sub` is only allowed in `use` and `def`"
     sub $x c (P $x)
 P c

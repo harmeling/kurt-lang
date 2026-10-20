@@ -14,8 +14,8 @@
 ; The loaded propositional theory's general binary `or-elim` rule gives `or` this meaning; the
 ; spelling `or` by itself does not.
 
-load prop
-bool A, B, C
+load propositional
+prop A, B, C
 use A or B
 use A implies C
 use B implies C

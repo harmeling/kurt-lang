@@ -19,7 +19,7 @@ def build_bundle(output_path):
 
 class TestStandaloneBundle(unittest.TestCase):
     """Regression test for the generated single-file `kurt.py` (`scripts/build_standalone.py`):
-    a download-just-this-one-file classroom workflow needs `load prop` (etc.) to work with
+    a download-just-this-one-file classroom workflow needs `load propositional` (etc.) to work with
     *no* `theories/` directory alongside it at all -- unlike the plain `src/kurt/kurt.py` +
     `theories/` copy covered by `test_standalone_script.py`, this file must be the only thing
     that exists."""
@@ -50,13 +50,13 @@ class TestStandaloneBundle(unittest.TestCase):
         )
 
     def test_bare_proof_without_load(self):
-        result = self.run_bundle("bool A, B\nuse A implies B\nuse A\nB\n")
+        result = self.run_bundle("prop A, B\nuse A implies B\nuse A\nB\n")
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Proof checked", result.stdout)
 
     def test_load_of_embedded_theory(self):
-        # this is the whole point: `prop.kurt` isn't on disk anywhere in `self.tmpdir`
-        result = self.run_bundle("load prop\nbool A, B\nuse A and B\nA\nB\n")
+        # this is the whole point: `propositional.kurt` isn't on disk anywhere in `self.tmpdir`
+        result = self.run_bundle("load propositional\nprop A, B\nuse A and B\nA\nB\n")
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Proof checked", result.stdout)
 
@@ -68,7 +68,7 @@ class TestStandaloneBundle(unittest.TestCase):
             "starts = collections.Counter()\n"
             "session = kurt.Session(kurt.RunConfig(progress=lambda e: e['line'] == 0 and starts.update([e['file']])))\n"
             "for _ in range(2):\n"
-            "    assert session.check_text('load set\\nload prop\\n').ok\n"
+            "    assert session.check_text('load set\\nload propositional\\n').ok\n"
             "print(sorted(starts.items()))\n")
         env = dict(os.environ)
         env.pop("PYTHONPATH", None)
@@ -77,7 +77,7 @@ class TestStandaloneBundle(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         starts = dict(eval(result.stdout))
         self.assertEqual(starts.pop('proof.kurt'), 2)
-        self.assertIn('<embedded>/prop.kurt', starts)       # (loaded by set.kurt too)
+        self.assertIn('<embedded>/propositional.kurt', starts)       # (loaded by set.kurt too)
         self.assertEqual(set(starts.values()), {1}, starts)
 
     def test_the_certificates_of_the_theories_are_embedded(self):

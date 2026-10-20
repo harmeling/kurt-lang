@@ -44,12 +44,26 @@ split into cases (`case`).
 
     python3 scripts/grade_exercise.py exercises/01-knights-and-knaves/2-two-islanders.kurt submission.kurt
 
-checks the submission as `kurt --strict` would (no `use`, `todo` or `chain`; every symbol
-declared), next to a copy of the exercise's `theory/`, which it trusts (as with `-p`). Then it
-compares the statements: each `show` of the exercise must be in the submission, unchanged and in
-the same order, and so must the exercise's other top-level lines (`load`, `const`, ...). It
-prints `COMPLETE` (exit code 0) or what is missing (exit code 1). Use the teacher's copy of the
-exercise, not the student's.
+checks the submission as `kurt --strict --all-errors` would (no `use`, `todo` or `chain`; every
+symbol declared; an error doesn't stop the check), next to a copy of the exercise's `theory/`,
+which it trusts (as with `-p`). Then it looks up each `show` of the exercise in the submission --
+as Kurt reads it, so `A ⇒ B` and `A implies B` are the same statement, and the order doesn't
+matter; with the exercise's label, if it has one -- and says how it stands: `proved` (a proof
+that rests on no `todo` and no error), `admitted` (a `todo` in its proof, or an error), `assumed`
+(`use`), `loaded` (from a file, not proved here) or `missing` (not there, changed, or withdrawn
+with `break`). The submission may add lemmas of its own, but may load only what the exercise
+loads (directly or through the scene): a file that states an answer is no proof. The report:
+
+    checked (strict)
+    proved: (A says S) ∧ knight(A) ⇒ S
+    admitted: (A says S) ∧ knave(A) ⇒ ¬S
+    missing: ¬(A says knave(A))
+    NOT COMPLETE
+
+`COMPLETE` (exit code 0) needs a check without errors, every statement proved and nothing else
+loaded; otherwise `NOT COMPLETE` (exit code 1). Use the teacher's copy of the exercise, not the
+student's. From Python, the same questions are `CheckResult.proves(statement, label)`,
+`proof_of` and `loaded` (doc/kurt-doc.md §1).
 
 ## Topics
 

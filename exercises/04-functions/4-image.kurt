@@ -18,6 +18,7 @@
 
 load theory/maps
 const A, B, f, S, T
+set A, B, f, S, T        ; sets: a fact `f : A → B` gives no sort
 
 ; (a) f[S ∪ T] ⊂ f[S] ∪ f[T]
 show {y ∈ B | ∃ x ∈ S ∪ T (f x = y)} ⊂ {y ∈ B | ∃ x ∈ S (f x = y)} ∪ {y ∈ B | ∃ x ∈ T (f x = y)}

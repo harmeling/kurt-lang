@@ -2,18 +2,18 @@
 ;
 ; Prove a law of logic
 ;
-; Contraposition, (A ⇒ B) ≡ (¬B ⇒ ¬A), from the rules of prop.kurt alone. First a lemma,
+; Contraposition, (A ⇒ B) ≡ (¬B ⇒ ¬A), from the rules of propositional.kurt alone. First a lemma,
 ; (A ⇒ B) ≡ (¬A ∨ B): an equivalence is proven as two implications (`iff-intro`), each in a
 ; `show` / `proof` / `qed` of its own. Inside, the lessons so far come together: an implication by
 ; `assume` (lesson 02), cases (lesson 04), a contradiction (lesson 03). The cases of the first
-; implication are A and ¬A: the disjunction A ∨ ¬A is the excluded middle, which prop.kurt proves
+; implication are A and ¬A: the disjunction A ∨ ¬A is the excluded middle, which propositional.kurt proves
 ; and exports as "excluded-middle", so Kurt prints the last step `by or-elim(excluded-middle, ...)`.
 ; Then the theorem is a chain of equivalences (below).
 ;
 ; `var A, B` makes the two propositions variables: the theorem holds for every A and B, and
 ; another file that loads this one can use it with any formulas for them.
 
-load prop
+load propositional
 var A, B
 
 ; lemma
@@ -54,7 +54,7 @@ qed
 
 ; The lines of the chain are justified differently. Line 50 is line 49 again for Kurt (`∨` is
 ; symmetric, so `¬A ∨ B` and `B ∨ ¬A` are the same formula), hence `by 49`. Line 51 replaces B
-; by ¬¬B with prop's "not-not" (`iff-subst(not-not, 49)`). Line 52 joins line 51 with the lemma
+; by ¬¬B with propositional's "not-not" (`iff-subst(not-not, 49)`). Line 52 joins line 51 with the lemma
 ; of line 49, taken for ¬B and ¬A (`chain-trans-0-0(51, 49)`, the transitivity of `≡`).
 ;
 ; The same proofs, and the other laws of the natural deduction (double negation, de Morgan, the

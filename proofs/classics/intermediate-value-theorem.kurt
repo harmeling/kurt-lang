@@ -1,0 +1,246 @@
+; The intermediate value theorem: a function f continuous on [a, b] with f(a) < 0 < f(b) has a
+; zero in [a, b].
+;
+; The proof by the supremum: c = sup {x ∈ [a, b] | f(x) <= 0} lies in [a, b]; if f(c) < 0, f stays
+; negative a little right of c (continuity, ε = -f(c)), at a point of the set above c or at b; if
+; f(c) > 0, f stays positive a little left of c, and c - δ/2 is a smaller upper bound. The
+; completeness of the numbers is analysis.kurt's "sup-upper" and "sup-least", continuity its ε-δ
+; definition "cont-def" (continuity.kurt) -- axioms of the theories; no axiom here.
+load continuity
+default real
+
+; what abs(x) < e says about x
+show abs($x) < $e  ⇒  $x < $e                                          "abs-lt-upper"
+proof
+    assume abs($x) < $e
+        $x < 0 ∨ $x = 0 ∨ $x > 0                       ; trichotomy
+        case $x < 0
+            abs($x) >= 0                               ; abs-ge-zero
+            0 <= abs($x)
+            0 < $e
+            $x < $e
+        case $x = 0
+            $x >= 0
+            abs($x) = $x                               ; abs-nonneg
+            $x < $e
+        case $x > 0
+            $x >= 0
+            abs($x) = $x                               ; abs-nonneg
+            $x < $e
+        $x < $e
+qed
+
+show abs($x) < $e  ⇒  -$e < $x                                         "abs-lt-lower"
+proof
+    assume abs($x) < $e
+        abs($x) >= 0                                   ; abs-ge-zero
+        0 <= abs($x)
+        0 < $e
+        calc on
+        -1 < 0
+        calc off
+        0 * (-1) > $e * (-1)                           ; lt-mul-neg
+        0 * (-1) = 0
+        $e * (-1) = -$e                                ; mul-neg-one
+        0 > -$e
+        -$e < 0
+        $x < 0 ∨ $x = 0 ∨ $x > 0                       ; trichotomy
+        case $x < 0
+            abs($x) = -$x                              ; abs-neg
+            -$x < $e
+            (-$x) * (-1) > $e * (-1)                   ; lt-mul-neg
+            (-$x) * (-1) = -(-$x)                      ; mul-neg-one
+                         = $x                          ; double-negation
+            $x > -$e
+            -$e < $x
+        case $x = 0
+            -$e < $x
+        case $x > 0
+            -$e < $x
+        -$e < $x
+qed
+
+; f: an operator variable (`var f`), the function -- the theorem is a schema, for every function
+; symbol (an operator is no object, doc/kurt-doc.md §5.3: it can't be quantified, so the theorem is
+; "for every f" as a schema, like the rules of group.kurt). a, b: `$a`, `$b`.
+var f
+arity f 1
+; the supremum of the x in [a, b] with f(x) <= 0 -- the completeness of the numbers is analysis.kurt's
+; "sup-upper" and "sup-least"; `f` an operator parameter. (`x` first: the binder binds the first new
+; symbol of its condition.)
+def zpt((f), $a, $b) = sup (x <= $b ∧ $a <= x ∧ f x <= 0) x            "zero-point"
+
+show $a < $b ∧ f $a < 0 ∧ 0 < f $b ∧ (∀ x ($a <= x ∧ x <= $b  ⇒  cont y x (f y)))  ⇒  ∃ z ($a <= z ∧ z <= $b ∧ f z = 0)   "ivt"
+proof
+    assume $a < $b ∧ f $a < 0 ∧ 0 < f $b ∧ (∀ x ($a <= x ∧ x <= $b  ⇒  cont y x (f y)))
+        ; c: the supremum of the x in [a, b] with f(x) <= 0, a constant for the proof
+        zpt((f), $a, $b) = zpt((f), $a, $b)
+        ∃ c0 (c0 = zpt((f), $a, $b))
+        pick c with c = zpt((f), $a, $b)
+            ; the set is bounded by b and has the element a
+            let w
+                assume w <= $b ∧ $a <= w ∧ f w <= 0
+                    w <= $b
+            ∀ (w <= $b ∧ $a <= w ∧ f w <= 0) (w <= $b)
+            $a <= $a
+            $a <= $b
+            f $a <= 0
+            $a <= $a ∧ $a <= $b ∧ f $a <= 0
+            $a <= sup (x <= $b ∧ $a <= x ∧ f x <= 0) x        ; sup-upper
+            $a <= c
+            sup (x <= $b ∧ $a <= x ∧ f x <= 0) x <= $b        ; sup-least
+            c <= $b
+            ; f is continuous at c
+            ∀ x ($a <= x ∧ x <= $b  ⇒  cont y x (f y))
+            $a <= c ∧ c <= $b  ⇒  cont y c (f y)
+            $a <= c ∧ c <= $b
+            cont y c (f y)
+            ∀ e > 0 ∃ d > 0 ∀ y (abs(y - c) < d  ⇒  abs(f y - f c) < e)     ; cont-def
+            calc on
+            -1 < 0
+            calc off
+            f c < 0 ∨ f c = 0 ∨ f c > 0                    ; trichotomy
+            ; f(c) < 0: then f < 0 a little right of c, which is in the set or beyond b
+            case f c < 0
+                f c * (-1) > 0 * (-1)                      ; lt-mul-neg
+                f c * (-1) = -(f c)                        ; mul-neg-one
+                0 * (-1) = 0
+                -(f c) > 0
+                ∃ d > 0 ∀ y (abs(y - c) < d  ⇒  abs(f y - f c) < -(f c))
+                pick d with d > 0 ∧ ∀ y (abs(y - c) < d  ⇒  abs(f y - f c) < -(f c))
+                    calc on
+                    2 > 0
+                    calc off
+                    d / 2 > 0                              ; div-pos
+                    0 + d / 2 < d / 2 + d / 2              ; lt-add
+                    d / 2 < d / 2 + d / 2
+                    d / 2 < d                              ; halves
+                    0 + c < d / 2 + c                      ; lt-add
+                    c < c + d / 2
+                    (c + d / 2) - c = d / 2 - (c - c)      ; add-sub
+                                    = d / 2 - 0
+                                    = d / 2
+                    d / 2 >= 0
+                    abs(d / 2) = d / 2                     ; abs-nonneg
+                    abs((c + d / 2) - c) = d / 2
+                    abs((c + d / 2) - c) < d
+                    c + d / 2 < $b ∨ c + d / 2 = $b ∨ c + d / 2 > $b     ; trichotomy
+                    ; c + d/2 <= b: it is in the set, but larger than its supremum c
+                    assume c + d / 2 <= $b
+                        abs((c + d / 2) - c) < d  ⇒  abs(f (c + d / 2) - f c) < -(f c)
+                        abs(f (c + d / 2) - f c) < -(f c)
+                        f (c + d / 2) - f c < -(f c)                       ; abs-lt-upper
+                        (f (c + d / 2) - f c) + f c < -(f c) + f c         ; lt-add
+                        (f (c + d / 2) - f c) + f c = f (c + d / 2)        ; sub-add-cancel
+                        -(f c) + f c = 0                                   ; add-inverse
+                        f (c + d / 2) < 0
+                        f (c + d / 2) <= 0
+                        $a < c + d / 2
+                        $a <= c + d / 2
+                        $a <= c + d / 2 ∧ c + d / 2 <= $b ∧ f (c + d / 2) <= 0
+                        c + d / 2 <= sup (x <= $b ∧ $a <= x ∧ f x <= 0) x    ; sup-upper
+                        c + d / 2 <= c
+                        false
+                    ; b < c + d/2: b is closer to c than d, so f(b) < 0
+                    assume $b < c + d / 2
+                        $b - c < (c + d / 2) - c                            ; lt-sub
+                        $b - c < d / 2
+                        $b - c < d
+                        c - c <= $b - c                                     ; le-sub
+                        0 <= $b - c
+                        abs($b - c) = $b - c                                 ; abs-nonneg
+                        abs($b - c) < d
+                        abs($b - c) < d  ⇒  abs(f $b - f c) < -(f c)
+                        abs(f $b - f c) < -(f c)
+                        f $b - f c < -(f c)                                 ; abs-lt-upper
+                        (f $b - f c) + f c < -(f c) + f c                   ; lt-add
+                        (f $b - f c) + f c = f $b                            ; sub-add-cancel
+                        -(f c) + f c = 0                                   ; add-inverse
+                        f $b < 0
+                        false
+                    case c + d / 2 < $b
+                        c + d / 2 <= $b
+                        false
+                    case c + d / 2 = $b
+                        c + d / 2 <= $b
+                        false
+                    case c + d / 2 > $b
+                        false
+                    false
+                false
+                f c = 0
+            case f c = 0
+                f c = 0
+            ; f(c) > 0: then f > 0 a little left of c, and c - d/2 is a smaller bound of the set
+            case f c > 0
+                ∃ d > 0 ∀ y (abs(y - c) < d  ⇒  abs(f y - f c) < f c)
+                pick d with d > 0 ∧ ∀ y (abs(y - c) < d  ⇒  abs(f y - f c) < f c)
+                    calc on
+                    2 > 0
+                    calc off
+                    d / 2 > 0                              ; div-pos
+                    0 + d / 2 < d / 2 + d / 2              ; lt-add
+                    d / 2 < d / 2 + d / 2
+                    d / 2 < d                              ; halves
+                    let w
+                        assume w <= $b ∧ $a <= w ∧ f w <= 0
+                            w <= sup (x <= $b ∧ $a <= x ∧ f x <= 0) x            ; sup-upper
+                            w <= c
+                            w < c - d / 2 ∨ w = c - d / 2 ∨ w > c - d / 2     ; trichotomy
+                            ; w > c - d/2: w is closer to c than d, so f(w) > 0
+                            assume w > c - d / 2
+                                (c - d / 2) + d / 2 < w + d / 2                ; lt-add
+                                c < w + d / 2                                  ; sub-add-cancel
+                                c - w < (w + d / 2) - w                        ; lt-sub
+                                (w + d / 2) - w = d / 2 - (w - w)              ; add-sub
+                                                = d / 2 - 0
+                                                = d / 2
+                                c - w < d / 2
+                                c - w < d
+                                w - w <= c - w                                 ; le-sub
+                                0 <= c - w
+                                abs(c - w) = c - w                             ; abs-nonneg
+                                abs(w - c) = abs(c - w)                        ; abs-sub-sym
+                                           = c - w
+                                abs(w - c) < d
+                                abs(w - c) < d  ⇒  abs(f w - f c) < f c
+                                abs(f w - f c) < f c
+                                -(f c) < f w - f c                             ; abs-lt-lower
+                                -(f c) + f c < (f w - f c) + f c               ; lt-add
+                                (f w - f c) + f c = f w                        ; sub-add-cancel
+                                -(f c) + f c = 0                               ; add-inverse
+                                0 < f w
+                                f w <= 0
+                                false
+                            case w < c - d / 2
+                                w <= c - d / 2
+                            case w = c - d / 2
+                                w <= c - d / 2
+                            case w > c - d / 2
+                                false
+                                w <= c - d / 2
+                            w <= c - d / 2
+                    ∀ (w <= $b ∧ $a <= w ∧ f w <= 0) (w <= c - d / 2)
+                    sup (x <= $b ∧ $a <= x ∧ f x <= 0) x <= c - d / 2        ; sup-least
+                    c <= c - d / 2
+                    0 + (c - d / 2) < d / 2 + (c - d / 2)                  ; lt-add
+                    c - d / 2 < (c - d / 2) + d / 2
+                    c - d / 2 < c                                          ; sub-add-cancel
+                    false
+                false
+                f c = 0
+            f c = 0
+            $a <= c ∧ c <= $b ∧ f c = 0
+            ∃ z ($a <= z ∧ z <= $b ∧ f z = 0)
+        ∃ z ($a <= z ∧ z <= $b ∧ f z = 0)
+qed
+
+; the theorem for a particular function: a function symbol g, continuous on [p, q], negative at p
+; and positive at q, has a zero there -- one step, f := g
+const g, p, q
+arity g 1
+use p < q
+use g p < 0
+use 0 < g q
+use ∀ x (p <= x ∧ x <= q  ⇒  cont y x (g y))
+∃ z (p <= z ∧ z <= q ∧ g z = 0)                                       ; ivt

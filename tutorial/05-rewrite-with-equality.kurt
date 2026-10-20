@@ -7,7 +7,6 @@
 
 load equality
 const a, b, f
-arity f 1                       ; f takes one argument (lesson 20)
 
 use a = b
 use f(a) = a
@@ -19,6 +18,14 @@ f(b) = a
 ; When a rewrite does not happen, state an intermediate expression showing exactly one
 ; replacement. Kurt is a one-step checker, not a multi-step simplifier.
 ;
+; A longer derivation chains several such one-step rewrites, each line continuing from the
+; previous line's right-hand side instead of restating it -- see keywords/33-chain.kurt for how
+; `chain` works and which operators may be mixed this way:
+
+f(a) = a
+     = b
+f(a) = b
+;
 ; A rule with conditions works for rewriting too, if the conditions are facts: with
 ; `$a ∈ K ⇒ $a · 1 = $a` and `b ∈ K`, the step from `c · (b · 1) = a` to `c · b = a` is
 ; accepted -- Kurt derives the instance `b · 1 = b` and shows it as a step of its own (line `33a`
@@ -26,8 +33,15 @@ f(b) = a
 
 load set
 const K, c
-infix · 70 70                   ; `·` is written between its arguments (lesson 20)
+infix · 70 70                   ; `·` is written between its arguments (lesson 27)
 use $x ∈ K  ⇒  $x · 1 = $x      "one-right"
 use b ∈ K
 use c · (b · 1) = a
 c · b = a
+
+; A chain can mix the two kinds of rewriting from this lesson -- plain equality and a conditional
+; rule -- in one derivation, as long as each link is still a single step:
+
+c · (b · 1) = a
+            = f(a)
+            = f(b)

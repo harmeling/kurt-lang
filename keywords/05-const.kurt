@@ -5,7 +5,7 @@
 ; declares a symbol as a constant explicitly:
 
 const zero
-const one, two          ; comma-separated, just like `bool`
+const one, two          ; comma-separated, just like `prop`
 
 ; Once a symbol's role is fixed on a level, it stays fixed: you cannot turn a
 ; constant into a variable afterwards.

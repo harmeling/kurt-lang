@@ -1,0 +1,99 @@
+; The Knaster-Tarski fixed point theorem, for the power set: a monotone mapping f from Pow(A) to
+; Pow(A) has a least fixed point, the intersection L of all S ⊂ A with f S ⊂ S.
+;
+; Mappings are those of set.kurt (`f ∈ Pow(A) → Pow(A)`, applied `f S`); L is written with
+; separation. Hypotheses: the set A and the monotone mapping f, as `use` lines about new constants
+; (nothing else is known about them).
+load set
+
+const A, f
+set f           ; a mapping is a set (a fact gives no sort, doc/kurt-doc.md §5.3)
+use f ∈ (Pow(A) → Pow(A))                                              "f-mapping"
+use ∀ S ∈ Pow(A) ∀ T ∈ Pow(A) (S ⊂ T  ⇒  f S ⊂ f T)                    "f-monotone"
+
+; an element of a subset is an element
+show $X ⊂ $Y ∧ $x ∈ $X  ⇒  $x ∈ $Y                                      "subset-elim"
+proof
+    assume $X ⊂ $Y ∧ $x ∈ $X
+        ∀ $c ($c ∈ $X  ⇒  $c ∈ $Y)                     ; subset
+        $x ∈ $X  ⇒  $x ∈ $Y
+        $x ∈ $Y
+qed
+
+; the intersection of the pre-fixed points
+def L = {x ∈ A | ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  x ∈ S)}                     "L"
+
+show L ∈ Pow(A)                                                        "L-in-pow"
+proof
+    let c
+        assume c ∈ L
+            c ∈ {x ∈ A | ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  x ∈ S)}
+            c ∈ A                                      ; separation-in
+    L ⊂ A
+qed
+
+; L is below every pre-fixed point
+show $S ∈ Pow(A) ∧ f $S ⊂ $S  ⇒  L ⊂ $S                                 "L-below"
+proof
+    assume $S ∈ Pow(A) ∧ f $S ⊂ $S
+        let c
+            assume c ∈ L
+                c ∈ {x ∈ A | ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  x ∈ S)}
+                c ∈ A ∧ ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  c ∈ S)          ; separation
+                ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  c ∈ S)
+                f $S ⊂ $S  ⇒  c ∈ $S
+                c ∈ $S
+        L ⊂ $S
+qed
+
+; f L ⊂ L: f L is below every pre-fixed point S, since L ⊂ S gives f L ⊂ f S ⊂ S
+show f L ⊂ L                                                           "f-L-below"
+proof
+    L ∈ Pow(A)
+    (L, f L) ∈ f ∧ f L ∈ Pow(A)                        ; apply-in
+    f L ∈ Pow(A)
+    f L ⊂ A                                            ; power-set
+    ∀ $c ($c ∈ f L  ⇒  $c ∈ A)                         ; subset
+    ∀ T ∈ Pow(A) (L ⊂ T  ⇒  f L ⊂ f T)                 ; f-monotone
+    let c
+        assume c ∈ f L
+            c ∈ f L  ⇒  c ∈ A
+            c ∈ A
+            let S ∈ Pow(A)
+                assume f S ⊂ S
+                    L ⊂ S                              ; L-below
+                    L ⊂ S  ⇒  f L ⊂ f S
+                    f L ⊂ f S
+                    c ∈ f S                            ; subset-elim
+                    c ∈ S                              ; subset-elim
+            ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  c ∈ S)
+            c ∈ A ∧ ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  c ∈ S)
+            c ∈ {x ∈ A | ∀ S ∈ Pow(A) (f S ⊂ S  ⇒  x ∈ S)}    ; separation
+            c ∈ L
+    f L ⊂ L
+qed
+
+; the theorem: L is a fixed point, and below every fixed point
+show f L = L ∧ ∀ S ∈ Pow(A) (f S = S  ⇒  L ⊂ S)                         "knaster-tarski"
+proof
+    ; L ⊂ f L: f L is a pre-fixed point too, by monotonicity
+    L ∈ Pow(A)
+    (L, f L) ∈ f ∧ f L ∈ Pow(A)                        ; apply-in
+    f L ∈ Pow(A)
+    ∀ T ∈ Pow(A) (f L ⊂ T  ⇒  f (f L) ⊂ f T)           ; f-monotone
+    f L ⊂ L  ⇒  f (f L) ⊂ f L
+    f (f L) ⊂ f L
+    L ⊂ f L                                            ; L-below
+    f L ⊂ L ∧ L ⊂ f L
+    f L = L                                            ; eq-def
+    let S ∈ Pow(A)
+        assume f S = S
+            let c
+                assume c ∈ f S
+                    c ∈ S
+            f S ⊂ S
+            S ∈ Pow(A) ∧ f S ⊂ S
+            L ⊂ S                                      ; L-below
+    ∀ S ∈ Pow(A) (f S = S  ⇒  L ⊂ S)
+    f L = L ∧ ∀ S ∈ Pow(A) (f S = S  ⇒  L ⊂ S)
+qed

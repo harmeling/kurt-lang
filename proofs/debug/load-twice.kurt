@@ -4,7 +4,16 @@ sandbox
     load modal
     true
     summary
+; `□` (modal.kurt's "necessarily") is gone too, not just its axioms -- a bare `□ true` is read as
+; the undeclared constant `□` applied to `true`, with no rule to derive it
+expect "ProofError" "`□` was never declared or used before"
+    □ true
 sandbox
     load modal    ; should be alright
     true
 true
+
+; and its symbols are gone with it: `⊢` is modal.kurt's prefix operator, a new symbol here
+; (with modal.kurt still loaded, declaring it is an error)
+prop ⊢
+use ⊢

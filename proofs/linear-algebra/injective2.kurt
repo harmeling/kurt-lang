@@ -10,17 +10,19 @@ load equality
 ; task: prove that the composition of two injective functions is injective
 
 infix ∘ 40 40                  ; composition
+var φ, ψ, χ, ω                 ; operator variables: an operator is no object (doc/kurt-doc.md §5.3),
+arity φ 1, ψ 1, χ 1, ω 1       ; so the functions that `∘` composes are operator parameters
 
 use (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)    "lemma"
 
-def ($f ∘ $g)($x) = $f($g($x))                                    "def of composition"
-def injective($f)  iff  ∀$x ∀$y ($f($x) = $f($y)  ⇒  $x = $y)   "def of injective"
+def (φ ∘ ψ)($x) = φ(ψ($x))                                        "def of composition"
+def injective((φ))  iff  ∀$x ∀$y (φ($x) = φ($y)  ⇒  $x = $y)     "def of injective"
 
-show ($a ∘ $b)($c) = ($d ∘ $e)($f) implies $a($b($c)) = $d($e($f))  "composition rule"
+show (φ ∘ ψ)($c) = (χ ∘ ω)($f) implies φ(ψ($c)) = χ(ω($f))  "composition rule"
 proof
-    assume ($a ∘ $b)($c) = ($d ∘ $e)($f)
-        ($a ∘ $b)($c) = $d($e($f))
-        $a($b($c)) = $d($e($f))
+    assume (φ ∘ ψ)($c) = (χ ∘ ω)($f)
+        (φ ∘ ψ)($c) = χ(ω($f))
+        φ(ψ($c)) = χ(ω($f))
 qed
 
 const f, g

@@ -9,7 +9,7 @@
 ; formula, different (internally generated) name for the nested bound variable. See
 ; doc/kurt-soundness.md #3.3.
 load logic
-bool R
+prop R
 arity R 2
 use exists x (forall y (R x y))
 pick c with forall y (R c y)

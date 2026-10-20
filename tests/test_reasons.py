@@ -46,17 +46,17 @@ class TestReasons(unittest.TestCase):
 
     def test_a_conjunction_is_and_intro(self):
         # it was "by equal-elim(5, 7, 7)", then "by iff-reflexive(7, 7)"
-        r = reasons('load numbers\nbool A\nuse A\nA and A\n')
+        r = reasons('load numbers\nprop A\nuse A\nA and A\n')
         self.assertEqual(r['A and A'], '4 by and-intro(3, 3)')
 
     def test_modus_ponens(self):
-        r = reasons('load prop\nbool A, B\nuse A implies B\nuse A\nB\n')
+        r = reasons('load propositional\nprop A, B\nuse A implies B\nuse A\nB\n')
         self.assertEqual(r['B'], '5 by 3(4)')
 
 
     def test_a_closed_sandbox_by_its_lines(self):
         # numbered by the line after it -- at the end of a file of 4 lines: "5 closed" (2026-10-14)
-        out = kurt.check_text('load prop\nbool A\nsandbox\n    use A\n    A\n').output
+        out = kurt.check_text('load propositional\nprop A\nsandbox\n    use A\n    A\n').output
         self.assertIn('; 3-5 closed, its content is discarded', out)   # (from the `sandbox` line that opened it, like any block; 2026-10-15)
 
 

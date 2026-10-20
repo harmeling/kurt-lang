@@ -1,0 +1,4 @@
+; `sort` inside `assume` (see ../grammar-declaration-in-a-block.kurt)
+prop A
+assume A
+    sort nat

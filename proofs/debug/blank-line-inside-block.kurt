@@ -7,7 +7,7 @@
 ; blocks early and skipping real content that was never actually parsed (if the blank line came
 ; after an ordinary statement mid-block). Fixed in `read_eval_loop`: a blank line (and not
 ; already mid-statement) is now skipped outright, never fed through the indentation logic.
-bool A, B
+prop A, B
 
 ; case 1: blank line immediately after a block-opening keyword, before its first real line
 show A implies A

@@ -1,5 +1,5 @@
 ; each misuse of a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`,
-; `bindop`, `flat`, `sym`, `chain`, `alias`, `var`, `const`, `bool`) is rejected with an error,
+; `bindop`, `flat`, `sym`, `chain`, `alias`, `var`, `const`, `prop`) is rejected with an error,
 ; and the declaration isn't half-done -- see doc/kurt-doc.md §4
 infix   plus 60 60
 prefix  neg 80
@@ -44,7 +44,7 @@ expect "EvalError"
 arity b 2
 bindop b
 expect "EvalError"
-    bool b 0 1
+    prop b 0 1
 
 ; `flat` and `sym` are for infix operators, once
 expect "EvalError"
@@ -61,7 +61,7 @@ expect "EvalError"
 ; a chain needs different infix operators, and no cycle with other chains
 infix lt 20 20
 infix le 20 20
-bool lt 0, le 0
+prop lt 0, le 0
 chain le lt
 infix ge 20 20
 expect "EvalError"
@@ -71,13 +71,13 @@ expect "EvalError"
 expect "EvalError"
     chain lt le
 
-; `bool` once per symbol, and not after its first use
-bool P
+; `prop` once per symbol, and not after its first use
+prop P
 expect "EvalError"
-    bool P
+    prop P
 use c = c plus c
 expect "EvalError"
-    bool plus 0
+    prop plus 0
 expect "EvalError"
     const c plus
 expect "EvalError"
@@ -95,7 +95,7 @@ expect "EvalError"
 expect "EvalError"
     alias only
 expect "EvalError"
-    bool Q 1 2 3 4
+    prop Q 1 2 3 4
 expect "EvalError"
     postfix bang
 expect "EvalError"
@@ -134,9 +134,9 @@ expect "EvalError"
 expect "EvalError"
     load no-such-theory
 
-; an alias must be a new name, without declarations of its own -- set.kurt had `bool ∈ 0` and then
+; an alias must be a new name, without declarations of its own -- set.kurt had `prop ∈ 0` and then
 ; `alias ∈ in`, and the two declarations could have differed (2026-10-02)
-bool el 0
+prop el 0
 expect "EvalError"
     alias el plus
 true

@@ -6,8 +6,8 @@ import kurt.kurt as kurt
 # prove, the latest facts, what could come next. It replaces `mode`, `level`, `context` and
 # `trail` (2026-10-09).
 
-PROOF = '''load prop
-bool A, B, C
+PROOF = '''load propositional
+prop A, B, C
 use A or B
 use A implies C
 use B implies C

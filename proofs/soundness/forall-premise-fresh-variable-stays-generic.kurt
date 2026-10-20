@@ -4,7 +4,7 @@
 ; so `$T` depended on `$x` after all, and `Q` followed, although "some term equals every x"
 ; only holds in a domain with a single element
 load equality
-bool Q
+prop Q
 use $a ^ 1 = $a
 use (forall $x ($x = $T)) implies Q    "attack"
 expect "ProofError"

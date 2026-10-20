@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# The runtime of n-ary `case` (the speed of the search, doc/dev-notes.md): for n alternatives `A1 or ... or An`, the goal
+# The runtime of n-ary `case` (the speed of the search, dev/dev-notes.md): for n alternatives `A1 or ... or An`, the goal
 # `G` from one implication per alternative -- written directly (`use Ai implies G`) or as real
 # `case Ai` blocks -- with n unrelated disjunctions and implications in scope. For each n: the time
 # of a fresh process, the time of a check in a session and of the same check again in that
@@ -26,8 +26,8 @@ import kurt.kurt as kurt    # noqa: E402
 def source(n: int, variant: str) -> str:
     alts = [f'A{i}' for i in range(n)]
     noise = [(f'B{j}', f'C{j}', f'H{j}') for j in range(n)]
-    lines = ['load prop',
-             'bool ' + ', '.join(alts + ['G', 'K'] + [s for t in noise for s in t]),
+    lines = ['load propositional',
+             'prop ' + ', '.join(alts + ['G', 'K'] + [s for t in noise for s in t]),
              'use ' + ' or '.join(alts)]
     for b, c, h in noise:            # unrelated: a disjunction, and its cases for another goal
         lines += [f'use {b} or {c}', f'use {b} implies {h}', f'use {c} implies {h}']

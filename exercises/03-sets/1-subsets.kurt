@@ -57,9 +57,10 @@ proof
     todo
 qed
 
-; (g) The power set is monotone: a larger set has more subsets.
+; (g) The power set is monotone: a larger set has more subsets (every element of Pow(A) is one of Pow(B)).
 ;     Hint: an element of Pow(A) is a subset of A ("power-set"). Then use (f) for it.
-show A ⊂ B ⇒ Pow(A) ⊂ Pow(B)
+set X                      ; an element X of Pow(A) is a set (a fact gives no sort: say it)
+show A ⊂ B ⇒ ∀ X ∈ Pow(A) (X ∈ Pow(B))
 proof
     todo
 qed

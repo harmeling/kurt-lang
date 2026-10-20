@@ -14,7 +14,7 @@
 ; (Since then, a condition isn't turned into an implication by the engine at all -- see
 ; doc/kurt-soundness.md §8.11 -- so there is no synthetic token any more.)
 load set, logic
-bool P
+prop P
 arity P 1
 const P, Nat
 expect "ProofError"

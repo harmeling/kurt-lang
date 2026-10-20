@@ -1,9 +1,8 @@
 ; regression test: a bare (unkeyworded) claim can be labelled, exactly like `use`/`show`/`def`
 ; -- every statement, keyworded or not, is parsed through the same `check_expr_label`. `Q` is
 ; only ever established via the labelled bare claim "derived-q" (derived by "impl-elim" from
-; `P`/`P implies Q`, never a bare `use Q`), so it has survived if `bool Q` now raises.
+; `P`/`P implies Q`, never a bare `use Q`), so it has survived if `Q` can be claimed here (`prop Q`
+; raising wouldn't show it -- a top-level declaration is exported anyway, todo 28).
 load load-export-bare-claim-helper
-expect "EvalError"
-    bool Q
-true
+Q
 

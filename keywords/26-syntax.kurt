@@ -6,7 +6,7 @@
 ; shows, but for one symbol on demand, and without needing an example
 ; expression to parse first.
 
-bool A
+prop A
 syntax implies
 
 ; With no argument, `syntax` prints *all* declared syntax, at every level:

@@ -1,0 +1,4 @@
+; `postfix` inside `let` (see ../grammar-declaration-in-a-block.kurt)
+load logic
+let x
+    postfix foo 80

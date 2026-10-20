@@ -15,5 +15,5 @@ var a
 parse [a]
 
 ; Giving it meaning is up to you, exactly like for `infix`/`prefix`/
-; `postfix`: declare an `arity`/`bool` signature if needed, then add `use`
+; `postfix`: declare an `arity`/`prop` signature if needed, then add `use`
 ; axioms about it.

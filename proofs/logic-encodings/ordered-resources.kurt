@@ -8,7 +8,7 @@ infix * 50 50
 infix ⊢ 10 10
 
 const *, ⊢
-bool ⊢ 0
+prop ⊢ 0
 
 var A, B, Γ, Δ
 

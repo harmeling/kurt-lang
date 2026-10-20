@@ -16,12 +16,12 @@ class TestSyntaxSoundness(unittest.TestCase):
         # Before the guard, flattening normalized `f (A f B)` to `A f B`, so these two
         # satisfiable axioms let the prover conclude `false`.
         contradiction = '''\
-load prop
+load propositional
 prefix f 90
 infix f 50 50
 flat f
-bool f 0 1 2
-bool A, B
+prop f 0 1 2
+prop A, B
 use not f (A f B)
 use A f B
 false
@@ -33,12 +33,12 @@ false
         # `x q y` and `y q x` are different binders. Symmetric normalization used to sort
         # both into the same tree, again accepting `false` from consistent assumptions.
         contradiction = '''\
-load prop
+load propositional
 infix q 20 20
 bindop q
 sym q
 var x, y
-bool x, y
+prop x, y
 use not (x q y)
 use y q x
 false
@@ -66,25 +66,25 @@ false
         self.assert_rejected('infix f 20 20\nsym f\nvar f\n', 'already used as a constant')
 
     def test_bool_positions_fit_declared_arity(self):
-        self.assert_rejected('prefix f 90\nbool f 0 2\n', 'between 0 and its arity 1')
-        self.assert_rejected('arity f 1\nbool f 0 2\n', 'between 0 and its arity 1')
-        self.assert_rejected('bool f 0 2\narity f 1\n', 'more than 1 arg')
-        self.assert_rejected('arity f 2\nbool f 0 1 1\n', 'must be different')
-        self.assert_rejected('bool f 0 1\narity f 2\nbindop f\n', 'first position')
+        self.assert_rejected('prefix f 90\nprop f 0 2\n', 'between 0 and its arity 1')
+        self.assert_rejected('arity f 1\nprop f 0 2\n', 'between 0 and its arity 1')
+        self.assert_rejected('prop f 0 2\narity f 1\n', 'more than 1 arg')
+        self.assert_rejected('arity f 2\nprop f 0 1 1\n', 'must be different')
+        self.assert_rejected('prop f 0 1\narity f 2\nbindop f\n', 'first position')
 
     def test_calculator_result_type_is_fixed(self):
-        self.assert_rejected('builtin f add\nbool f 0\n', 'non-boolean result')
-        self.assert_rejected('bool f 0\nbuiltin f add\n', 'non-boolean result')
+        self.assert_rejected('builtin f add\nprop f 0\n', 'non-boolean result')
+        self.assert_rejected('prop f 0\nbuiltin f add\n', 'non-boolean result')
         result = kurt.check_text('builtin r eq\n')
         self.assertTrue(result.ok, result.error)
         self.assertIn('const r', result.output)
-        self.assertIn('bool r 0', result.output)
+        self.assertIn('prop r 0', result.output)
 
     def test_declaration_categories_are_order_independent(self):
         for fixity in ('prefix f 90', 'infix f 50 50', 'postfix f 90'):
             with self.subTest(fixity=fixity):
                 self.assert_rejected(f'arity f 2\n{fixity}\n', 'explicit arity')
-        for prior in ('arity left 1', 'bool left', 'builtin left add'):
+        for prior in ('arity left 1', 'prop left', 'builtin left add'):
             with self.subTest(prior=prior):
                 self.assert_rejected(f'{prior}\nbrackets left right\n', 'already has an')
         self.assert_rejected('builtin f add\nvar f\n', 'already used as a constant')
@@ -92,11 +92,11 @@ false
         self.assert_rejected('builtin f add\nalias f true\n', 'already a constant')
 
     def test_bool_on_left_bracket_types_the_bracket_expression(self):
-        result = kurt.check_text('brackets [ ]\nbool [ 0 1\nuse [true]\nbool\n')
+        result = kurt.check_text('brackets [ ]\nprop [ 0 1\nuse [true]\nprop\n')
         self.assertTrue(result.ok, result.error)
-        self.assertIn('bool [ 0 1', result.output)
+        self.assertIn('prop [ 0 1', result.output)
         self.assertNotIn('$$$', result.output)
-        self.assert_rejected('brackets [ ]\nbool ]\n', 'left bracket')
+        self.assert_rejected('brackets [ ]\nprop ]\n', 'left bracket')
         calc = kurt.check_text('brackets [ ]\nbuiltin [ ] matrixbrackets\n')
         self.assertTrue(calc.ok, calc.error)
         self.assertIn('builtin [ ] matrixbrackets', calc.output)
@@ -136,7 +136,7 @@ false
         cases = (
             ('prefix f 10, f 20', 'prefix', 'prefix f '),
             ('const a, a', 'const', 'const a '),
-            ('bool A, A', 'bool', 'bool A '),
+            ('prop A, A', 'prop', 'prop A '),
             ('arity f 1, f 2', 'arity', 'arity f '),
         )
         for declaration, query, leaked in cases:

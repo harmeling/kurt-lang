@@ -1,0 +1,48 @@
+; one sort per use (todo 35, doc/kurt-soundness.md §8.42): all polymorphic binders (`$$x`) of one
+; use of a rule range over the same sort. Each was relativized on its own before, so
+; "existsunique-intro" took its `∃! $$x` over `any` and its `∀ $$y` over `real`: uniqueness among
+; the numbers then gave `∃!` among all objects, and `false` followed from consistent facts
+; (S = {1, a}, `a` no number). Found 2026-10-19; the search (`binder_target`,
+; `poly_sort_of_outer_foralls`, `impl_elim`) and the kernel (`k_poly_sorts`) check it
+load natural
+
+const S, a
+use a ∈ S
+use 1 ∈ S
+use ¬(a = 1)
+sandbox
+    any x
+    real y
+    use ∀ y (y ∈ S ⇒ y = 1)             ; (over the numbers: consistent, `a` is none)
+    1 ∈ S ∧ ∀ y (y ∈ S ⇒ y = 1)
+    ∃ x (x ∈ S ∧ ∀ y (y ∈ S ⇒ y = x))   ; `x` over `any`, `y` over `real`
+    expect "ProofError"
+        ∃! x (x ∈ S)                      ; was: "existsunique-intro" with two sorts
+
+; the same over one sort is fine: `default any`, the schema over everything
+sandbox
+    default any
+    const T
+    use 1 ∈ T
+    use ∀ z (z ∈ T ⇒ z = 1)
+    ∃! w (w ∈ T)                          ; by "existsunique-intro", the `∀ $$y` over `any` too
+
+; ... and "forall-cond-def" with both binders over the numbers
+sandbox
+    real u, v
+    const R
+    use ∀ v (v ∈ R ⇒ v + 0 = v)
+    ∀ u ∈ R (u + 0 = u)
+
+; ... and `∃!` over the numbers, from its definition and by "existsunique-intro" (both refused
+; before 2026-10-19: the `$$y` of the rule went through the `sub`'s sort check before one sort per
+; use gave it the sort of `$$x`, and a stripped `∀ $$y` premise was over all objects)
+sandbox
+    real u, v
+    const R
+    use 1 ∈ R
+    use ∀ v (v ∈ R ⇒ v = 1)
+    ∃! u (u ∈ R)                         ; by "existsunique-intro", over the numbers
+    1 ∈ R ∧ ∀ v (v ∈ R ⇒ v = 1)
+    ∃ u (u ∈ R ∧ ∀ v (v ∈ R ⇒ v = u))
+    ∃! u (u ∈ R)                         ; by "existsunique-def"

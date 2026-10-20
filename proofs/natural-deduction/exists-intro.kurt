@@ -2,7 +2,7 @@
 load logic
 load equality
 
-bool  prime
+prop  prime
 arity prime 1        ; `prime` expects exactly one argument
 
 use prime 2

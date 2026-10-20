@@ -6,7 +6,7 @@
 load 06-subspaces
 brackets ⟨ ⟩
 infix > 20 20
-bool > 0
+prop > 0
 use $a > 0  ⇒  $a ≠ 0                                                "greater-zero"
 
 ; lecture 23, Definition: an inner product is a map V × V → ℝ, (x, y) ↦ ⟨x, y⟩, with (S1)-(S3)

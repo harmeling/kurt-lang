@@ -1,0 +1,30 @@
+; `lean SYMBOL LEAN` (how `kurt --lean` writes a symbol with Mathlib, doc/kurt-doc.md `--lean`):
+; the places of the arguments are $1 to $N, and `lean Obj TYPE` names a type, no places
+load numbers
+lean ⊕ $1 ⊕ $2
+lean - opaque $1
+expect "EvalError" "the places of the arguments are $1 to $2"
+    lean f g $2
+expect "EvalError" "the places of the arguments are $1 to $3"
+    lean f g $1 $3
+expect "EvalError" "names the Lean type of the objects"
+    lean Obj ℝ $1
+; `lean real TYPE`: the Lean type of a sort (numbers.kurt's `lean real ℝ`) -- no places either
+expect "EvalError" "names the Lean type of the sort `real`"
+    lean real ℝ $1
+expect "EvalError" "write `lean SYMBOL LEAN`"
+    lean f
+
+; `lean "label" TACTIC`: a proof in Lean of the file's fact "label" (`kurt --lean` writes the fact as
+; a `theorem` with it) -- raw to the end of the line, so no comment after it; only for a fact of this
+; file before it, at the top level
+use $a + 0 = $a "zero-right"
+lean "zero-right" intros; ring
+expect "EvalError" "of this file before it"
+    lean "nothing" intros; ring
+show 1 = 1 "one"
+proof
+    expect "EvalError" "only at the top level"
+        lean "one" rfl
+    1 = 1
+qed

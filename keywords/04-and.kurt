@@ -4,7 +4,7 @@
 ; Two already-proven facts can always be combined into a conjunction -- the
 ; rule is called "and-intro", and it is hard-coded, no `load` required:
 
-bool A, B
+prop A, B
 
 use A
 use B
@@ -14,11 +14,11 @@ A and B                 ; "and-intro"
 ; the same automatic way -- you have to state the particular instance you
 ; need as an axiom yourself:
 
-bool C, D
+prop C, D
 use C and D
 use C and D implies C
 C
 
-; Lesson 10 ("load") shows how to pull in the ready-made `prop` theory, which
+; Lesson 10 ("load") shows how to pull in the ready-made `propositional` theory, which
 ; gives you a general `and-elim` (and `or`, `not`, `iff`, ...) once and for
 ; all, so you no longer have to spell out instances like the one above.

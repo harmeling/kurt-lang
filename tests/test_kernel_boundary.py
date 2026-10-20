@@ -20,7 +20,6 @@ ALLOWED = {
     # the read-only view of the knowledge base for one check
     'k_env',
 }
-ONLY_IN_BLOCK: set[str] = set()
 SEARCH = {'equal_expr', 'unify_exprs_with_patterns', 'match_against_sub', 'impl_elim', 'derive_expr',
           'trigger_sub', 'apply_subst', 'capture_avoiding_replace', 'rename_all_vars', 'match_all_theory',
           'unpack_condition', 'binder_reading', 'binder_reading_changes'}
@@ -44,8 +43,6 @@ class TestKernelBoundary(unittest.TestCase):
         calls = self.calls()
         self.assertFalse(set(calls) & SEARCH, {n: calls[n] for n in set(calls) & SEARCH})
         self.assertFalse(set(calls) - ALLOWED, {n: calls[n] for n in set(calls) - ALLOWED})
-        for name in ONLY_IN_BLOCK & set(calls):
-            self.assertEqual(calls[name], {'kernel_verify_block'}, name)
 
 
 S = lambda v: Token('SYMBOL', v)

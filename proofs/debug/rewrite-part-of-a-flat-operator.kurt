@@ -14,6 +14,7 @@ use $c ∈ K ∧ $d ∈ K  ⇒  $c · $d = $d · $c          "times-commutative"
 use x ∈ K
 use l ∈ K
 use a ∈ K
+use b ∈ K                                           ; (so that only the order can fail below)
 use - 1 ∈ K
 
 use L = x · x + x + (- x) + (- 1)
@@ -22,5 +23,5 @@ L = x · x + 0 + (- 1)                               ; `x + (- x)` inside the su
 use y = b · l · a
 y = b · a · l                                       ; neighbours swapped
 ; not two factors that aren't neighbours (`·` is not `sym`)
-expect "ProofError"
+expect "ProofError" "can not derive `y = (a · l · b)`"
     y = a · l · b

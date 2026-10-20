@@ -1,5 +1,5 @@
-load prop
-bool p
+load propositional
+prop p
 
 ; what to show
 show p iff p

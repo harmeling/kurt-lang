@@ -1,7 +1,7 @@
 ; Grammar and semantic properties must not combine in ways that make normalization change the
 ; expression's meaning. These combinations once let satisfiable axioms prove `false`.
 
-load prop
+load propositional
 
 expect "EvalError" "can not be `flat`"
     prefix f 90
@@ -29,13 +29,13 @@ expect "EvalError" "explicit arity"
 
 expect "EvalError" "between 0 and its arity 1"
     prefix p 90
-    bool p 0 2
+    prop p 0 2
 
 expect "EvalError" "non-boolean result"
     builtin arithmetic add
-    bool arithmetic 0
+    prop arithmetic 0
 
 expect "EvalError" "first position"
-    bool binder 0 1
+    prop binder 0 1
     arity binder 2
     bindop binder

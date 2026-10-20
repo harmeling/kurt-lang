@@ -16,7 +16,7 @@
 ; From set.kurt: `x ∈ A`, `A ⊂ B`, `A ∩ B`, `A ∪ B`, `∅`, `{x ∈ A | P(x)}`; from equality.kurt
 ; `x ≠ y`.
 ;
-; The rules (with set.kurt, and with it prop.kurt, logic.kurt and equality.kurt):
+; The rules (with set.kurt, and with it propositional.kurt, logic.kurt and equality.kurt):
 ;
 ;     "reflexive"       reflexive(R, A) ⇔ ∀ x ∈ A ((x, x) ∈ R)
 ;     "symmetric"       symmetric(R) ⇔ ∀ x ∀ y ((x, y) ∈ R ⇒ (y, x) ∈ R)
@@ -39,7 +39,7 @@
 load set
 
 arity reflexive (_, _), symmetric 1, transitive 1, antisymmetric 1, equivalence (_, _), order (_, _), class (_, _, _)
-bool reflexive 0, symmetric 0, transitive 0, antisymmetric 0, equivalence 0, order 0
+prop reflexive 0, symmetric 0, transitive 0, antisymmetric 0, equivalence 0, order 0
 
 def reflexive($R, $A) ⇔ ∀ x ∈ $A ((x, x) ∈ $R)                                     "reflexive"
 def symmetric($R) ⇔ ∀ x ∀ y ((x, y) ∈ $R ⇒ (y, x) ∈ $R)                            "symmetric"

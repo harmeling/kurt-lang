@@ -24,7 +24,11 @@ class TestSubtractionLaws(unittest.TestCase):
                 and re.search(r'"([a-z-]+)"\s*$', line).group(1) in LAWS]
         self.assertEqual(len(laws), len(LAWS))
         self.assertIn('"sub-def"', theory)
-        without = '\n'.join(line for line in theory.splitlines() if line not in laws) + '\n'
+        # (and their proofs in Lean, `lean "sub-zero" ...`, which need the facts)
+        proofs_in_lean = [line for line in theory.splitlines()
+                          if (m := re.match(r'lean "([a-z-]+)" ', line)) and m.group(1) in LAWS]
+        self.assertTrue(proofs_in_lean)
+        without = '\n'.join(line for line in theory.splitlines() if line not in laws and line not in proofs_in_lean) + '\n'
         proofs = PROOFS.read_text(encoding='utf-8')
         self.assertEqual(proofs.count('\nshow '), len(LAWS))
         with tempfile.TemporaryDirectory() as tmp:

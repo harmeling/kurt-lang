@@ -19,10 +19,11 @@ qed
 var x
 const R
 arity R 2
-bool R 0
+prop R 0
 use ∃ z (R z x)
-expect "ProofError"
+expect "ProofError" "can not find an existential formula that matches the `pick`"
     show ∃ w (R w x)
+
     proof
         pick c with R c x
             ∃ w (R w x)

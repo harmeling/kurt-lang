@@ -13,16 +13,18 @@ class TestExportedVariables(unittest.TestCase):
             return kurt.check_text(main, name=str(root / 'main.kurt'))
 
     def test_named_boolean_variables_stay_schematic_after_load(self):
+        # (a schema that isn't a tautology: `(A implies B) implies (A implies B)` was derived
+        # from propositional.kurt alone, with or without the schema)
         result = self.check_files(
-            'load prop\nvar p, q\nuse (p implies q) implies (p implies q) "schema"\n',
-            'bool p, q\nconst p, q\nload schemas\nbool A, B\n(A implies B) implies (A implies B)\n',
+            'load propositional\nvar p, q\nuse (p implies q) implies (q implies p) "schema"\n',
+            'prop p, q\nconst p, q\nload schemas\nprop A, B\n(A implies B) implies (B implies A)\n',
         )
         self.assertTrue(result.ok, result.error)
 
     def test_plain_variable_names_and_inferred_types_do_not_cross(self):
         result = self.check_files(
-            'load prop\nvar p, q\nuse p and q "pq"\n',
-            'load schemas\nbool p, q\nconst p, q\nbool A, B\nA and B\n',
+            'load propositional\nvar p, q\nuse p and q "pq"\n',
+            'load schemas\nprop p, q\nconst p, q\nprop A, B\nA and B\n',
         )
         self.assertTrue(result.ok, result.error)
         self.assertIn('A and B', result.output)
@@ -73,7 +75,7 @@ class TestExportedVariables(unittest.TestCase):
 
     def test_schema_distinguishes_boolean_variables_and_preserves_source_comment(self):
         result = kurt.check_text(
-            'load prop\n'
+            'load propositional\n'
             'var p, q\n'
             'use p implies q "rule" ; source note\n'
         )

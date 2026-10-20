@@ -9,7 +9,7 @@
 ; `true`/`implies`/`and`. Found via proofs/linear-algebra/injective2.kurt, which
 ; exercises the same thing in a full proof (there with `$x`/`$y`, as here).
 load logic
-bool Q
+prop Q
 arity Q 1
 const z
 use Q z

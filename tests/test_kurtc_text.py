@@ -46,7 +46,7 @@ class TestKurtcText(unittest.TestCase):
             self.assertEqual(run(bad + 'c').returncode, 0)
             # `-p`: a theory found there, also for the `.kurtc`
             with open(os.path.join(teacher, 'axioms.kurt'), 'w', encoding='utf-8') as f:
-                f.write('bool C\nuse C "c"\n')
+                f.write('prop C\nuse C "c"\n')
             good = os.path.join(tmp, 'good.kurt')
             with open(good, 'w', encoding='utf-8') as f:
                 f.write('load axioms\nC\n')

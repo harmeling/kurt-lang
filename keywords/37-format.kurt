@@ -8,8 +8,8 @@
 ; (For a LaTeX or Markdown document of a proof: `kurt --latex FILE`, `kurt --markdown FILE`,
 ; with `-o OUT` or `-o -` for another file or the standard output.)
 
-load prop
-bool A, B, C
+load propositional
+prop A, B, C
 
 format sexpr
 use A

@@ -12,13 +12,13 @@ let $a ∈ Int, $b ∈ Int, $c ∈ Int
 associative(Int, (+))
 
 let $a ∈ Int
-    $a + 0 = $a
     0 + $a = $a
-    $a + 0 = $a ∧ 0 + $a = $a
 identity(Int, (+), 0)
 
 let $v ∈ Int
-    ((($v + (- $v)) = 0) ∧ (((- $v) + $v) = 0) ∧ ((- $v) ∈ Int))
+    ((- $v) ∈ Int ∧ (((- $v) + $v) = 0))
 inverse(Int, (+), 0, (-))
 
 group(Int, (+), 0, (-))
+; NOT YET (todo 35): group.kurt's `closed` binds `a`, `b` over any object, but `+` of the integers
+; takes numbers: a structure over a particular sort needs the carrier's sort to be a parameter

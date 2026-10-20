@@ -8,16 +8,16 @@
 ; relating them.
 ;
 ; loaded (directly or transitively) by nearly every other theory here -- logic.kurt,
-; equality.kurt, set.kurt, and numbers.kurt all `load prop` first.
+; equality.kurt, set.kurt, and numbers.kurt all `load propositional` first.
 
 ;; builtin syntax
 ; infix  implies 13 12  ; logical implies, right associative (since 13>12)
-; bool   implies 0 1 2  ; and and its inputs have type bool
+; prop   implies 0 1 2  ; and and its inputs have type prop
 ; infix  and     16 16  ; logical and
-; bool   and     0 1 2  ; and and its inputs have type bool
+; prop   and     0 1 2  ; and and its inputs have type prop
 ; flat   and            ; (a and b) and c  iff  a and b and c
 ; sym    and            ; a and b  iff  b and a
-; bool   true           ; true has type bool
+; prop   true           ; true has type prop
 alias  ⊤ true
 alias  ⇒ implies
 alias  ∧ and
@@ -27,11 +27,11 @@ prefix not        18     ; logical not
 infix  or      14 14     ; logical or
 infix  invimplies 13 12  ; logical implies backwards, right associative (since 13>12)
 infix  iff     10 10     ; logical if-and-only-if
-bool   not     0 1       ; `not` and its inputs have type bool
-bool   or      0 1 2     ; `or` and its inputs have type bool
-bool   invimplies 0 1 2  ; `invimplies` and its inputs have type bool
-bool   iff     0 1 2     ; `and` and its inputs have type bool
-bool   false             ; false has type bool
+prop   not     0 1       ; `not` and its inputs have type prop
+prop   or      0 1 2     ; `or` and its inputs have type prop
+prop   invimplies 0 1 2  ; `invimplies` and its inputs have type prop
+prop   iff     0 1 2     ; `and` and its inputs have type prop
+prop   false             ; false has type prop
 ; the meaning the engine gives these symbols (and nothing has it by its name alone): an `iff`
 ; fact is used as two implications, `case` splits an `or`, an `assume` block whose last line is
 ; `false` also gives `not` of its assumption, and `def` may define with `iff`
@@ -159,3 +159,33 @@ proof
     not not (%A or not %A)
     %A or not %A
 qed
+
+;; `kurt --lean`: `invimplies` is Lean's `→` backwards (what "invimplies-def" says)
+lean invimplies ($2 → $1)
+
+;; the rules as theorems of Lean's logic (`kurt --lean`, doc/kurt-doc.md): each fact's proof in
+;; Lean, `lean "label" TACTIC` -- the export writes the rule as a `theorem` with it, which Lean
+;; checks (never trusted by Kurt). `grind` (Lean's own, classical) proves each of them; Kurt's
+;; theorems above too, for the export of a proof that cites one
+lean "and-intro" grind
+lean "and-elim" grind
+lean "or-intro" grind
+lean "or-elim" grind
+lean "or-elim-3" grind
+lean "or-elim-4" grind
+lean "invimplies-def" grind
+lean "iff-intro" grind
+lean "iff-elim-forward" grind
+lean "iff-elim-backward" grind
+lean "iff-reflexive" grind
+lean "iff-subst" grind
+lean "top-elim" grind
+lean "iff-true-elim" grind
+lean "iff-true-intro" grind
+lean "bottom-intro" grind
+lean "bottom-elim" grind
+lean "not-intro" grind
+lean "not-elim" grind
+lean "not-not-intro" grind
+lean "not-not" grind
+lean "excluded-middle" grind

@@ -15,7 +15,7 @@ expect "EvalError"
 ; a file's own operators can still be chained after the frozen ones: `a = b and b lt c`
 ; concluding `a lt c` says nothing new about `=`
 infix lt 20 20
-bool lt 0
+prop lt 0
 expect "EvalError"
     chain lt =         ; but this one would conclude `=` from `lt`
 chain = lt

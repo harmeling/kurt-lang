@@ -1,5 +1,5 @@
 ; de Morgan's law
-load prop
+load propositional
 var p, q       ; free variables
 
 ; axioms
@@ -10,31 +10,29 @@ show ¬(p∧q) ≡ ¬p ∨ ¬q    "de-morgan"
 proof
     show  ¬(p∧q) ⇒ ¬p ∨ ¬q
     proof
-        let p, q                   ; locally make them constants
-            assume ¬(p∧q)          ; opens a block
-                assume p           ; opens a block
-                    assume q       ; opens a block
-                        p ∧ q      ; and-intro
-                        ⊥          ; bottom-intro
-                    ¬p ∨ ¬q        ; or-intro
-                assume ¬p
-                    ¬p ∨ ¬q        ; or-intro
-                p ∨ ¬p             ; excluded-middle, restatement
-                ¬p ∨ ¬q            ; or-elim
+        assume ¬(p∧q)          ; opens a block
+            assume p           ; opens a block
+                assume q       ; opens a block
+                    p ∧ q      ; and-intro
+                    ⊥          ; bottom-intro
+                ¬p ∨ ¬q        ; or-intro
+            assume ¬p
+                ¬p ∨ ¬q        ; or-intro
+            p ∨ ¬p             ; excluded-middle, restatement
+            ¬p ∨ ¬q            ; or-elim
     qed
     show ¬p ∨ ¬q ⇒ ¬(p∧q)
     proof
-        let p, q                   ; locally make them constants
-            assume ¬p ∨ ¬q         ; opens a block
-                assume ¬p          ; opens a block
-                    assume p∧q     ; opens a block
-                        p          ; and-elim
-                        ⊥          ; bottom-intro
-                assume ¬q
-                    assume p∧q
-                        q          ; and-elim
-                        ⊥          ; bottom-intro
-                ¬(p∧q)             ; impl-elim
+        assume ¬p ∨ ¬q         ; opens a block
+            assume ¬p          ; opens a block
+                assume p∧q     ; opens a block
+                    p          ; and-elim
+                    ⊥          ; bottom-intro
+            assume ¬q
+                assume p∧q
+                    q          ; and-elim
+                    ⊥          ; bottom-intro
+            ¬(p∧q)             ; impl-elim
     qed
     ¬(p∧q) ≡ ¬p ∨ ¬q               ; iff-intro
 qed
@@ -44,31 +42,29 @@ show ¬(p∨q) ≡ ¬p ∧ ¬q        "de-morgan"
 proof
     show ¬(p∨q) ⇒ ¬p ∧ ¬q
     proof
-        let p, q
-            assume ¬(p∨q)
-                assume p
-                    p ∨ q
-                    ⊥
-                ¬p
-                assume q
-                    p ∨ q
-                    ⊥
-                ¬q
-                ¬p ∧ ¬q
+        assume ¬(p∨q)
+            assume p
+                p ∨ q
+                ⊥
+            ¬p
+            assume q
+                p ∨ q
+                ⊥
+            ¬q
+            ¬p ∧ ¬q
     qed
     show ¬p ∧ ¬q ⇒ ¬(p∨q)
     proof
-        let p, q             ; locally make them constants
-            assume ¬p ∧ ¬q
-                assume p∨q
-                    assume p
-                        ¬p
-                        ⊥
-                    assume q
-                        ¬q
-                        ⊥
+        assume ¬p ∧ ¬q
+            assume p∨q
+                assume p
+                    ¬p
                     ⊥
-                ¬(p∨q)
+                assume q
+                    ¬q
+                    ⊥
+                ⊥
+            ¬(p∨q)
     qed
     ¬(p∨q) ≡ ¬p ∧ ¬q
 qed

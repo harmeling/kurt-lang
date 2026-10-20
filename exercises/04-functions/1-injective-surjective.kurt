@@ -15,6 +15,7 @@
 
 load theory/maps
 const A, B, C, f, g
+set A, B, C, f, g        ; sets: a fact `f : A → B` gives no sort
 
 ; (a) The identity: a map with f x = x for each x ∈ A is a bijection from A to A.
 ;     Hint: prove `injective(f, A)` and `surjective(f, A, A)` one after the other. For the first,

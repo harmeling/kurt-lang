@@ -6,8 +6,7 @@
 ; leaving the block must not mention the witness.
 
 load logic
-bool P, B, C
-arity P 1                ; P takes one argument (lesson 20)
+prop P, B, C
 const P, B, C
 
 use forall $x (P($x) implies B)
@@ -36,8 +35,7 @@ qed
 ; gives the existential, to `pick` from, and "existsunique-unique" says that two elements with
 ; the property are equal.
 
-bool U
-arity U 1
+prop U
 const U, m, n
 use ∃! x U(x)
 ∃ x U(x)                 ; by existsunique-exists

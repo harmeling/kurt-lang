@@ -1,0 +1,40 @@
+; Statements and terms are two categories: a statement is what is proved (`prop`), a term is an
+; object (`any` and the sorts below it). A statement is no object -- it can't be compared with `=`,
+; be an element of a set, or be the argument of a function (decided 2026-10-20, doc/kurt-doc.md
+; §5.1). Before, the type checker accepted `c = (A ∧ B)` and `A ∈ M`, though the search never put
+; a statement in for a term variable, and the Lean export, where statements are `Prop` and terms
+; `Obj`, wrote such a line as an ill-typed axiom.
+load logic, equality, set
+
+prop A, B
+const c, M
+use c ∈ M                       ; `c` and `M` are terms (an unused constant would become a statement
+                                ; at its first statement place)
+expect "TypeError" "is a statement where a term is required"
+    use c = (A ∧ B)
+expect "TypeError" "is a statement where a term is required"
+    use A ∈ M
+expect "TypeError" "use `⇔`"
+    use (A ∧ B) = (B ∧ A)
+(A ∧ B) ⇔ (B ∧ A)                ; statements are compared with `⇔`
+
+; a function of the theories takes terms
+prop P
+arity P 1
+expect "TypeError" "is a statement where a term is required"
+    use P (A ∨ B)
+
+; the first use of a new operator decides which places take statements -- and that is final
+infix xor 20 20
+use A xor B                     ; `xor` takes two statements
+expect "TypeError"
+    use c xor M                 ; terms at its statement places
+infix plus 20 20
+use c plus M                       ; `plus` takes two terms
+expect "TypeError" "is a statement where a term is required"
+    use A plus B
+
+; a binder's body is what the binder says: a statement for `∀` and `{x ∈ A | F}`
+use ∀ x (x = x)
+const S
+use S = {x ∈ M | x = c}

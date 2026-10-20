@@ -11,7 +11,8 @@
 ; the base case and step are given here as one conjunction; two separate facts work as well
 ; (`by induction(6, 5)`): the premise's conjuncts are matched to facts one by one.
 load natural
-bool P
+default real                  ; `n` of `∀ n ∈ Nat` is a number: induction is about the numbers
+prop P
 arity P 1
 const P
 

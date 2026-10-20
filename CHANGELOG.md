@@ -1,5 +1,253 @@
 # Changelog
 
+## 0.10.0 (2026-10-20)
+
+**Breaking changes** -- a file written for 0.9 needs these edits:
+
+- `bool` is `prop` (`prop A, B`, `prop even 0`), and `load prop` is `load propositional`.
+- The number sort `num` is `real` (`real x`, `default real`); the sets of numbers are `Nat`, `Int`,
+  `Rat`, `Real` (also `ℕ`, `ℤ`, `ℚ`, `ℝ`).
+- A statement is no object (`c = (A ∧ B)`, `A ∈ M` are type errors; compare statements with `⇔`),
+  and an operator is no object (`f = g` of two function symbols; a function as a value is a mapping
+  of set.kurt).
+- Binders and `let` range over terms: `∀ %A`, `let %A` are type errors -- a statement variable is
+  schematic (`use %A ∨ ¬%A`), and a proof about `%A` needs no `let`.
+- The first sorted use of a symbol is final; the core sort `term` is gone (a symbol without a sort
+  is `any`); an unsorted binder ranges over all objects.
+
+- `kurt --version` shows in three lines the version, the path of the `kurt.py` that runs and its
+  SHA-256 (as the banner) -- so the editors' "Kurt: Show Version" says which Kurt runs.
+
+- Fixed: a theory of Kurt opened in an editor (`propositional.kurt`, `set.kurt`) was checked as a
+  stranger's text -- its roles and chains refused, also in every proof that loaded it while it was
+  open. An editor's text at the path of a theory of the running Kurt, unchanged, is that theory now;
+  a changed text stays untrusted.
+
+- Fixed: a theory of Kurt opened by another spelling of its path (Kurt installed through a symbolic
+  link, the editor naming the real path) counted as a file of the user's -- its roles and chains
+  were refused. Paths are compared resolved now.
+
+- The comma of a tuple takes terms: passing a relation `(R)` in a tuple no longer gives the comma a
+  statement place (which made every later `(x, x)` a pair of statements); a statement in a tuple is
+  a type error. A variable that the same formula applies as a relation (`R(x, x)`, `var R; prop R 0`)
+  is an operator parameter, no statement.
+
+- Binders range over terms: `∀ p (p ∨ ¬p)` with a statement `p`, or `∀ %A ...`, is a type error. A
+  statement variable is schematic (`use %A ∨ ¬%A`: for every statement). `let` fixes a term only:
+  `let %A` is a type error; a proof about `%A` needs no `let`.
+
+- `bool` is now `prop` (`prop P`, `prop even 0`, `prop ∧ 0 1 2`), and the theory `prop.kurt` is
+  `propositional.kurt`. `prop` declares statements and is no sort: `sort prop`, `sort any prop` are
+  refused, `sort` doesn't list it. `%A` is called a statement variable. Lesson keywords/01-prop.kurt.
+
+- A statement is no object: a statement at a term place (`c = (A ∧ B)`, `A ∈ M`, `f(A ∨ B)`) is a
+  type error ("use `⇔`" to compare statements). Statements and terms are two categories; the first
+  use of a new operator decides which of its places take statements, and that is final.
+
+- Fixed: a binder whose condition has an `inline` operator bound the wrong variable (`∀ x >= y (P x)`
+  with a new `y` bound `y`); the bound variable is the first symbol as written again. The classic
+  theorems in `proofs/classics/` (todo 44): Cantor, infinitely many primes, the intermediate value
+  theorem, Knaster-Tarski, preservation for a typed λ-calculus, Lagrange up to the counting.
+
+- The number sort is `real` (was `num`): `real x`, `default real`, `lean real ℝ`; the convention
+  "sorts lowercase, sets capitalized" (`real x` vs. `x ∈ Real`, doc/kurt-doc.md §5.2). "ext-num" is
+  "ext-real". New lesson keywords/47-default.kurt.
+
+- The set `Real` (`ℝ`) of all numbers and "ext-real" (natural.kurt): two sets of numbers with the same
+  numbers are equal, for a `default real` file, where `∀ n` ranges over the numbers only; `Nat ⊂ Real`,
+  `Int ⊂ Real`, `Rat ⊂ Real`, all proved in Lean. `ℕ ℤ ℚ ℝ` (`\N \Z \Q \R`) are aliases of `Nat Int Rat
+  Real`. `kurt --lean`: a rule's own Lean proof gets the definitions it unfolds; a chain of `⇔` is
+  proved (by `grind`) with numbers loaded.
+
+- `kurt --lean`: a conjunct of a conjunction ("and-elim") is its projection by position (`h.2.2.1`),
+  before any search; vectorspace.kurt's export, whose twelve conjuncts made `simp` run out of
+  heartbeats, now checks in Lean.
+
+- `default real` yields to the line: in `use A = {n ∈ Nat | n > 2}` a new constant `A` is a set (the
+  sort of the other side of `=`), not a number equal to a set of numbers.
+
+- Operators are no objects (doc/kurt-doc.md §5.3): `f = g` for two function symbols, `P(f)`, a
+  quantifier instantiated with an operator are type errors; a function that is a value is a mapping
+  of set.kurt (`f ∈ A → B`, "function-extensionality", proofs/set-theory/function-extensionality.kurt).
+  An operator is passed only to an operator parameter of a defined predicate: group.kurt's inverse is
+  the operator variable `ι` now, `group(R, (+), 0, (-))` as before.
+
+- Sorts are order-sorted logic, with five rules (doc/kurt-doc.md §5.2, the tutorial's lesson 29;
+  why it is sound: doc/kurt-soundness.md §10, doc/kurt-kernel.md §8): the sorts form a hierarchy
+  with `any` on top (`real ⊂ set ⊂ any`); every symbol without a sort is `any`, and a constant gets
+  its sort at its first sorted use, which is final (no narrowing: a later use at a smaller sort is a
+  type error that says what to declare); a value fits a place of its sort or a bigger one; `∀ x` and
+  `∃ x` range over the sort of `x` (without one over all objects, inside a formula as at its top, so
+  a student's `∀ x` meets extensionality); a rule for every sort writes `$$x`, and one use of it is at
+  one sort (before, "existsunique-intro" over `any` and `real` at once proved `false`). `any` is a
+  core sort (`any x` declares a symbol of all objects); `default any` is the same as no default, the
+  theories and files that had it don't any more. The meet of two sorts is their greatest common
+  subsort. A type error for a symbol that a fact puts in a set says that a fact gives no sort.
+  Removed: the core sort `term` (it was unsound with the first sorted use; `lambda.kurt`'s sort is
+  `term` again) and the declaration of the sort of a set's elements (`real ∈ Nat`, `set ∈ Pow`, `set
+  ∈ →`: a proof that needs `c ∈ Pow(A)` as a set says `set c`). A sort signature after a symbol
+  occurs in a fact is refused.
+
+- A polymorphic rule (`$$x`) rewrites under a `∀` over any sort: "forall-iff" and the other rules
+  with a `∀` premise were used only for binders without a sort; the search and the kernel now let
+  the rule's binder stand for the goal's binder over `set`, `real` or `any`.
+
+- Polymorphic variables `$$x` (todo 35): a rule that holds for every sort writes its bound variable
+  `$$x` (logic.kurt's quantifier rules, "separation"); the search and the kernel check that it
+  occurs only in its binder, in `sub`s and as a side of `=`. This replaces the rule the search
+  computed (a binder that happened to occur only there was used for any smaller sort). `real ∈ Nat`
+  (the sort of a set's elements) is dropped: a sort never comes from a fact; induction needs the
+  variable to be a number (`default real`).
+
+- `kurt --lean`: sets and numbers in one model -- the objects are Mathlib's ZF sets, the numbers
+  the reals, embedded into them by a definition (no axiom); every rule of set.kurt and natural.kurt's
+  notations `{a, ..., c}`, `{a, b, ...}` are theorems; the logical theories' rules are generic
+  over the type, so they apply to numbers and to sets; `lean SORT TYPE` (`lean real ℝ`) gives a
+  sort its Lean type. Of 96 example proofs Lean checks 91 completely (before 89).
+- Sorts with subsorts (`sort set real int`: `int ⊂ real ⊂ set`, read like `chain`), `default SORT`
+  per file, inference of a symbol's sort from its first sorted use in every file (the default
+  decides where a use allows several sorts), `everything set` (the sort of all objects), and `real ∈
+  Nat` (the sort of a set's elements). A number fits where a set is required, a set is no number
+  (`{1, 2} + 0` is a type error); the type checker, the search and the kernel check it. The line
+  output and the hover say how a symbol got its sort. New theory objects.kurt; numbers, natural,
+  integer, rational and analysis are sorted (`default real`), set.kurt has `default set` and the
+  rule "separation-in". doc/kurt-soundness.md §8.41: why extensionality needs elements of every sort.
+- `~/.kurt_history` is written only when the shell added to it: `kurt FILE`, piped input and
+  `--json` rewrote it at every exit (truncated, converted from libedit's format; a shell open
+  meanwhile lost its lines).
+- A type error says how the line was read, as part of the error ("the line was read as `not P`"):
+  the "parsed as: ..." went straight to stderr, outside `check_text`, `--json` and the editors.
+- `def` of an operator declared `sym` or `flat` says so (it said "remove its `const`", which
+  nobody wrote: `sym`/`flat` make the operator a constant).
+- `kurt --lean`: the rules of propositional.kurt, logic.kurt and equality.kurt are theorems of Lean's logic
+  (`lean "label" grind`, no Mathlib needed), `∃!` and `invimplies` by their `lean` templates; a
+  `def` over a tuple (`def coprime($a, $b)`) is a Lean function of two arguments, and the `def`s of
+  what a proof cites are Lean `def`s, so natural.kurt's theorems about `even`, `odd`, `∣`,
+  `coprime` and `⊂`, and rational.kurt's "lowest-terms", are proved in Lean; a numeral without a
+  number theory is a constant of its own (field.kurt's 0 and 1, peano's numerals). Lean checks all
+  72 example proofs completely (before 60); 219 of the theories' 226 rules are Lean theorems.
+- Tests: an audit of the test code (39 bugs). About 20 tests that couldn't fail now fail on the
+  behaviour they guard (the load cache, `info`, exported schemas, strict declarations, the shell's
+  history, the parser's later expressions, n-ary case certificates, the alias cycle, the export of
+  labels over `load`, the pick-witness leak, the `def` with a bound variable, the syntax of all 19
+  theories over `load`); expected errors are pinned to their texts where the file promises a
+  message; no test writes into tests/ or /tmp/.kurt_history or leaves files in /tmp any more;
+  budgets of 3 s for cold processes; the shell test waits for its prompts.
+  `scripts/publish-public.sh` accepts a public checkout that is a git worktree.
+- Fixed: on macOS, a file's steps were taken for another file's -- `kurt --lean` wrote no
+  theorem, the hover of a `load` linked a wrong path, a `.kurtc` was refused. Since 2026-10-15 a
+  loaded file was named by its path with symlinks resolved, and macOS's temporary directory `/var`
+  is a symlink to `/private/var`. A file keeps the name it is found by now; only whether it is
+  loaded already compares resolved paths (`same_file`), so a file through a symlink still counts
+  once. The CI job `macos` had failed since then.
+- `kurt --lean` with Mathlib: the theories' rules are theorems that Lean proves -- a rule's proof
+  is kept with it, `lean "label" TACTIC` (raw to the end of the line; only output, Kurt never reads
+  it), and the export writes it as a `theorem`. All number theories are ℝ now (`Nat`, `Int`, `Rat`
+  its subsets, `lean Nat member ...`; `n!` is Γ(n + 1)); binders have `lean` templates (`lim`,
+  `sum`, `deriv`, `integral`, ...). 187 of the 194 rules of numbers, natural, integer, rational,
+  analysis, continuity, sequences, derivative and integral are proved (not: the definitions of
+  `{a, ..., c}` and `{a, b, ...}`, and "integral-riemann", which isn't in Mathlib); the 15 example
+  proofs about numbers rest on 6 axioms of these theories (before 48). No rule was false.
+- `kurt --lean` with Mathlib: a theory declares how its symbols read in Lean (`lean + $1 + $2`,
+  `lean Obj ℝ`); a proof about numbers is exported with `import Mathlib`, its numerals and `calc`
+  steps (`norm_num`) translated. numbers.kurt and analysis.kurt are ℝ, natural.kurt ℕ, integer.kurt
+  ℤ, rational.kurt ℚ. The lake project scripts/lean and scripts/lean_check.py check an export (not
+  part of the package: Kurt needs neither Lean nor Mathlib). Of 72 example proofs, Lean checks 60
+  completely (before 48), none with errors.
+- A boolean operator without its arguments where a statement is required is a type error: `¬ P`
+  with `arity P 2`, `A ∧ (=)`, `P ⇔ Q` for two predicates -- with a hint how to apply it ("apply it
+  to its 2 arguments, e.g. `P a b`", "write it between its arguments, e.g. `a = b`"). Before, such
+  lines were accepted. The type check also looks inside an operator that is itself an expression
+  (`(¬¬P) c c`). proofs/errors/bare-operator-as-statement.kurt.
+- Soundness: the hole of a `sub` is never cut at an operator position, and a bare operator (`=`,
+  `∧`, a `prop P` of arity 2) is no formula -- in the search (`hole_nodes`, `bare_operator_for`)
+  and in the kernel (`k_is_statement`, `k_has_kind`); "iff-subst" had given `R (c = c)` from
+  `R ((¬¬(=)) c c)` with `%b := =` (soundness §8.40, proofs/soundness/hole-never-at-an-operator.kurt).
+  Operator variables (`var ∘`) are unaffected. The hole may still be cut at an operator that
+  yields a term (`term_operator`): `f = g` rewrites `f a` in one step, `P ⇔ Q` doesn't rewrite
+  `P a` (doc/kurt-doc.md §8.1, "Where the hole of `sub` may be", with both examples).
+- Fixed (soundness): a `$`-variable of a fact could take a formula as its value through
+  "iff-subst": the hole of `sub` was cut at an operator (`=` of `c = c`), and the value `(¬¬=) c c`
+  was not recognized as a formula. Now a node with a compound operator has the kind of its
+  operator, and the kernel checks that every value has the kind of its variable
+  (`k_is_statement`; doc/kurt-soundness.md §8.39, proofs/soundness/term-variable-takes-no-formula.kurt).
+- `load` with up-to-date `.kurtc` files is faster: the theories that come with Kurt are looked up
+  once (the directory was listed on every lookup), a theory taken from the cache shares its
+  formulas instead of copying them, and a chain line replays with the steps it cites (`17a`) --
+  before, every chain line was searched again despite its certificate. `load rational` 1.3 → 0.8 s,
+  field.kurt and vectorspace.kurt 2.7-3.0 → 0.5 s.
+- `kurt --lean`: quantifiers with a condition (`∀ x ∈ A P` as `∀ x, x ∈ A → P`), every other
+  binder as a higher-order constant (`∃!`, `sum`, the set-builder), `def` as a Lean `def` with its
+  equation by `rfl`, `flat`/`sym` as associativity/commutativity axioms, `case` steps, and a symbol
+  used as a function and as an object (`f a`, `f ∈ (A → B)`) as an `Obj` with `k_apply`; a step that
+  can't be translated is a `sorry`, never an error. Of 71 example proofs Lean checks 48 completely
+  (before 38), none with errors (before 7); what remains is numbers.
+- `kurt --foundation FILE`: what each top-level fact rests on -- its class (axiom, definition,
+  todo, theorem) and the axioms, definitions, `todo`s and calculator steps behind its proof, by
+  file, with the reverse index (each postulate, the facts resting on it); `check_file(path,
+  foundation=True)` fills `CheckResult.foundations`, `result.foundation(label)`, `kurt --json`
+  includes them. A `Reason` of a step carries its certificates (`Reason.certificates`); a `qed`
+  admitted by a bare `todo` has a `todo` certificate.
+- Search budgets: `kurt --budget SECONDS`, `RunConfig(time_limit=..., step_limit=..., cancel=...)`;
+  a line whose search runs out of budget fails with a `ResourceError` -- a kind of its own,
+  neither proved nor refuted, which `expect` can't name; `--all-errors` goes on after it.
+  `CheckResult.exhausted`/`.cancelled`, also in `--json`. The language server allows 30 s of
+  search per line (initialization option `budget`, 0 for none) and stops the check of a text that
+  was edited meanwhile; `scripts/grade_exercise.py --budget SECONDS` (30 by default) reports an
+  undecided line apart from a rejection. `scripts/bench_sessions.py`: the time of a cold `load
+  rational` (8.2 s), with the shipped certificates (1.6 s), and again in the same session (0.09 s).
+- The semantic oracle covers the first-order theories: `tests/test_first_order_semantics.py`
+  checks all 13 rules of logic.kurt, both of equality.kurt, propositional.kurt's "iff-subst" (propositional.kurt is
+  complete now) and all 23 statements of set.kurt in small finite models -- domains of 1 to 5
+  elements, transitive universes of 5, 10 and 21 hereditarily finite sets with Kuratowski pairs --
+  in every interpretation (all assignments, all tables of the schema variables, read with the
+  proviso of doc §4.4), apart from the search and the kernel. All hold (doc/kurt-soundness.md
+  §8.25, dev/dev-notes.md 2026-10-16).
+- A named-goal grading API: `CheckResult.proves(statement, label)` says whether a file proves a
+  statement at its top level -- derived there by steps that rest on no `todo` or error, not a
+  `use`, not loaded, not withdrawn; `proof_of` says how it stands ('proved', 'admitted',
+  'assumed', 'loaded', None), `loaded` lists the files a check loaded (also in `--json`). The
+  statement is compared as Kurt reads it (`A ⇒ B` is `A implies B`). `scripts/grade_exercise.py`
+  reports each `show` of the exercise as proved / admitted / missing (labels kept, notation and
+  order free), refuses a file the exercise doesn't load, and runs with all errors; the textual
+  comparison of lines is gone.
+- Speed of the search: a plain symbol has its own bucket in the index of the theory, and
+  `cannot_unify` looks below `=`/`⇔` and refuses a symbol against a term; `sub_solutions` and
+  `guided_rewrite` skip what can't match. `scripts/bench.py` 50.6 → 35.0 s; n `case` blocks with n
+  rules for the goal no longer grow cubically (`scripts/bench_case.py`, n = 64: 3.4 → 0.6 s,
+  n = 128: 1.1 s). Every proof checks as before, with the same reasons.
+- A claim that fails and is propositional (the core and propositional.kurt's connectives over statements)
+  gets a counterexample in its explanation when there is one: an assignment of the atoms under
+  which every fact holds and the claim doesn't, found by truth table (at most 12 atoms), checked
+  again independently -- in the error text, `CheckResult.failure['counterexample']`, `--json` and
+  the LSP diagnostics. Where the facts can't be evaluated (quantifiers, object variables: logic.kurt
+  and everything on it) nothing is said: never a verdict from a search that found nothing
+  (`propositional_counterexample`, `truth_value`).
+- `doc/kurt-spec.md`: the logic of Kurt, specified (short, normative): terms and normal forms,
+  the three kinds of variables (schematic, fixed, bound) and when an instance may depend on a
+  bound variable, binders and their conditions, the step relation, the block rules of natural
+  deduction, which `def` forms are conservative and why, `chain` and `calc`, `load` and the export
+  bundle, trust and `--strict`, the kernel. Linked from `doc/kurt-doc.md`, README.md and CLAUDE.md.
+- doc/kurt-kernel-code.md: the kernel read as code, in the Knuth sense -- each chunk of
+  `kernel_verify`, `kernel_verify_block`, the `k_*` helpers, `Certificate` and `KernelEnv` is cited
+  from kurt.py (`scripts/kernel_doc.py`, by `<!-- cite: ... -->` directives) and explained; a test
+  fails when a chunk no longer is the code (`tests/test_kernel_literate.py`).
+- `info SYMBOL`: prints everything known about one symbol -- its declarations, its `def` (if
+  any), and the retained facts that mention it -- regardless of a loaded file sharing its name
+  (unlike `list`, whose SOURCE is always a file).
+- Fixed: an `expect "KIND"` block whose content finished without raising `KIND` left the shell
+  stuck at the block's indentation, re-raising the same `ExpectationError` on every later line
+  for the rest of the session. The block is now discarded (like a `confirmed` expect, or a
+  `sandbox`) before the error is reported.
+- Fixed: `kurt --lean FILE` silently produced an empty translation under a symlinked working
+  directory (e.g. macOS's `/tmp` -> `/private/tmp`), since `export_lean` compared an `abspath`'d
+  but unresolved path against the resolved path Kurt records elsewhere.
+- A grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`, `bindop`, `flat`,
+  `sym`, `alias`, `sort`) is rejected inside `assume`/`case`/`let`/`pick`/`proof`, the same way
+  `use`/`load`/`def`/`chain`/`inline` already were: its notation was never actually scoped to the
+  block (a formula that survives the block locks in any declaration it needs, permanently) --
+  `block_forbidding_declaration`, doc/kurt-doc.md §11.2.
+
 ## 0.9.0 (2026-10-15)
 
 A change of the language (dev/design-sets-and-brackets.md, §10):

@@ -2,14 +2,14 @@
 ;
 ; Define a constant or function
 ;
-; `def` gives one new symbol a conservative definition. Load `prop` for definitions with `iff`, or
+; `def` gives one new symbol a conservative definition. Load `propositional` for definitions with `iff`, or
 ; `equality`/`numbers` for definitions with `=`.
 
 load numbers
 calc on                          ; exact arithmetic for the steps below (lesson 10)
 
-def four = 2 + 2
-four = 4
+def four = 2 + 2       ; `four` is the term `2 + 2`
+four = 4               ; saying `2 + 2 = 4` is a derivable fact
 
 def square($x) = $x * $x
 square(3) = 9
@@ -33,3 +33,12 @@ square(5) = 25
 ;     const fact
 ;     use fact(0) = 1                                          "factorial-zero"
 ;     use $n in Nat implies fact($n + 1) = ($n + 1) * fact($n) "factorial-step"
+;
+; Unlike `four` above, `fact(3) = 6` is not something Kurt can just calculate: there is no `calc`
+; for a user's own recursive axioms, only for the small set of built-in, provably-terminating
+; arithmetic operations `calc on` folds. "factorial-step" is an axiom Kurt accepted on faith, with
+; no termination or confluence check, so automatically unfolding it until done could loop forever
+; on a badly-stated recursion -- and printing a trusted answer instead of a checked proof would
+; break the rule that every claim gets a reason the kernel can check. So `fact(3) = 6` has to be
+; proved the same way as any other claim: one step at a time, unfolding "factorial-step" by hand
+; (doc/kurt-doc.md §11.1, "Not implemented, maybe never").

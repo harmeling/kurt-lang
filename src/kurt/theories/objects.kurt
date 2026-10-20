@@ -1,0 +1,12 @@
+; objects -- the sorts of the objects of numbers.kurt and set.kurt: every number is a set
+;
+; `real ⊂ set`: a number fits wherever a set is required (`3 ∈ Nat`, `{1, 2}`), but a set doesn't
+; fit where a number is required (`{1, 2} + 0` is a type error). The rules of set.kurt are written
+; once, with `set` variables, and hold for numbers too; the rules of numbers.kurt are about
+; numbers only. Both theories load this file, so the two sorts are declared once, in one file,
+; and a file can load either theory, or both, in any order (doc/kurt-doc.md §5.2).
+sort set real
+; `kurt --lean` (doc/kurt-doc.md, `--lean`): the objects are the sets of Mathlib's model of ZFC, and a
+; sort with a type of its own (numbers.kurt's `lean real ℝ`) is embedded into them -- so a proof that
+; mixes sets and numbers is checked by Lean in one model of both
+lean Obj ZFSet

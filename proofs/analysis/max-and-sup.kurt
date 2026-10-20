@@ -1,6 +1,7 @@
 ; maximum and supremum of the values of `f` on a set `S`: the maximum is a value that is
 ; attained, the supremum only needs an upper bound
 load analysis
+default real               ; the elements of the sets are numbers (the rules of analysis.kurt are about numbers)
 const S, f, g
 arity f 1
 arity g 1

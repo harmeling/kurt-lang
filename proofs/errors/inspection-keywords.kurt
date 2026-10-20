@@ -24,7 +24,7 @@ chain
 alias
 var
 const
-bool
+prop
 use
 def
 theory

@@ -1,0 +1,51 @@
+; the first sorted use of a constant decides its sort, and it is final (decided 2026-10-19,
+; doc/kurt-spec.md §2.4): no later line changes the sort of a symbol. Before, a later use at a
+; smaller sort narrowed it (`x ⊂ A`, then `x + 0 = x`: a set, then a number) -- sound, but a sort
+; that changes later is one more thing to keep in mind. Without a sort a constant is any object;
+; `default real` makes a new constant a number at its first appearance, like a declaration; a fact
+; never gives a sort
+load natural
+const x, A
+use x ⊂ A                         ; `x` is a set
+expect "TypeError" "declare `real x` before that use"
+    use x + 0 = x                 ; a number now? no: the first sorted use decided
+real y
+use y ⊂ A                         ; declared a number: it fits where a set is required
+use y + 0 = y
+
+; a constant at no sorted place has no sort yet: its first sorted use decides
+const z
+use z = z
+use z + 0 = z                     ; `z` is a number from here on
+sort vec
+const h
+arity h 1
+vec h 1
+expect "TypeError" "but here it is used as `vec`"
+    use h(z) = h(z)               ; `z` is a number, not a vector
+
+; a declared sort is final too
+set s
+use s ⊂ A
+expect "TypeError" "must have sort `real`"
+    use s + 0 = s
+
+; a witness has the sort of the existential's variable
+use ∃ y2 (y2 ∈ A)
+pick w with w ∈ A
+    expect "TypeError" "sort"
+        use w + 0 = w
+    true
+
+; a polymorphic rule gives no sort: `Q c` is no use of `c` as a number or a set
+const Q, c
+prop Q
+arity Q 1
+use ∀ n (n + 0 = n ⇒ Q n)
+use Q c
+info c
+
+; the sort of a symbol of a loaded file is that file's: `g` is a set there, and stays one here
+load helpers/narrowing-lib
+expect "TypeError" "but here it is used as `real`"
+    use g + 0 = g

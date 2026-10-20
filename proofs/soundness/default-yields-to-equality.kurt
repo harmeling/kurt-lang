@@ -1,0 +1,21 @@
+; `default real` makes a new constant a number at its first appearance -- unless the line says
+; otherwise: in `A = {n ∈ Nat | n > 2}` the other side of `=` is a set, so `A` is a set (one sort
+; per use of `=`), not a number equal to a set of numbers (decided 2026-10-20; doc/kurt-doc.md §5.2).
+; Before, `A` became a number here, and `A + 1` was a well-formed term.
+load natural
+default real
+
+const A, B
+use A = {n ∈ Nat | n > 2}                 ; `A` is a set (sort inferred)
+use {n ∈ Nat | n > 3} = B                 ; so is `B`, from the left side
+expect "TypeError" "`A` has the sort `set`"
+    use A + 1 = 1 + A
+expect "TypeError" "`B` has the sort `set`"
+    use B + 1 = 1 + B
+
+; a number on the other side, or no sort there: the default as before
+const c, d
+use c = 3
+use d = d
+c + 1 = 3 + 1
+use d + 1 = 1 + d

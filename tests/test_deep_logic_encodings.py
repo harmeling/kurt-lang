@@ -10,7 +10,7 @@ class TestDeepLogicEncodings(unittest.TestCase):
         for alias in ('⊤', '⇒', '∧', '∨', '¬', '∀', '∃'):
             self.assertIsNone(core.get_alias(alias), alias)
 
-        prop = kurt.load_file('prop.kurt', copy.deepcopy(kurt.initial_kb), main=False)
+        prop = kurt.load_file('propositional.kurt', copy.deepcopy(kurt.initial_kb), main=False)
         self.assertEqual(prop.get_alias('⊤'), 'true')
         self.assertEqual(prop.get_alias('⇒'), 'implies')
         self.assertEqual(prop.get_alias('∧'), 'and')

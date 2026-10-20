@@ -5,8 +5,8 @@
 ; Load propositional logic for `not`, `false`, and their rules. Assume the proposition you want to
 ; negate and derive `false`.
 
-load prop
-bool p, q
+load propositional
+prop p, q
 
 use p implies q
 use not q

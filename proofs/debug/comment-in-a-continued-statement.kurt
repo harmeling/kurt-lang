@@ -2,8 +2,8 @@
 ; the lines of a statement were joined first, so the comment swallowed the rest ("unexpected end
 ; of file") -- and Kurt's own output of a multi-row matrix, with the reason as such a comment,
 ; couldn't be pasted back as source (found 2026-10-09)
-load prop
-bool A, B
+load propositional
+prop A, B
 use (A        ; a comment inside the statement
   implies B)  ; and one at its end
 use A

@@ -9,7 +9,7 @@
 ; already treat it correctly once the formula is stored. Before the fix this `def` was
 ; wrongly *rejected* with `got ['x', 'x']` naming `x` as a disallowed new symbol on the RHS.
 load logic
-bool Q
+prop Q
 arity Q 1
 const z
 use Q z

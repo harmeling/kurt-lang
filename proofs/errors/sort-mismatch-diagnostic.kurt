@@ -1,0 +1,26 @@
+; todo 38: a sorted schema variable that can't match an unsorted value used to fail completely
+; silently -- `variable_sorts_allow` (inside `unify_exprs_with_patterns`) just returns `False`,
+; the same way a genuine structural mismatch does, so the rule was simply absent from the search's
+; candidates, with "no rule with a matching conclusion was found" giving no hint why. Found while
+; building proofs/logic-encodings/second-order-leibniz.kurt (dev/todo.md #36).
+;
+; Fix: `failure_explanation`'s diagnostic pass (only reached after a line has already failed, never
+; the live search) retries a non-matching rule's conclusion with sorts ignored (`ignoring_sorts`);
+; if that succeeds, `sort_violations` reports exactly which schema variable needed which sort, and
+; what unsorted value it was given instead.
+
+sort obj
+const a   ; deliberately NOT given sort `obj` -- that's the point
+
+var x
+obj x
+
+arity P 1
+arity Q 1
+use (Q x) implies (P x) "p-rule"
+use Q x "q-always"
+
+; `a` has no declared sort, so `p-rule`'s `x` (sort `obj`) can't bind to it -- the old message gave
+; no hint why; the new one names the rule, the variable, the required sort and the unsorted value
+expect "ProofError" "`p-rule` (line 20): `x` needs sort `obj`, but `a` has no declared sort"
+    P a

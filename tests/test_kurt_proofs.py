@@ -27,8 +27,12 @@ def traversable_rglob(root, pattern=".kurt"):
         elif item.is_dir():
             yield from traversable_rglob(item, pattern)
 
-def is_test_file(path) -> bool:
-    return 'helpers' not in path.parts and path.name != 'minimal.kurt'
+def is_test_file(path, root=proofs_root) -> bool:
+    # (`helpers` below `proofs/`, not anywhere in the path: a checkout in a directory `helpers`
+    # would have skipped every file)
+    path = pathlib.Path(str(path))
+    parts = path.relative_to(root).parts if path.is_relative_to(root) else (path.name,)
+    return 'helpers' not in parts and path.name != 'minimal.kurt'
 
 def check_file(path_str: str):
     # check one file (in a process of its own): `None`, or the last line of its error
@@ -65,6 +69,13 @@ class TestProving(unittest.TestCase):
         for i, (name, error) in enumerate(zip(names, errors)):
             with self.subTest(i=i, msg=name):
                 self.assertIsNone(error)
+
+    def test_discovery(self):
+        root = pathlib.Path('/home/helpers/kurt/proofs')
+        self.assertTrue(is_test_file(root / 'debug' / 'x.kurt', root))
+        self.assertFalse(is_test_file(root / 'debug' / 'helpers' / 'x.kurt', root))
+        self.assertFalse(is_test_file(pathlib.Path('/src/kurt/theories/minimal.kurt'), root))
+        self.assertTrue(is_test_file(pathlib.Path('/home/helpers/theories/propositional.kurt'), root))
 
 if __name__ == '__main__':
     unittest.main()

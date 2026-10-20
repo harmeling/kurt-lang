@@ -1,0 +1,6 @@
+; `prefix` inside `case` (see ../grammar-declaration-in-a-block.kurt) -- `case` runs as `assume`
+load propositional
+prop A, B
+use A or B
+case A
+    prefix foo 80

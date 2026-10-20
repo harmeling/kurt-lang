@@ -13,8 +13,10 @@
 ; points `a + i (b - a) / n` are rational for rational `a`, `b`).
 ;
 ; As in derivative.kurt, `$T` is any function of the bound variable, and the rules are
-; theorems of real analysis stated as axioms, each with the conditions it needs.
-load prop, equality, logic, set, numbers, natural, analysis, continuity, derivative
+; theorems of real analysis stated as axioms, each with the conditions it needs -- for Lean they
+; are proved, from Mathlib's integrals, but "integral-riemann" (`lean "label" ...` at the end).
+load propositional, equality, logic, set, numbers, natural, analysis, continuity, derivative
+default real              ; every symbol of this file is a number, except where said otherwise
 
 ;; syntax: as `sum`, the range in brackets after the variable
 const integral, integrable
@@ -22,7 +24,13 @@ arity integral _ (_, _) _, integrable _ (_, _) _
 bindop integral, integrable
 tex integral \int_{$2}^{$3} $4 \, d$1
 tex integrable \operatorname{integrable}_{$1 \in [$2, $3]} $4
-bool integrable 0
+prop integrable 0
+; in Lean with Mathlib (`kurt --lean`): `$1`, `$2` the interval, `$3` the body (a function) -- the
+; integral is Mathlib's (`intervalIntegral`), and `integrable` is read as "continuous on [a, b]":
+; the rules make a function integrable only that way ("integrable-cont", then sums, multiples and
+; parts of intervals), and every rule holds for it
+lean integral (intervalIntegral $3 $1 $2 MeasureTheory.volume)
+lean integrable (ContinuousOn $3 (Set.Icc $1 $2))
 
 ;; what the integral is: the limit of the Riemann sums (n pieces of length (b - a) / n, each
 ;; with the value at its right end)
@@ -50,3 +58,53 @@ use ($a < $c) ∧ ($c < $b) ∧ (integrable $v ($a, $b) $T) ∧ (cont $v $c $T) 
 use ($a < $c) ∧ ($c < $b) ∧ (integrable $v ($a, $b) $T) ∧ (cont $v $c $T)  ⇒  (deriv $w $c (integral $v ($a, $w) $T)) = sub $v $c $T   "ftc-deriv"
 ; 2. the integral of a derivative (an antiderivative `$F` of `$T` on [a, b])
 use ($a <= $b) ∧ (integrable $v ($a, $b) $T) ∧ (∀ $y (($a <= $y ∧ $y <= $b)  ⇒  (diff $v $y $F) ∧ (deriv $v $y $F) = (sub $v $y $T)))  ⇒  (integral $v ($a, $b) $T) = (sub $v $b $F) - (sub $v $a $F)   "ftc"
+
+;; the rules as theorems of Mathlib (see numbers.kurt): `lean "label" TACTIC` is a proof in Lean --
+;; all but "integral-riemann" (that the Riemann sums of a continuous function converge to its
+;; integral is true, but not in Mathlib), which stays an `axiom` in the export
+lean "integrable-cont" intros; casesm* _ ∧ _
+lean "integrable-cont" intro y hy
+lean "integrable-cont" first | exact (‹∀ y, _ ≤ y ∧ y ≤ _ → ContinuousAt _ y› y hy).continuousWithinAt | exact (‹∀ y, y ≤ _ ∧ _ ≤ y → ContinuousAt _ y› y ⟨hy.2, hy.1⟩).continuousWithinAt
+lean "integrable-add" intros; casesm* _ ∧ _
+lean "integrable-add" apply ContinuousOn.add <;> assumption
+lean "integrable-scale" intros; casesm* _ ∧ _
+lean "integrable-scale" exact ContinuousOn.mul ‹_› continuousOn_const
+lean "integrable-split" intros; casesm* _ ∧ _
+lean "integrable-split" refine ⟨?_, ?_⟩ <;> apply ContinuousOn.mono ‹ContinuousOn _ _› <;> apply Set.Icc_subset_Icc <;> first | exact le_rfl | assumption
+lean "integral-empty" intros; exact intervalIntegral.integral_same
+lean "integral-swap" intros; exact intervalIntegral.integral_symm _ _
+lean "integral-const" intros; simp only [intervalIntegral.integral_const, smul_eq_mul]; ring
+lean "integral-add" intros; casesm* _ ∧ _
+lean "integral-add" apply intervalIntegral.integral_add <;> apply ContinuousOn.intervalIntegrable_of_Icc <;> assumption
+lean "integral-scale" intros; casesm* _ ∧ _
+lean "integral-scale" simp only [intervalIntegral.integral_mul_const]; ring
+lean "integral-split" intros; casesm* _ ∧ _
+lean "integral-split" apply intervalIntegral.integral_add_adjacent_intervals <;> apply ContinuousOn.intervalIntegrable_of_Icc <;> first | assumption | (apply ContinuousOn.mono ‹ContinuousOn _ _›; apply Set.Icc_subset_Icc <;> first | exact le_rfl | assumption)
+lean "integral-mono" intros; casesm* _ ∧ _
+lean "integral-mono" apply intervalIntegral.integral_mono_on
+lean "integral-mono" · assumption
+lean "integral-mono" · apply ContinuousOn.intervalIntegrable_of_Icc <;> assumption
+lean "integral-mono" · apply ContinuousOn.intervalIntegrable_of_Icc <;> assumption
+lean "integral-mono" · intro x hx; beta_reduce at *; first | exact ‹∀ y, _ ≤ y ∧ y ≤ _ → _ ≤ _› x hx | exact ‹∀ y, y ≤ _ ∧ _ ≤ y → _ ≤ _› x ⟨hx.2, hx.1⟩
+lean "ftc-diff" have key : ∀ (f : ℝ → ℝ) (a c b : ℝ), a < c → c < b → ContinuousAt f c → ContinuousOn f (Set.Icc a b) → HasDerivAt (fun w => intervalIntegral f a w MeasureTheory.volume) (f c) c := by
+lean "ftc-diff"   intro f a c b hac hcb hfc hf
+lean "ftc-diff"   exact intervalIntegral.integral_hasDerivAt_right ((hf.mono (Set.Icc_subset_Icc le_rfl hcb.le)).intervalIntegrable_of_Icc hac.le) ((hf.mono Set.Ioo_subset_Icc_self).stronglyMeasurableAtFilter isOpen_Ioo c ⟨hac, hcb⟩) hfc
+lean "ftc-diff" intros; casesm* _ ∧ _
+lean "ftc-diff" exact (key _ _ _ _ ‹_› ‹_› ‹_› ‹_›).differentiableAt
+lean "ftc-deriv" have key : ∀ (f : ℝ → ℝ) (a c b : ℝ), a < c → c < b → ContinuousAt f c → ContinuousOn f (Set.Icc a b) → HasDerivAt (fun w => intervalIntegral f a w MeasureTheory.volume) (f c) c := by
+lean "ftc-deriv"   intro f a c b hac hcb hfc hf
+lean "ftc-deriv"   exact intervalIntegral.integral_hasDerivAt_right ((hf.mono (Set.Icc_subset_Icc le_rfl hcb.le)).intervalIntegrable_of_Icc hac.le) ((hf.mono Set.Ioo_subset_Icc_self).stronglyMeasurableAtFilter isOpen_Ioo c ⟨hac, hcb⟩) hfc
+lean "ftc-deriv" intros; casesm* _ ∧ _
+lean "ftc-deriv" exact (key _ _ _ _ ‹_› ‹_› ‹_› ‹_›).deriv
+lean "ftc" have key : ∀ (F f : ℝ → ℝ) (a b : ℝ), a ≤ b → (∀ y, (a ≤ y ∧ y ≤ b) → DifferentiableAt ℝ F y ∧ deriv F y = f y) → ContinuousOn f (Set.Icc a b) → intervalIntegral f a b MeasureTheory.volume = F b - F a := by
+lean "ftc"   intro F f a b hab hF hf
+lean "ftc"   apply intervalIntegral.integral_eq_sub_of_hasDerivAt
+lean "ftc"   · intro y hy; rw [Set.uIcc_of_le hab] at hy
+lean "ftc"     obtain ⟨h1, h2⟩ := hF y hy; rw [← h2]; exact h1.hasDerivAt
+lean "ftc"   · exact hf.intervalIntegrable_of_Icc hab
+lean "ftc" intros; casesm* _ ∧ _; beta_reduce at *
+lean "ftc" apply key _ _ _ _ ‹_› _ ‹_›
+lean "ftc" intro y hy
+lean "ftc" first
+lean "ftc"   | (have H := ‹∀ y, _ ≤ y ∧ y ≤ _ → _ ∧ _› y hy; exact ⟨by first | exact H.1 | exact H.2, by first | exact H.1 | exact H.2⟩)
+lean "ftc"   | (have H := ‹∀ y, y ≤ _ ∧ _ ≤ y → _ ∧ _› y ⟨hy.2, hy.1⟩; exact ⟨by first | exact H.1 | exact H.2, by first | exact H.1 | exact H.2⟩)

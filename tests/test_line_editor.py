@@ -51,7 +51,7 @@ class TestLineEditor(unittest.TestCase):
         self.assertEqual((e.text, e.cursor), ('ow ', 0))
 
     def test_the_history(self):
-        e = kurt.LineEditor(['load prop', 'show A implies A', 'assume A'])
+        e = kurt.LineEditor(['load propositional', 'show A implies A', 'assume A'])
         e.start('> ')
         typed(e, 'dra')
         e.key('up')
@@ -59,7 +59,7 @@ class TestLineEditor(unittest.TestCase):
         e.key('up')
         e.key('up')
         e.key('up')                                        # (the oldest: stays)
-        self.assertEqual(e.text, 'load prop')
+        self.assertEqual(e.text, 'load propositional')
         for _ in range(3):
             e.key('down')
         self.assertEqual(e.text, 'dra')                    # back to the line being written
@@ -119,11 +119,11 @@ class TestLineEditor(unittest.TestCase):
     def test_the_history_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'history')
-            kurt.write_history(['load prop', 'show A'], path)
-            self.assertEqual(kurt.read_history(path), ['load prop', 'show A'])
+            kurt.write_history(['load propositional', 'show A'], path)
+            self.assertEqual(kurt.read_history(path), ['load propositional', 'show A'])
             with open(path, 'w', encoding='utf-8') as f:     # as libedit wrote it (macOS)
-                f.write('_HiStOrY_V2_\nload\\040prop\nshow\\040A\n')
-            self.assertEqual(kurt.read_history(path), ['load prop', 'show A'])
+                f.write('_HiStOrY_V2_\nload\\040propositional\nshow\\040A\n')
+            self.assertEqual(kurt.read_history(path), ['load propositional', 'show A'])
             self.assertEqual(kurt.read_history(os.path.join(tmp, 'none')), [])
 
 

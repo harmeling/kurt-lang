@@ -1,16 +1,16 @@
 ; a symbol is a term or a statement (2026-10-15, from the second bug hunt)
 load equality, numbers
 
-; a constant used in a term doesn't become a statement at a later use (before: `bool a 0 ; added
-; boolean signature`)
+; a constant used in a term doesn't become a statement at a later use (before: `prop a 0 ; added
+; statement places`)
 const a
 a = a
 expect "TypeError" "is a term"
     assume a
         a
 
-; `def` with `=` defines a term: a formula on the right side needs `iff`
-expect "TypeError" "defines a term"
+; `def` with `=` defines a term: a formula on the right side needs `iff` (a statement is no object)
+expect "TypeError" "is a statement where a term is required"
     def c = (a = a)
 
 ; the right side of an `inline` uses its symbols: no declaration of them afterwards (before, `g 2`

@@ -2,14 +2,14 @@
 ; simple test of the flat, sym of and
 ; written by Jan Robine (2025-05-08)
 
-;;load prop
+;;load propositional
 use %A  and  %B   implies   %A                                      "and-elim"   ; `and` is symmetric and flat
 use p and q and r
 p                   ; first position
 r                   ; second position
 q                   ; third position
 
-bool a, b
+prop a, b
 use a and b
 a                   ; first position
 b                   ; second position

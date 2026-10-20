@@ -7,7 +7,9 @@
 ; real constant anywhere -- `theory_append`'s own forall-stripping always scoped it
 ; correctly regardless of what this check believed). After the fix, a bound variable is
 ; never a candidate at all, so this LHS correctly has *zero* new symbols and is rejected.
-expect "EvalError"
+; (`load logic`: without it, `iff` isn't the equivalence and `def` is rejected for that)
+load logic
+expect "EvalError" "got none"
     def (forall x true) iff true
 true
 

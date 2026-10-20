@@ -3,7 +3,7 @@
 ; Grade student proofs with strict mode
 ;
 ; Strict mode rejects unproven `use`, `todo`, and `chain` statements outside trusted theories. It
-; also requires symbols to be declared before use.
+; also requires symbols to be declared either as `const` or `var` before use.
 
 ;     kurt --strict student-proof.kurt
 

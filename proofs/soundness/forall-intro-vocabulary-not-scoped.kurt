@@ -7,7 +7,7 @@
 ; depended on the block's own fresh constant. `P` here is only ever mentioned inside
 ; `let x`, on purpose.
 load logic
-bool P
+prop P
 arity P 1
 sandbox                ; `use` is only allowed at the top level, or in a `sandbox`
     let x

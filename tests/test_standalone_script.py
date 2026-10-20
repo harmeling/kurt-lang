@@ -34,12 +34,12 @@ class TestStandaloneScript(unittest.TestCase):
         )
 
     def test_bare_proof_without_load(self):
-        result = self.run_standalone("bool A, B\nuse A implies B\nuse A\nB\n")
+        result = self.run_standalone("prop A, B\nuse A implies B\nuse A\nB\n")
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Proof checked", result.stdout)
 
     def test_load_of_packaged_theory(self):
-        result = self.run_standalone("load prop\nbool A, B\nuse A and B\nA\nB\n")
+        result = self.run_standalone("load propositional\nprop A, B\nuse A and B\nA\nB\n")
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Proof checked", result.stdout)
 

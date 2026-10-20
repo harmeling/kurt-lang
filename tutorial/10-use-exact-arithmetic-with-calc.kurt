@@ -18,6 +18,13 @@ calc on
 ; For example, matching `$b / 3` against `0` does not infer `$b = 0`; state or prove that
 ; algebraic step using theory rules.
 ;
+; `calc` also does not unfold a function you defined yourself with recursive axioms, e.g. a
+; factorial `fact` (lesson 06): only the small set of built-in, provably-terminating operations
+; (`+`, `*`, ...) are folded. Your own axioms are accepted on faith, with no termination check, so
+; automatically unfolding them until done could loop forever on a badly-stated recursion -- unlike
+; `+`/`*`/..., there is no trusted, terminating procedure behind them. `fact(3) = 6` has to be
+; proved one step at a time instead (doc/kurt-doc.md §11.1, "Not implemented, maybe never").
+;
 ; Turn calculation off when you need an unreduced expression as a rewrite target:
 
 ;     calc off

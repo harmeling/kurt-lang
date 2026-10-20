@@ -1,0 +1,43 @@
+; `any` is a sort of every file (todo 35, doc/kurt-spec.md §2.2): the supersort of every sort --
+; every value fits where `any` is required, a value of sort `any` fits no other sorted position.
+; It is the sort of every symbol without one: a constant (until a use narrows it), a variable, a
+; binder, a block's constant. There is no `term` any more (removed 2026-10-19): a sort disjoint
+; from the others for the symbols without one was unsound with narrowing (below)
+load natural
+
+; a value of sort `any` fits no other sort
+any x
+expect "TypeError" "must have sort `real`"
+    use x + 0 = x
+expect "TypeError" "must have sort `set`"
+    use x ⊂ {1}
+
+; every value fits an `any` position: a number, a set, a symbol without a sort
+const f, u
+arity f 1
+any f 1
+use f 3 = f {1}                      ; (only the sorts are checked: `use`)
+use f u = f 3
+
+; `any` is a sort already, `term` is none
+expect "EvalError" "already declared"
+    sort any
+expect "EvalError" "would be a cycle"       ; (`any` is above `set`)
+    sort set any
+sandbox
+    sort term                        ; (an ordinary name: a file may declare it, lambda.kurt does)
+
+; narrowing starts at `any`: a constant without a sort is any object, a use as a number says which.
+; With a sort disjoint from the others (`foo`, formerly the core sort `term`) for the constants
+; without one, a fact about `foo` applied to `c`, then `c` narrowed to a number, gave `false`
+sort foo
+foo z
+const H
+prop H
+use H
+use H ⇒ ∀ z (¬(z ∈ Nat))             ; (over `foo`: consistent)
+∀ z (¬(z ∈ Nat))
+const c
+expect "ProofError"
+    ¬(c ∈ Nat)                       ; `c` is any object, not a `foo`
+c + 0 = c + 0                        ; `c` a number now

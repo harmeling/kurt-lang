@@ -1,7 +1,7 @@
 ﻿; small fixes from the soundness review of 2026-09-29 (this file starts with a byte order
 ; mark, invisible in most editors, which used to be a "scanning error" on line 1)
 load logic, equality, numbers
-bool P
+prop P
 arity P 1
 
 ; `1.0` is the number `1` (it printed as `1`, but didn't match it)
@@ -13,12 +13,15 @@ P 2.5
 ; an alias is another name for a symbol: not for a variable, and not in a cycle
 const r
 alias q r
-expect "EvalError"
-    alias r q
-expect "EvalError"
+expect "EvalError" "already a constant"
+    alias r q                   ; (`r` is a constant: no cycle yet)
+alias cyc1 cyc2
+expect "EvalError" "another name for itself"
+    alias cyc2 cyc1             ; a cycle
+expect "EvalError" "not for the variable"
     alias Q $x
 var v
-expect "EvalError"
+expect "EvalError" "not for the variable"
     alias w v
 alias q2 q
 P 1 ∨ q2 = r
@@ -27,10 +30,10 @@ P 1 ∨ q2 = r
 ; possibly `negate` besides, like `-`
 infix s 50 50
 builtin s power
-expect "EvalError"
+expect "EvalError" "it can not also mean `add`"
     builtin s add
 
 ; `pick x with` needs a fact
 exists y (y = y)
-expect "EvalError"
+expect "EvalError" "takes a new constant, keyword `with` and a formula"
     pick x with

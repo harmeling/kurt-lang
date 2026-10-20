@@ -12,9 +12,10 @@ calc on                     ; `calc` checks comparisons of literal numbers, e.g.
    < 13
 10 < 13
 
-; parentheses keep the plain reading: `(2 = 3) ≤ 4` compares a boolean with a number,
-; which no axiom (and no calculation) says anything about
-expect "ProofError"
+; parentheses keep the plain reading: `(2 = 3) ≤ 4` compares a statement with a number -- a
+; type error, since a statement is no object (before the sorts of todo 34 it was read, and no axiom
+; said anything about it)
+expect "TypeError" "is a statement where a term is required"
     (2 = 3) ≤ 4
 ; a false link breaks the whole chain
 expect "ProofError"

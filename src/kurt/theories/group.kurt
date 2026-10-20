@@ -3,54 +3,62 @@
 ; covers: `group(G, (∘), e, inv)` -- the set `G` with the operation `∘`, the identity `e` and the
 ; inverse `inv` is a group -- defined by its parts (`closed`, `associative`, `identity`, `inverse`),
 ; the rules for using it, and the theorems that the identity and the inverse are unique and
-; `inv (inv a) = a`.
+; `inv (inv a) = a`. Also `abelian(G, (∘))` (commutativity) and `abeliangroup(G, (∘), e, inv)` (a
+; group that is also abelian), with "abeliangroup-commute" as a thin wrapper.
 ;
-; `∘` is a *variable* here (`var ∘`), an operator that stands for any operation: the rules and
+; The axioms (`identity`, `inverse`) only ask for the LEFT identity and the LEFT inverse: `e ∘ a =
+; a` and `(inv a) ∘ a = e`. Groups aren't assumed symmetric -- `∘` need not be commutative, so
+; `a ∘ e = a` and `a ∘ (inv a) = e` don't follow from the definitions alone -- but they do follow
+; from the other axioms (associativity, closure), for every group, abelian or not: that's
+; "group-right-identity" and "group-right-inverse" below, proved rather than assumed, via
+; "group-idempotent" (the classic one-sided-axioms argument; see
+; exercises/06-groups/theory/groups-scene.kurt for the same proof done as a standalone exercise).
+;
+; `∘` and the inverse `ι` are *variables* here (`var ∘`, `var ι`): operators that stand for any
+; operation -- an operator is no object, so they are operator parameters, not terms (doc/kurt-doc.md
+; §5.3). `∘` is an operator that stands for any operation: the rules and
 ; theorems hold for every group -- the numbers with `(+)`, `0`, `(-)` just as well as an abstract
 ; group `G` with its own `∘` (which a file loading this one can use as an operation, since only
 ; the `infix ∘` is exported, not the `var`). See tutorial/24-use-a-structure-groups.kurt.
-load prop, equality, logic, set
+load propositional, equality, logic, set
 var ∘
-infix ∘ 70 70           ; like `*`: `a ∘ b ∈ G` is `(a ∘ b) ∈ G`
+infix ∘ 70 70
+var ι                   ; the inverse, an operator variable like `∘` (an operator is no object, doc/kurt-doc.md §5.3)
+arity ι 1           ; like `*`: `a ∘ b ∈ G` is `(a ∘ b) ∈ G`
 arity group (_, _, _, _)
 arity closed (_, _)
 arity associative (_, _)
+arity abelian (_, _)
 arity identity (_, _, _)
 arity inverse (_, _, _, _)
+arity abeliangroup (_, _, _, _)
 def closed($G, (∘))  ⇔  ∀ $a ∈ $G ∀ $b ∈ $G ($a ∘ $b ∈ $G)                                  "closed"
 def associative($G, (∘))  ⇔  ∀ $a ∈ $G ∀ $b ∈ $G ∀ $c ∈ $G (($a ∘ $b) ∘ $c = $a ∘ ($b ∘ $c))    "associative"
-def identity($G, (∘), $e)  ⇔  $e ∈ $G ∧ (∀ $a ∈ $G ($e ∘ $a = $a ∧ $a ∘ $e = $a))                "identity"
-def inverse($G, (∘), $e, $inv)  ⇔  ∀ $a ∈ $G ($inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e)   "inverse"
-def group($G, (∘), $e, $inv)  ⇔  closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, $inv)   "group"
+def abelian($G, (∘))  ⇔  ∀ $a ∈ $G ∀ $b ∈ $G ($a ∘ $b = $b ∘ $a)                             "abelian"
+def identity($G, (∘), $e)  ⇔  $e ∈ $G ∧ (∀ $a ∈ $G ($e ∘ $a = $a))                           "identity"
+def inverse($G, (∘), $e, (ι))  ⇔  ∀ $a ∈ $G (ι $a ∈ $G ∧ (ι $a) ∘ $a = $e)            "inverse"
+def group($G, (∘), $e, (ι))  ⇔  closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, (ι))   "group"
+def abeliangroup($G, (∘), $e, (ι))  ⇔  group($G, (∘), $e, (ι)) ∧ abelian($G, (∘))         "abeliangroup"
 
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  $e ∘ $a = $a ∧ $a ∘ $e = $a     "group-identity"
+; the parts one by one, straight from the axioms, for single steps
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G  ⇒  $a ∘ $b ∈ $G     "group-closed"
 proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        group($G, (∘), $e, $inv)
-        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, $inv)
-        identity($G, (∘), $e)
-        $e ∈ $G ∧ (∀ $x ∈ $G ($e ∘ $x = $x ∧ $x ∘ $e = $x))
-        ∀ $x ∈ $G ($e ∘ $x = $x ∧ $x ∘ $e = $x)
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G
+        group($G, (∘), $e, (ι))
+        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, (ι))
+        closed($G, (∘))
+        ∀ $x ∈ $G ∀ $y ∈ $G ($x ∘ $y ∈ $G)
         $a ∈ $G
-        $e ∘ $a = $a ∧ $a ∘ $e = $a
+        ∀ $y ∈ $G ($a ∘ $y ∈ $G)
+        $b ∈ $G
+        $a ∘ $b ∈ $G
 qed
 
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  $inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e     "group-inverse"
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $c ∈ $G  ⇒  ($a ∘ $b) ∘ $c = $a ∘ ($b ∘ $c)     "group-associative"
 proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        group($G, (∘), $e, $inv)
-        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, $inv)
-        inverse($G, (∘), $e, $inv)
-        ∀ $x ∈ $G ($inv $x ∈ $G ∧ ($inv $x) ∘ $x = $e ∧ $x ∘ ($inv $x) = $e)
-        $a ∈ $G
-        $inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e
-qed
-
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $c ∈ $G  ⇒  ($a ∘ $b) ∘ $c = $a ∘ ($b ∘ $c)     "group-associative"
-proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $c ∈ $G
-        group($G, (∘), $e, $inv)
-        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, $inv)
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $c ∈ $G
+        group($G, (∘), $e, (ι))
+        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, (ι))
         associative($G, (∘))
         ∀ $x ∈ $G ∀ $y ∈ $G ∀ $z ∈ $G (($x ∘ $y) ∘ $z = $x ∘ ($y ∘ $z))
         $a ∈ $G
@@ -61,67 +69,123 @@ proof
         ($a ∘ $b) ∘ $c = $a ∘ ($b ∘ $c)
 qed
 
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G ∧ $b ∈ $G  ⇒  $a ∘ $b ∈ $G     "group-closed"
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  $e ∘ $a = $a     "group-left-identity"
 proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G ∧ $b ∈ $G
-        group($G, (∘), $e, $inv)
-        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, $inv)
-        closed($G, (∘))
-        ∀ $x ∈ $G ∀ $y ∈ $G ($x ∘ $y ∈ $G)
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        group($G, (∘), $e, (ι))
+        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, (ι))
+        identity($G, (∘), $e)
+        $e ∈ $G ∧ (∀ $x ∈ $G ($e ∘ $x = $x))
+        ∀ $x ∈ $G ($e ∘ $x = $x)
         $a ∈ $G
-        ∀ $y ∈ $G ($a ∘ $y ∈ $G)
-        $b ∈ $G
-        $a ∘ $b ∈ $G
+        $e ∘ $a = $a
 qed
 
-show group($G, (∘), $e, $inv)  ⇒  $e ∈ $G     "group-identity-in"
+show group($G, (∘), $e, (ι))  ⇒  $e ∈ $G     "group-identity-in"
 proof
-    assume group($G, (∘), $e, $inv)
-        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, $inv)
+    assume group($G, (∘), $e, (ι))
+        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, (ι))
         identity($G, (∘), $e)
-        $e ∈ $G ∧ (∀ $x ∈ $G ($e ∘ $x = $x ∧ $x ∘ $e = $x))
+        $e ∈ $G ∧ (∀ $x ∈ $G ($e ∘ $x = $x))
         $e ∈ $G
 qed
 
-; the parts one by one, for single steps
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  $e ∘ $a = $a     "group-left-identity"
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  ι $a ∈ $G     "group-inverse-in"
 proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        $e ∘ $a = $a ∧ $a ∘ $e = $a                ; by group-identity
-        $e ∘ $a = $a
-qed
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  $a ∘ $e = $a     "group-right-identity"
-proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        $e ∘ $a = $a ∧ $a ∘ $e = $a                ; by group-identity
-        $a ∘ $e = $a
-qed
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  $inv $a ∈ $G     "group-inverse-in"
-proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        $inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e     ; by group-inverse
-        $inv $a ∈ $G
-qed
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  ($inv $a) ∘ $a = $e     "group-left-inverse"
-proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        $inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e     ; by group-inverse
-        ($inv $a) ∘ $a = $e
-qed
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  $a ∘ ($inv $a) = $e     "group-right-inverse"
-proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        $inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e     ; by group-inverse
-        $a ∘ ($inv $a) = $e
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        group($G, (∘), $e, (ι))
+        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, (ι))
+        inverse($G, (∘), $e, (ι))
+        ∀ $x ∈ $G (ι $x ∈ $G ∧ (ι $x) ∘ $x = $e)
+        $a ∈ $G
+        ι $a ∈ $G ∧ (ι $a) ∘ $a = $e
+        ι $a ∈ $G
 qed
 
-;; theorems
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  (ι $a) ∘ $a = $e     "group-left-inverse"
+proof
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        group($G, (∘), $e, (ι))
+        closed($G, (∘)) ∧ associative($G, (∘)) ∧ identity($G, (∘), $e) ∧ inverse($G, (∘), $e, (ι))
+        inverse($G, (∘), $e, (ι))
+        ∀ $x ∈ $G (ι $x ∈ $G ∧ (ι $x) ∘ $x = $e)
+        $a ∈ $G
+        ι $a ∈ $G ∧ (ι $a) ∘ $a = $e
+        (ι $a) ∘ $a = $e
+qed
+
+;; theorems that need both axioms together, not just one unfolded definition
+
+; the key lemma that gets the right-handed laws out of the left-handed axioms alone: an element
+; that is its own square is the identity
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $a ∘ $a = $a  ⇒  $a = $e     "group-idempotent"
+proof
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $a ∘ $a = $a
+        group($G, (∘), $e, (ι))
+        $a ∈ $G
+        $a ∘ $a = $a
+        ι $a ∈ $G                                     ; by group-inverse-in
+        $a = $e ∘ $a                                     ; by group-left-identity
+          = ((ι $a) ∘ $a) ∘ $a                        ; by group-left-inverse
+          = (ι $a) ∘ ($a ∘ $a)                        ; by group-associative
+          = (ι $a) ∘ $a                                ; the assumption
+          = $e                                            ; by group-left-inverse
+qed
+
+; the left inverse is also a right inverse -- holds for every group, abelian or not
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  $a ∘ (ι $a) = $e     "group-right-inverse"
+proof
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        group($G, (∘), $e, (ι))
+        $a ∈ $G
+        ι $a ∈ $G                                                                ; by group-inverse-in
+        $a ∘ (ι $a) ∈ $G                                                          ; by group-closed
+        ($a ∘ (ι $a)) ∘ ($a ∘ (ι $a)) = $a ∘ ((ι $a) ∘ ($a ∘ (ι $a)))    ; by group-associative
+                                             = $a ∘ (((ι $a) ∘ $a) ∘ (ι $a))   ; by group-associative
+                                             = $a ∘ ($e ∘ (ι $a))                 ; by group-left-inverse
+                                             = $a ∘ (ι $a)                        ; by group-left-identity
+        $a ∘ (ι $a) = $e                                                         ; by group-idempotent, for `a ∘ (inv a)`
+qed
+
+; the left identity is also a right identity
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  $a ∘ $e = $a     "group-right-identity"
+proof
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        group($G, (∘), $e, (ι))
+        $a ∈ $G
+        ι $a ∈ $G                             ; by group-inverse-in
+        (ι $a) ∘ $a = $e                      ; by group-left-inverse
+        $a ∘ $e = $a ∘ ((ι $a) ∘ $a)
+                = ($a ∘ (ι $a)) ∘ $a          ; by group-associative
+                = $e ∘ $a                        ; by group-right-inverse
+                = $a                             ; by group-left-identity
+qed
+
+; the identity holds from both sides at once -- used where a proof needs both halves together,
+; e.g. "identity-unique" below
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  $e ∘ $a = $a ∧ $a ∘ $e = $a     "group-identity"
+proof
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        $e ∘ $a = $a                             ; by group-left-identity
+        $a ∘ $e = $a                             ; by group-right-identity
+        $e ∘ $a = $a ∧ $a ∘ $e = $a
+qed
+
+; the inverse holds from both sides at once
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  ι $a ∈ $G ∧ (ι $a) ∘ $a = $e ∧ $a ∘ (ι $a) = $e     "group-inverse"
+proof
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        ι $a ∈ $G                             ; by group-inverse-in
+        (ι $a) ∘ $a = $e                      ; by group-left-inverse
+        $a ∘ (ι $a) = $e                      ; by group-right-inverse
+        ι $a ∈ $G ∧ (ι $a) ∘ $a = $e ∧ $a ∘ (ι $a) = $e
+qed
 
 ; the identity is unique: an `f` with `f ∘ a = a` for all `a` is `e`
-show group($G, (∘), $e, $inv) ∧ $f ∈ $G ∧ (∀ $x ∈ $G ($f ∘ $x = $x))  ⇒  $f = $e     "identity-unique"
+show group($G, (∘), $e, (ι)) ∧ $f ∈ $G ∧ (∀ $x ∈ $G ($f ∘ $x = $x))  ⇒  $f = $e     "identity-unique"
 proof
-    assume group($G, (∘), $e, $inv) ∧ $f ∈ $G ∧ (∀ $x ∈ $G ($f ∘ $x = $x))
-        group($G, (∘), $e, $inv)
+    assume group($G, (∘), $e, (ι)) ∧ $f ∈ $G ∧ (∀ $x ∈ $G ($f ∘ $x = $x))
+        group($G, (∘), $e, (ι))
         $f ∈ $G
         $e ∘ $f = $f ∧ $f ∘ $e = $f                 ; by group-identity
         $f ∘ $e = $f
@@ -132,37 +196,51 @@ proof
 qed
 
 ; the inverse is unique: a `b` with `b ∘ a = e` is `inv a`
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $b ∘ $a = $e  ⇒  $b = $inv $a     "inverse-unique"
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $b ∘ $a = $e  ⇒  $b = ι $a     "inverse-unique"
 proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $b ∘ $a = $e
-        group($G, (∘), $e, $inv)
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G ∧ $b ∘ $a = $e
+        group($G, (∘), $e, (ι))
         $a ∈ $G
         $b ∈ $G
         $b ∘ $a = $e
-        $inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e     ; by group-inverse
-        $inv $a ∈ $G
-        $a ∘ ($inv $a) = $e
+        ι $a ∈ $G ∧ (ι $a) ∘ $a = $e ∧ $a ∘ (ι $a) = $e     ; by group-inverse
+        ι $a ∈ $G
+        $a ∘ (ι $a) = $e
         $e ∘ $b = $b ∧ $b ∘ $e = $b                                ; by group-identity
         $b ∘ $e = $b
-        $e ∘ ($inv $a) = $inv $a ∧ ($inv $a) ∘ $e = $inv $a
-        $e ∘ ($inv $a) = $inv $a
-        ($b ∘ $a) ∘ ($inv $a) = $b ∘ ($a ∘ ($inv $a))              ; by group-associative
+        $e ∘ (ι $a) = ι $a ∧ (ι $a) ∘ $e = ι $a
+        $e ∘ (ι $a) = ι $a
+        ($b ∘ $a) ∘ (ι $a) = $b ∘ ($a ∘ (ι $a))              ; by group-associative
         $b = $b ∘ $e
-           = $b ∘ ($a ∘ ($inv $a))
-           = ($b ∘ $a) ∘ ($inv $a)
-           = $e ∘ ($inv $a)
-           = $inv $a
+           = $b ∘ ($a ∘ (ι $a))
+           = ($b ∘ $a) ∘ (ι $a)
+           = $e ∘ (ι $a)
+           = ι $a
 qed
 
 ; the inverse of the inverse
-show group($G, (∘), $e, $inv) ∧ $a ∈ $G  ⇒  $inv ($inv $a) = $a     "inverse-inverse"
+show group($G, (∘), $e, (ι)) ∧ $a ∈ $G  ⇒  ι (ι $a) = $a     "inverse-inverse"
 proof
-    assume group($G, (∘), $e, $inv) ∧ $a ∈ $G
-        group($G, (∘), $e, $inv)
+    assume group($G, (∘), $e, (ι)) ∧ $a ∈ $G
+        group($G, (∘), $e, (ι))
         $a ∈ $G
-        $inv $a ∈ $G ∧ ($inv $a) ∘ $a = $e ∧ $a ∘ ($inv $a) = $e     ; by group-inverse
-        $inv $a ∈ $G
-        $a ∘ ($inv $a) = $e
-        $a = $inv ($inv $a)                                         ; by inverse-unique, for `inv a`
-        $inv ($inv $a) = $a
+        ι $a ∈ $G ∧ (ι $a) ∘ $a = $e ∧ $a ∘ (ι $a) = $e     ; by group-inverse
+        ι $a ∈ $G
+        $a ∘ (ι $a) = $e
+        $a = ι (ι $a)                                         ; by inverse-unique, for `inv a`
+        ι (ι $a) = $a
+qed
+
+; an abelian group's operation commutes on its elements -- a thin wrapper unpacking `abeliangroup`
+show abeliangroup($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G  ⇒  $a ∘ $b = $b ∘ $a     "abeliangroup-commute"
+proof
+    assume abeliangroup($G, (∘), $e, (ι)) ∧ $a ∈ $G ∧ $b ∈ $G
+        abeliangroup($G, (∘), $e, (ι))
+        group($G, (∘), $e, (ι)) ∧ abelian($G, (∘))
+        abelian($G, (∘))
+        ∀ $x ∈ $G ∀ $y ∈ $G ($x ∘ $y = $y ∘ $x)
+        $a ∈ $G
+        ∀ $y ∈ $G ($a ∘ $y = $y ∘ $a)
+        $b ∈ $G
+        $a ∘ $b = $b ∘ $a
 qed

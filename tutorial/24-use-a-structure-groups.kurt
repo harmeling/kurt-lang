@@ -26,7 +26,6 @@ x + 0 = x                             ; by add-identity (not group-right-identit
 
 ; an abstract group: `∘` is an operation here (group.kurt declares it infix)
 const G, e, inv, a, b, c
-arity inv 1
 use group(G, (∘), e, inv)
 use a ∈ G
 use b ∈ G

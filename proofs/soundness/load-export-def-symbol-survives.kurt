@@ -1,7 +1,7 @@
 ; regression test: a labelled `def`'s symbol is exported by `load`, exactly like a labelled
-; `use` fact's symbols are. Confirmed via the same `bool` re-declaration trick.
+; `use` fact's symbols are. Confirmed via the same `prop` re-declaration trick.
 load load-export-helper
 expect "EvalError"
-    bool S
+    prop S
 true
 

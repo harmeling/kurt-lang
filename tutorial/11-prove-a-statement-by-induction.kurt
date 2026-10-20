@@ -6,8 +6,8 @@
 ; step, as two facts or as one conjunction: the application of the rule is a single inference step.
 
 load natural
-bool P
-arity P 1
+default real                   ; the variables of this file are numbers (induction is about numbers)
+prop P
 const P
 
 use P(0) and (forall $n in Nat (P($n) implies P($n + 1)))  "base-and-step"
@@ -17,4 +17,26 @@ forall $n ($n in Nat implies P($n))
 5 in Nat implies P(5)
 
 ; For a real proof, derive the base and step in preceding proof blocks instead of introducing
-; them with `use`; both must be facts before the line that invokes induction.
+; them with `use`; both must be facts before the line that invokes induction. For example: lesson
+; 06's `fact` can't be *calculated* for an arbitrary `$n` (doc/kurt-doc.md §11.1), but induction
+; still proves a fact about all of it at once -- here, that it always produces a natural number.
+
+const fact
+use fact(0) = 1                                           "factorial-zero"
+use $n in Nat implies fact($n + 1) = ($n + 1) * fact($n)  "factorial-step"
+
+1 in Nat
+fact(0) in Nat                                    ; base case
+
+show forall $n in Nat (fact($n) in Nat implies fact($n + 1) in Nat)   ; induction step
+proof
+    let n in Nat
+        assume fact(n) in Nat
+            fact(n + 1) = (n + 1) * fact(n)
+            n + 1 in Nat
+            (n + 1) * fact(n) in Nat
+            fact(n + 1) in Nat
+qed
+
+(fact(0) in Nat) and (forall $n in Nat (fact($n) in Nat implies fact($n + 1) in Nat))
+forall $n in Nat (fact($n) in Nat)

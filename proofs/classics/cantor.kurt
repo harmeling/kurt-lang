@@ -1,0 +1,55 @@
+; Cantor's theorem: there is no mapping from a set onto its power set.
+;
+; The diagonal argument: for a mapping f from A to Pow(A), the set D of the elements a of A with
+; a ∉ f a is a subset of A, but no f a, since a ∈ D ⇔ a ∉ f a. Mappings are the mappings of
+; set.kurt (`f ∈ A → B`, applied `f a`); no axiom beyond set.kurt.
+load set
+set $h          ; a mapping is a set (a fact gives no sort, doc/kurt-doc.md §5.3)
+
+; the diagonal set of a mapping f on A -- a `def`, conservative
+def diag($A, $h) = {x ∈ $A | ¬(x ∈ $h x)}                            "diag"
+
+; the diagonal set is a subset of A, an element of its power set
+show diag($A, $h) ∈ Pow($A)                                          "diag-in-pow"
+proof
+    let c
+        assume c ∈ diag($A, $h)
+            c ∈ {x ∈ $A | ¬(x ∈ $h x)}
+            c ∈ $A
+    ∀ $c ($c ∈ diag($A, $h) ⇒ $c ∈ $A)
+    diag($A, $h) ⊂ $A
+qed
+
+; f misses the diagonal set: no a ∈ A has f a = diag(A, f)
+show ¬ ∃ a ∈ $A ($h a = diag($A, $h))                                "diag-missed"
+proof
+    assume ∃ a ∈ $A ($h a = diag($A, $h))
+        pick a with a ∈ $A ∧ $h a = diag($A, $h)
+            a ∈ {x ∈ $A | ¬(x ∈ $h x)}  ⇔  a ∈ $A ∧ ¬(a ∈ $h a)        ; separation
+            a ∈ diag($A, $h)  ⇔  a ∈ $A ∧ ¬(a ∈ $h a)
+            ; a ∈ D gives a ∉ f a = D
+            assume a ∈ diag($A, $h)
+                a ∈ $A ∧ ¬(a ∈ $h a)
+                ¬(a ∈ $h a)
+                ¬(a ∈ diag($A, $h))
+                false
+            ¬(a ∈ diag($A, $h))
+            ; ... so a ∉ f a, and a ∈ D after all
+            ¬(a ∈ $h a)
+            a ∈ $A ∧ ¬(a ∈ $h a)
+            a ∈ diag($A, $h)
+            false
+        false
+qed
+
+; Cantor's theorem: no mapping from A to Pow(A) is onto
+show $h ∈ ($A → Pow($A))  ⇒  ¬ ∀ B ∈ Pow($A) ∃ a ∈ $A ($h a = B)    "cantor"
+proof
+    assume $h ∈ ($A → Pow($A))
+        assume ∀ B ∈ Pow($A) ∃ a ∈ $A ($h a = B)
+            diag($A, $h) ∈ Pow($A)
+            ∃ a ∈ $A ($h a = diag($A, $h))
+            ¬ ∃ a ∈ $A ($h a = diag($A, $h))
+            false
+        ¬ ∀ B ∈ Pow($A) ∃ a ∈ $A ($h a = B)
+qed

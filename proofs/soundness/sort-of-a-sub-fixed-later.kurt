@@ -1,0 +1,18 @@
+; the search and the kernel agree (dev/todo-order-sorted.md item 4): a `sub` of a rule's conclusion
+; is checked again with the values of the whole match. "forall-cond-elim" matches its conclusion
+; `sub $$v $a %P` first, when `$$v` has no sort yet; its premise `∀ (sub $$x $$v %C) %P` then
+; matches `∀ X ∈ Pow(A)`, over the sets. The search put the unsorted `c` in for `X` and the kernel
+; rejected the step -- a `KernelError`, which `expect` can't catch (found 2026-10-19 with a variant
+; of exercise 03-sets (g)). Now the search refuses it (`sub_sorts_hold`)
+load set
+set X
+const A, B
+use ∀ X ∈ Pow(A) (X ∈ Pow(B))
+const c
+use c ∈ Pow(A)
+expect "ProofError"
+    c ∈ Pow(B)                  ; `c` has no sort: the fact is about the sets
+sandbox
+    set d
+    use d ∈ Pow(A)
+    d ∈ Pow(B)                  ; a set: by "forall-cond-elim"

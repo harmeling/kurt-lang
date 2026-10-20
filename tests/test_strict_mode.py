@@ -24,12 +24,13 @@ class TestStrictMode(unittest.TestCase):
         kurt.load_file(path, copy.deepcopy(kurt.initial_kb), main=False)
 
     def test_rejects_unproven_statements(self):
-        for source in ['bool A\nuse A\n', 'bool A\ntodo A\n', 'infix lt 20 20\nbool lt 0\nchain lt\n',
+        for source in ['prop A\nuse A\n', 'prop A\ntodo A\n', 'infix lt 20 20\nprop lt 0\nchain lt\n',
                        'infix plus 60 60\nbuiltin plus add\n',       # a `calc` binding is like an axiom
                        'infix plus 60 60\nsym plus\n', 'infix plus 60 60\nflat plus\n']:   # so are `sym` and `flat`
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
-                with self.assertRaises(kurt.KurtException):
+                with self.assertRaises(kurt.KurtException) as caught:
                     self.check(source, tmp)
+                self.assertIn('-strict', caught.exception.msg)   # (refused for `--strict`, not for another reason)
 
     def test_a_chain_needs_its_rules_proved_before_it(self):
         # todo 3 (2026-10-14; before, `chain` was refused with --strict): it generates no rules, each
@@ -48,23 +49,24 @@ class TestStrictMode(unittest.TestCase):
 
     def test_requires_declarations(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(kurt.KurtException):
-                self.check('load prop\nB implies B\n', tmp)
+            with self.assertRaises(kurt.KurtException) as caught:    # (without --strict an error too: `B` isn't a statement)
+                self.check('load propositional\nB implies B\n', tmp)
+            self.assertIn('`B` not declared', caught.exception.msg)
         with tempfile.TemporaryDirectory() as tmp:
-            self.check('load prop\nbool B\nB implies B\n', tmp)
+            self.check('load propositional\nprop B\nB implies B\n', tmp)
 
     def test_accepts_proofs_from_packaged_theories(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.check('load prop\nbool A\nshow A implies A\nproof\n    assume A\n        A\ntrue\n', tmp)
+            self.check('load propositional\nprop A\nshow A implies A\nproof\n    assume A\n        A\ntrue\n', tmp)
 
     def test_use_in_sandbox_is_harmless(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.check('bool A\nsandbox\n    use A\ntrue\n', tmp)
+            self.check('prop A\nsandbox\n    use A\ntrue\n', tmp)
 
     def test_trusts_theories_from_the_path(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as teacher:
             with open(os.path.join(teacher, 'axioms.kurt'), 'w') as fh:
-                fh.write('bool P\nuse P "p"\n')
+                fh.write('prop P\nuse P "p"\n')
             kurt.run_state.trusted_paths.append(kurt.Path(teacher))
             search = kurt.run_state.theory_path[:]
             kurt.run_state.theory_path.insert(1, kurt.Path(teacher))

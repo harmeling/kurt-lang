@@ -5,7 +5,7 @@
 ; another condition
 load numbers, logic
 calc on
-bool P, Q
+prop P, Q
 arity P 1
 arity Q 2
 const c

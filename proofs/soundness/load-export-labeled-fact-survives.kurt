@@ -1,9 +1,6 @@
 ; regression test: a labelled (non-`local`) `use` fact is exported by `load`, along with the
-; symbol declarations it needs. Confirmed mechanically: re-declaring `bool P` only raises
-; "already declared bool" if `P` genuinely survived the load (see `add_bool`'s guard) --
-; there is no other visible side effect of a bare symbol declaration to check directly.
+; symbol declarations it needs. Confirmed by claiming `P`: it follows only from that fact
+; (`prop P` raising wouldn't show it -- a top-level declaration is exported anyway, todo 28).
 load load-export-helper
-expect "EvalError"
-    bool P
-true
+P
 

@@ -1,9 +1,9 @@
 ; the symbols of a theory that comes with Kurt can't be declared anew: that would change how
-; its axioms read (soundness review of 2026-09-29: `bool Nat`, `arity Nat 2`, `infix Nat 50 50`
+; its axioms read (soundness review of 2026-09-29: `prop Nat`, `arity Nat 2`, `infix Nat 50 50`
 ; were accepted, and afterwards `0 ∈ Nat` no longer parsed)
 load natural, analysis
 expect "EvalError"
-    bool Nat
+    prop Nat
 expect "EvalError"
     arity Nat 2
 expect "EvalError"

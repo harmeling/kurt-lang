@@ -5,7 +5,7 @@
 ; moment the block closes. See doc/kurt-soundness.md, and
 ; forall-intro-rejects-leaked-constant.kurt for the `let` counterpart.
 load logic
-bool Q, P
+prop Q, P
 arity Q 1
 arity P 1
 use exists x Q x

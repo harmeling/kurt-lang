@@ -5,7 +5,7 @@
 ; for iteratively developing a proof, or for handing out a proof skeleton
 ; with the hard parts left as exercises.
 
-bool p, q
+prop p, q
 
 show p
 proof

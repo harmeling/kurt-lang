@@ -35,10 +35,10 @@ def check_text(text: str) -> str:
 
 class TestExpect(unittest.TestCase):
     def test_text(self):
-        self.assertEqual(check_text('load prop\nexpect "ProofError" "can not derive `false`"\n    false\ntrue\n'), '')
-        self.assertIn('without that text', check_text('load prop\nexpect "ProofError" "something else"\n    false\ntrue\n'))
-        self.assertIn('got a different error', check_text('load prop\nexpect "EvalError" "can not derive"\n    false\ntrue\n'))
-        self.assertIn('takes a string', check_text('load prop\nexpect "ProofError" 3\n    false\n'))
+        self.assertEqual(check_text('load propositional\nexpect "ProofError" "can not derive `false`"\n    false\ntrue\n'), '')
+        self.assertIn('without that text', check_text('load propositional\nexpect "ProofError" "something else"\n    false\ntrue\n'))
+        self.assertIn('got a different error', check_text('load propositional\nexpect "EvalError" "can not derive"\n    false\ntrue\n'))
+        self.assertIn('takes a string', check_text('load propositional\nexpect "ProofError" 3\n    false\n'))
 
     def test_empty_expect_is_not_confirmed(self):
         msg = check(str(PROJECT_ROOT / 'proofs' / 'soundness' / 'helpers' / 'empty-expect.kurt'))

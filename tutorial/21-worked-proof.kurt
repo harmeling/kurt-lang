@@ -10,9 +10,9 @@
 
 ; Step 1: what do you need loaded? The goal mentions `not`, `and`, `or` -- `and` is
 ; in the core (minimal.kurt), but `not`/`or` and the inference rules (`and-elim` too) live in
-; `prop.kurt`.
-load prop
-bool p, q
+; `propositional.kurt`.
+load propositional
+prop p, q
 
 ; Step 2: state the goal with `show`, then think about a *strategy* before writing any
 ; proof steps. Kurt can't search for a proof for you (see §11 "known gaps" in
@@ -20,7 +20,7 @@ bool p, q
 ; supply the outline, kurt only checks each step is a real, valid inference.
 ;
 ; Strategy for ¬(p ∧ q) ⇒ ¬p ∨ ¬q: assume the antecedent, then case-split on `p ∨ ¬p`
-; (the excluded middle, which `prop.kurt` proves as "excluded-middle"). In the `p` case,
+; (the excluded middle, which `propositional.kurt` proves as "excluded-middle"). In the `p` case,
 ; `p ∧ q` would need `q` too, but if `q` also held you'd have `p ∧ q`, contradicting the assumption --
 ; so `¬q`, hence `¬p ∨ ¬q`. In the `¬p` case, `¬p ∨ ¬q` follows immediately from `¬p`.
 

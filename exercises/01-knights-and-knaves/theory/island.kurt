@@ -9,20 +9,20 @@
 ;     x says S        x says the statement S (a formula, e.g. `A says knave(B)`); S is everything
 ;                     after `says` (up to a `⇔`), so write `(A says S) ∧ ...` with parentheses
 ;
-; The rules (with prop.kurt, the rules of propositional logic):
+; The rules (with propositional.kurt, the rules of propositional logic):
 ;
 ;     "knave"     knave(x) ⇔ ¬knight(x)
 ;     "says"      (x says S) ⇒ (knight(x) ⇔ S)
 ;     "knight"    knight(x) ⇔ ¬knave(x)          (proven below)
 ;
 ; This file is the scene of the exercises: they load it with `load theory/island`. Don't change it.
-load prop
+load propositional
 
-bool knight 0, knave 0
+prop knight 0, knave 0
 arity knight 1
 arity knave 1
 infix says 11 11        ; weaker than ∧, ∨, ⇒: `A says S ∨ T` is A saying `S ∨ T`
-bool says 0 2
+prop says 0 2
 const knight, knave, says
 
 ; a knave is an islander who is not a knight

@@ -3,7 +3,7 @@
 ; unclosed bracket ("unexpected end of file"), with a block after it even a crash ("too many
 ; dedents"). Found by the consistency check of tutorial lesson 09 (2026-10-09).
 load logic, numbers
-bool P, Q
+prop P, Q
 arity P 1
 const P, Q
 use exists $x > 0 P($x)

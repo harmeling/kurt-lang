@@ -41,7 +41,7 @@ def at_the_top(out: str) -> bool:
 class TestShellErrors(unittest.TestCase):
     def test_line_after_a_confirmed_expect_fails_again(self):
         # the line closing the `expect` is evaluated again, and fails again: an error, not a traceback
-        out, err = shell(['load logic', 'bool A, C', 'expect "ProofError"', '    let x', '        const h',
+        out, err = shell(['load logic', 'prop A, C', 'expect "ProofError"', '    let x', '        const h',
                           '        todo A h', 'C', 'A implies A'])
         self.assertIn('confirmed', out)
         self.assertIn('can not derive `C`', err)
@@ -54,9 +54,18 @@ class TestShellErrors(unittest.TestCase):
         self.assertIn('by chain', out)
 
     def test_failed_line_keeps_the_block(self):
-        out, err = shell(['load prop', 'bool A, B', 'assume A', '    B', '    A', 'A implies A', 'summary'])
+        out, err = shell(['load propositional', 'prop A, B', 'assume A', '    B', '    A', 'A implies A', 'summary'])
         self.assertEqual(err.count('Error'), 1, err)             # only `B`
         self.assertIn('A implies A', out)
+        self.assertTrue(at_the_top(out), out)
+
+    def test_expect_that_never_raises_does_not_get_the_shell_stuck(self):
+        # reported bug: `expect "ProofError" / true` (no error at all) left the shell stuck at
+        # the block's indentation forever, re-raising the same `ExpectationError` on every later
+        # line, however unrelated (even `summary`)
+        out, err = shell(['load propositional', 'prop A', 'expect "ProofError"', '    true', 'true', 'A implies A', 'summary'])
+        self.assertEqual(err.count('ExpectationError'), 1, err)
+        self.assertIn('A implies A', out)                       # the session went on (before `Bye!`)
         self.assertTrue(at_the_top(out), out)
 
     def test_several_picks_on_one_line(self):
@@ -67,11 +76,13 @@ class TestShellErrors(unittest.TestCase):
         self.assertTrue(at_the_top(out), out)
 
     def test_failed_first_line_of_a_block(self):
-        # the block is open, with the indentation of that line: the next line can close it
-        # (the dedent can't close it, it has no `ProofError` -- so it stays open, until `break`)
-        out, err = shell(['load prop', 'expect "ProofError"', '    local', 'true', '    break', 'summary'])
+        # the block is open, with the indentation of that line: the next line can close it.
+        # The dedent (`true`) can't raise the expected `ProofError` either, so -- like a
+        # `confirmed` expect -- the whole block is discarded right then, not left open (found in
+        # the same hunt as the module docstring's issue: this one left the shell permanently
+        # stuck, re-raising the same `ExpectationError` for every following line).
+        out, err = shell(['load propositional', 'expect "ProofError"', '    local', 'true', 'summary'])
         self.assertIn('got a different error', err)                    # a `ParseError`
-        self.assertNotIn('expected increased indentation', err)
         self.assertEqual(err.count('ExpectationError'), 1, err)        # `true` can't close the block
         self.assertTrue(at_the_top(out), out)
 

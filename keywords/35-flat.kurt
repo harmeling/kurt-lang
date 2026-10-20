@@ -17,5 +17,5 @@ parse a + b + c            ; (+ a b c)
 
 ; `and` (04-and.kurt) is declared flat this same way -- in the core,
 ; `minimal.kurt` (`flat and`), which every file starts with, not in
-; `prop.kurt` -- which is why `A and B and C` reads naturally as one
+; `propositional.kurt` -- which is why `A and B and C` reads naturally as one
 ; three-way conjunction rather than a conjunction of a conjunction.

@@ -13,7 +13,7 @@ qed
 ; a positive-arity symbol still needs its arguments -- `f()` there is a clear, specific
 ; rejection, not a confusing "argument is an empty placeholder" parse
 arity g 1
-expect "EvalError"
+expect "EvalError" "empty brackets `()` cannot supply an argument for `g`"
     g()
 
 ; ordinary calls with real arguments are unaffected

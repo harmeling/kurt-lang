@@ -1,6 +1,7 @@
 ; argmax and argmin over a set (analysis.kurt): *some* element where the values are largest
 ; (smallest) -- the rules say something only if such an element exists
 load analysis
+default real               ; the elements of the sets are numbers (the rules of analysis.kurt are about numbers)
 const A, a, b
 arity f 1, g 1
 

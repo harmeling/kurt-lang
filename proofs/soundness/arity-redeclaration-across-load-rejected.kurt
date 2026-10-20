@@ -13,8 +13,9 @@
 ; See doc/kurt-soundness.md #4.1. Since each file is checked in a fresh context (2026-09-29),
 ; the conflict is found when the second file's exports meet the first's: both export a fact
 ; with their `P` (a `P` that only one of them uses in exported facts would stay private).
+; Now a symbol is declared by one file only, whatever its arity: that is the error.
 load arity-conflict-helper-a
-expect "EvalError"
+expect "EvalError" "is declared in `arity-conflict-helper-a.kurt` and in `arity-conflict-helper-b.kurt`"
     load arity-conflict-helper-b
 true
 

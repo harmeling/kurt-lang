@@ -5,7 +5,7 @@
 ; axioms below are theorems, and the rules (modus ponens, necessitation, ...) say which theorems
 ; follow from which: `(⊢ A) and (⊢ (A → B)) implies (⊢ B)`.
 ;
-; prop.kurt and set.kurt use some of these symbols for something else, so they can't be loaded
+; propositional.kurt and set.kurt use some of these symbols for something else, so they can't be loaded
 ; together with modal.kurt.
 
 infix → 30 29
@@ -19,7 +19,7 @@ prefix ⊢ 90
 infix ⊢ 10 10
 
 const →, ⇔, ∧, ∨, ¬, □, ◇, ⊢, ⊥, empty
-bool ⊢ 0
+prop ⊢ 0
 
 ; the formulas of modal logic -- a formula is no claim by itself, `⊢ A` is
 sort formula
@@ -80,3 +80,49 @@ use ⊢ ((◇A ∨ ◇B) ⇔ ◇(A ∨ B)) "diamond-distrib-or"
 use ⊢ ((□A ∧ □B) ⇔ □(A ∧ B)) "box-distrib-and"
 use ⊢ (□A → A) "T"
 use ⊢ (A → ◇A) "T-dual"
+
+; A model, for `kurt --lean` (doc/kurt-soundness.md §11, the axiom audit): Kripke semantics. A
+; formula is a property of the worlds (here the natural numbers) under an accessibility relation
+; `R`; `□A` holds where `A` holds in every accessible world, `◇A` where in some; `⊢ A` says that
+; `A` holds in every world of every reflexive frame (logic T). Lean proves every axiom and rule
+; above true in this model -- so the theory has a model, and its rules are sound for reflexive
+; frames.
+lean Obj ((Nat → Nat → Prop) → Nat → Prop)
+lean → (fun R w => $1 R w → $2 R w)
+lean ⇔ (fun R w => ($1 R w ↔ $2 R w))
+lean ∧ (fun R w => $1 R w ∧ $2 R w)
+lean ∨ (fun R w => $1 R w ∨ $2 R w)
+lean ¬ (fun R w => ¬ $1 R w)
+lean □ (fun R w => ∀ v, R w v → $1 R v)
+lean ◇ (fun R w => ∃ v, R w v ∧ $1 R v)
+lean ⊥ (fun (_ : Nat → Nat → Prop) (_ : Nat) => False)
+lean empty (fun (_ : Nat → Nat → Prop) (_ : Nat) => True)
+lean ⊢ (∀ R : Nat → Nat → Prop, (∀ w, R w w) → ∀ w, $1 R w)
+lean ⊢ (∀ R : Nat → Nat → Prop, (∀ w, R w w) → ∀ w, $1 R w → $2 R w)
+lean "Peirce" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "T" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "T-dual" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "and-elim-left" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "and-elim-right" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "and-intro" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "bottom-elim" intro A h R hR w; exact (h (fun a b => a = b) (fun _ => rfl) 0).elim
+lean "box-distrib-and" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "box-duality" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "diamond-distrib-or" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "diamond-duality" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "empty-sequent-to-theorem" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "excluded-middle" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "iff-elim-backward" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "iff-elim-forward" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "iff-intro" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "implication-K" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "implication-S" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "modal-K" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "modus-ponens" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "necessitation" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "not-elim" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "not-intro" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "or-elim" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "or-intro-left" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "or-intro-right" intros; first | grind | (simp_all; done) | aesop | tauto
+lean "theorem-to-empty-sequent" intros; first | grind | (simp_all; done) | aesop | tauto

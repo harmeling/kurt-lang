@@ -1,0 +1,3 @@
+load natural
+const g, A
+use g ⊂ A

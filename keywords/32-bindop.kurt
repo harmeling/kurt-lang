@@ -16,7 +16,7 @@
 arity myforall 2
 bindop myforall
 
-bool P
+prop P
 const P
 arity P 1
 

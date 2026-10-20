@@ -39,6 +39,19 @@ class TestPublishScript(unittest.TestCase):
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             self.assertIn('can take Kurt', run.stdout)
 
+    def test_a_public_worktree(self):
+        # a worktree is a checkout too, its `.git` a file (as of this repository, when the tests
+        # run in a worktree of it: the case 'this repository' below then has to get as far as
+        # 'inside this repository')
+        with tempfile.TemporaryDirectory() as tmp:
+            main = self.checkout(tmp, branch='first')
+            worktree = os.path.join(tmp, 'worktree')
+            self.git(main, 'worktree', 'add', '-q', '-b', 'main', worktree)
+            self.assertTrue(os.path.isfile(os.path.join(worktree, '.git')))
+            run = self.publish(worktree)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn('can take Kurt', run.stdout)
+
     def test_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             for case, make, reason in [

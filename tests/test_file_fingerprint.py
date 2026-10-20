@@ -2,8 +2,8 @@ import unittest
 from unittest import mock
 
 import kurt.kurt as kurt
-import kurt.kurt as kurt_module   # `file_fingerprint` closes over module globals defined
-                                   # here, not over `kurt`'s one-time `from .kurt import *`
+import kurt.kurt as kurt_module   # (the same module: `file_fingerprint` reads its globals, so
+                                   # the patches go there -- not into the package `kurt`)
 
 class TestFileFingerprint(unittest.TestCase):
     def test_normal_case_is_a_12_char_hex_string(self):

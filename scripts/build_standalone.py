@@ -2,7 +2,7 @@
 """Build a genuinely standalone `kurt.py`: `src/kurt/kurt.py` with every `theories/*.kurt`
 file embedded directly in it (via `_EMBEDDED_THEORIES`, see kurt.py), together with their
 certificates (`_EMBEDDED_CERTIFICATES`, made by `scripts/build_certificates.py` first). The result
-is a single file that can be downloaded on its own and immediately supports `load prop` (etc.)
+is a single file that can be downloaded on its own and immediately supports `load propositional` (etc.)
 with no `theories/` directory, no install, and no other files alongside it.
 
 Usage:

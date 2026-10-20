@@ -22,7 +22,7 @@ except Exception:
 def sym(name: str) -> Token:
     return Token(label="SYMBOL", value=name)
 
-def num(n: int) -> Token:
+def real(n: int) -> Token:
     return Token(label="INT", value=str(n))
 
 def app(op: str, *args: Expr) -> Expr:
@@ -51,7 +51,7 @@ class TestExistsIntroAndBlockedSets(unittest.TestCase):
 
     # --- 1) End-to-end: ∃-intro with A=prime 2, D=∃z. prime z ---
     def test_exists_intro_prime(self):
-        A: Expr = app("prime", num(2))                 # fact
+        A: Expr = app("prime", real(2))                 # fact
         LHS: Expr = sub("$x", sym("$a"), sym("%A"))    # premise schematic
         RHS: Expr = [sym("exists"), sym("$x"), sym("%A")]  # conclusion schematic
         D: Expr = exists("$z", app("prime", sym("$z")))
@@ -79,7 +79,7 @@ class TestExistsIntroAndBlockedSets(unittest.TestCase):
         sigma = sols2[0]
 
         # Check we picked the correct witness and never solved for $z
-        self.assertEqual(sigma.lookup("$a"), num(2))
+        self.assertEqual(sigma.lookup("$a"), real(2))
         self.assertIsNone(sigma.lookup("$z"))
 
     # --- 2) Rigid-goal vars may appear in substitution range (y -> z), but are not solved for ---
@@ -114,7 +114,7 @@ class TestExistsIntroAndBlockedSets(unittest.TestCase):
         RHS: Expr = [sym("exists"), sym("$x"), sym("%A")]  # ∃x. %A
         # Rule premise and fact
         LHS: Expr = sub("$x", sym("$a"), sym("%A"))
-        fact: Expr = app("prime", num(2))
+        fact: Expr = app("prime", real(2))
 
         # Match RHS to D
         sols1 = list(unify_exprs_with_patterns([(D, RHS)], State.empty(), self.kb))
@@ -127,7 +127,7 @@ class TestExistsIntroAndBlockedSets(unittest.TestCase):
         # Now unify with fact: should simply choose witness $a := 2
         sols2 = list(unify_exprs_with_patterns([(fact, LHS_inst)], sigma1, self.kb))
         self.assertTrue(sols2)
-        self.assertEqual(sols2[0].lookup("$a"), num(2))
+        self.assertEqual(sols2[0].lookup("$a"), real(2))
 
     # --- 5) Safety: occurs-check still active under ∃-intro piping ---
     def test_occurs_check_still_blocks(self):
@@ -146,14 +146,14 @@ class TestExistsIntroAndBlockedSets(unittest.TestCase):
     def test_goal_var_not_solved_in_premise_unify(self):
         # Set up a state where $z was the goal variable from step 1
         s0 = State({}, frozenset({"$z"}), frozenset())  # $z is rigid as domain only
-        fact = app("prime", num(2))
+        fact = app("prime", real(2))
         # Premise after SUB should be prime $a; unify should bind $a, not $z
         prem = app("prime", sym("$a"))
 
         sols = list(unify_exprs_with_patterns([(fact, prem)], s0, self.kb))
         self.assertTrue(sols)
         s = sols[0]
-        self.assertEqual(s.lookup("$a"), num(2))
+        self.assertEqual(s.lookup("$a"), real(2))
         self.assertIsNone(s.lookup("$z"))  # ensure we didn’t try to solve for $z
 
 if __name__ == "__main__":

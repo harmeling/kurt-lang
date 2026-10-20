@@ -3,20 +3,20 @@
 ; specific, helpful error rather than the generic "takes a new constant..." message whenever
 ; the specific mistake is identifiable.
 load logic
-bool P
+prop P
 arity P 1
 var x
 const f
 use exists x (P x)
 
 ; already-declared constant instead of a fresh one
-expect "EvalError"
+expect "EvalError" "got already-declared constant `f`"
     pick f with P f
 
 ; an extra condition on the witness is rejected (soundness: an existential witness can't
 ; carry an unproven extra fact with no justification, unlike `let x>0`'s universally
 ; quantified assumption)
-expect "EvalError"
+expect "EvalError" "does not support an extra condition"
     pick a>0 with P a
 
 ; a normal, unconstrained `pick` still works fine

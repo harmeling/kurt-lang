@@ -1,0 +1,6 @@
+; a helper of sorts-across-load.kurt: a fact under `default real` -- its `z` is a number
+load natural
+default real
+prop Pn
+arity Pn 1
+use ∀ z (Pn z)                     "all-pn"

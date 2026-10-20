@@ -1,10 +1,10 @@
 ; an `alias` of the loading file gave a theory's symbol another meaning: `alias Nat ∅`, then `load
 ; natural` made every fact about `Nat` one about `∅` (`∀ n ∈ Nat (n + 1 = n)` was proved, also with
-; --strict); `alias false true` before `load prop` made `false` true (found by the soundness hunt,
+; --strict); `alias false true` before `load propositional` made `false` true (found by the soundness hunt,
 ; 2026-10-14; `validate_against_loader`)
 expect "EvalError" "is an alias of `true` here"
     alias false true
-    load prop
+    load propositional
 load set
 alias Leer ∅                  ; an alias of a name of its own: fine
 expect "EvalError" "is an alias of `∅` here"

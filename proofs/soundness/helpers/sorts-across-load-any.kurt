@@ -1,0 +1,8 @@
+; a helper of sorts-across-load.kurt: the same under `default any`, and a constant over `any`
+load natural
+default any
+prop Pa
+arity Pa 1
+use ∀ z (Pa z)                     "all-pa"
+any c
+use Pa c                           "pa-c"

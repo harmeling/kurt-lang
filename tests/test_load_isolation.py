@@ -39,8 +39,8 @@ class LoadTestCase(unittest.TestCase):
 
 class TestIsolation(LoadTestCase):
     def test_a_library_can_not_use_facts_of_its_loader(self):
-        self.write('facts.kurt', 'bool A, B\nuse A "a"\nuse A implies B "ab"\n')
-        self.write('lib.kurt', 'bool A, B\nB "b"\n')                 # needs `facts`, doesn't load it
+        self.write('facts.kurt', 'prop A, B\nuse A "a"\nuse A implies B "ab"\n')
+        self.write('lib.kurt', 'prop A, B\nB "b"\n')                 # needs `facts`, doesn't load it
         self.write('main.kurt', 'load facts\nload lib\n')
         self.assertIn('can not derive `B`', self.fails('main.kurt'))
         self.write('lib.kurt', 'load facts\nB "b"\n')                 # now it does
@@ -48,8 +48,8 @@ class TestIsolation(LoadTestCase):
         self.assertIn('b', {f.label for f in kb.theory})
 
     def test_the_order_of_loads_does_not_matter(self):
-        self.write('x.kurt', 'bool A\nuse A "a"\n')
-        self.write('y.kurt', 'bool B\nuse B "b"\n')
+        self.write('x.kurt', 'prop A\nuse A "a"\n')
+        self.write('y.kurt', 'prop B\nuse B "b"\n')
         self.write('xy.kurt', 'load x\nload y\n')
         self.write('yx.kurt', 'load y\nload x\n')
         labels = [sorted(f.label for f in self.check(name)[0].theory) for name in ('xy.kurt', 'yx.kurt')]
@@ -57,8 +57,8 @@ class TestIsolation(LoadTestCase):
 
     def test_a_library_sees_only_what_it_loads(self):
         seen = []
-        self.write('big.kurt', ''.join(f'bool A{i}\nuse A{i} "a{i}"\n' for i in range(50)))
-        self.write('lib.kurt', 'bool C\nuse C "c"\ntheory\n')
+        self.write('big.kurt', ''.join(f'prop A{i}\nuse A{i} "a{i}"\n' for i in range(50)))
+        self.write('lib.kurt', 'prop C\nuse C "c"\ntheory\n')
         self.write('main.kurt', 'load big\nload lib\n')
         read_eval_loop = kurt.read_eval_loop
         def recording(f, kb):
@@ -74,15 +74,15 @@ class TestIsolation(LoadTestCase):
         self.assertEqual(seen, [1])
 
     def test_a_diamond_gives_each_fact_once(self):
-        self.write('base.kurt', 'bool A\nuse A "a"\n')
-        self.write('left.kurt', 'load base\nbool L\nuse L "l"\n')
-        self.write('right.kurt', 'load base\nbool R\nuse R "r"\n')
+        self.write('base.kurt', 'prop A\nuse A "a"\n')
+        self.write('left.kurt', 'load base\nprop L\nuse L "l"\n')
+        self.write('right.kurt', 'load base\nprop R\nuse R "r"\n')
         self.write('main.kurt', 'load left, right\nA\n')
         kb, _ = self.check('main.kurt')
         self.assertEqual([f.label for f in kb.theory].count('a'), 1)
 
     def test_todos_of_a_library_count(self):
-        self.write('lib.kurt', 'bool A\ntodo A "a"\n')
+        self.write('lib.kurt', 'prop A\ntodo A "a"\n')
         self.write('main.kurt', 'load lib\nA\n')
         kb, _ = self.check('main.kurt')
         self.assertEqual(len(kb.todos()), 1)
@@ -104,15 +104,15 @@ class TestConflicts(LoadTestCase):
         self.check('main.kurt')
 
     def test_declarations_must_agree(self):
-        self.write('lib.kurt', 'bool P 0 1\nuse P (A and B) "p"\n')
-        self.write('main.kurt', 'bool P\nuse P "q"\nload lib\n')
+        self.write('lib.kurt', 'prop P 0 1\nuse P (A and B) "p"\n')
+        self.write('main.kurt', 'prop P\nuse P "q"\nload lib\n')
         self.assertIn('declared differently', self.fails('main.kurt'))
 
     def test_a_symbol_is_declared_by_one_file_only(self):
         # the same declaration from two files is an error too (numbers.kurt and field.kurt both
         # declare `+`, with laws for different things), in both orders, directly or via a `load`
-        self.write('lib.kurt', 'bool P\narity P 2\nuse P $x $y "p"\n')
-        self.write('main.kurt', 'bool P\narity P 2\nuse P $x $x "q"\nload lib\n')
+        self.write('lib.kurt', 'prop P\narity P 2\nuse P $x $y "p"\n')
+        self.write('main.kurt', 'prop P\narity P 2\nuse P $x $x "q"\nload lib\n')
         self.assertIn('declared by one file only', self.fails('main.kurt'))
         self.write('ops.kurt', 'load equality\ninfix ∘ 50 50\nuse $a ∘ $b = $b ∘ $a "comm"\n')
         self.write('other.kurt', 'load equality\ninfix ∘ 50 50\nuse $a ∘ $a = $a "idem"\n')
@@ -133,11 +133,11 @@ class TestConflicts(LoadTestCase):
 
 class TestCache(LoadTestCase):
     def test_a_changed_dependency_is_checked_again(self):
-        self.write('base.kurt', 'bool A\nuse A "a"\n')
+        self.write('base.kurt', 'prop A\nuse A "a"\n')
         self.write('lib.kurt', 'load base\nA "a2"\n')
         self.write('main.kurt', 'load lib\n')
         self.check('main.kurt')
-        self.write('base.kurt', 'bool A\n')                            # `A` doesn't hold anymore
+        self.write('base.kurt', 'prop A\n')                            # `A` doesn't hold anymore
         self.assertIn('can not derive `A`', self.fails('main.kurt'))
 
     def test_a_library_is_checked_once(self):

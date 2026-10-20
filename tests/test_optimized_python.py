@@ -23,7 +23,7 @@ class TestOptimizedPython(unittest.TestCase):
     def test_the_api(self):
         for call in ('kurt.check_text("true\\n")', 'kurt.new_session().check_text("true\\n")',
                      'kurt.Shell().start_text("true\\n")', 'kurt.check_file("tutorial/01-apply-an-implication-modus-ponens.kurt")',
-                     'kurt.load_file("prop", copy.deepcopy(kurt.initial_kb))'):
+                     'kurt.load_file("propositional", copy.deepcopy(kurt.initial_kb))'):
             with self.subTest(call=call):
                 run = self.run_optimized('-c', f'import copy, kurt.kurt as kurt; {call}; print("checked")')
                 self.assertNotIn('checked', run.stdout)

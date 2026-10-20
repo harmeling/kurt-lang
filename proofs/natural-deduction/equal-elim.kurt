@@ -1,6 +1,6 @@
 ; example: equal-elim TODO
 load equality
-bool f 0
+prop f 0
 arity f 1
 use x = 17
 use f(x)

@@ -1,0 +1,31 @@
+; a boolean operator is a statement only applied to its arguments: on its own it is neither a
+; statement nor a term, so it is a type error where a statement is required (2026-10-16, todo 32;
+; before, `¬ P` with `arity P 2` was accepted, soundness §8.40)
+load propositional, equality, logic
+const a, b
+prop P, Q, A
+arity P 2, Q 1
+
+; a predicate without its arguments
+expect "TypeError" "`P` is an operator without its arguments -- apply it to its 2 arguments, e.g. `P a b`"
+    use ¬ P
+expect "TypeError" "`Q` is an operator without its arguments"
+    use A ⇒ Q
+; an infix operator, in brackets to be written alone
+expect "TypeError" "`=` is an operator without its arguments -- write it between its arguments, e.g. `a = b`"
+    use A ∧ (=)
+; inside an operator that is itself an expression
+expect "TypeError" "`=` is an operator without its arguments"
+    use ((¬ (=)) a) b
+; an equivalence of two predicates is stated for their arguments
+expect "TypeError" "`Q` is an operator without its arguments"
+    use Q ⇔ Q
+use ∀ x (Q x ⇔ Q x)
+
+; applied, all of these are statements
+use ¬ (P a b)
+use A ⇒ Q a
+use A ∧ (a = b)
+; a statement of arity 0 stands on its own, and so does a boolean variable
+use ¬ A
+use %B ⇒ %B

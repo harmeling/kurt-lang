@@ -20,7 +20,7 @@ def forall(x: str, body: Expr) -> Expr:
 class TestBareBoolSchemaWarning(unittest.TestCase):
     def setUp(self):
         self.kb = with_quantifiers(copy.deepcopy(initial_kb))
-        # `iff` is an equivalence only with its role (prop.kurt's `builtin iff equivalence`)
+        # `iff` is an equivalence only with its role (propositional.kurt's `builtin iff equivalence`)
         self.kb.add_infix('iff', 10, 10)
         self.kb.add_bool('iff', [0, 1, 2])
         self.kb.bind_engine_role('iff', 'equivalence')

@@ -1,0 +1,20 @@
+; sorts across `load` (dev/todo-order-sorted.md item 14): a `default` doesn't cross `load`, the
+; sorts it gave do -- a fact of a file with `default real` stays about the numbers in a file without
+; a default (whose own unsorted binders are over all objects), one with `default any` about all
+; objects; a constant declared `any` is over `any` in the loading file too
+load natural
+load helpers/sorts-across-load-real
+load helpers/sorts-across-load-any
+
+Pn 3                               ; a number
+expect "TypeError" "must have sort `real`"
+    Pn {1}                         ; a set: the place of `Pn` became `real` there (its default)
+real k
+∀ k (Pn k)                         ; over the numbers, as "all-pn"
+
+Pa 3
+Pa {1}
+∀ y (Pa y)                         ; over all objects, as "all-pa"
+
+expect "TypeError" "must have sort `real`"
+    c + 0 = c                      ; `c` is over `any` here as there: no number

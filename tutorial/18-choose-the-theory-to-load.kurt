@@ -2,31 +2,31 @@
 ;
 ; Choose the theory to load
 ;
-; | Theory | Main contents |
-; |---|---|
-; | `prop` | `not`, `or`, `iff`, contradiction, propositional introduction/elimination rules |
-; | `logic` | `forall`, `exists`, conditioned quantifier rules; loads `prop` |
-; | `equality` | `=`, `≠` (`\ne`), reflexivity and substitution; loads `prop` |
-; | `set` | membership, subsets, separation, union/intersection, products, tuples, mappings |
-; | `numbers` | exact calculation bindings, algebraic laws, order, powers, factorial |
-; | `natural` | natural numbers: induction, the predecessor, well-ordering, even and odd, divisibility `∣`, `coprime` |
-; | `integer` | the integers `Int` |
-; | `rational` | the rationals `Rat`, every positive rational in lowest terms |
-; | `analysis` | absolute value, finite sums, extrema, suprema/infima, limits |
-; | `continuity` | continuity, differentiability and the derivative by their definitions; loads `analysis` |
-; | `derivative` | the rules for derivatives; loads `continuity` |
-; | `integral` | the integral and integrability, their rules |
-; | `sequences` | limits of sequences, series, the geometric series |
-; | `group` | reusable group structure and derived group theorems |
-; | `field` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1`: every axiom for the elements of `K`, subtraction |
-; | `vectorspace` | vector spaces over `K`: `vectorspace($V)`, the axioms for its elements |
-; | `matrix` | vectors and matrices as literals, computed exactly with `calc on` (lesson 25) |
-; | `modal` | modal logic T: `□`, `◇`, theorems `⊢ A`, modus ponens and necessitation (lesson 28) |
-; | `lambda` | the simply typed lambda calculus: typing `Γ ⊢ M : A`, reduction `↦`, evaluation `⇝` (lesson 27) |
+; | Theory        | Main contents                                                                                         |
+; |---------------|-------------------------------------------------------------------------------------------------------|
+; | `propositional`        | `not`, `or`, `iff`, contradiction, propositional introduction/elimination rules                       |
+; | `logic`       | `forall`, `exists`, conditioned quantifier rules; loads `propositional`                                        |
+; | `equality`    | `=`, `≠` (`\ne`), reflexivity and substitution; loads `propositional`                                          |
+; | `set`         | membership, subsets, separation, union/intersection, products, tuples, mappings                       |
+; | `numbers`     | exact calculation bindings, algebraic laws, order, powers, factorial                                  |
+; | `natural`     | natural numbers: induction, the predecessor, well-ordering, even and odd, divisibility `∣`, `coprime` |
+; | `integer`     | the integers `Int`                                                                                    |
+; | `rational`    | the rationals `Rat`, every positive rational in lowest terms                                          |
+; | `analysis`    | absolute value, finite sums, extrema, suprema/infima, limits                                          |
+; | `continuity`  | continuity, differentiability and the derivative by their definitions; loads `analysis`               |
+; | `derivative`  | the rules for derivatives; loads `continuity`                                                         |
+; | `integral`    | the integral and integrability, their rules                                                           |
+; | `sequences`   | limits of sequences, series, the geometric series                                                     |
+; | `group`       | reusable group structure and derived group theorems                                                   |
+; | `field`       | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1`: every axiom for the elements of `K`, subtraction     |
+; | `vectorspace` | vector spaces over `K`: `vectorspace($V)`, the axioms for its elements                                |
+; | `matrix`      | vectors and matrices as literals, computed exactly with `calc on` (lesson 25)                         |
+; | `modal`       | modal logic T: `□`, `◇`, theorems `⊢ A`, modus ponens and necessitation (lesson 28)                   |
+; | `lambda`      | the simply typed lambda calculus: typing `Γ ⊢ M : A`, reduction `↦`, evaluation `⇝` (lesson 27)       |
 ;
 ; Nothing needs to be loaded to write `implies`, `and`, and `true`: they belong to the core, which
 ; every file starts with (`minimal.kurt`, which Kurt reads when it starts; it is never loaded). Their
-; rules beyond modus ponens and `and-intro` -- `and-elim`, ... -- come with `prop`.
+; rules beyond modus ponens and `and-intro` -- `and-elim`, ... -- come with `propositional`.
 ;
 ; Numbers or structures: `numbers` (and `natural`, `integer`, `rational`, `analysis`, which load
 ; it) is about numbers -- its laws hold for everything written with `+`, `*`, ... For linear
@@ -36,10 +36,10 @@
 ; its operation as an argument, so it goes with either. (`numbers` used to be called `arith`.)
 ;
 ; Dependencies are loaded transitively. For example, `load natural` brings in `set`, `logic`,
-; `equality`, `prop`, and `numbers` as required. Use `kurt --deps FILE` to inspect the actual tree.
+; `equality`, `propositional`, and `numbers` as required. Use `kurt --deps FILE` to inspect the actual tree.
 ;
 ; In `modal`, a line `⊢ A` says that the modal formula A is a theorem, and the rules of modal
 ; logic say which theorems follow, e.g. necessitation: from `⊢ A` follows `⊢ □A` (lesson 28).
 ; Its connectives `¬`, `∧`, `∨`, `⇔`, `→` are those of modal logic, so it can not be loaded
-; together with `prop` (or `logic`, which loads it), nor with `set`, which uses `→` for function
+; together with `propositional` (or `logic`, which loads it), nor with `set`, which uses `→` for function
 ; spaces.

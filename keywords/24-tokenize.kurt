@@ -7,5 +7,5 @@
 
 ; the trailing `$$$` in the output below is just Kurt's internal end-of-input marker,
 ; always appended -- harmless, not part of your actual source text.
-bool A, B
+prop A, B
 tokenize A implies B      ; A  implies  B  $$$

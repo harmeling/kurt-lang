@@ -1,25 +1,24 @@
-load prop
+load propositional
 
 ; this version should be usable when loaded as an extension in another file, since we do not declare anything local here
-; the key is that there are no quantifier for bool vars, but
+; the key is that there are no quantifier for prop vars, but
 ; they are implicitly universally quantified
 
 var a, b
 show a ∨ b  ⇔  b ∨ a   "or-sym"
 proof
-    let a, b
-        assume a ∨ b
-            assume a
-                b ∨ a
-            assume b
-                b ∨ a
+    assume a ∨ b
+        assume a
             b ∨ a
-        assume b ∨ a
-            assume b
-                a ∨ b
-            assume a
-                a ∨ b
+        assume b
+            b ∨ a
+        b ∨ a
+    assume b ∨ a
+        assume b
             a ∨ b
-        a ∨ b  ⇔  b ∨ a
+        assume a
+            a ∨ b
+        a ∨ b
+    a ∨ b  ⇔  b ∨ a
     a ∨ b  ⇔  b ∨ a
 qed

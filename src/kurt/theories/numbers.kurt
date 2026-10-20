@@ -13,7 +13,9 @@
 ; its variables have values (`($n - 1)!` with `$n := 3` matches `2!`, see
 ; proofs/arithmetic/factorial-with-calc.kurt) -- but it doesn't solve: `$b / 3` doesn't match
 ; `0` while `$b` is unknown.
-load prop, equality
+load propositional, equality
+load objects               ; the sorts: `real`, and `real ⊂ set`
+default real                ; every symbol of this file is a number, every position a number's
 
 ;; syntax
 infix   +  60 60           ; binary plus
@@ -30,7 +32,7 @@ infix   >= 20 20           ; greater than or equal
 
 flat +, *
 sym  +, *
-bool <  0, <= 0
+prop <  0, <= 0
 chain   = <= <
 alias   ≤ <=
 alias   ≥ >=
@@ -46,6 +48,26 @@ builtin = eq, < lt, <= le
 ; how `kurt --latex` writes them
 tex / \frac{$1}{$2}
 tex ^ {$1}^{$2}
+
+; how `kurt --lean` writes them with Mathlib (doc/kurt-doc.md, `--lean`): the numbers are Mathlib's
+; reals -- for every theory of numbers (natural.kurt, integer.kurt, rational.kurt: `Nat`, `Int`,
+; `Rat` are sets of them, as here) --, embedded into the sets of Mathlib, the objects (`lean Obj
+; ZFSet`, objects.kurt: every number is a set), a number `2` is `(2 : ℝ)`, `^` the real power
+; (`Real.rpow`), and `n!` is `Γ(n + 1)` (`Real.Gamma`: `0! = 1` and `n! = n (n - 1)!` for every
+; `n > 0`, as the rules below say, and `n!` the factorial for a natural number). With `ℝ`, `x / 0 =
+; 0` (Mathlib's convention); no rule below says otherwise. Each rule is a theorem of Mathlib: its
+; proof is the `lean "label" ...` after it (a tactic; only output, Kurt doesn't read it), and
+; `kurt --lean` writes the rule as a `theorem` with it, which Lean checks.
+lean real ℝ                 ; a number is a real (and a set: `k_emb x`, where a set is required)
+lean + $1 + $2
+lean - $1 - $2
+lean - -$1
+lean * $1 * $2
+lean / $1 / $2
+lean ^ $1 ^ $2
+lean < $1 < $2
+lean <= $1 ≤ $2
+lean ! Real.Gamma ($1 + 1)
 
 ;; rules
 use $a = $b  ⇒  $a + $c = $b + $c   "add-eq"
@@ -156,3 +178,84 @@ use $a < $b ∨ $a = $b ∨ $a > $b   "trichotomy"
 ;; factorial
 use 0! = 1                              "factorial-base"
 use $n > 0  ⇒  $n! = $n * ($n - 1)!     "factorial-step"
+
+;; the rules as theorems of Mathlib: `lean "label" TACTIC` is a proof in Lean of the rule "label"
+;; (in `ℝ`, see `lean real ℝ` above) -- `kurt --lean` writes the rule as a `theorem` with it, and
+;; Lean checks it; Kurt itself doesn't read the tactic (doc/kurt-doc.md, `--lean`). The tactics don't
+;; name the variables (`intros`): Kurt orders the arguments of `+` and `*` its own way.
+lean "add-eq" intros; subst_vars; rfl
+lean "sub-eq" intros; subst_vars; rfl
+lean "mul-eq" intros; subst_vars; rfl
+lean "div-eq" intros; subst_vars; rfl
+lean "distrib-add" intros; ring
+lean "distrib-sub" intros; ring
+lean "add-sub" intros; ring
+lean "add-inverse" intros; ring
+lean "sub-inverse" intros; ring
+lean "mul-identity" intros; ring
+lean "div-identity" intros; ring
+lean "mul-neg-one" intros; ring
+lean "double-negation" intros; ring
+lean "mul-zero" intros; ring
+lean "zero-div" intros; simp
+lean "div-self" intros; field_simp
+lean "mul-div" intros; field_simp
+lean "div-mul" intros; field_simp
+lean "div-add" intros; ring
+lean "div-mul-div" intros; ring
+lean "mul-ne-zero" intros; simp_all
+lean "add-identity" intros; ring
+lean "sub-identity" intros; ring
+lean "pow-identity" intros; simp
+lean "pow-zero" intros; simp
+lean "pow-add" intros; rw [← Real.rpow_add ‹_›]
+lean "pow-mul" intros; rw [← Real.rpow_mul (le_of_lt ‹_›)]
+lean "lt-add" intros; linarith
+lean "lt-sub" intros; linarith
+lean "lt-mul-pos" intros; casesm* _ ∧ _; nlinarith
+lean "lt-div-pos" intros; casesm* _ ∧ _; gcongr
+lean "lt-mul-neg" intros; casesm* _ ∧ _; nlinarith
+lean "lt-div-neg" intros; casesm* _ ∧ _; exact (div_lt_div_right_of_neg ‹_›).mpr ‹_›
+lean "le-add" intros; linarith
+lean "le-sub" intros; linarith
+lean "le-mul-pos" intros; casesm* _ ∧ _; nlinarith
+lean "le-div-pos" intros; casesm* _ ∧ _; gcongr
+lean "le-mul-neg" intros; casesm* _ ∧ _; nlinarith
+lean "le-div-neg" intros; casesm* _ ∧ _; exact (div_le_div_right_of_neg ‹_›).mpr ‹_›
+lean "gt-add" intros; linarith
+lean "gt-sub" intros; linarith
+lean "gt-mul-pos" intros; casesm* _ ∧ _; nlinarith
+lean "gt-div-pos" intros; casesm* _ ∧ _; gcongr
+lean "gt-mul-neg" intros; casesm* _ ∧ _; nlinarith
+lean "gt-div-neg" intros; casesm* _ ∧ _; exact (div_lt_div_right_of_neg ‹_›).mpr ‹_›
+lean "ge-add" intros; linarith
+lean "ge-sub" intros; linarith
+lean "ge-mul-pos" intros; casesm* _ ∧ _; nlinarith
+lean "ge-div-pos" intros; casesm* _ ∧ _; gcongr
+lean "ge-mul-neg" intros; casesm* _ ∧ _; nlinarith
+lean "ge-div-neg" intros; casesm* _ ∧ _; exact (div_le_div_right_of_neg ‹_›).mpr ‹_›
+lean "lt-add-lt" intros; casesm* _ ∧ _; linarith
+lean "gt-add-gt" intros; casesm* _ ∧ _; linarith
+lean "mul-pos" intros; casesm* _ ∧ _; positivity
+lean "div-pos" intros; casesm* _ ∧ _; positivity
+lean "pow-pos" intros; apply Real.rpow_pos_of_pos; assumption
+lean "pow-lt" intros; casesm* _ ∧ _; gcongr
+lean "pow-gt" intros; casesm* _ ∧ _; gcongr
+lean "lt-not-ge" intros; linarith
+lean "gt-not-le" intros; linarith
+lean "le-not-gt" intros; linarith
+lean "ge-not-lt" intros; linarith
+lean "le-ge" intros; exact Iff.rfl
+lean "lt-gt" intros; exact Iff.rfl
+lean "lt-le" intros; linarith
+lean "le-refl" intros; exact le_refl _
+lean "lt-ne" intros; linarith
+lean "le-ge-antisym" intros; casesm* _ ∧ _; linarith
+lean "gt-ne" intros; linarith
+lean "sub-ge-zero" intros; linarith
+lean "lt-gt-contra" intros; casesm* _ ∧ _; linarith
+lean "lt-ge-contra" intros; casesm* _ ∧ _; linarith
+lean "gt-le-contra" intros; casesm* _ ∧ _; linarith
+lean "trichotomy" intro a b; rcases lt_trichotomy a b with h | h | h <;> tauto
+lean "factorial-base" norm_num
+lean "factorial-step" intro n h; rw [sub_add_cancel, Real.Gamma_add_one h.ne']

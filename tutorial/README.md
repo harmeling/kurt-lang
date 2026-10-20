@@ -34,6 +34,7 @@ a document that is gone.)
 - [`26-inspect-a-loaded-theory.kurt`](26-inspect-a-loaded-theory.kurt): Inspect a loaded theory
 - [`27-type-and-reduce-lambda-terms.kurt`](27-type-and-reduce-lambda-terms.kurt): Type and reduce simply typed lambda terms
 - [`28-prove-with-modal-logic.kurt`](28-prove-with-modal-logic.kurt): Prove with modal logic
+- [`29-numbers-sets-and-sorts.kurt`](29-numbers-sets-and-sorts.kurt): Numbers and sets together: sorts
 
 The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one by one, and
 [`doc/kurt-doc.md`](../doc/kurt-doc.md) is the complete language reference. More examples:

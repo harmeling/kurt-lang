@@ -3,8 +3,8 @@
 ; `alias NEW OLD` gives an existing symbol an additional name -- most often
 ; used to offer a nicer Unicode spelling next to an ASCII one.  The core
 ; (`minimal.kurt`) has no aliases; the loaded theories add them, e.g.
-; `prop.kurt` has `alias ⇒ implies`, so after `load prop` the symbol `implies`
-; also answers to `⇒` (try `parse A ⇒ B` after declaring `bool A, B`), and
+; `propositional.kurt` has `alias ⇒ implies`, so after `load propositional` the symbol `implies`
+; also answers to `⇒` (try `parse A ⇒ B` after declaring `prop A, B`), and
 ; likewise `¬` to `not` and `∧` to `and`.
 
 infix "xor" 15 15
@@ -16,7 +16,7 @@ alias "^" xor          ; `^` is now just another name for `xor`
 ; A ^ B` would still *display* `(^ A B)`, not `(xor A B)` -- display prefers whatever
 ; spelling you actually typed -- but only the underlying symbol is what actually gets
 ; unified/matched.
-bool A, B
+prop A, B
 use A xor B
 A ^ B                  ; same formula, either spelling
 

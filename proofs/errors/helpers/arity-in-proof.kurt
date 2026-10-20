@@ -1,0 +1,5 @@
+; `arity` inside `proof` (see ../grammar-declaration-in-a-block.kurt)
+prop A
+show A
+proof
+    arity foo 2

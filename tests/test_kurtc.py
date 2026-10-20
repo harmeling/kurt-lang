@@ -19,6 +19,10 @@ class KurtcTestCase(unittest.TestCase):
     # runs files in a temporary directory, with `.kurtc` files on (as `kurt` on the command line)
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
+        # resolved once: kurt resolves the path of the file it checks (`run_state.current_line`),
+        # so an unresolved temp dir (macOS's /tmp is a symlink to /private/tmp) would make a
+        # stored certificate's file field never match a formula's -- resolve_formula finds nothing
+        self.dir_path = os.path.realpath(self.dir.name)
         self.old = kurt.run_state.kurtc_enabled
         kurt.run_state.kurtc_enabled = True
 
@@ -28,7 +32,7 @@ class KurtcTestCase(unittest.TestCase):
         self.dir.cleanup()
 
     def write(self, name: str, text: str) -> Path:
-        path = Path(self.dir.name) / name
+        path = Path(self.dir_path) / name
         path.write_text(text)
         return path
 
@@ -42,7 +46,7 @@ class KurtcTestCase(unittest.TestCase):
 
 class TestWriting(KurtcTestCase):
     def test_a_checked_file_gets_a_kurtc(self):
-        path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        path = self.write('mp.kurt', 'prop A, B\nuse A implies B\nuse A\nB\n')
         self.run_file(path)
         content = json.loads(Path(str(path) + 'c').read_text())
         self.assertEqual(content['kurtc'], kurt.KURTC_VERSION)
@@ -53,12 +57,12 @@ class TestWriting(KurtcTestCase):
         self.assertEqual([f['line'] for f in step['facts']], ['3'])
 
     def test_no_kurtc_with_a_todo(self):
-        path = self.write('todo.kurt', 'bool A\ntodo\nA\n')
+        path = self.write('todo.kurt', 'prop A\ntodo\nA\n')
         self.run_file(path)
         self.assertFalse(Path(str(path) + 'c').exists())
 
     def test_dependencies_are_listed(self):
-        self.write('lemma.kurt', 'bool A\nuse A "a"\n')
+        self.write('lemma.kurt', 'prop A\nuse A "a"\n')
         path = self.write('main.kurt', 'load lemma\nA\n')
         self.run_file(path)
         content = json.loads(Path(str(path) + 'c').read_text())
@@ -67,13 +71,13 @@ class TestWriting(KurtcTestCase):
 
     def test_unchanged_certificates_are_not_written_again(self):
         # (every run wrote the `.kurtc` of each file again, 0.5 s for `load rational`)
-        path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        path = self.write('mp.kurt', 'prop A, B\nuse A implies B\nuse A\nB\n')
         self.run_file(path)
         kurtc = Path(str(path) + 'c')
         os.utime(kurtc, ns=(1_000_000_000, 1_000_000_000))
         self.run_file(path)
         self.assertEqual(kurtc.stat().st_mtime_ns, 1_000_000_000)
-        path.write_text('bool A, B\nuse A implies B\nuse A\nB\nB\n')
+        path.write_text('prop A, B\nuse A implies B\nuse A\nB\nB\n')
         self.run_file(path)
         self.assertNotEqual(kurtc.stat().st_mtime_ns, 1_000_000_000)      # (changed: written)
 
@@ -108,19 +112,55 @@ class TestReplay(KurtcTestCase):
         self.assertGreater(searches1, 0)
         self.assertEqual(searches2, 0)
 
-    def test_a_chain_step_is_not_slower_with_certificates(self):
-        # a step that rewrites a part: its certificate is for the part, not for the line, and the
-        # line's search was then the slow one, without the order of facts and rules (field.kurt:
-        # 15 s with its `.kurtc`, 7 s without)
+    def test_a_chain_step_replays_with_its_instance(self):
+        # the certificate of a chain line cites the instance the search derived first (`8a`, see
+        # `conditional_rewrite`), a step of the line itself: on the next run it is derived from its
+        # own certificate before the line's (`replay_step`) -- no search at all, the same output
+        # (until 2026-10-16 the line's certificate failed, since `8a` wasn't there, and field.kurt
+        # took 4.9 s with its certificates)
         path = self.write('chain.kurt', 'load field\nconst x\nuse x ∈ K\n- 1 ∈ K\nx + 1 ∈ K\n'
                                         '(x + 1) · (- 1) ∈ K\n(x + 1) · x ∈ K\n'
                                         '(x + 1) · (x + (- 1)) = (x + 1) · x + (x + 1) · (- 1)\n'
                                         '                      = (x · x + 1 · x) + (x + 1) · (- 1)\n')
         self.run_file(self.write('warm.kurt', 'load field\n'))      # (field.kurt checked: only the lines below count)
         out1, searches1 = self.count_searches(path, 'match_all_theory')
+        self.assertIn('9a by distributive-right', out1)
         out2, searches2 = self.count_searches(path, 'match_all_theory')
         self.assertEqual(out1, out2)
-        self.assertLessEqual(searches2, searches1)
+        self.assertGreater(searches1, 0)
+        self.assertEqual(searches2, 0)
+        kurtc = Path(str(path) + 'c')
+        stored = json.loads(kurtc.read_text())
+        self.assertEqual([h['rule']['label'] for h in stored['steps']['9']], ['distributive-right', 'equal-elim'])   # the step's, the line's
+        stamp = kurtc.stat().st_mtime_ns
+        self.run_file(path)
+        self.assertEqual(kurtc.stat().st_mtime_ns, stamp)            # (the replay gives the same certificates: not written again)
+
+    def test_a_line_rewriting_two_places_replays_with_its_step(self):
+        # `multi_rewrite`: the line with one place rewritten is a step (`5a`), and the line's
+        # certificate cites it
+        path = self.write('two.kurt', 'load numbers\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
+        self.run_file(self.write('warm.kurt', 'load numbers\n'))
+        out1, searches1 = self.count_searches(path, 'match_all_theory')
+        self.assertIn('5a by equal-elim', out1)
+        out2, searches2 = self.count_searches(path, 'match_all_theory')
+        self.assertEqual(out1, out2)
+        self.assertGreater(searches1, 0)
+        self.assertEqual(searches2, 0)
+
+    def test_a_step_without_its_certificate_is_searched(self):
+        # the step's certificate taken out of the `.kurtc`: the line's can't be rebuilt, the search
+        # runs (and finds the same), nothing is accepted without the kernel
+        path = self.write('two.kurt', 'load numbers\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
+        out1 = self.run_file(path)
+        kurtc = Path(str(path) + 'c')
+        content = json.loads(kurtc.read_text())
+        content['steps']['5'] = [h for h in content['steps']['5'] if h['rule']['label'] != 'equal-elim' or h['facts'][0]['line'] != '5a'][-1:]
+        self.assertEqual(len(content['steps']['5']), 1)
+        kurtc.write_text(json.dumps(content))
+        out2, searches2 = self.count_searches(path, 'match_all_theory')
+        self.assertEqual(out1, out2)
+        self.assertGreater(searches2, 0)
 
     def test_conditional_rewriting_checks_again(self):
         # the certificate of a rewriting step with a derived instance (`7a`) refers to that step,
@@ -133,18 +173,18 @@ class TestReplay(KurtcTestCase):
         self.assertIn('7a by K7', self.run_file(path))
 
     def test_changed_source_ignores_the_kurtc(self):
-        path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        path = self.write('mp.kurt', 'prop A, B\nuse A implies B\nuse A\nB\n')
         self.run_file(path)
-        path.write_text('bool A, B\nuse A implies B\nuse A\nB\nB\n')
+        path.write_text('prop A, B\nuse A implies B\nuse A\nB\nB\n')
         _, searches = self.count_searches(path)
         self.assertGreater(searches, 0)
 
     def test_forged_kurtc_proves_nothing(self):
         # a `.kurtc` with the right hash, but a certificate for a false claim: `B` from `A`
-        good = self.write('good.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        good = self.write('good.kurt', 'prop A, B\nuse A implies B\nuse A\nB\n')
         self.run_file(good)
         forged = json.loads(Path(str(good) + 'c').read_text())
-        bad = self.write('bad.kurt', 'bool A, B\nuse B implies A\nuse A\nB\n')     # `B` doesn't follow
+        bad = self.write('bad.kurt', 'prop A, B\nuse B implies A\nuse A\nB\n')     # `B` doesn't follow
         forged['sha256'] = kurt.source_hash(str(bad))
         forged['steps']['4'][0]['rule']['file'] = str(bad)
         forged['steps']['4'][0]['facts'][0]['file'] = str(bad)
@@ -166,7 +206,7 @@ class TestReplay(KurtcTestCase):
         self.assertTrue(any(v is not None and 'not the goal' in v for v in verdicts), verdicts)   # the kernel said no
 
     def test_damaged_kurtc_is_ignored(self):
-        path = self.write('mp.kurt', 'bool A, B\nuse A implies B\nuse A\nB\n')
+        path = self.write('mp.kurt', 'prop A, B\nuse A implies B\nuse A\nB\n')
         self.run_file(path)
         content = json.loads(Path(str(path) + 'c').read_text())
         content['steps']['4'][0]['values'] = 'nonsense'
@@ -176,8 +216,8 @@ class TestReplay(KurtcTestCase):
 
 class TestDependencies(KurtcTestCase):
     def test_tree_with_status(self):
-        self.write('a.kurt', 'bool A\nuse A "a"\n')
-        self.write('b.kurt', 'load a\nbool B\nuse A implies B "b"\n')
+        self.write('a.kurt', 'prop A\nuse A "a"\n')
+        self.write('b.kurt', 'load a\nprop B\nuse A implies B "b"\n')
         main = self.write('main.kurt', 'load a, b\nB\n')
         self.assertIn('main.kurt  -- not certified', kurt.dependencies_str(str(main)))
         self.run_file(main)
@@ -186,7 +226,7 @@ class TestDependencies(KurtcTestCase):
         self.assertTrue(tree[1].startswith('├─ a.kurt  -- certified'), tree)
         self.assertTrue(tree[2].startswith('└─ b.kurt  -- certified'), tree)
         self.assertEqual(tree[3], '   └─ a.kurt  (see above)')
-        (Path(self.dir.name) / 'a.kurt').write_text('bool A\nuse A "a"\n; changed\n')
+        (Path(self.dir_path) / 'a.kurt').write_text('prop A\nuse A "a"\n; changed\n')
         tree = kurt.dependencies_str(str(main)).splitlines()
         self.assertIn('certified, but a.kurt changed since', tree[0])
         self.assertIn('out of date: the file changed since', tree[1])
@@ -228,7 +268,7 @@ class TestForgedCertificates(KurtcTestCase):
     def test_direction_only_of_an_iff(self):
         # "bottom-elim" `false ⇒ %A` read backwards would give `false` from any fact
         path = self.write('h.kurt', 'load numbers\nfalse\n')
-        file, line = theory_line('prop', 'bottom-elim')
+        file, line = theory_line('propositional', 'bottom-elim')
         fact_file, fact_line = theory_line('numbers', 'factorial-base')
         S = lambda v: ['SYMBOL', v]
         E = lambda *c: {'e': list(c)}

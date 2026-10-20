@@ -2,31 +2,34 @@ import copy
 import io
 import contextlib
 import dataclasses
+import os
+import tempfile
 import unittest
+from pathlib import Path
 
 import kurt.kurt as kurt
 
-from tests.utils import PROJECT_ROOT, with_quantifiers, numbered
+from tests.utils import with_quantifiers, numbered
 
 
 def run_with_certificates(text: str, name: str = 'kernel-test.kurt') -> list[kurt.Certificate]:
     # run `text` as a file, and return the certificates of its steps, in the order of the lines
-    path = PROJECT_ROOT / 'tests' / name
-    path.write_text(text)
-    try:
+    # (in a directory of its own, not in tests/: two runs of the suite at once wrote the same file;
+    # `realpath`: one name for the file, the one the test looks it up by -- Kurt keeps the name it is given)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(os.path.realpath(tmp)) / name
+        path.write_text(text, encoding='utf-8')
         kb = with_quantifiers(copy.deepcopy(kurt.initial_kb))
         with contextlib.redirect_stdout(io.StringIO()):
             kurt.load_file(str(path), kb)
         mine = sorted((line, certs) for (f, line), certs in kurt.run_state.certificates_by_line.items() if f == str(path))
         return [cert for _, certs in mine for cert, _ in certs]
-    finally:
-        path.unlink()
 
 
 class TestCertificates(unittest.TestCase):
     def test_each_step_has_a_certificate(self):
         certs = run_with_certificates('\n'.join([
-            'bool A, B',
+            'prop A, B',
             'use A implies B',
             'use A',
             'B',                  # by the rule `A implies B`, with the fact `A`
@@ -41,7 +44,7 @@ class TestCertificates(unittest.TestCase):
     def test_values_of_a_schema_rule(self):
         certs = run_with_certificates('\n'.join([
             'load logic',
-            'bool P',
+            'prop P',
             'arity P 1',
             'const P, c',
             'use forall x P x',
@@ -110,7 +113,7 @@ class TestKernelRejects(unittest.TestCase):
             return {'no facts': dataclasses.replace(cert, facts=[]),
                     'other goal': dataclasses.replace(cert, goal=token('A')),
                     'unknown rule': dataclasses.replace(cert, rule=copy_of_rule)}
-        v = self.verdicts('bool A, B\nuse A implies B\nuse A\nB', variants)
+        v = self.verdicts('prop A, B\nuse A implies B\nuse A\nB', variants)
         self.assert_rejected(v, {'no facts': 'does not follow', 'other goal': 'is not the goal',
                                  'unknown rule': 'not in the theory'})
 
@@ -125,7 +128,7 @@ class TestKernelRejects(unittest.TestCase):
                 'no rule': dataclasses.replace(cert, rule=None),
             }
         text = '\n'.join([
-            'load prop', 'bool A, B, C, G', 'use A or B or C',
+            'load propositional', 'prop A, B, C, G', 'use A or B or C',
             'use A implies G', 'use B implies G', 'use C implies G', 'G',
         ])
         v = self.verdicts(text, variants, which=lambda cert: cert.kind == 'case-elim')
@@ -140,7 +143,7 @@ class TestKernelRejects(unittest.TestCase):
     def test_free_variable_of_the_goal_gets_no_value(self):
         def variants(cert, kb):
             return {'value': dataclasses.replace(cert, values={**cert.values, **{y: token('c') for y in cert.fixed}})}
-        v = self.verdicts('bool P\narity P 1\nconst P, c\nuse P $x\nP $y', variants)
+        v = self.verdicts('prop P\narity P 1\nconst P, c\nuse P $x\nP $y', variants)
         self.assert_rejected(v, {'value': 'got a value'})
 
     def test_premise_variable_stays_generic(self):
@@ -152,7 +155,7 @@ class TestKernelRejects(unittest.TestCase):
             b = next(t.value for t in kurt.get_token_set(other.simplified_expr) if str(t.value).startswith('$'))
             values = {**cert.values, value_named(cert, kb, 'c'): token(e), b: token(e)}
             return {'eigen': dataclasses.replace(cert, facts=[other], values=values)}
-        text = '\n'.join(['load logic', 'bool R, Q', 'arity R 2', 'const R, Q, c',
+        text = '\n'.join(['load logic', 'prop R, Q', 'arity R 2', 'const R, Q, c',
                           'use (forall $x (R $x $T)) implies Q', 'use R $a c', 'use R $b $b', 'Q'])
         self.assert_rejected(self.verdicts(text, variants), {'eigen': 'depends on the fresh variables'})
 
@@ -163,7 +166,7 @@ class TestKernelRejects(unittest.TestCase):
         def variants(cert, kb):
             return {'a constant': dataclasses.replace(cert, premise_fresh=('c',)),
                     'a fixed variable': dataclasses.replace(cert, premise_fresh=('x',))}
-        text = '\n'.join(['load logic', 'bool R, Q', 'arity R 2', 'const R, Q, c', 'var x',
+        text = '\n'.join(['load logic', 'prop R, Q', 'arity R 2', 'const R, Q, c', 'var x',
                           'use (forall $x (R $x $T)) implies Q', 'use R $a c', 'assume R x x', '    Q'])
         self.assert_rejected(self.verdicts(text, variants), {'a constant': 'not fresh', 'a fixed variable': 'not fresh'})
 
@@ -174,7 +177,7 @@ class TestKernelRejects(unittest.TestCase):
             other = fact_named(kb, 'exists $z (R $z $z)')
             values = {**cert.values, value_named(cert, kb, 'c'): token(y)}
             return {'capture': dataclasses.replace(cert, facts=[other], values=values)}
-        text = '\n'.join(['load logic', 'bool R, Q', 'arity R 2', 'const R, Q, c',
+        text = '\n'.join(['load logic', 'prop R, Q', 'arity R 2', 'const R, Q, c',
                           'use (exists $y (R $y $T)) implies Q', 'use exists $z (R $z c)',
                           'use exists $z (R $z $z)', 'Q'])
         self.assert_rejected(self.verdicts(text, variants), {'capture': 'capture'})
@@ -199,12 +202,81 @@ class TestKernelRejects(unittest.TestCase):
             )}
         text = '\n'.join([
             'sort nat, vec', 'var n', 'nat n', 'const c, d', 'nat c', 'vec d',
-            'bool P 0', 'arity P 1', 'bool Q',
+            'prop P 0', 'arity P 1', 'prop Q',
             'use (P n) implies Q "nat-only"', 'use P c', 'use P d', 'Q',
         ])
         verdicts = self.verdicts(text, variants,
                                  lambda cert: cert.rule is not None and cert.rule.label == 'nat-only')
         self.assert_rejected(verdicts, {'wrong sort': 'sort `nat`'})
+
+    def test_one_sort_per_use(self):
+        # the polymorphic binders of one use of a rule range over one sort
+        # (proofs/soundness/one-sort-per-use.kurt): a certificate that gives one of them a fresh
+        # variable of another sort than the others is rejected, whatever the search does
+        def variants(cert, kb):
+            # (one of the rule's `$$` binders gets a fresh variable over `real`, the others stay over `any`)
+            poly = sorted(v for v in kurt.k_binder_variables(cert.expr, kb) if kurt.k_is_poly_variable(v))
+            name = kurt.new_var_name()
+            kurt.run_state.internal_variable_sorts[name] = frozenset({'real'})
+            return {'two sorts': dataclasses.replace(cert, values={**cert.values, poly[0]: token(name)})}
+        text = '\n'.join(['load natural', 'default any', 'const T', 'use 1 ∈ T',
+                          'use ∀ z (z ∈ T ⇒ z = 1)', '∃! w (w ∈ T)'])
+        verdicts = self.verdicts(text, variants,
+                                 lambda cert: cert.rule is not None and cert.rule.label == 'existsunique-intro')
+        self.assert_rejected(verdicts, {'two sorts': 'one sort per use'})
+
+    def test_the_value_has_the_kind_of_its_variable(self):
+        # a `$`-variable takes a term, a `%`-variable a formula: a certificate that gives `$x` the
+        # formula `A` (with the fact `P A`), or `%B` the term `c` (with `R c`), is rejected --
+        # the kernel checked only sorts until 2026-10-16 (soundness §8.39)
+        def variants(cert, kb):
+            v = value_named(cert, kb, 'c' if cert.rule.label == 'term-only' else 'A')
+            other = fact_named(kb, 'P A' if cert.rule.label == 'term-only' else 'R c')
+            new = token('A') if cert.rule.label == 'term-only' else token('c')
+            return {'wrong kind': dataclasses.replace(cert, facts=[other], values={**cert.values, v: new})}
+        # (since 2026-10-20 the type checker refuses `P A`, a statement at a term place, itself; it is
+        # switched off here, so that the facts can be stated and the kernel's own check is what is tested)
+        from unittest import mock
+        with mock.patch.object(kurt, 'places_settled', lambda op, kb: False):
+            self.check_the_kind_of_the_value(variants)
+
+    def check_the_kind_of_the_value(self, variants):
+        for label, text, fragment in [
+                ('term-only', 'prop P 0, Q, A\narity P 1\nconst c\nuse (P $x) implies Q "term-only"\nuse P c\nuse P A\nQ', 'is not a term'),
+                ('formula-only', 'prop R 0, Q, A\narity R 1\nconst c\nuse (R %B) implies Q "formula-only"\nuse R A\nuse R c\nQ', 'is not a formula')]:
+            verdicts = self.verdicts(text, variants, lambda cert: cert.rule is not None and cert.rule.label == label)
+            self.assert_rejected(verdicts, {'wrong kind': fragment})
+
+    def test_a_bare_operator_is_no_formula(self):
+        # the hole of "iff-subst" cut at an operator: `%b := =` (or `P`, a `bool` operator of arity
+        # 2), `%a := ¬¬=`, `%A := R (%x c c)` -- the kernel read the bare operator as a formula by
+        # the result its signature gives, applied (until 2026-10-16, soundness §8.40). The rest of
+        # each certificate is right: the fact `R ((¬¬(=)) c c)` is the premise's instance
+        def variants(cert, kb):
+            if cert.rule.label != 'iff-subst':
+                return {}
+            hole = next(v for v, value in cert.values.items() if isinstance(value, list) and kurt.expr_str(value, kb).startswith('R '))
+            x = cert.values[hole][1]
+            iff = next(v for v, value in cert.values.items() if v != hole and isinstance(value, list) and kurt.expr_str(value, kb).startswith('not'))
+            b = next(v for v in cert.values if v not in (hole, iff) and kurt.expr_str(cert.values[v], kb) == kurt.expr_str(cert.values[iff][1][1], kb))
+            other = [v for v in cert.values if v not in (hole, iff, b)]
+            changed = {}
+            for name, op in [('%b := P', token('P'))] if 'P' in kurt.expr_str(cert.goal, kb) else [('%b := =', token('='))]:
+                fact = fact_named(kb, 'R ((not (not P)) c c)' if op.value == 'P' else 'R ((not (not (=))) c c)')
+                facts = [f if f.label != 'rnn' else fact for f in cert.facts]
+                values = {**cert.values, hole: [token('R'), [x, token('c'), token('c')]], b: op,
+                          iff: [token('not'), [token('not'), op]], **{v: op for v in other}}
+                changed[name] = dataclasses.replace(cert, facts=facts, values=values)
+            return changed
+        # (since todo 32 the type checker refuses `R ((¬¬(=)) c c)` itself; it is switched off here, so
+        # that the facts can be stated and the kernel's own check is what is tested)
+        from unittest import mock
+        with mock.patch.object(kurt, 'bare_operator_as_statement', lambda e, kb: False):
+            for text, name in [('use R (not (not (P c c))) "rnn"\nuse R ((not (not P)) c c)\nR (P c c)', '%b := P'),
+                               ('use R (not (not (c = c))) "rnn"\nuse R ((not (not (=))) c c)\nR (c = c)', '%b := =')]:
+                verdicts = self.verdicts('load propositional, equality\nprop R 0 1, P\narity R 1, P 2\nconst c\n' + text, variants,
+                                         lambda cert: cert.rule is not None and cert.rule.label == 'iff-subst')
+                self.assert_rejected({name: verdicts[name]}, {name: 'is not a formula'})
 
 
 
@@ -229,7 +301,7 @@ class TestKernelRejectsBlocks(unittest.TestCase):
                 return {}
             return {'other goal': dataclasses.replace(cert, goal=token('B')),
                     'not-intro': dataclasses.replace(cert, kind='not-intro', goal=[token('not'), token('A')])}
-        text = 'load prop\nbool A, B\nuse A implies B\nassume A\n    B\ntrue'
+        text = 'load propositional\nprop A, B\nuse A implies B\nassume A\n    B\ntrue'
         v = self.verdicts(text, 'impl-intro', variants)
         self.assert_rejected(v, {'other goal': 'is not', 'not-intro': 'not `false`'})
 
@@ -238,7 +310,7 @@ class TestKernelRejectsBlocks(unittest.TestCase):
             if cert.kind != 'forall-intro':
                 return {}
             return {'no forall': dataclasses.replace(cert, goal=cert.rule.expr)}
-        text = 'load logic\nbool P\narity P 1\nconst P\nuse P $y\nlet x\n    P x\ntrue'
+        text = 'load logic\nprop P\narity P 1\nconst P\nuse P $y\nlet x\n    P x\ntrue'
         self.assert_rejected(self.verdicts(text, 'forall-intro', variants), {'no forall': 'is not'})
 
     def test_exists_elim(self):
@@ -247,7 +319,7 @@ class TestKernelRejectsBlocks(unittest.TestCase):
                 return {}
             return {'other goal': dataclasses.replace(cert, goal=[token('P'), token('c')]),
                     'not the last line': dataclasses.replace(cert, rule=cert.block.pick_fact)}
-        text = 'load logic\nbool P, Q\narity P 1\nconst P, Q\nuse ∃ $x P $x\nuse P $y implies Q\npick c with P c\n    Q\nQ'
+        text = 'load logic\nprop P, Q\narity P 1\nconst P, Q\nuse ∃ $x P $x\nuse P $y implies Q\npick c with P c\n    Q\nQ'
         v = self.verdicts(text, 'exists-elim', variants)
         self.assert_rejected(v, {'other goal': 'last line', 'not the last line': 'not the last line'})
 
@@ -268,7 +340,7 @@ class TestKernelRejectsBlocks(unittest.TestCase):
             return verify(cert, kb)
         kurt.kernel_verify = recording
         try:
-            run_with_certificates('load logic\nbool P, Q\narity P 1\nconst P, Q\nuse ∃ $x P $x\nuse P $y implies Q\npick c with P c\n    Q\ntrue')
+            run_with_certificates('load logic\nprop P, Q\narity P 1\nconst P, Q\nuse ∃ $x P $x\nuse P $y implies Q\npick c with P c\n    Q\ntrue')
         finally:
             kurt.kernel_verify = verify
         self.assertTrue(verdicts)
@@ -278,9 +350,9 @@ class TestKernelRejectsBlocks(unittest.TestCase):
 
 class TestCertCommand(unittest.TestCase):
     def output(self, text):
-        path = PROJECT_ROOT / 'tests' / 'cert-test.kurt'
-        path.write_text(text)
-        try:
+        with tempfile.TemporaryDirectory() as tmp:          # (not in tests/, see `run_with_certificates`)
+            path = Path(os.path.realpath(tmp)) / 'cert-test.kurt'
+            path.write_text(text, encoding='utf-8')
             kb = with_quantifiers(copy.deepcopy(kurt.initial_kb))
             out = io.StringIO()
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
@@ -289,11 +361,9 @@ class TestCertCommand(unittest.TestCase):
                 except kurt.KurtException:
                     pass
             return out.getvalue()
-        finally:
-            path.unlink()
 
     def test_cert_shows_the_certificate(self):
-        out = self.output('bool A, B\nuse A implies B\nuse A\nB\ncert 4\ncert')
+        out = self.output('prop A, B\nuse A implies B\nuse A\nB\ncert 4\ncert')
         self.assertEqual(out.count('; goal:      `B`'), 2)        # `cert` alone: the last line with a step
         self.assertIn('; rule:      `A implies B` (line 2)', out)
         self.assertIn('; premise:   `A` (line 3)', out)
@@ -307,19 +377,19 @@ class TestCertCommand(unittest.TestCase):
 
     def test_the_result_of_a_block_by_its_lines(self):
         # the result of a block is numbered by the lines of the block, so `cert` takes them too
-        out = self.output('bool P\nassume P\n    P\ncert 2-3\ncert 7-8')
+        out = self.output('prop P\nassume P\n    P\ncert 2-3\ncert 7-8')
         self.assertIn('; lines 2-3:', out)
         self.assertIn('"impl-intro", closing the block `assume P`', out)
         self.assertIn('; lines 7-8: no certificate', out)
 
     def test_a_case_block_by_its_keyword(self):
         # `case B` opens an `assume` level: its closing said "closing the block `assume B`" (2026-10-14)
-        out = self.output('load prop\nbool A, B, C\nuse A or B\nuse A implies C\nuse B implies C\nshow C\nproof\n'
+        out = self.output('load propositional\nprop A, B, C\nuse A or B\nuse A implies C\nuse B implies C\nshow C\nproof\n'
                           '    case A\n        C\n    case B\n        C\nqed\ncert 12')
         self.assertIn('"impl-intro", closing the block `case B`', out)
 
     def test_a_failed_line_has_no_certificate(self):
-        out = self.output('load prop\nbool A, B\nuse A\nexpect "ProofError"\n    A ∧ B\ncert 5')
+        out = self.output('load propositional\nprop A, B\nuse A\nexpect "ProofError"\n    A ∧ B\ncert 5')
         self.assertIn('; line 5: no certificate', out)
 
 
@@ -329,12 +399,12 @@ class TestShortForm(unittest.TestCase):
         return TestCertCommand.output(self, text)
 
     def test_short_forms(self):
-        out = self.output('\n'.join(['load equality', 'bool A, B', 'const a, b, f', 'arity f 1',
+        out = self.output('\n'.join(['load equality', 'prop A, B', 'const a, b, f', 'arity f 1',
                                       'use A implies B', 'use A', 'B', 'use a = b', 'use f a = a', 'f b = a',
                                       'A ∧ B', 'assume A', '    B', 'true']))
         self.assertTrue(numbered(out, 7, 'by 5(6)'), out)                    # the implication of line 5 with the fact of line 6
         self.assertTrue(numbered(out, 10, 'by equal-elim(8, 9)'), out)
-        out_and = self.output('bool A, B\nuse A\nuse B implies B\nuse B\nA and B\n')
+        out_and = self.output('prop A, B\nuse A\nuse B implies B\nuse B\nA and B\n')
         self.assertTrue(numbered(out_and, 5, 'by and-intro(5a, 5b)'), out_and)
         self.assertIn('; 12-13 by impl-intro', out)          # numbered by its block, not by line 14
         self.assertTrue(numbered(out, 14, 'by top-intro'), out)
@@ -342,7 +412,7 @@ class TestShortForm(unittest.TestCase):
     def test_the_result_of_a_block_is_numbered_by_its_lines(self):
         # the result of a closed block used to have the number of the next line, which has a step
         # of its own: `or-elim(14, ...)` meant the block 11-13, not line 14
-        out = self.output('\n'.join(['load prop', 'bool A, B', 'use A ∨ B',
+        out = self.output('\n'.join(['load propositional', 'prop A, B', 'use A ∨ B',
                                       'assume A', '    A ∨ B', 'assume B', '    A ∨ B',
                                       'assume ¬A', '    assume A', '        contradiction', '    ¬A',
                                       'A ∨ B']))
@@ -354,7 +424,7 @@ class TestShortForm(unittest.TestCase):
         self.assertNotIn('; 6 by impl-intro', out)
 
     def test_comments_stay(self):
-        out = self.output('bool A, B\nuse A implies B   ; the rule\nuse A\nB   ; modus ponens\nA\n')
+        out = self.output('prop A, B\nuse A implies B   ; the rule\nuse A\nB   ; modus ponens\nA\n')
         lines = out.splitlines()
         i = next(i for i, line in enumerate(lines) if line.lstrip(' 0123456789').startswith('B '))
         self.assertTrue(lines[i].endswith('; modus ponens'), lines[i])
@@ -375,13 +445,13 @@ class TestKernelErrorStops(unittest.TestCase):
 
     def test_kernel_error_stops_the_file(self):
         with self.assertRaises(kurt.KernelError) as e:
-            self.run_rejecting('bool A\nuse A\nA and A')
+            self.run_rejecting('prop A\nuse A\nA and A')
         self.assertIn('rejected for the test', e.exception.msg)
         self.assertEqual(e.exception.kind, 'KernelError')
 
     def test_expect_does_not_catch_it(self):
         with self.assertRaises(kurt.KurtException) as e:
-            self.run_rejecting('bool A\nuse A\nexpect "ProofError"\n    A and A')
+            self.run_rejecting('prop A\nuse A\nexpect "ProofError"\n    A and A')
         self.assertIn('KernelError', e.exception.msg)
 
 

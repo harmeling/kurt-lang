@@ -3,7 +3,7 @@
 
 load logic
 arity P 2
-bool P 0
+prop P 0
 const a
 
 use forall $x (forall $z (P $x $z)) "nested-forall"

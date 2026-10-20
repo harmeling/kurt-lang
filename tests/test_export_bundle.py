@@ -21,11 +21,11 @@ CASES = {
     'bindop':   ('arity S 2\nbindop S', 'use S $v a',   lambda kb, s: kb.is_bindop(s)),
     'flat':     ('infix S 50 50\nflat S', 'use a S a',  lambda kb, s: kb.is_flat(s)),
     'sym':      ('infix S 50 50\nsym S', 'use a S a',   lambda kb, s: kb.is_sym(s)),
-    'bool':     ('bool S',        'use S',              lambda kb, s: len(kb.bool_sig(s)) > 0),
+    'prop':     ('prop S',        'use S',              lambda kb, s: len(kb.bool_sig(s)) > 0),
     'alias':    ('const cS\nalias S cS', 'use P cS',    lambda kb, s: kb.get_alias(s) == f'c{s}'),
     'brackets': ('brackets Sl Sr', 'use P (Sl a Sr)',   lambda kb, s: kb.is_bracket(f'{s}l')),
 }
-PRELUDE = 'bool P\narity P 1\nconst a\nuse P a "p"\n'
+PRELUDE = 'prop P\narity P 1\nconst a\nuse P a "p"\n'
 
 
 def load(files: dict[str, str], main: str) -> kurt.KnowledgeBase:

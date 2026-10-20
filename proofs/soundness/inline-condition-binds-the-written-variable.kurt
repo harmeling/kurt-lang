@@ -1,0 +1,31 @@
+; A binder with a condition binds the first symbol of the condition *as written* (doc/kurt-doc.md
+; §4.4): `x` in `∀ x > y (P x)`. An `inline` operator in the condition (`>`, `>=`, `⊃`) is rewritten
+; while the line is read (`x > y` is `y < x`); before 2026-10-20 the bound variable was chosen after
+; that rewrite, so `∀ x >= y (P x)` with a new `y` bound `y` and made `x` a constant -- silently a
+; different statement (found by the classic theorems, todo 44).
+load natural, set
+
+prop P
+arity P 1
+const c
+use ∀ x >= y (P x)              ; `x` is bound, `y` is a new constant
+use c >= y
+P c                             ; the instance at `c`
+
+prop R
+arity R 1
+use ∀ u > v (R u)
+use c > v
+R c
+
+; in a rule: `∀ x >= $a` binds `x`, not the variable `$a`
+use ∀ x >= $a (P x ⇒ P x)  "trivial-above"
+∀ x >= 3 (P x ⇒ P x)
+
+; with sets: `∀ X ⊃ A` binds `X`
+prop Q
+arity Q 1
+const D
+use ∀ (X ⊃ A) (Q X)
+use D ⊃ A
+Q D

@@ -9,17 +9,13 @@ from kurt.kurt import (
 )
 from tests.utils import with_quantifiers
 
-# Try to import your SUB symbol name; fall back to "sub"
-try:
-    from kurt import SUB_SYMBOL
-except Exception:
-    SUB_SYMBOL = "sub"
+from kurt.kurt import SUB_SYMBOL
 
 # ---------- helpers ----------
 def sym(name: str) -> Token:
     return Token(label="SYMBOL", value=name)
 
-def num(n: int) -> Token:
+def real(n: int) -> Token:
     return Token(label="INT", value=str(n))
 
 def app(op: str, *args: Expr) -> Expr:
@@ -37,10 +33,8 @@ def sub(x: str, a: Expr, A: Expr) -> Expr:
 
 class TestMatchExprsToPatterns(unittest.TestCase):
     def setUp(self):
-        # fresh KB each test; add minimal binders used below
+        # fresh KB each test, with `forall`/`exists` (the core has none, see `with_quantifiers`)
         self.kb = with_quantifiers(copy.deepcopy(initial_kb))
-        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
-        # no need to redeclare them here
         if hasattr(self.kb, "add_arity"):
             self.kb.add_arity("P", 1)
         # `=` just used as a plain 2-ary function symbol in these tests
@@ -53,12 +47,12 @@ class TestMatchExprsToPatterns(unittest.TestCase):
     # --- 1) plain one-sided matching ---
     def test_match_plain_var_on_pattern(self):
         # expr: f(1,0), pattern: f($x,0)  -> {$x -> 1}
-        expr = app("f", num(1), num(0))
-        pat  = app("f", sym("$x"), num(0))
+        expr = app("f", real(1), real(0))
+        pat  = app("f", sym("$x"), real(0))
 
         sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         self.assertEqual(len(sols), 1)
-        self.assertTrue(sols[0].lookup("$x") == num(1))
+        self.assertTrue(sols[0].lookup("$x") == real(1))
 
     # --- 2) boolean variable on pattern ---
     def test_match_bool_var_on_pattern(self):
@@ -117,12 +111,12 @@ class TestMatchExprsToPatterns(unittest.TestCase):
     def test_match_against_sub_pattern(self):
         # Try to match expr (= b 0) against pattern (sub $x $a %A)
         # One valid solution: $a := b, %A := (= $x 0)
-        expr = app("=", sym("b"), num(0))
+        expr = app("=", sym("b"), real(0))
         pat  = sub("$x", sym("$a"), sym("%A"))
 
         sols = list(unify_exprs_with_patterns([(expr, pat)], State.empty(), self.kb))
         # At least one solution with those bindings
-        self.assertTrue(any(s.lookup("%A") == app("=", sym("$x"), num(0)) and s.lookup("$a") == sym("b") for s in sols))
+        self.assertTrue(any(s.lookup("%A") == app("=", sym("$x"), real(0)) and s.lookup("$a") == sym("b") for s in sols))
 
     # --- 7) equal-expr short-circuit (after walk) ---
     def test_equal_short_circuit(self):
@@ -150,15 +144,15 @@ class TestMatchExprsToPatterns(unittest.TestCase):
     # --- 9) unification with simple compound terms ---
     def test_unify_compound(self):
         # unify: f($x, 0)  with  f(1, $y)   → {$x=1, $y=0}
-        expr = app("f", sym("$x"), num(0))
-        pat  = app("f", num(1), sym("$y"))
+        expr = app("f", sym("$x"), real(0))
+        pat  = app("f", real(1), sym("$y"))
         s = State.empty()
 
         sols = list(unify_exprs_with_patterns([(expr, pat)], s, self.kb))
         self.assertEqual(len(sols), 1)
         s = sols[0]
-        self.assertEqual(s.lookup("$x"), num(1))
-        self.assertEqual(s.lookup("$y"), num(0))
+        self.assertEqual(s.lookup("$x"), real(1))
+        self.assertEqual(s.lookup("$y"), real(0))
 
     # --- 10) binder with free variable under the binder body ---
     def test_binder_with_free_var_in_body(self):
@@ -197,6 +191,7 @@ class TestMatchExprsToPatterns(unittest.TestCase):
         LHS_inst = trigger_sub(LHS, sigma, kb)[0]  # or apply_subst if you prefer
         # We expect to be able to match (sub $x $a %A) to 'prime 2', i.e. choose a=2 and A=prime $x
         sols2 = list(unify_exprs_with_patterns([(fact, LHS_inst)], sigma, kb))
+        self.assertTrue(sols2)      # (else the loop below checks nothing)
         for s in sols2:
             t = s.lookup('$a')
             assert isinstance(t, Token) and t.value=='2'

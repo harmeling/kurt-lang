@@ -10,6 +10,7 @@
 
 load theory/maps
 const A, B, C, f, g
+set A, B, C, f, g        ; sets: a fact `f : A → B` gives no sort
 
 ; (a) If g ∘ f is injective, then f is injective.
 ;     Hint: from f x = f y, Kurt gets g (f x) = g (f y) in two steps: first `g (f x) = g (f x)`,

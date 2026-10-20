@@ -2,5 +2,5 @@
 ; the block had no proof step (soundness review of 2026-09-29, §8.17); `ExpectationError` is no
 ; kind `expect` can catch, so tests/test_expect.py checks this file
 expect "ProofError"
-    bool B
+    prop B
 true

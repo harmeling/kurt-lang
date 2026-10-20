@@ -8,8 +8,9 @@ immediately, line by line, whether each step follows. It is meant for students l
 things, much like running tests while learning to program. Kurt has been developed by Stefan
 Harmeling (TU Dortmund) since 2016.
 
-**Status: 0.8, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
-proof written for 0.8 may need small changes for 1.0.
+**Status: 0.10, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
+proof written for 0.10 may need small changes for 1.0 (for 0.9 to 0.10: the "breaking changes" in
+`CHANGELOG.md`).
 
 **Try it in your browser**, without installing anything:
 [www.kurt-lang.org](https://www.kurt-lang.org), the playground. It runs the same Kurt in the
@@ -23,7 +24,7 @@ browser, with the tutorial, the keyword lessons, the exercises, and the proofs o
 A file `modus-ponens.kurt`:
 
     ; simple modus ponens proof
-    bool A, B
+    prop A, B
     use A implies B
     use A
     B
@@ -31,7 +32,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.9.0 (made by Stefan Harmeling, 2016-2026), 1d7ba64c4139 (SHA-256 of kurt.py)
+    This is Kurt, v0.10.0 (made by Stefan Harmeling, 2016-2026), 6cc39e5bab2c (SHA-256 of kurt.py)
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -40,11 +41,11 @@ Check it on the command line:
     Proof checked
 
 Each line gets the reason it holds: `B` follows by the rule of line 3 from the fact of line 4.
-A proof with blocks, from the theory `prop` that comes with Kurt:
+A proof with blocks, from the theory `propositional` that comes with Kurt:
 
     ; if A implies B, then not B implies not A
-    load prop
-    bool A, B
+    load propositional
+    prop A, B
 
     show (A implies B) implies (not B implies not A)
     proof
@@ -78,7 +79,8 @@ same indentation rules as a file.
 - **Documents**: `kurt --latex FILE` and `kurt --markdown FILE` write the checked proof with its
   reasons in mathematical notation (`-o OUT` elsewhere, `-o -` to the standard output);
   `kurt --lean FILE` a Lean 4 file (a prototype); `kurt --unused FILE` names the lines of the
-  proofs that nothing cites.
+  proofs that nothing cites; `kurt --foundation FILE` shows what each theorem rests on (which
+  axioms, definitions and `todo`s), for choosing a trusted set of theories.
 - **No dependencies**: one Python file. It's also available as a single self-contained script
   with all theories embedded, to hand out in a course.
 
@@ -91,12 +93,17 @@ With Python 3.10 or newer, from [PyPI](https://pypi.org/project/kurt-lang/):
 Then run `kurt` or `python -m kurt`. The newest state of the repository, between releases:
 `pip install git+https://github.com/harmeling/kurt-lang.git`.
 
+With [uv](https://docs.astral.sh/uv/), to get the `kurt` command on your PATH without touching
+any project environment:
+
+    uv tool install kurt-lang
+
 **Without installing**, for a course: download the single self-contained `kurt.py` of the
 latest release,
 
     https://github.com/harmeling/kurt-lang/releases/latest/download/kurt.py
 
-It has all the theories embedded (`load prop` and so on work right away) and needs nothing but
+It has all the theories embedded (`load propositional` and so on work right away) and needs nothing but
 Python: `python3 kurt.py proof.kurt`. You can also build it from this repository yourself, with
 `python3 scripts/build_standalone.py` (writes `dist/kurt.py`). To keep the theories as separate, editable files instead,
 copy `src/kurt/kurt.py` together with the directory `src/kurt/theories/`.
@@ -104,12 +111,12 @@ copy `src/kurt/kurt.py` together with the directory `src/kurt/theories/`.
 **From Python**, e.g. for a grader or an editor:
 
     import kurt
-    result = kurt.check_text('load prop\nbool A, B\nuse A implies B\nuse A\nB\n')
+    result = kurt.check_text('load propositional\nbool A, B\nuse A implies B\nuse A\nB\n')
     result.ok, result.complete, result.error, result.output     # complete: also no `todo` left
     result.events      # each line: its id, kind, rule, the lines it uses (also `kurt --json FILE`)
 
-    session = kurt.new_session(kurt.RunConfig(strict=True, paths=('teacher/',)))
-    session.check_file('proof.kurt')
+    session = kurt.new_session(kurt.RunConfig(strict=True, paths=('teacher/',), time_limit=30))
+    session.check_file('proof.kurt')        # time_limit: seconds of search per line (`kurt --budget 30`), else a `ResourceError`
 
 Each session has its own options and state (fresh names, certificates, the cache of checked
 theories), so checks in one process don't influence each other -- one check at a time; for checks
@@ -117,19 +124,22 @@ in parallel, use processes.
 
 ## Documentation
 
-- [`tutorial/`](tutorial/): the tutorial, 29 lessons (00 to 28), task by task: prove an implication, argue by
+- [`tutorial/`](tutorial/): the tutorial, 30 lessons (00 to 29), task by task: prove an implication, argue by
   contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
   derive". Each one is a Kurt file you can run and change.
-- [`keywords/`](keywords/): 47 short lessons (00 to 46), one keyword or idea each
+- [`keywords/`](keywords/): 48 short lessons (00 to 47), one keyword or idea each
   ([plan](keywords/plan.md)).
 - [`exercises/`](exercises/): exercises for students, by topic (logic puzzles, quantifiers, sets,
   functions, relations, groups, induction, limits, calculus): each loads the scene of its topic
   and leaves the proofs to do; `scripts/grade_exercise.py` grades a solution.
 - [`doc/kurt-doc.md`](doc/kurt-doc.md): the language reference.
+- [`doc/kurt-spec.md`](doc/kurt-spec.md): the logic, specified: variables, the step relation, the
+  rules of the blocks, definitions, files, trust, the kernel.
 - [`doc/kurt-soundness.md`](doc/kurt-soundness.md): what the checker's correctness rests on,
   rule by rule, and the bugs found so far, each with its regression test.
-- [`doc/deep-logic-experiments.md`](doc/deep-logic-experiments.md): modal formulas as terms,
-  sequents, an ordered-resource fragment, optional sorts, and the remaining language limits.
+- [`doc/kurt-kernel.md`](doc/kurt-kernel.md): the kernel step by step, what it checks of each
+  step; [`doc/kurt-kernel-code.md`](doc/kurt-kernel-code.md): the same kernel read as code, each
+  chunk cited from `kurt.py` and kept the code by a test.
 - [`proofs/`](proofs/): many more example proofs. Each one is also a test.
 
 ## Why trust it?

@@ -15,9 +15,14 @@
 ; by direct comparison against the exact same axiom written without the explicit `forall`
 ; (`use %A implies P`, relying on implicit universal quantification of free variables), which
 ; was never affected since it never goes through `remove_outer_forall_quantifiers` at all.
+;
+; Since 2026-10-20 binders range over terms: `forall %A ...` is a type error, and the schema with a
+; free `%A` is the only way to say "for every statement" -- which is what this test now checks.
 load logic
-bool P, Q
-use forall %A (%A implies P)
+prop P, Q
+expect "TypeError" "a binder ranges over terms"
+    use forall %A (%A implies P)
+use %A implies P
 show P "boolean schema variable must stay boolean after its explicit forall is stripped"
 proof
   Q implies P

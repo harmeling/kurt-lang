@@ -6,9 +6,9 @@ import kurt.kurt as kurt
 # the run state is one object (`RunState`) that a session swaps in as a whole; sessions take turns
 # under a lock, so several threads can use their own sessions (2026-10-09)
 
-PROOF = 'load prop\nbool A, B\nuse A implies B\nuse A\nB\n'
-UNDECLARED = 'load prop\nuse A\nA\n'                       # an error only with `strict`
-TEXTS = [PROOF, UNDECLARED, 'load numbers\ncalc on\n17 * 42 = 714\n', 'load logic\nbool P\narity P 1\nconst P\nuse ∀ x P(x)\nconst c\nP(c)\n']
+PROOF = 'load propositional\nprop A, B\nuse A implies B\nuse A\nB\n'
+UNDECLARED = 'load propositional\nuse A\nA\n'                       # `use` of any kind is an error with `--strict`
+TEXTS = [PROOF, UNDECLARED, 'load numbers\ncalc on\n17 * 42 = 714\n', 'load logic\nprop P\narity P 1\nconst P\nuse ∀ x P(x)\nconst c\nP(c)\n']
 CONFIGS = [kurt.RunConfig(), kurt.RunConfig(strict=True), kurt.RunConfig(comment_indent=30)]
 
 

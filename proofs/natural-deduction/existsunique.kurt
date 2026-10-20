@@ -7,10 +7,10 @@ load logic
 ;    definition alone -- with a binder `eu` of our own that has only the defining axiom.
 arity  eu 2
 bindop eu
-bool   eu 0 2
+prop   eu 0 2
 use (eu $x %A)  iff  exists $x (%A and (forall $y ((sub $x $y %A) implies ($y = $x))))  "eu-def"
 
-bool P
+prop P
 arity P 1
 const a, b, c
 
@@ -54,7 +54,7 @@ use P(d)
 use ∀ y (P(y) ⇒ y = d)
 ∃! x P(x)
 ∃ x P(x)
-bool R
+prop R
 arity R 1
 const e, f
 use ∃! x R(x)
@@ -63,7 +63,7 @@ use R(f)
 e = f
 
 ; 3. With a condition: `∃! x ∈ M Q(x)` is `∃! x (x ∈ M and Q(x))`.
-bool Q, in
+prop Q, in
 arity Q 1
 infix in 25 25
 const M
@@ -71,7 +71,7 @@ use ∃! x (x in M and Q(x))
 ∃! x in M Q(x)
 
 ; 4. Existence alone is not unique existence.
-bool S
+prop S
 arity S 1
 use ∃ x S(x)
 expect "ProofError"

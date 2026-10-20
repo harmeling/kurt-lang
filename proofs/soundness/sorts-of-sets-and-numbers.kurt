@@ -1,0 +1,96 @@
+; numbers and sets live together (todo 34, doc/kurt-soundness.md §8.41): every number is a set
+; (objects.kurt, `sort set real`), a set is no number; a rule about numbers says nothing about a
+; set, a rule about sets holds for numbers too. An object without a sort is neither (design B):
+; the elements of a set have no sort
+load natural
+load "helpers/numbers-only-rule.kurt"
+
+; junk is refused: a set where a number is required
+expect "TypeError" "must have sort `real`"
+    {1, 2} + 0 = {1, 2}
+expect "TypeError" "must have sort `real`"
+    Nat + 1 ∈ Nat
+expect "TypeError" "must have sort `real`"
+    use ∅ < 1
+
+; the rules of set.kurt hold for numbers: "singleton", "empty-set", "separation"
+3 ∈ {3}
+¬ (3 ∈ ∅)
+use 4 ∈ Nat
+use 4 > 2
+4 ∈ Nat ∧ 4 > 2
+4 ∈ {n ∈ Nat | n > 2}
+
+; ... and a rule about numbers only for numbers: `∀ x (Q x)` of the helper is about the numbers
+Q 3
+expect "ProofError"
+    Q {1, 2}
+expect "ProofError"
+    Q ∅
+expect "ProofError"
+    ∀ y (Q y)
+sandbox
+    default real                  ; `x ∈ Nat` says nothing about the sort of `x` (a fact is no sort): `y` is a number by the default
+    let y ∈ Nat
+        Q y
+    ∀ y ∈ Nat (Q y)
+
+; extensionality needs the elements of every sort: the same numbers in `A` and `B` don't make
+; `A` and `B` equal -- for `∅` and `{∅}` (no number in either) that would be `∅ = {∅}`
+const A, B
+sandbox
+    default real                  ; (`x` a number)
+    use ∀ x (x ∈ A ⇔ x ∈ B)
+    expect "ProofError"
+        A = B
+sandbox
+    use ∀ x (x ∈ A ⇔ x ∈ B)     ; (`x` any object)
+    A = B                        ; by extensionality
+
+; a block keeps the sort of its constant: `let c`, a number by its use there, gives `∀ c` over
+; the numbers, also if the last line doesn't say so
+const R
+prop R
+arity R 1
+use ∀ $n ($n + 0 = $n ⇒ R $n)
+let c
+    c + 0 = c
+    R c
+; (the result is `∀ c (R c)` over the numbers: written again, `∀ c (R c)` is over everything, and
+; neither a restatement of it nor a consequence)
+expect "ProofError"
+    ∀ c (R c)
+R 7
+expect "ProofError"
+    R {1}
+
+; ... and the witness of `∃ x` over everything is not a number
+use ∃ x (x ∈ A)
+pick w with w ∈ A
+    expect "TypeError" "must have sort `real`"
+        w + 0 = w
+    true
+
+; design B: no sort is the sort of every object, `set` a restriction like `real` -- extensionality
+; is about the elements of every sort, so the same sets as elements don't make `A` and `B` equal
+sandbox
+    default set                  ; (`x` a set)
+    use ∀ x (x ∈ A ⇔ x ∈ B)
+    expect "ProofError"
+        A = B
+; ... the witness of `∃ x` over everything is no set either, and isn't made one by a use
+use ∃ x (x ∈ B)
+pick v with v ∈ B
+    expect "TypeError" "must have sort `set`"
+        v ⊂ B
+    true
+; ... a rule of logic.kurt over everything is used for a binder over the sets (`forall-elim`)
+sandbox
+    default set
+    use ∀ x (x ⊂ A)
+    B ⊂ A
+; ... and the elements of a set of mappings are sets (set.kurt, `set ∈ →`)
+default any                      ; (the binders of the student's file must be over all objects, as set.kurt's)
+const F, X, Y
+use F ∈ (X → Y)
+F ⊂ X × Y ∧ (∀ $a ∈ X ∃ $b (($a, $b) ∈ F)) ∧ ∀ $a ∀ $b ∀ $c (($a, $b) ∈ F ∧ ($a, $c) ∈ F  implies  $b = $c)

@@ -1,0 +1,27 @@
+; The Ackermann function: a recursive function nobody would want to `calc` (doc/kurt-doc.md
+; §11.1, "Not implemented, maybe never") -- it is not primitive recursive and its values grow
+; far too fast to unfold automatically. Its axioms are accepted on faith, like
+; proofs/arithmetic/factorial-recursion.kurt's "factorial-step", with no termination check from
+; Kurt. But just like factorial, a *specific* small value is still provable, one step at a time:
+; `ack(1, 1) = 3` by unfolding "ack-step" and "ack-zero" once each, then "ack-base" twice.
+load natural
+calc on
+
+const ack
+use $n in Nat implies ack(0, $n) = $n + 1                                          "ack-base"
+use $m in Nat implies ack($m + 1, 0) = ack($m, 1)                                  "ack-zero"
+use $m in Nat and $n in Nat implies ack($m + 1, $n + 1) = ack($m, ack($m + 1, $n)) "ack-step"
+
+use 0 in Nat
+use 1 in Nat
+use 2 in Nat
+
+show ack(0 + 1, 0 + 1) = 3
+proof
+    ack(0 + 1, 0 + 1) = ack(0, ack(0 + 1, 0))
+                       = ack(0, ack(0, 1))
+                       = ack(0, 1 + 1)
+                       = ack(0, 2)
+                       = 2 + 1
+                       = 3
+qed

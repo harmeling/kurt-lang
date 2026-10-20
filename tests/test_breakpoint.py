@@ -7,7 +7,7 @@ import unittest
 import kurt.kurt as kurt
 from tests.utils import PROJECT_ROOT, numbered
 
-PROOF = 'load prop\nbool A, B\nuse A\nuse A implies B\nshow A and B\nproof\n    B\n    breakpoint\n    A and B\nqed\n'
+PROOF = 'load propositional\nprop A, B\nuse A\nuse A implies B\nshow A and B\nproof\n    B\n    breakpoint\n    A and B\nqed\n'
 
 
 def run(files: dict[str, str], args: list[str], stdin: str = '') -> subprocess.CompletedProcess:
@@ -44,7 +44,7 @@ class TestBreakpoint(unittest.TestCase):
         self.assertEqual(done.returncode, 1)          # the file itself failed
 
     def test_in_a_loaded_file_it_is_skipped(self):
-        lib = 'load prop\nbool A\nuse A "a"\nbreakpoint\n'
+        lib = 'load propositional\nprop A\nuse A "a"\nbreakpoint\n'
         done = run({'lib.kurt': lib, 'main.kurt': 'load lib\nA\n'}, ['main.kurt'])
         self.assertEqual(done.returncode, 0)
         self.assertNotIn('the state here', done.stdout)

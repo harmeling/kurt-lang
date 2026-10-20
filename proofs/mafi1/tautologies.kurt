@@ -2,7 +2,7 @@
 ; given, checked "by truth tables" (lecture 03, "Andere nützliche Formeln"; lecture 11a,
 ; "Beispiele für Tautologien", "Immer wahr und immer falsch"); Kurt has no truth tables,
 ; so they are proven here by natural deduction.  ¬¬A ≡ A ("Doppelte Negation") is
-; "not-not" of prop.kurt, the two with quantifiers are in 03-formulas.kurt.
+; "not-not" of propositional.kurt, the two with quantifiers are in 03-formulas.kurt.
 ; 11a-proofs.kurt then derives the other laws from them, as the slides do.
 load logic
 

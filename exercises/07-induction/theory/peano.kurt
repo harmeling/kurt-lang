@@ -13,7 +13,7 @@
 ;
 ; There is no `calc` here: 0 and s are all there is, nothing is computed.
 ;
-; The rules (with prop.kurt, logic.kurt, equality.kurt for ∧, ⇒, ¬, ∀, =, ≠):
+; The rules (with propositional.kurt, logic.kurt, equality.kurt for ∧, ⇒, ¬, ∀, =, ≠):
 ;
 ;     "succ-ne-zero"  s n ≠ 0                          0 is no successor
 ;     "succ-inj"      s m = s n ⇒ m = n                different numbers have different successors
@@ -30,7 +30,7 @@
 ;
 ; This file is the scene of the exercises 1 and 2: they load it with `load theory/peano`. Don't
 ; change it.
-load prop, logic, equality
+load propositional, logic, equality
 
 const s
 arity s 1

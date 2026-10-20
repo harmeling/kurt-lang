@@ -3,12 +3,12 @@
 ; let's use a local `AND` to avoid confusion with the global `and` 
 ; that is hard wired to be flat and symmetric
 infix AND   14 14   ; logical and
-bool  AND    0 1 2  ; and and its inputs have type bool
+prop  AND    0 1 2  ; and and its inputs have type prop
 use %A and %B implies %A AND %B                              "AND-intro"
 use %A AND %B implies %A                                    "AND-elim-left"
 use %A AND %B implies %B                                    "AND-elim-right"
 
-bool p, q
+prop p, q
 show p AND q implies q AND p
 proof
     assume p AND q

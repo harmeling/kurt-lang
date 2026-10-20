@@ -5,10 +5,14 @@ load "helpers/vocabulary.kurt"
 load equality
 expect "EvalError" "already a constant"
     const pi                  ; `pi` came along
-1 ++ 2 = 1 ++ 2               ; `++` is an infix operator here
+expect "EvalError" "already exist as infix"
+    infix ++ 50 50            ; `++` is an infix operator here (the line below checks without it too)
+1 ++ 2 = 1 ++ 2
+
+
 expect "EvalError" "takes"
     g(1, 2, 3) = g(1, 2, 3)   ; the shape of `g` came along
 const helper                  ; `local`: it stayed in the theory
 const inner                   ; declared in a block there: it stayed there
 const x                       ; `var x` of the theory isn't this file's
-bool D                        ; `D`'s `def` is `local`: the symbol stayed with it (doc/kurt-soundness.md §7)
+prop D                        ; `D`'s `def` is `local`: the symbol stayed with it (doc/kurt-soundness.md §7)

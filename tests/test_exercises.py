@@ -9,6 +9,7 @@ from tests.utils import PROJECT_ROOT
 
 sys.path.insert(0, str(PROJECT_ROOT / 'scripts'))
 import grade_exercise   # noqa: E402
+sys.path.remove(str(PROJECT_ROOT / 'scripts'))   # (only needed for the import above, not left on sys.path for the rest of the suite)
 
 # exercises/TOPIC/ has the exercises of a topic (`*.kurt`, with `todo`s for the student) and their
 # scene in TOPIC/theory/. Each theory must check completely, each exercise must check with its
@@ -89,19 +90,21 @@ class TestGrading(unittest.TestCase):
         complete, report = grade_exercise.grade(self.exercise, self.exercise)
         self.assertFalse(complete)
         self.assertIn('todo', report)    # strict: a `todo` is an error
+        self.assertIn('admitted: ¬(A says knave(A))', report)    # each statement, with how it stands
 
-    def test_a_changed_statement_is_found(self):
+    def test_a_changed_statement_is_missing(self):
+        # the statements are compared as Kurt reads them (tests/test_grading.py has the small cases)
+        import tempfile
         text = self.exercise.read_text(encoding='utf-8')
         changed = text.replace('show ¬(A says knave(A))', 'show ¬(A says knave(A)) ∨ true')
         self.assertNotEqual(text, changed)
-        problems = grade_exercise.compare_statements(text, changed)
-        self.assertEqual(len(problems), 1)
-        self.assertIn('¬(A says knave(A))', problems[0])
-
-    def test_extra_lemmas_and_comments_are_allowed(self):
-        text = 'load theory/island\nconst A\n\nshow knight(A) ⇒ knight(A)   ; (a)\nproof\n    todo\nqed\n'
-        solution = 'load theory/island   ; the scene\nconst A\nshow  true  "lemma"\nproof\n    true\nqed\nshow knight(A) ⇒ knight(A)\nproof\n    x\nqed\n'
-        self.assertEqual(grade_exercise.compare_statements(text, solution), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            solution = Path(tmp) / 'solution.kurt'
+            solution.write_text(changed, encoding='utf-8')
+            complete, report = grade_exercise.grade(self.exercise, solution)
+        self.assertFalse(complete)
+        self.assertIn('missing: ¬(A says knave(A))', report)
+        self.assertEqual(report.count('missing:'), 1)
 
     def test_an_axiom_of_the_student_is_refused(self):
         import tempfile
@@ -135,7 +138,7 @@ class TestGrading(unittest.TestCase):
         import tempfile
         text = self.exercise.read_text(encoding='utf-8')
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / 'helper.kurt').write_text('load prop\nbool H\nuse H "h"\n', encoding='utf-8')
+            (Path(tmp) / 'helper.kurt').write_text('load propositional\nprop H\nuse H "h"\n', encoding='utf-8')
             solution = Path(tmp) / 'solution.kurt'
             solution.write_text(text.replace('load theory/island\n', 'load theory/island\nload helper\n', 1), encoding='utf-8')
             cwd = os.getcwd()

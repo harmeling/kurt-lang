@@ -24,7 +24,7 @@ def kb_after(text: str) -> 'kurt.KnowledgeBase':
 
 class TestGuidedRewrite(unittest.TestCase):
     def test_rewriting_rules(self):
-        kb = kb_after('load equality, prop\n')
+        kb = kb_after('load equality, propositional\n')
         labels = {f.label for f in kb.all_theory() if kurt.rewriting_variable(f, kb) is not None}
         self.assertIn('equal-elim', labels)
         self.assertIn('iff-subst', labels)

@@ -1,0 +1,98 @@
+; Second-order logic needs nothing but `sort` (doc/kurt-current-limits.md §3, dev/todo.md #36).
+;
+; A second sort for individuals (`obj`), set.kurt's existing power-set operator `Pow`, and Kurt's
+; one `∀`/`let` restricted by a domain condition -- exactly the device natural.kurt already uses
+; for `∀ n ∈ Nat` -- already give genuine, sound, monadic second-order quantification: `let X ∈
+; Pow(Obj)` ranges over every subset of Obj, no second quantifier symbol needed.
+;
+; The example: second-order Leibniz equality, `x = y iff ∀ P (x ∈ P iff y ∈ P)`, with P ranging
+; over every subset of a universe `Obj`. The "only if" direction is ordinary substitution and
+; doesn't need `Pow` at all. The "if" direction is the genuinely second-order step: given that x
+; and y agree on membership in *every* subset of Obj, instantiate that universal at the single
+; witness set {x} to conclude x = y -- real second-order reasoning, using exactly the elimination
+; rule for a domain-conditioned `∀` (`forall-cond-elim`) that `natural.kurt`'s induction already
+; relies on, applied here to a quantifier ranging over sets rather than over numbers.
+load set
+
+; the checker sort for individuals, distinct from (unsorted) sets -- see doc/kurt-doc.md §5.2 on
+; "a checker sort versus an object-level carrier": `sort obj` constrains where `x`/`y` below may
+; occur, but is not itself a term; `Obj` (declared next) is the object-level set that bridges to
+; it, by the explicit convention that its elements are exactly the objects declared `obj`.
+sort obj
+const a, b, c
+obj a, b, c
+
+; the universe of individuals under discussion: three concrete objects, and nothing else -- a
+; small, finite universe so that "every subset of Obj" is something a proof can instantiate.
+def Obj = {a, b, c} "the-universe"
+
+var x, y
+obj x, y
+var X
+
+; a reusable lemma: an element's singleton is a subset of anything the element belongs to.
+show x ∈ Obj ⇒ {x} ⊂ Obj "singleton-subset"
+proof
+    assume x ∈ Obj
+        let z ∈ {x}
+            z = x
+            z ∈ Obj
+        {x} ⊂ Obj
+qed
+
+; the genuinely second-order statement: two objects are equal iff they agree on membership in
+; every subset of Obj. `∀ X ∈ Pow(Obj)` is the second-order quantifier -- X ranges over sets.
+show ∀ x ∈ Obj ∀ y ∈ Obj (x = y iff ∀ X ∈ Pow(Obj) (x ∈ X iff y ∈ X)) "second-order-leibniz"
+proof
+    let x ∈ Obj
+        let y ∈ Obj
+            assume x = y
+                let X ∈ Pow(Obj)
+                    x ∈ X iff y ∈ X
+                ∀ X ∈ Pow(Obj) (x ∈ X iff y ∈ X)
+            assume ∀ X ∈ Pow(Obj) (x ∈ X iff y ∈ X)
+                ; the second-order step: instantiate the universal at the witness set {x}
+                {x} ⊂ Obj
+                {x} ∈ Pow(Obj)
+                x ∈ {x} iff y ∈ {x}
+                x ∈ {x}
+                y ∈ {x}
+                y = x
+                x = y
+            x = y iff ∀ X ∈ Pow(Obj) (x ∈ X iff y ∈ X)
+        ∀ y ∈ Obj (x = y iff ∀ X ∈ Pow(Obj) (x ∈ X iff y ∈ X))
+    ∀ x ∈ Obj ∀ y ∈ Obj (x = y iff ∀ X ∈ Pow(Obj) (x ∈ X iff y ∈ X))
+qed
+
+; a concrete instance, run the other way: a and b are given as distinct objects of the universe,
+; so the general theorem above says they must disagree on membership in at least one subset of
+; Obj -- and {a} is exactly such a set, checked directly below.
+use a ≠ b "a-ne-b"
+
+show not (a ∈ {a} iff b ∈ {a}) "concrete-witness"
+proof
+    a ∈ {a}
+    assume b ∈ {a}
+        b = a
+        false
+    not (b ∈ {a})
+    assume a ∈ {a} iff b ∈ {a}
+        b ∈ {a}
+        false
+    not (a ∈ {a} iff b ∈ {a})
+qed
+
+; and indeed: since a ≠ b, "second-order-leibniz" (instantiated at a, b) rules out that they
+; agree on every subset of Obj -- the two facts above are the same claim from both directions.
+a ∈ Obj
+b ∈ Obj
+∀ y ∈ Obj (a = y iff ∀ X ∈ Pow(Obj) (a ∈ X iff y ∈ X))
+a = b iff ∀ X ∈ Pow(Obj) (a ∈ X iff b ∈ X)
+
+show not ∀ X ∈ Pow(Obj) (a ∈ X iff b ∈ X) "a-b-disagree-somewhere"
+proof
+    assume ∀ X ∈ Pow(Obj) (a ∈ X iff b ∈ X)
+        a = b
+        false
+    not ∀ X ∈ Pow(Obj) (a ∈ X iff b ∈ X)
+qed

@@ -1,6 +1,6 @@
 ; `expect` catches the expected error anywhere inside its block: in a nested block, and while
 ; a nested block closes -- the whole `expect` block is discarded, and checking continues
-bool A, B
+prop A, B
 use A
 
 expect "ProofError"          ; an error inside a nested block

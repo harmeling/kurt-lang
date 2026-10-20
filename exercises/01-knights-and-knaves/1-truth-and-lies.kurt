@@ -11,7 +11,7 @@
 
 load theory/island
 const A
-bool S
+prop S
 
 ; (a) What a knight says is true.
 ;     Hint: `assume` the left side; its parts `A says S` and `knight(A)` are facts of their own

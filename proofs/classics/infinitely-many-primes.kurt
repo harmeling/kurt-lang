@@ -1,0 +1,338 @@
+; Euclid: there are infinitely many primes -- above every natural number n there is a prime.
+;
+; The proof: n! + 1 is at least 2, so it has a prime divisor p (the least of its divisors of at
+; least 2, by the well-ordering of Nat); p <= n would make p a divisor of n! and of n! + 1. Only
+; the theories (natural.kurt: `∣`, well-ordering, induction; numbers.kurt: `!`), no axiom here --
+; `prime` is a `def`.
+load natural
+default real
+
+prop prime
+arity prime 1
+def prime $p  ⇔  2 <= $p ∧ ∀ $d ∈ Nat ($d ∣ $p  ⇒  $d = 1 ∨ $d = $p)      "prime"
+
+; a divisor of a positive number is at most the number
+show $a ∈ Nat ∧ $b ∈ Nat ∧ $b ≠ 0 ∧ $a ∣ $b  ⇒  $a <= $b              "divides-le"
+proof
+    assume $a ∈ Nat ∧ $b ∈ Nat ∧ $b ≠ 0 ∧ $a ∣ $b
+        $a ∈ Nat
+        $b ∈ Nat
+        $b ≠ 0
+        $a ∣ $b
+        ∃ $k ($k ∈ Nat ∧ $b = $a * $k)
+        pick k with k ∈ Nat ∧ $b = $a * k
+            k ∈ Nat
+            $b = $a * k
+            assume k = 0
+                $b = $a * 0
+                $b = 0
+                false
+            k ≠ 0
+            assume $a = 0
+                $b = 0 * k
+                0 * k = k * 0
+                $b = 0
+                false
+            $a ≠ 0
+            0 < $a                                     ; nat-pos
+            ∀ $j ∈ Nat ($j <= 0 ∨ 0 + 1 <= $j)          ; nat-discrete
+            k <= 0 ∨ 0 + 1 <= k
+            case k <= 0
+                0 <= k                                 ; nat-nonneg
+                k = 0                                  ; le-ge-antisym
+                false
+                1 <= k
+            case 0 + 1 <= k
+                calc on
+                1 <= k
+                calc off
+            1 <= k
+            $a > 0
+            1 * $a <= k * $a                           ; le-mul-pos
+            1 * $a = $a
+            $a <= k * $a
+            $a <= $b
+qed
+
+; a number of at least 2 doesn't divide both a and a + 1
+show $a ∈ Nat ∧ 2 <= $p ∧ $p ∣ $a ∧ $p ∣ $a + 1  ⇒  false              "no-divisor-of-successive"
+proof
+    assume $a ∈ Nat ∧ 2 <= $p ∧ $p ∣ $a ∧ $p ∣ $a + 1
+        $a ∈ Nat
+        2 <= $p
+        $p ∣ $a
+        $p ∣ $a + 1
+        calc on
+        0 < 2
+        calc off
+        0 < $p
+        $p > 0
+        ∃ $k ($k ∈ Nat ∧ $a = $p * $k)
+        ∃ $k ($k ∈ Nat ∧ $a + 1 = $p * $k)
+        pick k with k ∈ Nat ∧ $a = $p * k
+            pick j with j ∈ Nat ∧ $a + 1 = $p * j
+                ∀ $i ∈ Nat ($i <= k ∨ k + 1 <= $i)          ; nat-discrete
+                j <= k ∨ k + 1 <= j
+                case j <= k
+                    j * $p <= k * $p                       ; le-mul-pos
+                    $a + 1 <= $a
+                    calc on
+                    0 < 1
+                    calc off
+                    $a + 0 < $a + 1
+                    $a < $a + 1
+                    false
+                case k + 1 <= j
+                    (k + 1) * $p <= j * $p                 ; le-mul-pos
+                    (k + 1) * $p = k * $p + 1 * $p         ; distrib-add
+                                 = $a + 1 * $p
+                                 = $a + $p
+                    $a + $p <= j * $p
+                    $a + $p <= $a + 1
+                    ($a + $p) - $a <= ($a + 1) - $a        ; le-sub
+                    ($a + $p) - $a = $p - ($a - $a)        ; add-sub
+                                   = $p - 0
+                                   = $p
+                    ($a + 1) - $a = 1 - ($a - $a)          ; add-sub
+                                  = 1 - 0
+                                  = 1
+                    $p <= ($a + 1) - $a
+                    $p <= 1
+                    calc on
+                    1 < 2
+                    calc off
+                    $p < 2
+                    false
+                false
+            false
+        false
+qed
+
+; the divisors of N of at least 2
+def bigdivisors($N) = {x ∈ Nat | 2 <= x ∧ x ∣ $N}                    "bigdivisors"
+
+; every natural number of at least 2 has a prime divisor: the least of its divisors of at least 2
+show $N ∈ Nat ∧ 2 <= $N  ⇒  ∃ p (p ∈ Nat ∧ prime p ∧ p ∣ $N)            "prime-divisor"
+proof
+    assume $N ∈ Nat ∧ 2 <= $N
+        $N ∈ Nat
+        2 <= $N
+        ; S = bigdivisors(N) is a set of natural numbers with the element N -- a subset of `Nat`
+        ; for every object, not only the numbers: `c` of the sort `any` (`default real` would make it a number)
+        any c
+        let c
+            assume c ∈ bigdivisors($N)
+                c ∈ {x ∈ Nat | 2 <= x ∧ x ∣ $N}
+                c ∈ Nat                                ; separation-in
+        bigdivisors($N) ⊂ Nat
+        $N ∣ $N                                        ; divides-refl
+        $N ∈ Nat ∧ 2 <= $N ∧ $N ∣ $N
+        $N ∈ {x ∈ Nat | 2 <= x ∧ x ∣ $N}               ; separation
+        $N ∈ bigdivisors($N)
+        ∃ $x ($x ∈ bigdivisors($N))
+        ∃ $m ($m ∈ bigdivisors($N) ∧ ∀ $y ∈ bigdivisors($N) ($m <= $y))   ; well-ordering
+        pick m with m ∈ bigdivisors($N) ∧ ∀ $y ∈ bigdivisors($N) (m <= $y)
+            m ∈ {x ∈ Nat | 2 <= x ∧ x ∣ $N}
+            m ∈ Nat ∧ 2 <= m ∧ m ∣ $N                  ; separation
+            m ∈ Nat
+            2 <= m
+            m ∣ $N
+            calc on
+            0 < 2
+            calc off
+            0 < m
+            m ≠ 0
+            ; m is prime: a divisor d of m is 1, or at least 2 and then m
+            let d ∈ Nat
+                assume d ∣ m
+                    d = 1 ∨ ¬(d = 1)                   ; excluded-middle
+                    case d = 1
+                        d = 1 ∨ d = m
+                    case ¬(d = 1)
+                        ∃ $k ($k ∈ Nat ∧ m = d * $k)
+                        assume d = 0
+                            pick k with k ∈ Nat ∧ m = d * k
+                                m = 0 * k
+                                m = 0
+                                false
+                            false
+                        d ≠ 0
+                        2 <= d                         ; nat-ge-two
+                        d ∣ $N                         ; divides-trans
+                        d ∈ Nat ∧ 2 <= d ∧ d ∣ $N
+                        d ∈ {x ∈ Nat | 2 <= x ∧ x ∣ $N}
+                        d ∈ bigdivisors($N)
+                        m <= d
+                        d <= m                         ; divides-le
+                        d = m
+                        d = 1 ∨ d = m
+                    d = 1 ∨ d = m
+            ∀ $d ∈ Nat ($d ∣ m  ⇒  $d = 1 ∨ $d = m)
+            2 <= m ∧ ∀ $d ∈ Nat ($d ∣ m  ⇒  $d = 1 ∨ $d = m)
+            prime m
+            m ∈ Nat ∧ prime m ∧ m ∣ $N
+            ∃ p (p ∈ Nat ∧ prime p ∧ p ∣ $N)
+qed
+
+; a divisor of b divides every multiple of b
+show $a ∣ $b ∧ $c ∈ Nat  ⇒  $a ∣ $c * $b                                "divides-mul"
+proof
+    assume $a ∣ $b ∧ $c ∈ Nat
+        ∃ $k ($k ∈ Nat ∧ $b = $a * $k)
+        pick k with k ∈ Nat ∧ $b = $a * k
+            $c * $b = $c * ($a * k)
+                    = $a * (k * $c)
+            k * $c ∈ Nat                               ; nat-mul
+            k * $c ∈ Nat ∧ $c * $b = $a * (k * $c)
+            ∃ $m ($m ∈ Nat ∧ $c * $b = $a * $m)
+            $a ∣ $c * $b
+qed
+
+; the step of the factorial: (n + 1)! = (n + 1) n!
+show $n ∈ Nat  ⇒  ($n + 1)! = ($n + 1) * $n!                            "factorial-succ"
+proof
+    assume $n ∈ Nat
+        0 <= $n                                        ; nat-nonneg
+        calc on
+        0 < 1
+        calc off
+        0 + $n < 1 + $n                                ; lt-add
+        $n < $n + 1
+        0 < $n + 1
+        $n + 1 > 0
+        ($n + 1)! = ($n + 1) * (($n + 1) - 1)!         ; factorial-step
+        ($n + 1) - 1 = $n - (1 - 1)                    ; add-sub
+                     = $n - 0
+                     = $n
+        ($n + 1)! = ($n + 1) * $n!
+qed
+
+; n! is a positive natural number
+show ∀ n ∈ Nat (n! ∈ Nat ∧ 1 <= n!)                                     "factorial-nat"
+proof
+    0! = 1                                             ; factorial-base
+    1 ∈ Nat                                            ; nat-one
+    0! ∈ Nat
+    1 <= 1
+    1 <= 0!
+    0! ∈ Nat ∧ 1 <= 0!
+    let n ∈ Nat
+        assume n! ∈ Nat ∧ 1 <= n!
+            n! ∈ Nat
+            1 <= n!
+            n + 1 ∈ Nat                                ; nat-succ
+            (n + 1)! = (n + 1) * n!                    ; factorial-succ
+            (n + 1) * n! ∈ Nat                         ; nat-mul
+            (n + 1)! ∈ Nat
+            0 <= n                                     ; nat-nonneg
+            0 + 1 <= n + 1
+            1 <= n + 1
+            calc on
+            0 < 1
+            calc off
+            0 < n!
+            1 * n! <= (n + 1) * n!                     ; le-mul-pos
+            n! <= (n + 1) * n!
+            1 <= (n + 1) * n!
+            1 <= (n + 1)!
+            (n + 1)! ∈ Nat ∧ 1 <= (n + 1)!
+    ∀ n ∈ Nat (n! ∈ Nat ∧ 1 <= n!  ⇒  (n + 1)! ∈ Nat ∧ 1 <= (n + 1)!)
+    ∀ n ∈ Nat (n! ∈ Nat ∧ 1 <= n!)                     ; induction
+qed
+
+; every k with 1 <= k <= n divides n!
+show ∀ n ∈ Nat ∀ k ∈ Nat (1 <= k ∧ k <= n  ⇒  k ∣ n!)                   "factorial-divisors"
+proof
+    ; n = 0: there is no such k
+    let k ∈ Nat
+        assume 1 <= k ∧ k <= 0
+            1 <= k
+            k <= 0
+            1 <= 0
+            calc on
+            0 < 1
+            calc off
+            false
+            k ∣ 0!
+    ∀ k ∈ Nat (1 <= k ∧ k <= 0  ⇒  k ∣ 0!)
+    ; n → n + 1: k <= n divides n!, and n + 1 is the new factor
+    let n ∈ Nat
+        assume ∀ k ∈ Nat (1 <= k ∧ k <= n  ⇒  k ∣ n!)
+            n + 1 ∈ Nat
+            (n + 1)! = (n + 1) * n!                    ; factorial-succ
+            ∀ m ∈ Nat (m! ∈ Nat ∧ 1 <= m!)             ; factorial-nat
+            n! ∈ Nat ∧ 1 <= n!
+            n! ∈ Nat
+            let k ∈ Nat
+                assume 1 <= k ∧ k <= n + 1
+                    1 <= k
+                    k <= n + 1
+                    ∀ $j ∈ Nat ($j <= n ∨ n + 1 <= $j)      ; nat-discrete
+                    k <= n ∨ n + 1 <= k
+                    case k <= n
+                        1 <= k ∧ k <= n  ⇒  k ∣ n!     ; the induction hypothesis
+                        1 <= k ∧ k <= n
+                        k ∣ n!
+                        k ∣ (n + 1) * n!               ; divides-mul
+                        k ∣ (n + 1)!
+                    case n + 1 <= k
+                        k = n + 1                      ; le-ge-antisym
+                        n + 1 ∣ n + 1                  ; divides-refl
+                        n + 1 ∣ (n + 1) * n!           ; divides-mul
+                        k ∣ (n + 1) * n!
+                        k ∣ (n + 1)!
+                    k ∣ (n + 1)!
+            ∀ k ∈ Nat (1 <= k ∧ k <= n + 1  ⇒  k ∣ (n + 1)!)
+    ∀ n ∈ Nat (∀ k ∈ Nat (1 <= k ∧ k <= n  ⇒  k ∣ n!)  ⇒  ∀ k ∈ Nat (1 <= k ∧ k <= n + 1  ⇒  k ∣ (n + 1)!))
+    ∀ n ∈ Nat ∀ k ∈ Nat (1 <= k ∧ k <= n  ⇒  k ∣ n!)  ; induction
+qed
+
+; Euclid: above every natural number there is a prime -- a prime divisor of n! + 1
+show ∀ n ∈ Nat ∃ p (p ∈ Nat ∧ prime p ∧ n < p)                          "infinitely-many-primes"
+proof
+    let n ∈ Nat
+        ∀ m ∈ Nat (m! ∈ Nat ∧ 1 <= m!)                 ; factorial-nat
+        n! ∈ Nat ∧ 1 <= n!
+        n! ∈ Nat
+        1 <= n!
+        n! + 1 ∈ Nat                                   ; nat-succ
+        1 + 1 <= n! + 1                                ; le-add
+        calc on
+        2 <= n! + 1
+        calc off
+        n! + 1 ∈ Nat ∧ 2 <= n! + 1
+        ∃ p (p ∈ Nat ∧ prime p ∧ p ∣ n! + 1)          ; prime-divisor
+        pick p with p ∈ Nat ∧ prime p ∧ p ∣ n! + 1
+            2 <= p ∧ ∀ $d ∈ Nat ($d ∣ p  ⇒  $d = 1 ∨ $d = p)
+            2 <= p
+            ; p <= n is impossible: then p divides n! and n! + 1
+            assume p <= n
+                calc on
+                1 <= 2
+                calc off
+                1 <= p
+                ∀ m ∈ Nat ∀ k ∈ Nat (1 <= k ∧ k <= m  ⇒  k ∣ m!)     ; factorial-divisors
+                ∀ k ∈ Nat (1 <= k ∧ k <= n  ⇒  k ∣ n!)
+                p ∈ Nat
+                1 <= p ∧ p <= n  ⇒  p ∣ n!
+                1 <= p ∧ p <= n
+                p ∣ n!
+                n! ∈ Nat ∧ 2 <= p ∧ p ∣ n! ∧ p ∣ n! + 1
+                false                                  ; no-divisor-of-successive
+            ¬(p <= n)
+            n < p ∨ n = p ∨ n > p                      ; trichotomy
+            case n < p
+                n < p
+            case n = p
+                p <= p
+                p <= n
+                false
+                n < p
+            case n > p
+                p <= n
+                false
+                n < p
+            n < p
+            p ∈ Nat ∧ prime p ∧ n < p
+            ∃ q (q ∈ Nat ∧ prime q ∧ n < q)
+qed

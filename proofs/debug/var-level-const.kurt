@@ -1,4 +1,4 @@
-; bool-level-const.kurt
+; var-level-const.kurt
 var x
 assume A
   const x       ; that's ok, since on the current level there is no variable

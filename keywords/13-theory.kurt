@@ -4,7 +4,7 @@
 ; for the current level and all levels above it.  It is read-only
 ; introspection; it never changes anything.
 
-bool A, B
+prop A, B
 use A implies B  "our-axiom"
 use A
 B

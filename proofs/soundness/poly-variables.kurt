@@ -1,0 +1,37 @@
+; polymorphic variables, `$$x` (todo 35, doc/kurt-soundness.md §8.42): a rule that holds for every
+; sort writes its bound variable `$$x`; it is then used for a binder over any sort (`∀ n` over the
+; numbers: logic.kurt's "forall-elim"). The mark is checked where the rule is stated: a `$$x` may
+; occur only in its binder, as the variable of a `sub` and as a side of `=` -- not where the
+; elements of a sort matter, `$$c ∈ $a` (over the numbers, extensionality would give `∅ = {∅}`)
+load natural
+
+; a polymorphic rule over the numbers: "forall-elim" is written with `$$x`
+const Q
+prop Q
+arity Q 1
+use ∀ n (n + 0 = n ⇒ Q n)           ; (`n` a number by `+`)
+4 + 0 = 4 ⇒ Q 4                      ; by "forall-elim", `$$x` the sort of `n`
+
+; the same for the sets (`default set`: `x` a set)
+sandbox
+    default set
+    use ∀ x (x = x ⇒ Q x)
+    ; (nothing about `Q` of a number: `Q` takes a number, the binder is over the sets)
+
+; `=` is the same identity in every sort: `$$y = $$x` is fine
+sandbox
+    use %A ⇒ (%A ∧ ∀ $$x ∀ $$y ($$x = $$y ⇒ $$y = $$x))       ; a schema over every sort
+
+; extensionality with a polymorphic element is refused: the elements of the sort matter
+expect "EvalError" "polymorphic"
+    use $a = $b  ≡  ∀ $$c  ($$c ∈ $a ⇔ $$c ∈ $b)
+
+; ... so is a polymorphic variable in an operator of a sort (`+` takes numbers)
+expect "TypeError" "must have sort `real`"
+    use %A ⇒ ∀ $$x ($$x + 0 = $$x)
+
+; a polymorphic variable is bound inside the rule, by a binder that isn't an outer `∀`
+expect "EvalError" "outer"
+    use ∀ $$x ($$x = $$x)
+expect "EvalError" "binds it"
+    use $$x = $$y

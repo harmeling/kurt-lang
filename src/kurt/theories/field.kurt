@@ -13,7 +13,7 @@
 ; times-associative (K5), times-commutative (K6), one-times and zero-not-one (K7), inv-times (K8),
 ; distributive (K9). The existential axioms are given by names, as the slides do after proving
 ; uniqueness: `0` and `1`, `- λ` and `inv λ`. proofs/mafi1/ uses this theory.
-load prop, equality, logic, set
+load propositional, equality, logic, set
 infix + 60 60
 infix · 70 70
 infix - 60 60
@@ -410,3 +410,34 @@ proof
         ¬($a = 0)
         $a ≠ 0
 qed
+
+; A model, for `kurt --lean` (doc/kurt-soundness.md §11, the axiom audit): the field of the reals.
+; `K` is the set of the reals embedded into the sets (`k_emb`), `0` and `1` are the embedded `0` and
+; `1`, and the operations decode their arguments (`k_dec`, the inverse of `k_emb`), compute in ℝ and
+; embed the result -- so `+` is associative and commutative and `·` associative on all objects, as
+; `flat` and `sym` say. Lean proves every axiom above true in this model, so the theory has a model.
+lean K def ZFSet.range (fun x : ℝ => k_emb x)
+lean 0 k_emb (0 : ℝ)
+lean 1 k_emb (1 : ℝ)
+lean + def k_emb ((k_dec $1 : ℝ) + (k_dec $2 : ℝ))
+lean · def k_emb ((k_dec $1 : ℝ) * (k_dec $2 : ℝ))
+lean - def k_emb ((k_dec $1 : ℝ) - (k_dec $2 : ℝ))
+lean - def k_emb (-(k_dec $1 : ℝ))
+lean inv def k_emb ((k_dec $1 : ℝ)⁻¹)
+lean "zero-in-field" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "one-in-field" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "plus-closed" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "times-closed" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "minus-closed" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "inv-closed" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "plus-associative" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "plus-commutative" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "plus-zero" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "plus-minus" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "times-associative" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "times-commutative" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "zero-not-one" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "one-times" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "inv-times" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "distributive" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩
+lean "minus-def" (try simp only [K_d0, ZFSet.mem_range, and_imp, forall_exists_index]); intros; (try subst_vars); simp_all [k_dec_emb, k_u2b_d2, k_ub7_d2, k_u2d_d1, k_u2d_d2, inv_d1]; first | done | ring | (congr 1; ring) | field_simp | exact ⟨_, rfl⟩

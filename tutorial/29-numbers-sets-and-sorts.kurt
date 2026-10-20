@@ -1,0 +1,94 @@
+; 29-numbers-sets-and-sorts.kurt
+;
+; Numbers and sets together: sorts
+;
+; Kurt checks that a number is not used as a set where that makes no sense: `{1, 2} + 0` is a type
+; error. It does that with *sorts*, five rules in all:
+;
+;   1. The sorts form a hierarchy with `any` on top: `real ⊂ set ⊂ any` (objects.kurt). A number is
+;      a set (as in set theory), every object is an `any`.
+;   2. Every symbol has a sort; without one it is `any`, any object. A constant gets its sort at its
+;      *first sorted use*, and that is final.
+;   3. A value fits a place of its own sort or a bigger one: a number fits where a set is required.
+;   4. `∀ x` and `∃ x` range over the sort of `x`. A fact gives no sort.
+;   5. A rule for every sort writes its bound variables `$$x` (for theory authors, see the end).
+;
+; Sorts are lowercase, sets capitalized: `real x` says what kind of thing `x` is, `x ∈ Real` is a
+; fact about it (`Real`, also `ℝ`, is the set of all numbers; `Nat`, `Int`, `Rat` are sets too).
+;
+; Run it: `kurt 29-numbers-sets-and-sorts.kurt`. The lines after `expect` are errors on purpose.
+load natural
+
+; ---------------------------------------------------------------------------------------------
+; 2. A constant gets its sort at its first sorted use
+
+const x, A
+x ∈ A ⇒ x ∈ A                         ; `x` has no sort yet: the left of `∈` takes any object
+x + 0 = x                             ; the first sorted use: `x` is a number from here on (see `info x`)
+info x
+A ⊂ A ⇒ A ⊂ A                         ; `A` is a set
+
+; ... and that is final: a later use at another sort is a type error, which names both places and
+; says what to do. (A number is a set, so a *declared* number may be used as a set.)
+const s
+use s ⊂ A                             ; `s` is a set
+expect "TypeError" "declare `real s` before that use"
+    use s + 0 = s
+real t                                 ; declared first: a number, which fits where a set is required
+use t ⊂ A
+use t + 0 = t
+
+; ---------------------------------------------------------------------------------------------
+; 3. A value fits a place of its own sort or a bigger one
+
+3 ∈ {3}                               ; a number where an element (any object) is required
+expect "TypeError" "must have sort `real`"
+    use {1, 2} + 0 = {1, 2}           ; a set where a number is required: junk, refused
+
+; ---------------------------------------------------------------------------------------------
+; 4. Binders range over the sort of their variable -- and a fact gives no sort
+
+; `∀ y` without a sort is over all objects, so it meets extensionality: two sets with the same
+; elements are equal
+const B, C
+(∀ y (y ∈ B ⇔ y ∈ C)) ⇒ B = C         ; by "extensionality"
+
+; a binder whose variable is a number by its places is over the numbers: `∀ n (n + 0 = n)`
+∀ n (n + 0 = n)                       ; ("add-identity", over the numbers)
+
+; a fact gives no sort: `b ∈ Nat` says that `b` is a natural number, but not that `b` is of sort `real`.
+; Declare it, or let its first sorted use be a number:
+set b
+use b ∈ Nat
+expect "TypeError" "a fact `b ∈ Nat` gives no sort"
+    use b + 1 = 1 + b
+const c
+use c ∈ Nat
+c + 1 = 1 + c                         ; `c`'s first sorted use: a number
+
+; A witness has the sort of the existential's variable: from `∃ y (y ∈ A)`, over all objects, the
+; witness is any object -- not a number, whatever you know about it
+use ∃ y (y ∈ A)
+pick w with w ∈ A
+    expect "TypeError" "must have sort `real`"
+        use w + 0 = w
+    true
+
+; ---------------------------------------------------------------------------------------------
+; `default real`: a file about numbers says so once
+;
+; With `default real` at the top (after `load natural`), every new symbol without a declared sort is
+; a number from its first appearance -- the variables of a theorem about the natural numbers, and
+; what induction needs (lesson 11). Without a default, a symbol is any object until its first
+; sorted use (`default any` is the same as no default).
+
+; ---------------------------------------------------------------------------------------------
+; 5. For theory authors: rules for every sort, `$$x`
+;
+; The rules of logic.kurt hold for every sort; their bound variables are written `$$x`:
+;
+;     use ∀ $$x %A  implies  sub $$x $a %A      "forall-elim"
+;
+; One use of such a rule is at one sort (all its `$$` binders over the same sort), and a `$$x` may
+; occur only in its binder, in `sub` and as a side of `=` -- where the sort doesn't matter. Kurt
+; checks both. Why it is sound: doc/kurt-soundness.md §10, doc/kurt-kernel.md §8.

@@ -11,7 +11,7 @@ class TestProgress(unittest.TestCase):
     def test_the_lines_of_each_file_in_order(self):
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'dep.kurt'), 'w', encoding='utf-8') as stream:
-                stream.write('bool P\n\nuse P "given"\n')
+                stream.write('prop P\n\nuse P "given"\n')
             events: list[dict] = []
             session = kurt.Session(kurt.RunConfig(paths=(tmp,), progress=events.append))
             result = session.check_text('load dep\nP\n', name='main.kurt')
@@ -29,7 +29,7 @@ class TestProgress(unittest.TestCase):
             self.assertEqual(events[-1]['files'], 1)
 
     def test_without_progress_nothing_changes(self):
-        text = 'load prop\nbool A\nuse A\nA or A\n'
+        text = 'load propositional\nprop A\nuse A\nA or A\n'
         self.assertEqual(kurt.Session(kurt.RunConfig(progress=lambda e: None)).check_text(text).output,
                          kurt.Session().check_text(text).output)
 
@@ -38,7 +38,7 @@ class TestProgress(unittest.TestCase):
         server = kurt.LanguageServer(None, None)
         server.progress = events.append
         uri = 'file:///tmp/progress.kurt'
-        server.texts[uri] = 'bool A\nuse A\n'
+        server.texts[uri] = 'prop A\nuse A\n'
         server.publish_diagnostics = lambda *args: None
         server.check(uri)
         self.assertEqual(events[-1], {'file': '/tmp/progress.kurt', 'line': 2, 'lines': 2, 'index': 1, 'files': 1, 'done': True})

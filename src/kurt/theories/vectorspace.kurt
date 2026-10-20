@@ -14,22 +14,184 @@
 ; vector-plus-commutative (V2), vector-plus-zero (V3), vector-plus-minus (V4),
 ; vector-times-associative (V5), vector-one-times (V6), vector-distributive (V7),
 ; vector-distributive-scalars (V8). proofs/mafi1/ uses this theory.
-load equality, logic, set, field
+load propositional, equality, logic, set, field
 arity vectorspace 1
 
-use vectorspace($V)  ⇒  0 ∈ $V                                                       "zero-vector-in"
-use vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $x + $y ∈ $V                             "vector-plus-closed"
-use vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V  ⇒  $a · $x ∈ $V                              "vector-times-closed"
-use vectorspace($V) ∧ $x ∈ $V  ⇒  - $x ∈ $V                                          "vector-minus-closed"
+; the definition (mafi1 04, 05: (V1)-(V8), and the closure under `+`, `·`, `-` with the zero
+; vector), in three parts: `vectorspace($V)` is exactly these properties -- `def`s, so each rule
+; below is a theorem proved from them, none an axiom (the axiom audit, dev/todo.md 11; before
+; 2026-10-20 the rules were `use`s). (Three parts of four, not one conjunction of twelve: with `+`
+; and `·` flat and symmetric, unfolding twelve at once is slow.)
+arity vectorclosed 1
+arity vectoradditive 1
+arity vectorscalar 1
+def vectorclosed($V)  ⇔  0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))   "vectorclosed"      ; closed: the zero vector, `+`, `·` and `-`
+def vectoradditive($V)  ⇔  (∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))   "vectoradditive"      ; the laws of `+`, (V1)-(V4)
+def vectorscalar($V)  ⇔  (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u))))   "vectorscalar"      ; the laws of `·`, (V5)-(V8)
+def vectorspace($V)  ⇔  vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)   "vectorspace"
 
-use vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $z ∈ $V  ⇒  ($x + $y) + $z = $x + ($y + $z) "vector-plus-associative"
-use vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $x + $y = $y + $x                        "vector-plus-commutative"
-use vectorspace($V) ∧ $x ∈ $V  ⇒  $x + 0 = $x                                        "vector-plus-zero"
-use vectorspace($V) ∧ $x ∈ $V  ⇒  $x + (- $x) = 0                                    "vector-plus-minus"
-use vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V  ⇒  $a · ($b · $x) = ($a · $b) · $x  "vector-times-associative"
-use vectorspace($V) ∧ $x ∈ $V  ⇒  1 · $x = $x                                        "vector-one-times"
-use vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $a · ($x + $y) = $a · $x + $a · $y "vector-distributive"
-use vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V  ⇒  ($a + $b) · $x = $a · $x + $b · $x "vector-distributive-scalars"
+show vectorspace($V)  ⇒  0 ∈ $V   "zero-vector-in"
+proof
+    assume vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorclosed($V)
+        0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))
+        0 ∈ $V
+qed
+
+show vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $x + $y ∈ $V   "vector-plus-closed"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorclosed($V)
+        0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))
+        ∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))
+        $x ∈ $V
+        ∀ $w ∈ $V ($x + $w ∈ $V)
+        $y ∈ $V
+        $x + $y ∈ $V
+qed
+
+show vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V  ⇒  $a · $x ∈ $V   "vector-times-closed"
+proof
+    assume vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorclosed($V)
+        0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))
+        ∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))
+        $a ∈ K
+        ∀ $u ∈ $V ($a · $u ∈ $V)
+        $x ∈ $V
+        $a · $x ∈ $V
+qed
+
+show vectorspace($V) ∧ $x ∈ $V  ⇒  - $x ∈ $V   "vector-minus-closed"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorclosed($V)
+        0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))
+        ∀ $u ∈ $V (- $u ∈ $V)
+        $x ∈ $V
+        - $x ∈ $V
+qed
+
+show vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $z ∈ $V  ⇒  ($x + $y) + $z = $x + ($y + $z)   "vector-plus-associative"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V ∧ $z ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectoradditive($V)
+        (∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))
+        ∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))
+        $x ∈ $V
+        ∀ $w ∈ $V (∀ $t ∈ $V (($x + $w) + $t = $x + ($w + $t)))
+        $y ∈ $V
+        ∀ $t ∈ $V (($x + $y) + $t = $x + ($y + $t))
+        $z ∈ $V
+        ($x + $y) + $z = $x + ($y + $z)
+qed
+
+show vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $x + $y = $y + $x   "vector-plus-commutative"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V ∧ $y ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectoradditive($V)
+        (∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))
+        ∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))
+        $x ∈ $V
+        ∀ $w ∈ $V ($x + $w = $w + $x)
+        $y ∈ $V
+        $x + $y = $y + $x
+qed
+
+show vectorspace($V) ∧ $x ∈ $V  ⇒  $x + 0 = $x   "vector-plus-zero"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectoradditive($V)
+        (∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))
+        ∀ $u ∈ $V ($u + 0 = $u)
+        $x ∈ $V
+        $x + 0 = $x
+qed
+
+show vectorspace($V) ∧ $x ∈ $V  ⇒  $x + (- $x) = 0   "vector-plus-minus"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectoradditive($V)
+        (∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))
+        ∀ $u ∈ $V ($u + (- $u) = 0)
+        $x ∈ $V
+        $x + (- $x) = 0
+qed
+
+show vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V  ⇒  $a · ($b · $x) = ($a · $b) · $x   "vector-times-associative"
+proof
+    assume vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorscalar($V)
+        (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u))))
+        ∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))
+        $a ∈ K
+        ∀ $q ∈ K (∀ $u ∈ $V ($a · ($q · $u) = ($a · $q) · $u))
+        $b ∈ K
+        ∀ $u ∈ $V ($a · ($b · $u) = ($a · $b) · $u)
+        $x ∈ $V
+        $a · ($b · $x) = ($a · $b) · $x
+qed
+
+show vectorspace($V) ∧ $x ∈ $V  ⇒  1 · $x = $x   "vector-one-times"
+proof
+    assume vectorspace($V) ∧ $x ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorscalar($V)
+        (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u))))
+        ∀ $u ∈ $V (1 · $u = $u)
+        $x ∈ $V
+        1 · $x = $x
+qed
+
+show vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V ∧ $y ∈ $V  ⇒  $a · ($x + $y) = $a · $x + $a · $y   "vector-distributive"
+proof
+    assume vectorspace($V) ∧ $a ∈ K ∧ $x ∈ $V ∧ $y ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorscalar($V)
+        (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u))))
+        ∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))
+        $a ∈ K
+        ∀ $u ∈ $V (∀ $w ∈ $V ($a · ($u + $w) = $a · $u + $a · $w))
+        $x ∈ $V
+        ∀ $w ∈ $V ($a · ($x + $w) = $a · $x + $a · $w)
+        $y ∈ $V
+        $a · ($x + $y) = $a · $x + $a · $y
+qed
+
+show vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V  ⇒  ($a + $b) · $x = $a · $x + $b · $x   "vector-distributive-scalars"
+proof
+    assume vectorspace($V) ∧ $a ∈ K ∧ $b ∈ K ∧ $x ∈ $V
+        vectorspace($V)
+        vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)
+        vectorscalar($V)
+        (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u))))
+        ∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u)))
+        $a ∈ K
+        ∀ $q ∈ K (∀ $u ∈ $V (($a + $q) · $u = $a · $u + $q · $u))
+        $b ∈ K
+        ∀ $u ∈ $V (($a + $b) · $u = $a · $u + $b · $u)
+        $x ∈ $V
+        ($a + $b) · $x = $a · $x + $b · $x
+qed
 
 ; lecture 04: the zero vector is unique
 show vectorspace($V) ∧ $o ∈ $V ∧ (∀ $x ∈ $V ($x + $o = $x))  ⇒  $o = 0                 "zero-vector-unique"
@@ -143,6 +305,24 @@ proof
 qed
 
 ; the definition the other way: a set with the zero vector, closed under `+`, `·` and `-`, in which
-; (V1)-(V8) hold, is a vector space (mafi1 06: a subspace is one) -- `vectorspace($V)` is read as
-; exactly these properties, so this is consistent with the rules above
-use 0 ∈ $V ∧ (∀ $x ∈ $V ∀ $y ∈ $V ($x + $y ∈ $V)) ∧ (∀ $a ∈ K ∀ $x ∈ $V ($a · $x ∈ $V)) ∧ (∀ $x ∈ $V (- $x ∈ $V)) ∧ (∀ $x ∈ $V ∀ $y ∈ $V ∀ $z ∈ $V (($x + $y) + $z = $x + ($y + $z))) ∧ (∀ $x ∈ $V ∀ $y ∈ $V ($x + $y = $y + $x)) ∧ (∀ $x ∈ $V ($x + 0 = $x)) ∧ (∀ $x ∈ $V ($x + (- $x) = 0)) ∧ (∀ $a ∈ K ∀ $b ∈ K ∀ $x ∈ $V ($a · ($b · $x) = ($a · $b) · $x)) ∧ (∀ $x ∈ $V (1 · $x = $x)) ∧ (∀ $a ∈ K ∀ $x ∈ $V ∀ $y ∈ $V ($a · ($x + $y) = $a · $x + $a · $y)) ∧ (∀ $a ∈ K ∀ $b ∈ K ∀ $x ∈ $V (($a + $b) · $x = $a · $x + $b · $x)) ⇒  vectorspace($V)   "vectorspace-intro"
+; (V1)-(V8) hold, is a vector space (mafi1 06: a subspace is one) -- by the three definitions
+show (0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))) ∧ ((∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))) ∧ ((∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u)))))  ⇒  vectorspace($V)   "vectorspace-intro"
+proof
+    assume (0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))) ∧ ((∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))) ∧ ((∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u)))))
+        0 ∈ $V
+        ∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))
+        ∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))
+        ∀ $u ∈ $V (- $u ∈ $V)
+        ∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))
+        ∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))
+        ∀ $u ∈ $V ($u + 0 = $u)
+        ∀ $u ∈ $V ($u + (- $u) = 0)
+        ∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))
+        ∀ $u ∈ $V (1 · $u = $u)
+        ∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))
+        ∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u)))
+        vectorclosed($V)
+        vectoradditive($V)
+        vectorscalar($V)
+        vectorspace($V)
+qed

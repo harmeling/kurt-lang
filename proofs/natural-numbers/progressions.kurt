@@ -35,5 +35,5 @@ expect "ParseError" "set-builder"
 expect "ParseError" "set-builder"
     use 8 ∈ {1, ..., 4, 8}
 ; and `...` gives no rule "element": 10 is not simply listed in `{1, ..., 10}`
-expect "ProofError"
-    5 ∈ {1, ..., 10}
+expect "ProofError" "can not derive `10 ∈ {1, ..., 10}`"
+    10 ∈ {1, ..., 10}

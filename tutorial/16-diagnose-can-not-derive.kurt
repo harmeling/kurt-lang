@@ -5,7 +5,7 @@
 ; Kurt searches for one justified inference at a time. A mathematically true conclusion may still
 ; need intermediate lines. When a line fails:
 ;
-; 1. Check that the required theory is loaded. `not`/`or` need `prop`, equality needs `equality`,
+; 1. Check that the required theory is loaded. `not`/`or` need `propositional`, equality needs `equality`,
 ;    quantifier rules need `logic`, and arithmetic rules need `numbers`.
 ; 2. Check the exact parsed form with `parse EXPRESSION`, especially around precedence, function
 ;    application, and custom operators.

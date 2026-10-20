@@ -15,10 +15,10 @@ infix    " " 90 90                           ; space for function applications, 
                                              ; `inv det(A)` is `inv (det A)`)
 
 const true                                   ; declare constant symbol
-bool  true                                   ; true has type bool
+prop  true                                   ; true has type prop
 infix implies 13 12                          ; logical implies, right associative (since 13>12)
 infix and     16 16                          ; and operator
-bool  implies 0 1 2, and 0 1 2               ; both take and give booleans
+prop  implies 0 1 2, and 0 1 2               ; both take and give booleans
 const implies, and                           ; both are constants
 flat  and                                    ; conjunctions need no nesting
 sym   and                                    ; `A and B` is the same as `B and A`
@@ -53,12 +53,12 @@ sym   and                                    ; `A and B` is the same as `B and A
 ; a standalone fact (e.g. a bare `A implies A` does not derive from nothing). Prove a
 ; specific instance instead, with `show`/`proof`/`assume`/`qed` (see `keywords/`,
 ; lessons 08-proof and 18-assume). `not`/`false` themselves also aren't declared here at
-; all -- see `prop.kurt` for those, and for a general, always-available "not-intro".
+; all -- see `propositional.kurt` for those, and for a general, always-available "not-intro".
 
 ;; meanings the engine implements for symbols that theories declare
 ;
 ; nothing has such a meaning by its name: a trusted theory assigns it with `builtin` (doc/kurt-
-; doc.md §10) -- prop.kurt `builtin iff equivalence, or disjunction, not negation, false falsum`,
+; doc.md §10) -- propositional.kurt `builtin iff equivalence, or disjunction, not negation, false falsum`,
 ; equality.kurt `builtin = equality`, and the calculator's operations, e.g. numbers.kurt `builtin
 ; + add, * multiply, ...` and matrix.kurt `builtin [ ] matrixbrackets` (computed with `calc on`). The
 ; quantifiers too: logic.kurt declares `forall`/`exists` with `builtin forall universal, exists
@@ -68,7 +68,7 @@ sym   and                                    ; `A and B` is the same as `B and A
 arity  sub 3                                 ; operator for substitutions
 bindop sub                                   ; first arg must be a variable that is bound
 
-; The minimal core deliberately has no aliases. `prop.kurt` supplies the familiar aliases for
+; The minimal core deliberately has no aliases. `propositional.kurt` supplies the familiar aliases for
 ; propositional syntax (`⊤`, `⇒`, `∧`, ...), and `logic.kurt` the quantifiers with `∀` and `∃`.
 ; Keeping the glyphs theory-local lets a deeply embedded object language declare them with
 ; another meaning.

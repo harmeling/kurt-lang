@@ -16,7 +16,7 @@ Run a lesson with:
 BASICS -- your first checked proofs
 ------------------------------------
     00-true      the only thing provable from nothing
-    01-bool      declaring symbols as booleans (propositions)
+    01-prop      declaring symbols as booleans (propositions)
     02-use       adding axioms to the theory
     03-implies   built-in implication, modus ponens ("impl-elim")
     04-and       built-in conjunction, "and-intro" (and one "and-elim" example)
@@ -28,7 +28,7 @@ BASICS -- your first checked proofs
 
 THEORIES -- building and reusing bodies of knowledge
 -----------------------------------------------------
-    10-load      pulling in ready-made theories, e.g. `prop.kurt`
+    10-load      pulling in ready-made theories, e.g. `propositional.kurt`
     11-save      keep what you did: write the accepted lines out to a file
     12-def       introducing a new constant via its defining equation
     13-theory    inspecting the current theory
@@ -84,7 +84,8 @@ DEBUGGING
 
 OPTIONAL SORTS
 --------------
-    44-sort        add sparse term/type categories with the existing positional notation
+    44-sort        sorts: kinds of objects below `any`, subsorts, the first sorted use is final, `default`
+    47-default     the sort of the new symbols of a file: at the first appearance, unless the line says otherwise
 
 MEANINGS BUILT INTO KURT
 ------------------------

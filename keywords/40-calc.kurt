@@ -29,7 +29,7 @@ expect "ProofError"
 
 ; A comparison of two numbers is computed too, once its symbol is bound:
 infix < 20 20
-bool  < 0
+prop  < 0
 builtin < lt
 calc on
 2 + 2 < 5             ; `4 < 5`, true "by calc"

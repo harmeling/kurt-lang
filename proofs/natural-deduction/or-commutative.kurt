@@ -2,7 +2,7 @@
 
 ;; syntax
 infix  or      14 14  ; logical or
-bool   or      0 1 2  ; and and its inputs have type bool
+prop   or      0 1 2  ; and and its inputs have type prop
 alias  ∨ or
 
 ;; axioms
@@ -11,7 +11,7 @@ use %B implies %A or %B                                             "or-intro-ri
 use (%A or %B) and (%A implies %C) and (%B implies %C) implies %C   "or-elim"
 
 ;; theorem
-bool p, q
+prop p, q
 
 show (p ∨ q) implies (q ∨ p)
 proof

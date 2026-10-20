@@ -37,7 +37,7 @@ class TestExportDocument(unittest.TestCase):
         self.assertIn(r'\mathsf{x} = x', doc)                        # but not where a constant `x` is too
 
     def test_latex_document_with_certificates(self):
-        doc = export('load prop\nbool A, B\nuse A implies B\nuse A\nB\n', 'latex')
+        doc = export('load propositional\nprop A, B\nuse A implies B\nuse A\nB\n', 'latex')
         self.assertTrue(doc.startswith(r'\documentclass') and doc.rstrip().endswith(r'\end{document}'))
         self.assertIn(r'A \Rightarrow B', doc)
         self.assertIn(r'\section*{Certificates}', doc)
@@ -78,30 +78,30 @@ def run_cli(text: str, *options: str) -> tuple[subprocess.CompletedProcess, str]
     # `kurt OPTIONS proof.kurt` in a directory of its own: the result, and the directory's files afterwards
     env = dict(os.environ)
     env['PYTHONPATH'] = str(PROJECT_ROOT / 'src') + os.pathsep + env.get('PYTHONPATH', '')
-    tmp = tempfile.mkdtemp()
-    with open(os.path.join(tmp, 'proof.kurt'), 'w', encoding='utf-8') as fh:
-        fh.write(text)
-    result = subprocess.run([sys.executable, '-m', 'kurt.kurt', '--no-kurtc', *options, 'proof.kurt'],
-                            cwd=tmp, env=env, capture_output=True, text=True, timeout=60)
-    return result, ' '.join(sorted(os.listdir(tmp)))
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, 'proof.kurt'), 'w', encoding='utf-8') as fh:
+            fh.write(text)
+        result = subprocess.run([sys.executable, '-m', 'kurt.kurt', '--no-kurtc', *options, 'proof.kurt'],
+                                cwd=tmp, env=env, capture_output=True, text=True, timeout=60)
+        return result, ' '.join(sorted(os.listdir(tmp)))
 
 
 class TestOutputOption(unittest.TestCase):
     # `-o FILE` / `-o -` (2026-10-14; before, the document always went next to the file)
     def test_to_standard_output(self):
-        result, files = run_cli('bool A\nuse A\nA\n', '--markdown', '-o', '-')
+        result, files = run_cli('prop A\nuse A\nA\n', '--markdown', '-o', '-')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(result.stdout.startswith('# proof.kurt'), result.stdout)   # only the document
         self.assertEqual(files, 'proof.kurt')                                     # nothing written
 
     def test_a_failed_check_writes_nothing_to_standard_output(self):
-        result, _ = run_cli('bool A, B\nuse A\nB\n', '--latex', '-o', '-')
+        result, _ = run_cli('prop A, B\nuse A\nB\n', '--latex', '-o', '-')
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, '')
         self.assertIn('ProofError', result.stderr)
 
     def test_to_a_file(self):
-        result, files = run_cli('bool A\nuse A\nA\n', '--latex', '-o', 'doc.tex')
+        result, files = run_cli('prop A\nuse A\nA\n', '--latex', '-o', 'doc.tex')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(files, 'doc.tex proof.kurt')
         self.assertIn('wrote doc.tex', result.stdout)
@@ -110,7 +110,7 @@ class TestOutputOption(unittest.TestCase):
         for options, message in ((('--latex', '--markdown', '-o', '-'), 'one of'), (('-o', 'x.md'), 'needs'),
                                  (('--latex', '-o', 'proof.kurt'), 'the file being checked')):
             with self.subTest(options=options):
-                result, files = run_cli('bool A\nuse A\nA\n', *options)
+                result, files = run_cli('prop A\nuse A\nA\n', *options)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
                 self.assertEqual(files, 'proof.kurt')

@@ -28,13 +28,13 @@ class TestTodoDiscarded(unittest.TestCase):
         return bundle.todos
 
     def test_discarded(self):
-        self.assertEqual(self.todos('load prop\nsandbox\n    todo true\nconst z\n'), [])
-        self.assertEqual(self.todos('load prop\nexpect "ProofError"\n    todo true\n    false\nconst z\n'), [])
+        self.assertEqual(self.todos('load propositional\nsandbox\n    todo true\nconst z\n'), [])
+        self.assertEqual(self.todos('load propositional\nexpect "ProofError"\n    todo true\n    false\nconst z\n'), [])
 
     def test_kept(self):
-        self.assertEqual(len(self.todos('load prop\nshow %A ⇒ %A\nproof\n    todo\n    %A ⇒ %A\nqed\n')), 1)
-        self.assertEqual(len(self.todos('load prop\nassume %A\n    todo %B\nconst z\n')), 1)
-        self.assertEqual(len(self.todos('load prop\ntodo %A\n')), 1)
+        self.assertEqual(len(self.todos('load propositional\nshow %A ⇒ %A\nproof\n    todo\n    %A ⇒ %A\nqed\n')), 1)
+        self.assertEqual(len(self.todos('load propositional\nassume %A\n    todo %B\nconst z\n')), 1)
+        self.assertEqual(len(self.todos('load propositional\ntodo %A\n')), 1)
 
 if __name__ == '__main__':
     unittest.main()

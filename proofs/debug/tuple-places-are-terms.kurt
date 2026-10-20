@@ -1,0 +1,18 @@
+; The comma of a tuple takes terms. `reflexive((R), $A)` passes the operator `R` (a parameter, no
+; statement) in a tuple; its first use made Kurt infer `prop , 1`, a statement place of the comma
+; -- harmless until binders range over terms (2026-10-20): then every later `(x, x)` put `x` at a
+; statement place, and `∀ x ∈ A (lt(x, x))` was refused ("`forall` binds `x`, a statement").
+load logic, set
+const A, lt
+prop lt 0
+prop reflexive 0
+var R
+prop R 0
+def reflexive((R), $A) ⇔ ∀ x ∈ $A (R(x, x))
+use ∀ x ∈ A (lt(x, x))
+reflexive(lt, A)
+
+; a statement in a tuple is no object
+prop P, Q
+expect "TypeError" "is a statement where a term is required"
+    use (P, Q) = (Q, P)

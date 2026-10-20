@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,7 +25,7 @@ class TestWithdrawnClaims(unittest.TestCase):
     def test_a_withdrawn_claim_is_a_todo(self):
         # `show B`, `break` left nothing open and nothing to do: a file of withdrawn claims was
         # "complete", and the grader gave it full marks
-        result = kurt.check_text('load prop\nbool A, B\nuse A\nshow B\nbreak\nshow A and A\nproof\n    break\nbreak\n')
+        result = kurt.check_text('load propositional\nprop A, B\nuse A\nshow B\nbreak\nshow A and A\nproof\n    break\nbreak\n')
         self.assertTrue(result.ok, result.error)
         self.assertFalse(result.complete)
         self.assertEqual(len(result.todos), 2)
@@ -31,7 +33,7 @@ class TestWithdrawnClaims(unittest.TestCase):
         self.assertIn('Proof almost checked: 2 todos.', result.output)
 
     def test_a_proof_given_up_and_done_again_is_not_a_todo(self):
-        result = kurt.check_text('load prop\nbool A\nuse A\nshow A and A\nproof\n    break\nproof\n    A and A\nqed\n')
+        result = kurt.check_text('load propositional\nprop A\nuse A\nshow A and A\nproof\n    break\nproof\n    A and A\nqed\n')
         self.assertTrue(result.complete, result.error)
 
 
@@ -54,25 +56,25 @@ class TestAliasAcrossLoad(unittest.TestCase):
 class TestLocalDeclarations(unittest.TestCase):
     def test_a_local_constant_in_an_exported_fact_is_refused(self):
         # `const q local`, `use q "pq"`: the fact took `q` along, and the `local` meant nothing
-        result = check({'lib.kurt': 'load prop\nconst q local\nbool q\nuse q "pq"\n', 'main.kurt': 'load lib\nq\n'}, 'main.kurt')
+        result = check({'lib.kurt': 'load propositional\nconst q local\nprop q\nuse q "pq"\n', 'main.kurt': 'load lib\nq\n'}, 'main.kurt')
         self.assertFalse(result.ok)
         self.assertIn("symbol(s) ['q'] are declared `local` but required by an exported fact", result.error)
 
     def test_a_local_constant_in_a_local_fact_stays_in_the_file(self):
-        result = check({'lib.kurt': 'load prop\nconst q local\nbool q\nuse q local "pq"\nbool P\nuse P "p"\n',
+        result = check({'lib.kurt': 'load propositional\nconst q local\nprop q\nuse q local "pq"\nprop P\nuse P "p"\n',
                         'main.kurt': 'load lib\nP\nexpect "ProofError"\n    q\n'}, 'main.kurt')
         self.assertTrue(result.ok, result.error)
 
 
 class TestTermsAndStatementsAcrossLoad(unittest.TestCase):
     def test_a_statement_here_and_a_term_there_is_refused(self):
-        # `bool Nat`, then `load natural` was accepted (the other declarations before a `load` are refused)
-        result = kurt.check_text('load set\nbool Nat\nload natural\n')
+        # `prop Nat`, then `load natural` was accepted (the other declarations before a `load` are refused)
+        result = kurt.check_text('load set\nprop Nat\nload natural\n')
         self.assertFalse(result.ok)
-        self.assertIn('`Nat` is a statement here (`bool Nat`), but a term in `natural.kurt`', result.error)
-        result = check({'lib.kurt': 'load prop\nbool P\nuse P "p"\n', 'main.kurt': 'load equality\nconst P\nuse P = P\nload lib\n'}, 'main.kurt')
+        self.assertIn('`Nat` is a statement here (`prop Nat`), but a term in `natural.kurt`', result.error)
+        result = check({'lib.kurt': 'load propositional\nprop P\nuse P "p"\n', 'main.kurt': 'load equality\nconst P\nuse P = P\nload lib\n'}, 'main.kurt')
         self.assertFalse(result.ok)
-        self.assertIn('`P` is a term here, but a statement (`bool P`) in `lib.kurt`', result.error)
+        self.assertIn('`P` is a term here, but a statement (`prop P`) in `lib.kurt`', result.error)
 
 
 class TestOneFileOneName(unittest.TestCase):
@@ -97,12 +99,33 @@ class TestSymlinks(unittest.TestCase):
             self.assertIn('already loaded', result.output)
 
 
+    def test_a_file_in_a_symlinked_directory_keeps_its_name(self):
+        # macOS: the temporary directory `/var/...` is a symlink to `/private/var/...`; resolving
+        # symlinks in the names of loaded files renamed them, so the main file's steps were taken for
+        # another file's -- `kurt --lean` wrote no theorem, the hover linked the wrong path (CI, macOS,
+        # 2026-10-15 to -17). The same layout here: `link -> real`
+        with tempfile.TemporaryDirectory() as tmp:
+            os.mkdir(os.path.join(tmp, 'real'))
+            link = os.path.join(tmp, 'link')
+            os.symlink(os.path.join(tmp, 'real'), link)
+            Path(link, 'lib.kurt').write_text('load propositional\nprop P\nuse P "p"\n', encoding='utf-8')
+            main = os.path.join(link, 'main.kurt')
+            Path(main).write_text('load propositional\nload lib\nprop A\nuse A implies P\nshow A implies P "ap"\nproof\n    assume A\n        P\nqed\n', encoding='utf-8')
+            result = kurt.check_file(main)
+            self.assertTrue(result.ok, result.error)
+            self.assertIn(os.path.join(link, 'lib.kurt'), result.loaded)
+            done = subprocess.run([sys.executable, '-m', 'kurt.kurt', '--no-kurtc', '--lean', main, '-o', '-'],
+                                  capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path(kurt.__file__).parents[1])})
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertIn('theorem ', done.stdout)
+
+
 class TestDamagedCertificates(unittest.TestCase):
     def test_a_kurtc_nested_too_deep_is_damaged_not_a_crash(self):
         # json's RecursionError was not caught: a traceback, also for `kurt FILE.kurtc` and `--deps`
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'mp.kurt'
-            path.write_text('bool A, B\nuse A implies B "ab"\nuse A "a"\nB\n', encoding='utf-8')
+            path.write_text('prop A, B\nuse A implies B "ab"\nuse A "a"\nB\n', encoding='utf-8')
             Path(str(path) + 'c').write_text('[' * 200000 + ']' * 200000, encoding='utf-8')
             self.assertEqual(kurt.kurtc_status(str(path)), 'not certified (the `.kurtc` is damaged)')
             result = kurt.check_file(str(path), session=kurt.Session(kurt.RunConfig(kurtc=True)))

@@ -4,10 +4,18 @@
 ; `+`, `-`, `*` and `/` (by a number ≠ 0); and every positive rational in lowest terms
 ; ("lowest-terms", proven from the well-ordering of natural.kurt). As for natural.kurt, they are
 ; numbers of numbers.kurt, so its laws (and `calc`) apply.
-load prop, equality, logic, set, numbers, natural, integer
+load propositional, equality, logic, set, numbers, natural, integer
+default real              ; every symbol of this file is a number, except where said otherwise:
+set Rat                  ; the rationals are a set (of numbers)
 const Rat
 builtin Rat rationals                  ; `calc on` proves `1 / 3 ∈ Rat`
 tex Rat \mathbb{Q}
+; `kurt --lean` with Mathlib: the objects are Mathlib's reals (numbers.kurt), `Rat` the rationals
+; among them (as `Nat` in natural.kurt)
+lean Rat member $1 ∈ Set.range (fun q : ℚ => (q : ℝ))
+alias ℚ Rat
+use Rat ⊂ Real  "rat-sub-real"      ; a set of numbers (natural.kurt's "ext-real")
+lean "rat-sub-real" simp only [k_u2282]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
 
 ; A defining axiom, not `def`: `Rat` is an existing calculator-bound carrier, and this
 ; characterizes membership in it rather than introducing one fresh predicate abbreviation.
@@ -79,12 +87,12 @@ show $q ∈ Rat ∧ $q > 0  ⇒  ∃ $m ∃ $n ($m ∈ Nat ∧ $n ∈ Nat ∧ $n
 proof
     assume $q ∈ Rat ∧ $q > 0
         ∃ $m ∃ $n ($m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = $m / $n)     ; rat-pos
-        ; the denominators
+        ; the denominators -- a subset of `Nat`: for every element, not only the numbers among
+        ; them, so `c` is any set (`set c`; the `default real` would make it a number)
+        set c
         let c
             assume c ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) }
-                c ∈ Nat ∧ c ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / c)    ; separation
-                c ∈ Nat
-        ∀ $c ($c ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) }  implies  $c ∈ Nat)
+                c ∈ Nat                                     ; separation-in
         { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } ⊂ Nat
         pick m with ∃ $n (m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = m / $n)
             pick n with m ∈ Nat ∧ n ∈ Nat ∧ n ≠ 0 ∧ $q = m / n
@@ -169,3 +177,68 @@ proof
                 ∃ $j (m ∈ Nat ∧ $j ∈ Nat ∧ $j ≠ 0 ∧ coprime(m, $j) ∧ $q = m / $j)
                 ∃ $i ∃ $j ($i ∈ Nat ∧ $j ∈ Nat ∧ $j ≠ 0 ∧ coprime($i, $j) ∧ $q = $i / $j)
 qed
+
+;; the rules as theorems of Mathlib (see numbers.kurt and natural.kurt): `Rat` by its axiom `k_mem_Rat`
+lean "rat-def" intro q; rw [k_mem_Rat]; constructor
+lean "rat-def" · rintro ⟨r, rfl⟩
+lean "rat-def"   refine ⟨r.num, r.den, ?_⟩
+lean "rat-def"   refine ⟨?_, ?_, ?_, ?_⟩ <;> first | exact (k_mem_Int _).mpr ⟨r.num, rfl⟩ | exact (k_mem_Nat _).mpr ⟨r.den, rfl⟩ | exact Rat.cast_def r | (simp [r.den_nz]; done)
+lean "rat-def" · rintro ⟨m, n, h⟩
+lean "rat-def"   casesm* _ ∧ _
+lean "rat-def"   obtain ⟨i, rfl⟩ := (k_mem_Int m).mp ‹_›
+lean "rat-def"   obtain ⟨j, rfl⟩ := (k_mem_Nat n).mp ‹_›
+lean "rat-def"   subst_vars
+lean "rat-def"   exact ⟨(i : ℚ) / (j : ℚ), by push_cast; ring⟩
+lean "rat-add" intro a b h; obtain ⟨⟨p, rfl⟩, ⟨q, rfl⟩⟩ := And.intro ((k_mem_Rat _).mp h.1) ((k_mem_Rat _).mp h.2); exact (k_mem_Rat _).mpr ⟨_, Rat.cast_add _ _⟩
+lean "rat-sub" intro a b h; obtain ⟨⟨p, rfl⟩, ⟨q, rfl⟩⟩ := And.intro ((k_mem_Rat _).mp h.1) ((k_mem_Rat _).mp h.2); exact (k_mem_Rat _).mpr ⟨_, Rat.cast_sub _ _⟩
+lean "rat-mul" intro a b h; obtain ⟨⟨p, rfl⟩, ⟨q, rfl⟩⟩ := And.intro ((k_mem_Rat _).mp h.1) ((k_mem_Rat _).mp h.2); exact (k_mem_Rat _).mpr ⟨_, Rat.cast_mul _ _⟩
+lean "rat-div" intro a b h; casesm* _ ∧ _
+lean "rat-div" obtain ⟨p, rfl⟩ := (k_mem_Rat a).mp ‹_›
+lean "rat-div" obtain ⟨q, rfl⟩ := (k_mem_Rat b).mp ‹_›
+lean "rat-div" exact (k_mem_Rat _).mpr ⟨_, Rat.cast_div _ _⟩
+
+;; the theorems Kurt proves above, as theorems of Mathlib too (see natural.kurt), "lowest-terms" too
+;; (`coprime` and `∣` unfolded; `Rat.reduced`: a rational's numerator and denominator are coprime)
+lean "rat-int" intro z hz; obtain ⟨m, rfl⟩ := (k_mem_Int z).mp hz; exact (k_mem_Rat _).mpr ⟨m, by simp⟩
+lean "rat-pos" intros; casesm* _ ∧ _
+lean "rat-pos" obtain ⟨r, rfl⟩ := (k_mem_Rat _).mp ‹k_emb _ ∈ Rat›; beta_reduce at *
+lean "rat-pos" have hr : 0 < r := by exact_mod_cast (‹_› : (0 : ℝ) < r)
+lean "rat-pos" have hnum : 0 ≤ r.num := (Rat.num_pos.mpr hr).le
+lean "rat-pos" refine ⟨(r.num.toNat : ℝ), (r.den : ℝ), ?_⟩
+lean "rat-pos" refine ⟨?_, ?_, ?_, ?_⟩
+lean "rat-pos" all_goals first
+lean "rat-pos"   | exact (k_mem_Nat _).mpr ⟨_, rfl⟩
+lean "rat-pos"   | (simp [r.den_nz]; done)
+lean "rat-pos"   | (rw [show ((r.num.toNat : ℕ) : ℝ) = ((r.num.toNat : ℤ) : ℝ) from (Int.cast_natCast _).symm, Int.toNat_of_nonneg hnum]; exact Rat.cast_def r)
+lean "frac-cancel" intros; casesm* _ ∧ _
+lean "frac-cancel" field_simp
+lean "lowest-terms" intro q h; casesm* _ ∧ _
+lean "lowest-terms" obtain ⟨r, rfl⟩ := (k_mem_Rat q).mp (by assumption)
+lean "lowest-terms" have hr : 0 < r := by exact_mod_cast (by assumption : (0 : ℝ) < r)
+lean "lowest-terms" have key : ∃ a b : ℕ, b ≠ 0 ∧ Nat.Coprime a b ∧ (r : ℝ) = (a : ℝ) / (b : ℝ) := by
+lean "lowest-terms"   have h0 : 0 ≤ r.num := (Rat.num_pos.mpr hr).le
+lean "lowest-terms"   refine ⟨r.num.toNat, r.den, r.den_nz, ?_, ?_⟩
+lean "lowest-terms"   · have e : r.num.toNat = r.num.natAbs := by omega
+lean "lowest-terms"     rw [e]; exact r.reduced
+lean "lowest-terms"   · have hnum : ((r.num.toNat : ℕ) : ℤ) = r.num := Int.toNat_of_nonneg h0
+lean "lowest-terms"     rw [Rat.cast_def r]; congr 1; exact_mod_cast hnum.symm
+lean "lowest-terms" obtain ⟨a, b, hb, hab, he⟩ := key
+lean "lowest-terms" refine ⟨(a : ℝ), (b : ℝ), ?_⟩
+lean "lowest-terms" refine ⟨?_, ?_, ?_, ?_, ?_⟩
+lean "lowest-terms" all_goals first
+lean "lowest-terms"   | exact he
+lean "lowest-terms"   | exact (k_mem_Nat _).mpr ⟨a, rfl⟩
+lean "lowest-terms"   | exact (k_mem_Nat _).mpr ⟨b, rfl⟩
+lean "lowest-terms"   | exact_mod_cast hb
+lean "lowest-terms"   | (simp only [coprime]
+lean "lowest-terms"      intro d hd hdiv
+lean "lowest-terms"      obtain ⟨e, rfl⟩ := (k_mem_Nat d).mp hd
+lean "lowest-terms"      have dvd : ∀ c : ℕ, k_u2223 (e : ℝ) (c : ℝ) → e ∣ c := by
+lean "lowest-terms"        intro c hc; simp only [k_u2223] at hc; obtain ⟨s, hs⟩ := hc; casesm* _ ∧ _
+lean "lowest-terms"        obtain ⟨s', rfl⟩ := (k_mem_Nat s).mp (by assumption)
+lean "lowest-terms"        exact ⟨s', by exact_mod_cast (by linarith : (c : ℝ) = e * s')⟩
+lean "lowest-terms"      have hda := dvd a (by first | exact hdiv.1 | exact hdiv.2)
+lean "lowest-terms"      have hdb := dvd b (by first | exact hdiv.1 | exact hdiv.2)
+lean "lowest-terms"      have := Nat.dvd_gcd hda hdb
+lean "lowest-terms"      rw [Nat.Coprime.gcd_eq_one hab] at this
+lean "lowest-terms"      simp [Nat.dvd_one.mp this])

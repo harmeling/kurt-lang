@@ -1,0 +1,473 @@
+; Preservation (subject reduction) for the simply typed lambda calculus with de Bruijn indices and
+; call-by-value reduction: a step of a typed term keeps its type -- by induction on the term, with
+; the weakening (shifting) and the substitution lemma, each by induction on the term as well.
+;
+; The calculus is defined here, not taken from lambda.kurt: lambda.kurt's sort `term` also contains
+; its named `λ x M` (doc/kurt-current-limits.md §2.2), so an induction over its terms would need a
+; case for a body that depends on a Kurt-bound variable, which an axiom can't state soundly
+; (doc/kurt-current-limits.md §2.5).
+; Every `use` below is a standard definition: the constructors of the terms with their structural
+; induction, and functions and relations by recursion on the term (typing is syntax-directed, the
+; step relation is defined by recursion on its left side); contexts are functions from the indices
+; to the types (`get Γ n`), and `ins c A Γ` is Γ with A inserted at position c.
+;
+; Indices are numbers (numbers.kurt) -- also the non-natural ones, which are junk terms; the lemmas
+; hold for them too, so no `n ∈ Nat` is needed anywhere.
+;
+; Each induction is over a property named by a `def` (`weakens`, `substs`, `preserves`): a goal
+; `∀ Q ∀ Γ ...` itself is read with all its outer `∀`s stripped, and the induction rule would then
+; get the property without the inner `∀ Γ ...`, too weak an induction hypothesis
+; (doc/kurt-current-limits.md §5).
+load numbers, logic
+load analysis          ; for "sub-add-cancel": (n - 1) + 1 = n
+
+sort tm, ty, cx
+const ix, lam, app, unit, base, arr, get, ins, shift, subst, has, ⇝
+arity ix 1, lam 2, app 2, arr 2, get 2, ins 3, shift 2, subst 3, has 3
+infix ⇝ 20 20
+prop has 0, ⇝ 0
+tm ix 0, lam 0 2, app 0 1 2, unit, shift 0 2, subst 0 2 3, has 2, ⇝ 1 2
+real ix 1, ins 1, shift 1, subst 1, get 2
+ty lam 1, base, arr 0 1 2, get 0, ins 2, has 3
+cx get 1, ins 0 3, has 1
+
+var M, N, F, P, Q
+tm M, N, F, P, Q
+var A, B, C, D, T
+ty A, B, C, D, T
+var Γ, Δ
+cx Γ, Δ
+var c, n
+real c, n
+
+;; terms: the structural induction
+use (∀ n (sub M (ix n) %P)) ∧ (∀ A ∀ N (sub M N %P ⇒ sub M (lam A N) %P)) ∧ (∀ F ∀ N (sub M F %P ∧ sub M N %P ⇒ sub M (app F N) %P)) ∧ (sub M unit %P)  ⇒  ∀ Q (sub M Q %P)   "term-induction"
+
+;; types: `arr` is injective
+use arr A B = arr C T  ⇒  A = C ∧ B = T                                "arr-injective"
+
+;; contexts: functions from the indices to the types, equal if they agree everywhere
+use (∀ n (get Γ n = get Δ n))  ⇒  Γ = Δ                                 "context-extensionality"
+use n < c  ⇒  get (ins c A Γ) n = get Γ n                               "get-ins-below"
+use get (ins c A Γ) c = A                                               "get-ins-at"
+use c < n  ⇒  get (ins c A Γ) n = get Γ (n - 1)                         "get-ins-above"
+
+;; typing, by recursion on the term
+use has Γ (ix n) T  ⇔  T = get Γ n                                      "has-var"
+use has Γ (lam A M) T  ⇔  ∃ B (T = arr A B ∧ has (ins 0 A Γ) M B)       "has-lam"
+use has Γ (app M N) T  ⇔  ∃ A (has Γ M (arr A T) ∧ has Γ N A)           "has-app"
+use has Γ unit T  ⇔  T = base                                           "has-unit"
+
+;; shifting the indices from c on, and substituting N for c (and lowering the indices above c)
+use n < c  ⇒  shift c (ix n) = ix n                                     "shift-var-below"
+use c <= n  ⇒  shift c (ix n) = ix (n + 1)                              "shift-var-above"
+use shift c (lam A M) = lam A (shift (c + 1) M)                         "shift-lam"
+use shift c (app M N) = app (shift c M) (shift c N)                     "shift-app"
+use shift c unit = unit                                                 "shift-unit"
+use n < c  ⇒  subst c N (ix n) = ix n                                   "subst-var-below"
+use subst c N (ix c) = N                                                "subst-var-at"
+use c < n  ⇒  subst c N (ix n) = ix (n - 1)                             "subst-var-above"
+use subst c N (lam A M) = lam A (subst (c + 1) (shift 0 N) M)           "subst-lam"
+use subst c N (app M P) = app (subst c N M) (subst c N P)               "subst-app"
+use subst c N unit = unit                                               "subst-unit"
+
+;; call-by-value steps, by recursion on the left side (`value`: an abstraction or unit)
+prop value
+arity value 1
+tm value 1
+use value M  ⇔  (∃ A ∃ N (M = lam A N)) ∨ M = unit                      "value"
+use ¬(ix n ⇝ M)                                                         "step-var"
+use ¬(lam A M ⇝ N)                                                      "step-lam"
+use ¬(unit ⇝ M)                                                         "step-unit"
+use app F N ⇝ M  ⇔  (∃ P (F ⇝ P ∧ M = app P N)) ∨ (value F ∧ ∃ P (N ⇝ P ∧ M = app F P)) ∨ (∃ A ∃ P (F = lam A P ∧ value N ∧ M = subst 0 N P))   "step-app"
+
+; inserting at 0 and then at c + 1 is inserting at c and then at 0
+show c >= 0  ⇒  ins 0 B (ins c A Γ) = ins (c + 1) A (ins 0 B Γ)        "ins-ins"
+proof
+    assume c >= 0
+        calc on
+        0 < 1
+        calc off
+        0 + c < 1 + c                                  ; lt-add
+        c < c + 1
+        0 < c + 1
+        let n
+            n < 0 ∨ n = 0 ∨ n > 0                      ; trichotomy
+            case n < 0
+                n < c
+                n < c + 1
+                get (ins c A Γ) n = get Γ n                             ; get-ins-below
+                get (ins 0 B Γ) n = get Γ n                             ; get-ins-below
+                get (ins 0 B (ins c A Γ)) n = get (ins c A Γ) n         ; get-ins-below
+                                            = get Γ n
+                get (ins (c + 1) A (ins 0 B Γ)) n = get (ins 0 B Γ) n   ; get-ins-below
+                                                  = get Γ n
+                get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n
+            case n = 0
+                get (ins 0 B (ins c A Γ)) 0 = B                         ; get-ins-at
+                get (ins 0 B Γ) 0 = B                                   ; get-ins-at
+                get (ins (c + 1) A (ins 0 B Γ)) 0 = get (ins 0 B Γ) 0   ; get-ins-below
+                                                  = B
+                get (ins 0 B (ins c A Γ)) 0 = get (ins (c + 1) A (ins 0 B Γ)) 0
+                get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n
+            case n > 0
+                get (ins 0 B (ins c A Γ)) n = get (ins c A Γ) (n - 1)   ; get-ins-above
+                n - 1 < c ∨ n - 1 = c ∨ n - 1 > c                      ; trichotomy
+                case n - 1 < c
+                    (n - 1) + 1 < c + 1                                 ; lt-add
+                    (n - 1) + 1 = n                                     ; sub-add-cancel
+                    n < c + 1
+                    get (ins c A Γ) (n - 1) = get Γ (n - 1)             ; get-ins-below
+                    get (ins 0 B Γ) n = get Γ (n - 1)                   ; get-ins-above
+                    get (ins (c + 1) A (ins 0 B Γ)) n = get (ins 0 B Γ) n   ; get-ins-below
+                                                      = get Γ (n - 1)
+                    get (ins 0 B (ins c A Γ)) n = get Γ (n - 1)
+                    get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n
+                case n - 1 = c
+                    (n - 1) + 1 = c + 1
+                    (n - 1) + 1 = n                                     ; sub-add-cancel
+                    n = c + 1
+                    get (ins c A Γ) (n - 1) = A                         ; get-ins-at
+                    get (ins (c + 1) A (ins 0 B Γ)) (c + 1) = A         ; get-ins-at
+                    get (ins (c + 1) A (ins 0 B Γ)) n = A
+                    get (ins 0 B (ins c A Γ)) n = A
+                    get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n
+                case n - 1 > c
+                    (n - 1) + 1 > c + 1                                 ; gt-add
+                    (n - 1) + 1 = n                                     ; sub-add-cancel
+                    n > c + 1
+                    n - 1 > 0
+                    get (ins c A Γ) (n - 1) = get Γ ((n - 1) - 1)       ; get-ins-above
+                    get (ins 0 B Γ) (n - 1) = get Γ ((n - 1) - 1)       ; get-ins-above
+                    get (ins (c + 1) A (ins 0 B Γ)) n = get (ins 0 B Γ) (n - 1)   ; get-ins-above
+                                                      = get Γ ((n - 1) - 1)
+                    get (ins 0 B (ins c A Γ)) n = get Γ ((n - 1) - 1)
+                    get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n
+                get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n
+            get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n
+        ∀ n (get (ins 0 B (ins c A Γ)) n = get (ins (c + 1) A (ins 0 B Γ)) n)
+        ins 0 B (ins c A Γ) = ins (c + 1) A (ins 0 B Γ)          ; context-extensionality
+qed
+
+show c >= 0  ⇒  c + 1 >= 0                                              "succ-nonneg"
+proof
+    assume c >= 0
+        calc on
+        0 < 1
+        calc off
+        0 + c < 1 + c                                  ; lt-add
+        c < c + 1
+        0 < c + 1
+        0 <= c + 1
+qed
+
+; weakening: shifting the indices from c on types a term in the context with a type D inserted at c
+prop weakens
+arity weakens 1
+def weakens(M)  ⇔  ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ M T  ⇒  has (ins c D Γ) (shift c M) T)   "weakens"
+
+show ∀ Q weakens(Q)   "weakening"
+proof
+    ; a variable: below c it stays, from c on it moves up by one
+    let n
+        let Γ, T, c, D
+            assume c >= 0 ∧ has Γ (ix n) T
+                T = get Γ n                                            ; has-var
+                n < c ∨ n = c ∨ n > c                                  ; trichotomy
+                case n < c
+                    shift c (ix n) = ix n                              ; shift-var-below
+                    get (ins c D Γ) n = get Γ n                        ; get-ins-below
+                    T = get (ins c D Γ) n
+                    has (ins c D Γ) (ix n) T                           ; has-var
+                    has (ins c D Γ) (shift c (ix n)) T
+                assume c <= n
+                    shift c (ix n) = ix (n + 1)                        ; shift-var-above
+                    calc on
+                    0 < 1
+                    calc off
+                    0 + n < 1 + n                                      ; lt-add
+                    n < n + 1
+                    c < n + 1
+                    get (ins c D Γ) (n + 1) = get Γ ((n + 1) - 1)      ; get-ins-above
+                    (n + 1) - 1 = n - (1 - 1)                          ; add-sub
+                                = n - 0
+                                = n
+                    get (ins c D Γ) (n + 1) = get Γ n
+                    T = get (ins c D Γ) (n + 1)
+                    has (ins c D Γ) (ix (n + 1)) T                     ; has-var
+                    has (ins c D Γ) (shift c (ix n)) T
+                case n = c
+                    c <= n
+                    has (ins c D Γ) (shift c (ix n)) T
+                case n > c
+                    c <= n
+                    has (ins c D Γ) (shift c (ix n)) T
+                has (ins c D Γ) (shift c (ix n)) T
+    ∀ n (∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ (ix n) T  ⇒  has (ins c D Γ) (shift c (ix n)) T))
+    let n
+        weakens(ix n)
+    ∀ n weakens(ix n)
+    ; an abstraction: its body is weakened at c + 1, in the context extended by its type
+    let A, N
+        assume weakens(N)
+            ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T)
+            let Γ, T, c, D
+                assume c >= 0 ∧ has Γ (lam A N) T
+                    ∃ B (T = arr A B ∧ has (ins 0 A Γ) N B)            ; has-lam
+                    pick B with T = arr A B ∧ has (ins 0 A Γ) N B
+                        c + 1 >= 0                                     ; succ-nonneg
+                        c + 1 >= 0 ∧ has (ins 0 A Γ) N B
+                        has (ins (c + 1) D (ins 0 A Γ)) (shift (c + 1) N) B     ; the induction hypothesis
+                        ins 0 A (ins c D Γ) = ins (c + 1) D (ins 0 A Γ)        ; ins-ins
+                        has (ins 0 A (ins c D Γ)) (shift (c + 1) N) B
+                        T = arr A B ∧ has (ins 0 A (ins c D Γ)) (shift (c + 1) N) B
+                        ∃ C (T = arr A C ∧ has (ins 0 A (ins c D Γ)) (shift (c + 1) N) C)
+                        has (ins c D Γ) (lam A (shift (c + 1) N)) T            ; has-lam
+                        shift c (lam A N) = lam A (shift (c + 1) N)            ; shift-lam
+                        has (ins c D Γ) (shift c (lam A N)) T
+                    has (ins c D Γ) (shift c (lam A N)) T
+            ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ (lam A N) T  ⇒  has (ins c D Γ) (shift c (lam A N)) T)
+            weakens(lam A N)
+    ∀ A ∀ N (weakens(N)  ⇒  weakens(lam A N))
+    ; an application: both parts are weakened
+    let F, N
+        assume weakens(F) ∧ weakens(N)
+            ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ F T  ⇒  has (ins c D Γ) (shift c F) T)
+            ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T)
+            let Γ, T, c, D
+                assume c >= 0 ∧ has Γ (app F N) T
+                    ∃ A (has Γ F (arr A T) ∧ has Γ N A)                ; has-app
+                    pick A with has Γ F (arr A T) ∧ has Γ N A
+                        c >= 0 ∧ has Γ F (arr A T)
+                        has (ins c D Γ) (shift c F) (arr A T)          ; the induction hypothesis
+                        c >= 0 ∧ has Γ N A
+                        has (ins c D Γ) (shift c N) A                  ; the induction hypothesis
+                        has (ins c D Γ) (shift c F) (arr A T) ∧ has (ins c D Γ) (shift c N) A
+                        ∃ B (has (ins c D Γ) (shift c F) (arr B T) ∧ has (ins c D Γ) (shift c N) B)
+                        has (ins c D Γ) (app (shift c F) (shift c N)) T        ; has-app
+                        shift c (app F N) = app (shift c F) (shift c N)        ; shift-app
+                        has (ins c D Γ) (shift c (app F N)) T
+                    has (ins c D Γ) (shift c (app F N)) T
+            ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ (app F N) T  ⇒  has (ins c D Γ) (shift c (app F N)) T)
+            weakens(app F N)
+    ∀ F ∀ N (weakens(F) ∧ weakens(N)  ⇒  weakens(app F N))
+    ; unit
+    let Γ, T, c, D
+        assume c >= 0 ∧ has Γ unit T
+            T = base                                                   ; has-unit
+            has (ins c D Γ) unit T                                     ; has-unit
+            shift c unit = unit                                        ; shift-unit
+            has (ins c D Γ) (shift c unit) T
+    ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ unit T  ⇒  has (ins c D Γ) (shift c unit) T)
+    weakens(unit)
+    ∀ Q weakens(Q)                                                     ; term-induction
+qed
+
+; weakening at 0, for a term under one more abstraction
+show has Γ N D  ⇒  has (ins 0 A Γ) (shift 0 N) D                       "weakening-0"
+proof
+    ∀ Q weakens(Q)                                                     ; weakening
+    weakens(N)
+    ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T)
+    assume has Γ N D
+        calc on
+        0 >= 0
+        calc off
+        0 >= 0 ∧ has Γ N D
+        has (ins 0 A Γ) (shift 0 N) D
+qed
+
+; the substitution lemma: substituting a term of type D for the index c of type D keeps the type
+prop substs
+arity substs 1
+def substs(M)  ⇔  ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) M T ∧ has Γ N D  ⇒  has Γ (subst c N M) T)   "substs"
+
+show ∀ Q substs(Q)   "substitution"
+proof
+    ; a variable: below c it stays, c itself becomes N, above c it moves down by one
+    let n
+        let Γ, T, c, D, N
+            assume c >= 0 ∧ has (ins c D Γ) (ix n) T ∧ has Γ N D
+                T = get (ins c D Γ) n                                  ; has-var
+                n < c ∨ n = c ∨ n > c                                  ; trichotomy
+                case n < c
+                    subst c N (ix n) = ix n                            ; subst-var-below
+                    get (ins c D Γ) n = get Γ n                        ; get-ins-below
+                    T = get Γ n
+                    has Γ (ix n) T                                     ; has-var
+                    has Γ (subst c N (ix n)) T
+                case n = c
+                    subst c N (ix c) = N                               ; subst-var-at
+                    subst c N (ix n) = N
+                    get (ins c D Γ) c = D                              ; get-ins-at
+                    get (ins c D Γ) n = D
+                    T = D
+                    has Γ N T
+                    has Γ (subst c N (ix n)) T
+                case n > c
+                    subst c N (ix n) = ix (n - 1)                      ; subst-var-above
+                    get (ins c D Γ) n = get Γ (n - 1)                  ; get-ins-above
+                    T = get Γ (n - 1)
+                    has Γ (ix (n - 1)) T                               ; has-var
+                    has Γ (subst c N (ix n)) T
+                has Γ (subst c N (ix n)) T
+        ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) (ix n) T ∧ has Γ N D  ⇒  has Γ (subst c N (ix n)) T)
+        substs(ix n)
+    ∀ n substs(ix n)
+    ; an abstraction: substitute the shifted N for c + 1 in the body
+    let A, P
+        assume substs(P)
+            ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) P T ∧ has Γ N D  ⇒  has Γ (subst c N P) T)
+            let Γ, T, c, D, N
+                assume c >= 0 ∧ has (ins c D Γ) (lam A P) T ∧ has Γ N D
+                    ∃ B (T = arr A B ∧ has (ins 0 A (ins c D Γ)) P B)  ; has-lam
+                    pick B with T = arr A B ∧ has (ins 0 A (ins c D Γ)) P B
+                        ins 0 A (ins c D Γ) = ins (c + 1) D (ins 0 A Γ)         ; ins-ins
+                        has (ins (c + 1) D (ins 0 A Γ)) P B
+                        has (ins 0 A Γ) (shift 0 N) D                           ; weakening-0
+                        c + 1 >= 0                                              ; succ-nonneg
+                        c + 1 >= 0 ∧ has (ins (c + 1) D (ins 0 A Γ)) P B ∧ has (ins 0 A Γ) (shift 0 N) D
+                        has (ins 0 A Γ) (subst (c + 1) (shift 0 N) P) B         ; the induction hypothesis
+                        T = arr A B ∧ has (ins 0 A Γ) (subst (c + 1) (shift 0 N) P) B
+                        ∃ C (T = arr A C ∧ has (ins 0 A Γ) (subst (c + 1) (shift 0 N) P) C)
+                        has Γ (lam A (subst (c + 1) (shift 0 N) P)) T           ; has-lam
+                        subst c N (lam A P) = lam A (subst (c + 1) (shift 0 N) P)   ; subst-lam
+                        has Γ (subst c N (lam A P)) T
+                    has Γ (subst c N (lam A P)) T
+            ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) (lam A P) T ∧ has Γ N D  ⇒  has Γ (subst c N (lam A P)) T)
+            substs(lam A P)
+    ∀ A ∀ P (substs(P)  ⇒  substs(lam A P))
+    ; an application: substitute in both parts
+    let F, P
+        assume substs(F) ∧ substs(P)
+            ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) F T ∧ has Γ N D  ⇒  has Γ (subst c N F) T)
+            ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) P T ∧ has Γ N D  ⇒  has Γ (subst c N P) T)
+            let Γ, T, c, D, N
+                assume c >= 0 ∧ has (ins c D Γ) (app F P) T ∧ has Γ N D
+                    ∃ A (has (ins c D Γ) F (arr A T) ∧ has (ins c D Γ) P A)    ; has-app
+                    pick A with has (ins c D Γ) F (arr A T) ∧ has (ins c D Γ) P A
+                        c >= 0 ∧ has (ins c D Γ) F (arr A T) ∧ has Γ N D
+                        has Γ (subst c N F) (arr A T)                  ; the induction hypothesis
+                        c >= 0 ∧ has (ins c D Γ) P A ∧ has Γ N D
+                        has Γ (subst c N P) A                          ; the induction hypothesis
+                        has Γ (subst c N F) (arr A T) ∧ has Γ (subst c N P) A
+                        ∃ B (has Γ (subst c N F) (arr B T) ∧ has Γ (subst c N P) B)
+                        has Γ (app (subst c N F) (subst c N P)) T      ; has-app
+                        subst c N (app F P) = app (subst c N F) (subst c N P)  ; subst-app
+                        has Γ (subst c N (app F P)) T
+                    has Γ (subst c N (app F P)) T
+            ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) (app F P) T ∧ has Γ N D  ⇒  has Γ (subst c N (app F P)) T)
+            substs(app F P)
+    ∀ F ∀ P (substs(F) ∧ substs(P)  ⇒  substs(app F P))
+    ; unit
+    let Γ, T, c, D, N
+        assume c >= 0 ∧ has (ins c D Γ) unit T ∧ has Γ N D
+            T = base                                                   ; has-unit
+            has Γ unit T                                               ; has-unit
+            subst c N unit = unit                                      ; subst-unit
+            has Γ (subst c N unit) T
+    ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) unit T ∧ has Γ N D  ⇒  has Γ (subst c N unit) T)
+    substs(unit)
+    ∀ Q substs(Q)                                                      ; term-induction
+qed
+
+; substitution for the index 0, as a beta step does it
+show has (ins 0 A Γ) M T ∧ has Γ N A  ⇒  has Γ (subst 0 N M) T          "substitution-0"
+proof
+    ∀ Q substs(Q)                                                      ; substitution
+    substs(M)
+    ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) M T ∧ has Γ N D  ⇒  has Γ (subst c N M) T)
+    assume has (ins 0 A Γ) M T ∧ has Γ N A
+        calc on
+        0 >= 0
+        calc off
+        0 >= 0 ∧ has (ins 0 A Γ) M T ∧ has Γ N A
+        has Γ (subst 0 N M) T
+qed
+
+; preservation: a step keeps the type
+prop preserves
+arity preserves 1
+def preserves(M)  ⇔  ∀ Γ ∀ T ∀ N (has Γ M T ∧ M ⇝ N  ⇒  has Γ N T)   "preserves"
+
+show ∀ Q preserves(Q)   "preservation"
+proof
+    ; variables, abstractions and unit don't step
+    let n
+        let Γ, T, N
+            assume has Γ (ix n) T ∧ ix n ⇝ N
+                ¬(ix n ⇝ N)                                            ; step-var
+                false
+                has Γ N T
+        ∀ Γ ∀ T ∀ N (has Γ (ix n) T ∧ ix n ⇝ N  ⇒  has Γ N T)
+        preserves(ix n)
+    ∀ n preserves(ix n)
+    let A, P
+        assume preserves(P)
+            let Γ, T, N
+                assume has Γ (lam A P) T ∧ lam A P ⇝ N
+                    ¬(lam A P ⇝ N)                                     ; step-lam
+                    false
+                    has Γ N T
+            ∀ Γ ∀ T ∀ N (has Γ (lam A P) T ∧ lam A P ⇝ N  ⇒  has Γ N T)
+            preserves(lam A P)
+    ∀ A ∀ P (preserves(P)  ⇒  preserves(lam A P))
+    let Γ, T, N
+        assume has Γ unit T ∧ unit ⇝ N
+            ¬(unit ⇝ N)                                                ; step-unit
+            false
+            has Γ N T
+    ∀ Γ ∀ T ∀ N (has Γ unit T ∧ unit ⇝ N  ⇒  has Γ N T)
+    preserves(unit)
+    ; an application: the function steps, the argument steps, or it is a beta step
+    let F, P
+        assume preserves(F) ∧ preserves(P)
+            ∀ Γ ∀ T ∀ N (has Γ F T ∧ F ⇝ N  ⇒  has Γ N T)
+            ∀ Γ ∀ T ∀ N (has Γ P T ∧ P ⇝ N  ⇒  has Γ N T)
+            let Γ, T, N
+                assume has Γ (app F P) T ∧ app F P ⇝ N
+                    ∃ A (has Γ F (arr A T) ∧ has Γ P A)                ; has-app
+                    pick A with has Γ F (arr A T) ∧ has Γ P A
+                        (∃ Q (F ⇝ Q ∧ N = app Q P)) ∨ (value F ∧ ∃ Q (P ⇝ Q ∧ N = app F Q)) ∨ (∃ C ∃ Q (F = lam C Q ∧ value P ∧ N = subst 0 P Q))   ; step-app
+                        case ∃ Q (F ⇝ Q ∧ N = app Q P)
+                            pick Q with F ⇝ Q ∧ N = app Q P
+                                has Γ F (arr A T) ∧ F ⇝ Q
+                                has Γ Q (arr A T)                      ; the induction hypothesis
+                                has Γ Q (arr A T) ∧ has Γ P A
+                                ∃ B (has Γ Q (arr B T) ∧ has Γ P B)
+                                has Γ (app Q P) T                      ; has-app
+                                has Γ N T
+                            has Γ N T
+                        case value F ∧ ∃ Q (P ⇝ Q ∧ N = app F Q)
+                            pick Q with P ⇝ Q ∧ N = app F Q
+                                has Γ P A ∧ P ⇝ Q
+                                has Γ Q A                              ; the induction hypothesis
+                                has Γ F (arr A T) ∧ has Γ Q A
+                                ∃ B (has Γ F (arr B T) ∧ has Γ Q B)
+                                has Γ (app F Q) T                      ; has-app
+                                has Γ N T
+                            has Γ N T
+                        case ∃ C ∃ Q (F = lam C Q ∧ value P ∧ N = subst 0 P Q)
+                            pick C with ∃ Q (F = lam C Q ∧ value P ∧ N = subst 0 P Q)
+                                pick Q with F = lam C Q ∧ value P ∧ N = subst 0 P Q
+                                    has Γ (lam C Q) (arr A T)
+                                    ∃ B (arr A T = arr C B ∧ has (ins 0 C Γ) Q B)     ; has-lam
+                                    pick B with arr A T = arr C B ∧ has (ins 0 C Γ) Q B
+                                        A = C ∧ T = B                  ; arr-injective
+                                        A = C
+                                        T = B
+                                        has (ins 0 A Γ) Q B
+                                        has (ins 0 A Γ) Q T
+                                        has (ins 0 A Γ) Q T ∧ has Γ P A
+                                        has Γ (subst 0 P Q) T          ; substitution-0
+                                        has Γ N T
+                                    has Γ N T
+                                has Γ N T
+                            has Γ N T
+                        has Γ N T
+                    has Γ N T
+            ∀ Γ ∀ T ∀ N (has Γ (app F P) T ∧ app F P ⇝ N  ⇒  has Γ N T)
+            preserves(app F P)
+    ∀ F ∀ P (preserves(F) ∧ preserves(P)  ⇒  preserves(app F P))
+    ∀ Q preserves(Q)                                                   ; term-induction
+qed

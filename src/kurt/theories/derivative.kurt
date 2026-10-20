@@ -24,8 +24,11 @@
 ; These rules are theorems of real analysis, stated as axioms (their proofs need the
 ; completeness of the real numbers, which numbers.kurt doesn't have) -- each needs the conditions
 ; of the theorem. (The definitions "cont-def", "diff-def", "deriv-intro" are continuity.kurt's.)
-load prop, equality, logic, set, numbers, natural, analysis
+; For Lean they are proved, from Mathlib's calculus: `kurt --lean` writes them as theorems with the
+; proofs at the end of this file (`lean "label" ...`).
+load propositional, equality, logic, set, numbers, natural, analysis
 load continuity             ; `cont`, `diff`, `deriv` and their definitions (by ε and δ)
+default real              ; every symbol of this file is a number, except where said otherwise
 
 
 ;; differentiable functions are continuous
@@ -60,3 +63,56 @@ use (diff $v $a $T) ∧ (∃ $d > 0 ∀ $y (abs($y - $a) < $d  ⇒  (sub $v $y $
 ;; the mean value theorem: continuous on [a, b], differentiable inside: the slope of the secant
 ;; is the derivative somewhere inside
 use ($a < $b) ∧ (∀ $y (($a <= $y ∧ $y <= $b)  ⇒  cont $v $y $T)) ∧ (∀ $y (($a < $y ∧ $y < $b)  ⇒  diff $v $y $T))  ⇒  ∃ $c ($a < $c ∧ $c < $b ∧ (deriv $v $c $T) * ($b - $a) = (sub $v $b $T) - (sub $v $a $T))   "mean-value"
+
+;; the rules as theorems of Mathlib (see numbers.kurt): `lean "label" TACTIC` is a proof in Lean
+lean "diff-cont" intros; exact DifferentiableAt.continuousAt ‹_›
+lean "diff-const" intros; exact differentiableAt_const _
+lean "deriv-const" intros; exact deriv_const _ _
+lean "diff-id" intros; exact differentiableAt_id
+lean "deriv-id" intros; exact deriv_id _
+lean "diff-add" intros; casesm* _ ∧ _; exact DifferentiableAt.add ‹_› ‹_›
+lean "deriv-add" intros; casesm* _ ∧ _; exact deriv_add ‹_› ‹_›
+lean "diff-sub" intros; casesm* _ ∧ _; exact DifferentiableAt.sub ‹_› ‹_›
+lean "deriv-sub" intros; casesm* _ ∧ _; exact deriv_sub ‹_› ‹_›
+lean "diff-scale" intros; exact DifferentiableAt.mul_const ‹_› _
+lean "deriv-scale" intros; rw [deriv_mul_const ‹_›]; ring
+lean "diff-mul" intros; casesm* _ ∧ _; exact DifferentiableAt.mul ‹_› ‹_›
+lean "deriv-mul" intros; casesm* _ ∧ _; beta_reduce at *
+lean "deriv-mul" refine (deriv_fun_mul ?_ ?_).trans ?_
+lean "deriv-mul" · assumption
+lean "deriv-mul" · assumption
+lean "deriv-mul" · ring
+lean "diff-div" intros; casesm* _ ∧ _; exact DifferentiableAt.div ‹_› ‹_› ‹_›
+lean "deriv-div" intros; casesm* _ ∧ _; beta_reduce at *
+lean "deriv-div" refine (deriv_fun_div ?_ ?_ ?_).trans ?_
+lean "deriv-div" · assumption
+lean "deriv-div" · assumption
+lean "deriv-div" · assumption
+lean "deriv-div" · rw [Real.rpow_two]; ring
+lean "diff-pow" intros; casesm* _ ∧ _
+lean "diff-pow" obtain ⟨m, rfl⟩ := (k_mem_Nat _).mp ‹k_emb _ ∈ Nat›
+lean "diff-pow" simp only [Real.rpow_natCast]
+lean "diff-pow" fun_prop
+lean "deriv-pow" intros; exact Real.deriv_rpow_const _ _
+lean "diff-chain" intros; casesm* _ ∧ _; beta_reduce at *
+lean "diff-chain" exact DifferentiableAt.comp _ ‹_› ‹_›
+lean "deriv-chain" intros; casesm* _ ∧ _; beta_reduce at *
+lean "deriv-chain" refine (deriv_comp _ ?_ ?_).trans (mul_comm _ _)
+lean "deriv-chain" · assumption
+lean "deriv-chain" · assumption
+lean "deriv-max" intros; casesm* _ ∧ _; beta_reduce at *
+lean "deriv-max" apply IsLocalMax.deriv_eq_zero
+lean "deriv-max" obtain ⟨d, hd, H⟩ := ‹∃ d, _›
+lean "deriv-max" exact Filter.eventually_of_mem (Metric.ball_mem_nhds _ hd) (fun y hy => H y (by rwa [Metric.mem_ball, Real.dist_eq] at hy))
+lean "deriv-min" intros; casesm* _ ∧ _; beta_reduce at *
+lean "deriv-min" apply IsLocalMin.deriv_eq_zero
+lean "deriv-min" obtain ⟨d, hd, H⟩ := ‹∃ d, _›
+lean "deriv-min" exact Filter.eventually_of_mem (Metric.ball_mem_nhds _ hd) (fun y hy => H y (by rwa [Metric.mem_ball, Real.dist_eq] at hy))
+lean "mean-value" have key : ∀ (f : ℝ → ℝ) (a b : ℝ), a < b → (∀ y, (a ≤ y ∧ y ≤ b) → ContinuousAt f y) → (∀ y, (a < y ∧ y < b) → DifferentiableAt ℝ f y) → ∃ c, a < c ∧ c < b ∧ (b - a) * deriv f c = f b - f a := by
+lean "mean-value"   intro f a b hab hc hd
+lean "mean-value"   obtain ⟨c, ⟨h1, h2⟩, hc'⟩ := exists_deriv_eq_slope f hab (fun y hy => (hc y hy).continuousWithinAt) (fun y hy => (hd y hy).differentiableWithinAt)
+lean "mean-value"   refine ⟨c, h1, h2, ?_⟩
+lean "mean-value"   rw [hc']; field_simp [sub_ne_zero.mpr hab.ne']
+lean "mean-value" intros; casesm* _ ∧ _; beta_reduce at *
+lean "mean-value" obtain ⟨c, h1, h2, h3⟩ := key _ _ _ ‹_› ‹∀ y, _ ≤ y ∧ y ≤ _ → _› ‹∀ y, _ < y ∧ y < _ → _›
+lean "mean-value" exact ⟨c, by first | exact ⟨h1, h2, h3⟩ | (simp only [and_comm, and_left_comm, and_assoc]; exact ⟨h1, h2, h3⟩) | tauto⟩

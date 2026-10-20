@@ -7,8 +7,8 @@
 ;
 ; The theory of this lesson is the file `my-theory.kurt` next to this one:
 ;
-;     load prop
-;     bool P, Q
+;     load propositional
+;     prop P, Q
 ;
 ;     use P implies Q  "P-to-Q"
 ;     use P            "P"

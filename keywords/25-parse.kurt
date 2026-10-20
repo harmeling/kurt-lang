@@ -10,5 +10,5 @@
 ; you think it does -- the lessons on declaring syntax (27-infix.kurt to
 ; 35-flat.kurt) lean on it heavily.
 
-bool A, B
+prop A, B
 parse A implies B

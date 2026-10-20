@@ -2,7 +2,7 @@
 ; and `pick C` is `pick x with C` (x is the one C is about); a `pick` without a matching `∃
 ; points to `let`
 load numbers, logic
-bool P
+prop P
 arity P 1
 let x with P(x)
     P(x)

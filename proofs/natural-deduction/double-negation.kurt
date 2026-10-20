@@ -1,7 +1,7 @@
-load prop
+load propositional
 
 ; variant 1
-bool p
+prop p
 var p
 show p ⇒ ¬¬p
 proof

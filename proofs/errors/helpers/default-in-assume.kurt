@@ -1,0 +1,5 @@
+; `default` inside `assume` (see ../sorts.kurt)
+sort real
+prop A
+assume A
+    default real

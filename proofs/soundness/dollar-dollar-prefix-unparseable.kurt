@@ -3,14 +3,15 @@
 ; `$$` ensures that it is not a kurt variable that the user can define" (see the comment
 ; there, and dev/todo-claude.md's now-corrected note). This was never actually verified --
 ; checked here directly: the lexer's SYMBOL pattern is `[$%@]?[A-Za-z][A-Za-z0-9]*`, at
-; most *one* leading `$`/`%`/`@` followed immediately by a letter, so a doubled prefix
+; most *one* leading `$`/`%`/`@` followed immediately by a letter -- except `$$x` (todo 35, a
+; polymorphic variable, a *letter* after the `$$`), so a doubled prefix followed by digits
 ; can never be scanned as a symbol at all; it fails at the lexer with a `ScanError`
 ; before parsing/matching even begins. Confirmed for both `$$` and `%%`; a user can never
-; construct a name that collides with a generated one, by construction, not just
-; convention.
+; construct a name that collides with a generated one (`$$01`: digits only, a user's `$$x`
+; starts with a letter), by construction, not just convention.
 expect "ScanError"
-    var $$foo
+    var $$01
 expect "ScanError"
-    bool %%foo
+    prop %%foo
 true
 

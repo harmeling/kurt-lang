@@ -25,7 +25,7 @@
 ; This file is the scene of the exercises: they load it with `load theory/family`. Don't change it.
 load logic, equality
 
-bool parent 0, female 0
+prop parent 0, female 0
 arity parent (_, _), female 1
 arity child (_, _), mother (_, _), father (_, _), grandparent (_, _), sibling (_, _), aunt (_, _)
 const parent, female

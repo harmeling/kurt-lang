@@ -1,0 +1,21 @@
+; the reading of a formula is stable (doc/kurt-soundness.md §10.2): the sort of a binder is fixed
+; when the fact is stored, and later lines can't change it -- an operator's place gets no sort after
+; its first use, a sort declaration then is refused, and a block's result keeps the sort its
+; constant got. Otherwise a premise `∀ x (P x)` over all objects, read again over the numbers,
+; would make the rule stronger
+load natural
+const P, Q
+prop Q
+prop P
+arity P 1
+use (∀ x (P x)) ⇒ Q                 ; `x` over all objects: `P`'s place has no sort
+use P 1
+use P {1}                           ; (the place still takes every object)
+expect "EvalError"
+    real P 1                         ; a sort after the first use is refused
+use ∀ n (n + 0 = n ⇒ P n)
+let y
+    y + 0 = y                       ; `y` a number
+    P y
+expect "ProofError"
+    Q                               ; `∀ y (P y)` is about the numbers, the premise about all objects

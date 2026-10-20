@@ -34,7 +34,7 @@ ctx empty, extend 0 1, has 1
 ctx ⊢ 1
 typing : 0
 typing ⊢ 2
-bool has 0, value 0, ↦ 0, ⇝ 0, ⊢ 0
+prop has 0, value 0, ↦ 0, ⇝ 0, ⊢ 0
 
 var Γ, M, N, F, x, n, A, B, C
 ctx Γ

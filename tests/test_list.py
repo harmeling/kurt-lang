@@ -43,23 +43,23 @@ class TestList(unittest.TestCase):
     def test_list_and_list_files_show_loaded_files(self):
         for command in ('list', 'list files'):
             with self.subTest(command=command):
-                result = kurt.check_text(f'load prop\n{command}\n')
+                result = kurt.check_text(f'load propositional\n{command}\n')
                 self.assertTrue(result.ok, result.error)
                 self.assertIn('load ', result.output)
-                self.assertIn('prop.kurt', result.output)
+                self.assertIn('propositional.kurt', result.output)
 
     def test_unknown_and_ambiguous_sources_are_reported(self):
-        unknown = kurt.check_text('load prop\nlist missing\n')
+        unknown = kurt.check_text('load propositional\nlist missing\n')
         self.assertFalse(unknown.ok)
         self.assertIn('is not a loaded file', unknown.error or '')
 
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+            root = Path(tmp).resolve()   # kurt resolves a loaded file's path; macOS's /tmp is a symlink
             for folder, symbol in (('one', 'A'), ('two', 'B')):
                 path = root / folder
                 path.mkdir()
                 (path / 'shared.kurt').write_text(
-                    f'bool {symbol}\nuse {symbol} "{symbol}"\n', encoding='utf-8')
+                    f'prop {symbol}\nuse {symbol} "{symbol}"\n', encoding='utf-8')
             text = f'load {root / "one/shared.kurt"}, {root / "two/shared.kurt"}\nlist shared\n'
             ambiguous = kurt.check_text(text)
             self.assertFalse(ambiguous.ok)

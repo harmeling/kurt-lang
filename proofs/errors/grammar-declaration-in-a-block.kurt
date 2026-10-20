@@ -1,0 +1,37 @@
+; a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`, `bindop`, `flat`,
+; `sym`, `alias`, `sort`) is rejected inside a proof-like block, for the same reason as
+; `use`/`load`/`def`/`chain`/`inline`: once a block's own notation is used by a formula that
+; survives the block, the declaration is promoted and locked in for good (`is_used`), so
+; "declare it, use it inside the block, forget it again on close" was never actually available --
+; see doc/kurt-doc.md §11.2. `case` pushes the same block kind as `assume` (it runs as `assume`,
+; see `eval_keyword_expression`), so its message also names `assume`.
+; (in a helper file: inside `expect`, whose content is discarded, a declaration is still allowed)
+prop A
+
+; fine: a `sandbox`/`expect` ancestor still discards the whole block, declaration included
+sandbox
+    assume A
+        infix foo 10 10
+        true
+    true
+
+expect "EvalError" "`infix` is not allowed inside `assume`"
+    load "helpers/infix-in-assume.kurt"
+expect "EvalError" "`prefix` is not allowed inside `assume`"
+    load "helpers/prefix-in-case.kurt"
+expect "EvalError" "`postfix` is not allowed inside `let`"
+    load "helpers/postfix-in-let.kurt"
+expect "EvalError" "`brackets` is not allowed inside `pick`"
+    load "helpers/brackets-in-pick.kurt"
+expect "EvalError" "`arity` is not allowed inside `proof`"
+    load "helpers/arity-in-proof.kurt"
+expect "EvalError" "`bindop` is not allowed inside `assume`"
+    load "helpers/bindop-in-assume.kurt"
+expect "EvalError" "`flat` is not allowed inside `assume`"
+    load "helpers/flat-in-assume.kurt"
+expect "EvalError" "`sym` is not allowed inside `assume`"
+    load "helpers/sym-in-assume.kurt"
+expect "EvalError" "`sort` is not allowed inside `assume`"
+    load "helpers/sort-in-assume.kurt"
+expect "EvalError" "`alias` is not allowed inside `assume`"
+    load "helpers/alias-in-assume.kurt"

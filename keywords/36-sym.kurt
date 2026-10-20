@@ -20,6 +20,6 @@ use a + b
 b + a                 ; matches the axiom above even though the order differs (see above)
 
 ; `=` (12-def.kurt, declared `sym` in `equality.kurt`) and `or` (declared
-; `sym` in `prop.kurt`) are both declared `sym` for exactly this reason.
+; `sym` in `propositional.kurt`) are both declared `sym` for exactly this reason.
 ; `and` is *also* symmetric, but -- unlike `or` -- it's declared that way
-; in the core, `minimal.kurt` (`sym and`), not in `prop.kurt`.
+; in the core, `minimal.kurt` (`sym and`), not in `propositional.kurt`.

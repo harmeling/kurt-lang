@@ -5,7 +5,7 @@
 ; loaded before anything else).  Given `A implies B` and `A`, Kurt can derive
 ; `B` -- the rule is called "impl-elim", better known as modus ponens.
 
-bool A, B
+prop A, B
 
 ; `B` below is derived automatically via "impl-elim" (modus ponens), logged as e.g.
 ; `by 14(15)` -- the implication of line 14 applied to the fact of line 15. (If the
@@ -16,7 +16,7 @@ use A
 B
 
 ; Chains of implications work fine too, one step at a time:
-bool C
+prop C
 use B implies C
 C                       ; uses the just-derived `B` together with `B implies C`
 

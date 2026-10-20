@@ -5,7 +5,7 @@
 ; be quantifying over the wrong thing while `helper` -- a name with no meaning once the
 ; block closes -- silently rides along. See doc/kurt-soundness.md.
 load logic
-bool P
+prop P
 const z
 use P z
 expect "ProofError"          ; the block below must fail to close

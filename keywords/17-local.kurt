@@ -17,15 +17,15 @@ expect "ProofError" "never declared"
 ; (`use Q` would not be an error: it just adds `Q` as a new axiom of this file.)
 
 ; a symbol itself is exported when an exported fact mentions it, or when the
-; file declares it at its top level (`const pi`, `bool P`, `infix ++ 50 50`,
+; file declares it at its top level (`const pi`, `prop P`, `infix ++ 50 50`,
 ; ...: the file's vocabulary). `local` at the end of a declaration keeps it
-; inside: local-helper.kurt says `bool Q local`, and nothing exported
+; inside: local-helper.kurt says `prop Q local`, and nothing exported
 ; mentions `Q`, so `Q` didn't come along.
 
 ; `local` works the same way for `def` -- a defined symbol and the fact
 ; defining it travel together, or stay together:
-load prop
-bool R
+load propositional
+prop R
 use R
 def S iff R  local "s-hidden"    ; both `S` and its meaning stay right here
 

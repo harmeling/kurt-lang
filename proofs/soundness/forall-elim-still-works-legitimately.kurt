@@ -3,7 +3,7 @@
 ; premise search) didn't overcorrect into breaking genuine forall-elim usage. A real
 ; universally-quantified fact must still instantiate at a specific value.
 load logic
-bool P
+prop P
 arity P 1
 const P, c
 

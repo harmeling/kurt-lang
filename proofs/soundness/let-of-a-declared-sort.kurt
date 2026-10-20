@@ -1,0 +1,23 @@
+; the constant of a closed `let x ∈ A` whose name had a declared sort (`real x`, `set X`): the kernel reads the
+; condition of the `∀` that the block's result gives -- `x ∈ Nat`, with `x` known only by its sort -- as binding `x`
+; (it rejected such a step before: "the condition has no variable it clearly binds")
+load natural
+real x
+let x ∈ Nat
+    x + 0 = x
+∀ x ∈ Nat (x + 0 = x)
+
+set X
+const A
+let X ∈ Pow(A)
+    X ⊂ A
+∀ X ∈ Pow(A) (X ⊂ A)
+
+; ... with any condition, not only a relation (found by the differential run, ~/.cache/kurt-os
+; fuzz_sorts.py, 2026-10-19: `real x` before `let x with P(x)` gave a `KernelError`)
+prop P
+arity P 1
+real y
+let y with P(y)
+    P(y)
+∀ (P y) (P y)                   ; (over the numbers, as `y`)

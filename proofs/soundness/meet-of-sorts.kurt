@@ -1,0 +1,27 @@
+; the meet of two sorts (dev/todo-order-sorted.md item 7): a symbol used at two sorts in one line
+; (its first sorted use; that is final) gets the greatest sort that fits both -- one of them if it fits the other, else their one greatest common
+; subsort (`sort_meet`); without one, or with two, it is a type error
+load equality
+sort a c
+sort b c                         ; c ⊂ a, c ⊂ b: the diamond without a top below `any`
+const f, g
+arity f 1
+arity g 1
+a f 1
+b g 1
+const k
+use f(k) = g(k)                    ; `k` an `a` and a `b` in one line: so a `c`
+const k2
+use f(k2) = f(k2)                  ; `k2` an `a` -- final: a later use as a `b` doesn't fit
+expect "TypeError" "used as `b`"
+    use g(k2) = g(k2)
+sort p
+sort q
+const h1, h2
+arity h1 1
+arity h2 1
+p h1 1
+q h2 1
+const m
+expect "TypeError" "don't fit each other"
+    use h1(m) = h2(m)              ; `p` and `q` have no common subsort

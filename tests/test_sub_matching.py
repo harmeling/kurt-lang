@@ -202,6 +202,7 @@ class TestSubMatchingCases(unittest.TestCase):
                     a = value(pattern[2], s, kb)
                     A = value(pattern[3], s, kb)
                     got.add(('None' if unbound(a, kb) else show(a, kb), show(A, kb)))
+                    TestSubMatchingRoundTrip.check_sound(self, G, ('$x', pattern[2], pattern[3]), [s], kb)
                 expected_norm = {(a if a == 'None' else show(parse(a, kb), kb), show(parse(A, kb), kb)) for a, A in expected}
                 # every expected solution must be there, and every solution must be sound
                 self.assertTrue(expected_norm <= got, f'missing {expected_norm - got}, got {got}')

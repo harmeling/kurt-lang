@@ -1,0 +1,20 @@
+; a witness can't be of a smaller sort than its existential (doc/kurt-soundness.md §8.48): `∃ x`
+; over all objects gives an object, not a number. A name declared `real w` before `pick w` was taken
+; as the witness, and the search went on with a number the existential didn't promise -- the kernel
+; rejected the step (a `KernelError`, found by the differential run, SLURM 115536, seven variants)
+load natural
+prop P
+arity P 1
+real w
+use ∃ x (P x)                        ; (`x` over all objects)
+expect "TypeError" "the witness `w` is declared `real`"
+    pick w with P w
+        true
+pick v with P v                      ; a new name: any object
+    true
+use ∃ n (n + 0 = n ∧ P n)            ; (`n` a number)
+pick w with w + 0 = w ∧ P w          ; a declared number from an existential over the numbers: fine
+    true
+any z
+pick z with z + 0 = z ∧ P z          ; ... and one declared over all objects too (a bigger sort)
+    true

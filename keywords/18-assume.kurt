@@ -5,7 +5,7 @@
 ; "impl-intro": if you can derive `Q` after assuming `P`, you get
 ; `P implies Q` back, outside the block.
 
-bool A, B, C
+prop A, B, C
 use A implies B
 use B implies C
 
@@ -26,11 +26,11 @@ assume A
 A implies (B and C)             ; Kurt: by 22-25, the lines of the block
 
 ; The same mechanism gives "not-intro": assume `P`, derive `false`, and you
-; get `not P`.  `not` and `false`'s proof rules live in `prop.kurt`
+; get `not P`.  `not` and `false`'s proof rules live in `propositional.kurt`
 ; (lesson 10):
-load prop
+load propositional
 
-bool p, q
+prop p, q
 use p implies q
 use not q
 

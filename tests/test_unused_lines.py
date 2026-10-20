@@ -48,7 +48,7 @@ class TestUnusedLines(unittest.TestCase):
         self.assertEqual(lines, {9, 15, 16, 17, 18, 19, 20})
 
     def test_a_block_of_one_line(self):
-        # the result of a block of one line has that line's number (`13`), at the line after it
+        # the result of a block of one line has that line's number, at the line after it
         lines, _ = unused('load logic, equality\nshow forall $x ($x = $x)\nproof\n    let x\n        x = x\nqed\n')
         self.assertEqual(lines, set())
 
@@ -79,7 +79,7 @@ class TestUnusedLines(unittest.TestCase):
     def test_a_chain_whose_last_line_needs_none_of_the_others(self):
         # `A ⇔ C` is found by "ac" alone: the middle lines are not used, but the chain's first line
         # is -- the last line takes its left side `A` from there (mafi1/03-formulas.kurt, 2026-10-15)
-        text = 'load prop\nbool A, B, C, D\nuse A ⇔ B "ab"\nuse B ⇔ D "bd"\nuse A ⇔ C "ac"\nshow A ⇔ C\nproof\n    A ⇔ B\n      ⇔ D\n      ⇔ C\nqed\n'
+        text = 'load propositional\nprop A, B, C, D\nuse A ⇔ B "ab"\nuse B ⇔ D "bd"\nuse A ⇔ C "ac"\nshow A ⇔ C\nproof\n    A ⇔ B\n      ⇔ D\n      ⇔ C\nqed\n'
         result = kurt.check_text(text)
         assert result.ok, result.error
         self.assertEqual([e.get('chain') for e in result.events if e.get('line') in (8, 9, 10) and e.get('kind') == 'step'][:3], [None, 8, 8])
@@ -122,7 +122,7 @@ class TestUnusedLines(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'bad.kurt')
             with open(path, 'w', encoding='utf-8') as fh:
-                fh.write('bool A\nA\n')
+                fh.write('prop A\nA\n')
             result = subprocess.run([sys.executable, '-m', 'kurt.kurt', '--no-kurtc', '--unused', path],
                                     env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 1)

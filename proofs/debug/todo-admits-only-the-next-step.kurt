@@ -1,6 +1,6 @@
 ; a bare `todo` is a joker for the next step only -- also after other steps of a block, not
 ; only as its first statement, and not for every step after it
-bool p, r
+prop p, r
 const p, r
 
 show p

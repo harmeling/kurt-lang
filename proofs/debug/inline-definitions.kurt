@@ -22,7 +22,7 @@ use sq y = 4
 y * y = 4
 ; over a tuple, as a function of a pair: `child(a, b)` is `parent(b, a)`
 const a, b
-bool parent 0
+prop parent 0
 arity parent (_, _), child (_, _)
 inline child($x, $y) iff parent($y, $x)
 use parent(a, b)

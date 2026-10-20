@@ -7,7 +7,7 @@
 
 ; Neither `=` nor `iff` exist in the bare core language -- they come from
 ; theories, so we `load` first (lesson 10):
-load prop
+load propositional
 load equality
 
 def p iff true         ; introduces `p`, defined to mean the same as `true`

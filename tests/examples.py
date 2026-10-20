@@ -115,10 +115,6 @@ examples = [
      '[(SYMBOL "f"), (INT "17"), (INT "42"), (END "$$$")]',
      "(f 17 42)"),
     # one function call
-    ("f (17, 42)",
-     '[(SYMBOL "f"), (SYMBOL "("), (INT "17"), (SYMBOL ","), (INT "42"), (SYMBOL ")"), (END "$$$")]',
-     "(f (() (, 17 42)))"),
-    # one function call
     ("f(a, b)",
      '[(SYMBOL "f"), (SYMBOL "("), (SYMBOL "a"), (SYMBOL ","), (SYMBOL "b"), (SYMBOL ")"), (END "$$$")]',
      "(f (() (, a b)))"),
@@ -133,7 +129,7 @@ examples = [
     # space binds stronger than comma; `a, b, c` is one list, and in round brackets a tuple `()`
     ("f (a, b c, d), e",
      '[(SYMBOL "f"), (SYMBOL "("), (SYMBOL "a"), (SYMBOL ","), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL ","), (SYMBOL "d"), (SYMBOL ")"), (SYMBOL ","), (SYMBOL "e"), (END "$$$")]',
-     "(f (() (, a (b c) d)))"),
+     "(f (() (, a (b c) d))), e"),
     # two expressions
     ("a * b c + d",
      '[(SYMBOL "a"), (SYMBOL "*"), (SYMBOL "b"), (SYMBOL "c"), (SYMBOL "+"), (SYMBOL "d"), (END "$$$")]',

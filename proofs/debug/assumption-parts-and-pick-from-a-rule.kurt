@@ -1,8 +1,8 @@
 ; the parts of an assumption `A ∧ B` are facts (shown as `6a`, `6b`, by and-elim), and `pick`
 ; takes its witness also from an `∃` that one rule gives (shown as a line `13a`) -- since
 ; 2026-10-12; before, both needed a line of their own
-load prop, logic, set
-bool A, B, C, R
+load propositional, logic, set
+prop A, B, C, R
 const G, c
 arity P 1, Q 1
 

@@ -2,8 +2,8 @@
 
 ; syntax
 prefix not        18  ; logical not
-bool   not     0 1    ; `not` and its inputs have type bool
-bool   false          ; false has type bool
+prop   not     0 1    ; `not` and its inputs have type prop
+prop   false          ; false has type prop
 alias  ¬ not
 alias  ⊥ false
 
@@ -24,12 +24,10 @@ qed
 
 show ⊥ implies %q  "ex-falso-quodlibet"
 proof
-    let %q
-        assume ⊥
-            assume ¬%q
-                ⊥
-            ¬¬%q
-            %q
-        ⊥ implies %q
+    assume ⊥
+        assume ¬%q
+            ⊥
+        ¬¬%q
+        %q
     ⊥ implies %q
 qed

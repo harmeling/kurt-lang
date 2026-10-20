@@ -16,14 +16,16 @@ expect "EvalError"
 expect "EvalError"
     def P iff %A                    ; `P` and `not P`
 
-; `sym`/`flat` are claims about an operator, which a `def` can't keep
+; `sym`/`flat` are claims about an operator, which a `def` can't keep (`sym`/`flat` declare the
+; operator a constant, so the `def` finds no new symbol -- and says why, since 2026-10-17, todo 33:
+; before, it said "remove its `const`", which nobody wrote)
 infix ## 60 60
 sym ##
-expect "EvalError"
+expect "EvalError" "`##` is declared `sym` or `flat`, which `def` would have to prove"
     def $a ## $b = $a - $b          ; `1 - 2 = 2 - 1`
 infix #& 60 60
 flat #&
-expect "EvalError"
+expect "EvalError" "`#&` is declared `sym` or `flat`, which `def` would have to prove"
     def $a #& $b = $a - $b
 
 ; a new symbol must head the defined expression, not be an argument of an existing operator

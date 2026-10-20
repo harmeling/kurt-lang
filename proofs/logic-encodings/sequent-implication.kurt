@@ -9,7 +9,7 @@ infix ⊢ 10 10
 arity extend 2
 
 const →, ⊢, extend, empty
-bool ⊢ 0
+prop ⊢ 0
 
 var A, B, Γ
 

@@ -1,15 +1,12 @@
+import copy
 import unittest
-import sys
-import os
 
-# Add the parent directory to the path to import kurt
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import kurt.kurt as kurt
 
 class TestGenerateAllCombinations(unittest.TestCase):
     
     def setUp(self):
-        self.kb = kurt.initial_kb
+        self.kb = copy.deepcopy(kurt.initial_kb)    # (not the shared one: the tests mustn't change it)
 
         # Create test tokens
         self.token_x = kurt.Token('SYMBOL', '$x')
@@ -109,10 +106,13 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Only look for combinations where expr_a is 'a'
         combinations = list(kurt.generate_all_combinations(expr, self.token_x, self.token_a, self.kb))
         
-        # Should only return combinations where expr_a equals 'a'
+        # Should only return combinations where expr_a equals 'a' -- and return the one that
+        # replaces it (not nothing: an empty list passed the loop below)
         for expr_a, expr_A in combinations:
             if expr_a is not None:
                 self.assertTrue(kurt.equal_expr(expr_a, self.token_a, self.kb))
+        expected_A: kurt.Expr = [self.token_plus, self.token_x, self.token_b]
+        self.assertTrue(any(kurt.equal_expr(expr_A, expected_A, self.kb) for _, expr_A in combinations), combinations)
     
     def test_all_single_hole_decompositions(self):
         """Test the helper function directly"""

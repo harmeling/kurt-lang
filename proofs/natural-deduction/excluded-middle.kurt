@@ -1,6 +1,6 @@
 ; excluded-middle.kurt
 
-load prop
+load propositional
 
 ; variant 1: prove for a constant
 show p ∨ ¬p  "excluded-middle"

@@ -3,7 +3,7 @@
 ; is only allowed at the top level of a file, or inside a `sandbox` or `expect` (whose content
 ; is discarded anyway).  The `assume` with the `use` is in a helper file, since inside `expect`,
 ; `use` is allowed.
-bool A, B
+prop A, B
 sandbox
     assume A
         use B        ; fine: the sandbox is discarded

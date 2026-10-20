@@ -1,7 +1,7 @@
 ; `pick` from an existential with a condition: the witness gets the condition and the body, as
 ; logic.kurt's "exists-cond-def" says (`∃ (sub $x $v %C) %P` is `∃ $w ((sub $x $w %C) and (sub $v $w %P))`)
 load logic, numbers
-bool P, Q
+prop P, Q
 arity P 1, Q 1
 use ∃ $y > 0 P $y
 pick c with c > 0 ∧ P c
@@ -11,13 +11,13 @@ pick c with c > 0 ∧ P c
 
 ; the fact must be exactly the condition and the body (`Q` has only the existential with a condition)
 use ∃ $y > 0 Q $y
-expect "ProofError"
+expect "ProofError" "can not find an existential formula that matches the `pick`"
     pick d with Q d
-expect "ProofError"
+expect "ProofError" "can not find an existential formula that matches the `pick`"
     pick d with d > 1 ∧ Q d
 
 ; the witness can't leave the block
-expect "ProofError"
+expect "ProofError" "may not contain constant symbols from the current level"
     pick d with d > 0 ∧ Q d
         d > 0
 true

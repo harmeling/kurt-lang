@@ -7,16 +7,16 @@ import kurt.kurt as kurt
 # also wrong arguments of a keyword), TypeError, ProofError
 
 CASES = [
-    ('ScanError', 'bool A\nA ⊕ A\n'),                         # a character that isn't a symbol
-    ('ParseError', 'bool A\n(A\n'),                           # a bracket that isn't closed
-    ('ParseError', 'bool A\nA)\n'),                           # a bracket that isn't opened
-    ('ParseError', 'bool A\n    A\n'),                        # indented without a block
+    ('ScanError', 'prop A\nA ⊕ A\n'),                         # a character that isn't a symbol
+    ('ParseError', 'prop A\n(A\n'),                           # a bracket that isn't closed
+    ('ParseError', 'prop A\nA)\n'),                           # a bracket that isn't opened
+    ('ParseError', 'prop A\n    A\n'),                        # indented without a block
     ('EvalError', 'summary 1\n'),                             # wrong arguments of a keyword
     ('EvalError', 'calc maybe\n'),
     ('EvalError', 'cert x\n'),
     ('EvalError', 'show true, true\n'),
     ('TypeError', 'use $A implies $A\n'),                    # a term variable where a formula belongs
-    ('ProofError', 'bool A\nA\n'),                            # can't be derived
+    ('ProofError', 'prop A\nA\n'),                            # can't be derived
 ]
 
 

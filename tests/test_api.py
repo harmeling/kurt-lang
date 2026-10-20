@@ -8,8 +8,8 @@ import unittest
 import kurt.kurt as kurt
 from tests.utils import PROJECT_ROOT, numbered
 
-PROOF = 'load prop\nbool A, B\nuse A implies B\nuse A\nB\n'
-UNDECLARED = 'load prop\nuse A\nA\n'          # `A` not declared: an error only with `strict`
+PROOF = 'load propositional\nprop A, B\nuse A implies B\nuse A\nB\n'
+UNDECLARED = 'load propositional\nuse A\nA\n'          # `use` of any kind is an error with `--strict` (not only an undeclared `A`)
 
 
 class TestApi(unittest.TestCase):
@@ -20,11 +20,11 @@ class TestApi(unittest.TestCase):
         self.assertTrue(result.ok and result.complete)
         self.assertTrue(numbered(result.output, 5, 'by 3(4)'), result.output)
         self.assertIn('Proof checked', result.output)
-        failed = kurt.check_text('load prop\nbool A, B\nB\n', name='mine.kurt')
+        failed = kurt.check_text('load propositional\nprop A, B\nB\n', name='mine.kurt')
         self.assertFalse(failed.ok)
         self.assertEqual(failed.error_kind, 'ProofError')
         self.assertIn('mine.kurt', failed.error)
-        with_todo = kurt.check_text('load prop\nbool A\ntodo A\n')
+        with_todo = kurt.check_text('load propositional\nprop A\ntodo A\n')
         self.assertTrue(with_todo.ok)
         self.assertFalse(with_todo.complete)
 
@@ -68,13 +68,13 @@ class TestApi(unittest.TestCase):
         # Kurt or like a file in a `-p` directory may still not `use` (dev/astra-suggestions.md, 2)
         with tempfile.TemporaryDirectory() as teacher:
             session = kurt.new_session(kurt.RunConfig(strict=True, paths=[teacher]))
-            names = ['<embedded>/student.kurt', '<embedded>/prop.kurt', '<chain transitivity for [<]>',
-                     os.path.join(teacher, 'student.kurt'), str(kurt.packaged_theory_file('prop.kurt'))]
+            names = ['<embedded>/student.kurt', '<embedded>/propositional.kurt', '<chain transitivity for [<]>',
+                     os.path.join(teacher, 'student.kurt'), str(kurt.packaged_theory_file('propositional.kurt'))]
             for name in names:
                 with self.subTest(name=name):
                     self.assertFalse(session.check_text('use false\nfalse\n', name=name).ok)
             with open(os.path.join(teacher, 'axioms.kurt'), 'w') as f:
-                f.write('bool C\nuse C "c"\n')
+                f.write('prop C\nuse C "c"\n')
             self.assertTrue(session.check_text('load axioms\nC\n').ok)    # a file there still is
         for name in ('<stdin>', '<shell>'):                                # the shell's names
             self.assertRaises(ValueError, kurt.check_text, 'A\n', name=name)
@@ -108,28 +108,28 @@ class TestApi(unittest.TestCase):
     def test_restating_a_labelled_fact_is_a_step(self):
         # the events come from the reasons as data, not from parsing their text: `by "lbl"` was
         # read as a line with the label `lbl` (2026-10-09)
-        result = kurt.check_text('load prop\nbool A\nuse A "given"\nA\n')
+        result = kurt.check_text('load propositional\nprop A\nuse A "given"\nA\n')
         event = [e for e in result.events if e.get('id') == '4'][0]
         self.assertEqual((event['kind'], event['rule'], event['uses']), ('step', 'given', []))
         self.assertNotIn('label', event)
 
     def test_the_todos_before_an_error_count(self):
         # an editor marks them, also when a later line fails (2026-10-09: they were lost)
-        result = kurt.check_text('load prop\nbool A, B, C\nuse A\ntodo A and C\nA and C\nB\n')
+        result = kurt.check_text('load propositional\nprop A, B, C\nuse A\ntodo A and C\nA and C\nB\n')
         self.assertFalse(result.ok)
         self.assertEqual(len(result.todos), 1)
         self.assertIn(':4 todo A and C', result.todos[0])
 
     def test_the_todos_before_an_unfinished_proof_count(self):
         # the error at the end of the file (a proof that isn't finished) keeps the todos before it
-        result = kurt.check_text('load prop\nbool A, B, C\nuse A\ntodo A and C\nshow B or C\nproof\n    A\n')
+        result = kurt.check_text('load propositional\nprop A, B, C\nuse A\ntodo A and C\nshow B or C\nproof\n    A\n')
         self.assertEqual((result.error_kind, result.error_line), ('ProofError', 5))
         self.assertIn("isn't finished at the end of the file", result.error)
         self.assertEqual(len(result.todos), 1)
 
     def test_events(self):
         # each printed line as a record: its line, id, kind, rule and the lines it uses
-        result = kurt.check_text('load prop\nbool A, B\nuse A implies B   "rule"\nuse A\nB    ; modus ponens\n'
+        result = kurt.check_text('load propositional\nprop A, B\nuse A implies B   "rule"\nuse A\nB    ; modus ponens\n'
                                  'assume A\n    B\nshow B\nproof\n    B\nqed\nC\n')
         events = {(e['id'], e['kind']): e for e in result.events}
         self.assertEqual(events[('3', 'assumed')]['label'], 'rule')
@@ -148,25 +148,25 @@ class TestApi(unittest.TestCase):
 
     def test_json_on_the_command_line(self):
         def run(text):
-            path = PROJECT_ROOT / 'tests' / 'json-test.kurt'
-            path.write_text(text)
-            try:
-                return subprocess.run([sys.executable, str(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'), '--json', '--no-kurtc', str(path)],
+            # (in a directory of its own: a file in tests/ is seen by the other tests running meanwhile)
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, 'json-test.kurt')
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(text)
+                return subprocess.run([sys.executable, str(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'), '--json', '--no-kurtc', path],
                                       capture_output=True, text=True, cwd=PROJECT_ROOT)
-            finally:
-                path.unlink()
         good = run(PROOF)
         self.assertEqual(good.returncode, 0)
         data = json.loads(good.stdout)
         self.assertTrue(data['ok'] and data['complete'])
         self.assertIn({'rule': '3', 'uses': ['4']}, [{'rule': e.get('rule'), 'uses': e.get('uses')} for e in data['events']])
-        bad = run('load prop\nbool A\nA\n')
+        bad = run('load propositional\nprop A\nA\n')
         self.assertEqual(bad.returncode, 1)
         self.assertEqual(json.loads(bad.stdout)['error_line'], 3)
 
 
     def test_a_shell_continues_where_the_check_stopped(self):
-        failing = 'load prop\nbool A, B\nuse A\nuse A implies B\nshow A and B\nproof\n    B\n    A and C\nqed\n'
+        failing = 'load propositional\nprop A, B\nuse A\nuse A implies B\nshow A and B\nproof\n    B\n    A and C\nqed\n'
         shell = kurt.Shell()
         result = shell.start_text(failing)
         self.assertFalse(result.ok)
@@ -186,7 +186,7 @@ class TestApi(unittest.TestCase):
         self.assertEqual(shell.completions('17*42=', ''), ['714'])
         self.assertTrue(numbered(shell.feed('x = 3'), 5, 'by proof.kurt:4'))
         shell = kurt.Shell()
-        shell.start_text('load prop\nbool A\nuse A\nshow A and A\nproof\n    breakpoint\n    A and A\nqed\n')
+        shell.start_text('load propositional\nprop A\nuse A\nshow A and A\nproof\n    breakpoint\n    A and A\nqed\n')
         self.assertEqual((shell.stopped, shell.line), ('breakpoint', 7))
         self.assertEqual(shell.next_steps(), ['A and A'])               # inside the proof, as it was there
 

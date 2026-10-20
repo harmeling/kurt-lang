@@ -10,7 +10,8 @@ from tests.utils import PROJECT_ROOT
 class TestReleaseWorkflow(unittest.TestCase):
     def test_every_publishing_job_needs_verify(self):
         text = (PROJECT_ROOT / '.github' / 'workflows' / 'release.yml').read_text(encoding='utf-8')
-        jobs = re.split(r'^  (?=[a-z]+:\n)', text.split('\njobs:\n', 1)[1], flags=re.M)
+        # (a job of any name, also `publish-docs:` -- with `[a-z]+` it was part of the job before it)
+        jobs = re.split(r'^  (?=[A-Za-z0-9_-]+:[ \t]*(?:#.*)?\n)', text.split('\njobs:\n', 1)[1], flags=re.M)
         jobs = {job.split(':', 1)[0]: job for job in jobs if job.strip()}
         self.assertIn('verify', jobs)
         self.assertIn('python -m unittest', jobs['verify'])

@@ -5,6 +5,7 @@
 ; both sides are 0. (Vectors and numbers share `+` and `*` here -- see "scalars vs. vectors" in
 ; the todo list; every axiom below holds in each real inner product space.)
 load numbers
+default real                 ; the vectors are numbers too (they share `+` and `*`, see above): `$z` of `0 * $z` and of `⟨$z, $z⟩` is one
 brackets ⟨ ⟩
 const a, b
 

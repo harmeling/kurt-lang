@@ -11,15 +11,37 @@
 ;
 ; arithmetic comes from numbers.kurt: natural numbers are real numbers, so all of its laws
 ; (and `calc`) apply to them as well.
-load prop, equality
+load propositional, equality
 load set
 load numbers
 load logic
+default real              ; every symbol of this file is a number, except where said otherwise:
 
 ;; inference rules
+set Nat                  ; the natural numbers are a set (of numbers)
 const Nat
 builtin Nat naturals                   ; `calc on` proves `3 ∈ Nat`
 tex Nat \mathbb{N}
+; `kurt --lean` with Mathlib: the numbers are Mathlib's reals (numbers.kurt), embedded into the sets
+; (objects.kurt), and `Nat` is the set of the natural numbers among them -- a definition (the set of
+; the embedded reals that are natural numbers), and what `x ∈ Nat` means a theorem, `k_mem_Nat`; the
+; rules below are theorems then (each `lean "label" ...`)
+lean Nat member $1 ∈ Set.range (fun n : ℕ => (n : ℝ))
+
+; the real numbers as a set (`Real`, `ℝ`): every number is in it -- a fact about the numbers, not a
+; sort (decision 11 of dev/todo-sorts.md: `x ∈ Real` gives `x` no sort; `real x` is what makes `x` a
+; number). With it, two sets of numbers are equal when they have the same numbers ("ext-real"):
+; extensionality over all objects ("extensionality", set.kurt) needs every object, and a binder of a
+; `default real` file ranges over the numbers only
+set Real
+const Real
+alias ℝ Real
+tex Real \mathbb{R}
+lean Real member $1 = $1
+use $x ∈ Real  "real-all"
+use Nat ⊂ Real  "nat-sub-real"
+use (∀ $n ($n ∈ $A ⇔ $n ∈ $B)) ∧ $A ⊂ Real ∧ $B ⊂ Real  ⇒  $A = $B   "ext-real"
+alias ℕ Nat
 
 use 0 in Nat  "nat-zero"
 use $n in Nat  implies  $n+1 in Nat  "nat-succ"
@@ -319,7 +341,7 @@ proof
 qed
 
 ;; even and odd numbers
-bool even, odd
+prop even, odd
 arity even 1, odd 1
 def even $m  iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)       "even-def"
 def odd $m   iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)   "odd-def"
@@ -493,7 +515,7 @@ qed
 
 ;; divisibility
 infix ∣ 20 20
-bool ∣ 0
+prop ∣ 0
 def $a ∣ $b  ⇔  ∃ $k ($k ∈ Nat ∧ $b = $a * $k)       "divides"
 
 show $a ∈ Nat  ⇒  $a ∣ $a     "divides-refl"
@@ -580,3 +602,173 @@ use $a < $b ∧ $x ∈ {$a, $b, ..., $c}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($
 use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a) ∧ $x <= $c))  ⇒  $x ∈ {$a, $b, ..., $c}  "progression-intro"
 use $a < $b ∧ $x ∈ {$a, $b, ...}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($b - $a))                  "progression-infinite"
 use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a)))  ⇒  $x ∈ {$a, $b, ...}                "progression-infinite-intro"
+; ... in Lean: the sets of the embedded numbers so made (`k_numset`) -- the six rules above are then
+; theorems (their `lean "label" ...` below), the definitions of these notations
+lean {_,...,_} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ ∧ x_ ≤ $2)
+lean {_,...} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_)
+lean {_,_,...,_} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ * ($2 - $1) ∧ x_ ≤ $3)
+lean {_,_,...} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ * ($2 - $1))
+
+;; the rules as theorems of Mathlib (see numbers.kurt): `Nat` by its axiom `k_mem_Nat` (`lean Nat
+;; member ...` above: `x ∈ Nat` iff `x` is `↑n` for an `n : ℕ`)
+lean "real-all" intro x; exact (k_mem_Real _).mpr rfl
+lean "nat-sub-real" simp only [k_u2282]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "ext-real" intro A B ⟨h, hA, hB⟩; simp only [k_u2282] at hA hB; apply ZFSet.ext; intro z; constructor
+lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hA z hz); exact (h x).mp hz
+lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hB z hz); exact (h x).mpr hz
+lean "nat-zero" exact (k_mem_Nat _).mpr ⟨0, by simp⟩
+lean "nat-succ" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; exact (k_mem_Nat _).mpr ⟨n + 1, by push_cast; ring⟩
+lean "nat-add" intro a b h; obtain ⟨⟨m, rfl⟩, ⟨n, rfl⟩⟩ := And.intro ((k_mem_Nat _).mp h.1) ((k_mem_Nat _).mp h.2); exact (k_mem_Nat _).mpr ⟨m + n, by push_cast; ring⟩
+lean "nat-mul" intro a b h; obtain ⟨⟨m, rfl⟩, ⟨n, rfl⟩⟩ := And.intro ((k_mem_Nat _).mp h.1) ((k_mem_Nat _).mp h.2); exact (k_mem_Nat _).mpr ⟨m * n, by push_cast; ring⟩
+lean "nat-nonneg" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; positivity
+lean "induction" intro P h x hx
+lean "induction" beta_reduce at h ⊢
+lean "induction" have base : P 0 := by first | exact h.1 | exact h.2
+lean "induction" have step : ∀ y, k_emb y ∈ Nat → P y → P (y + 1) := by
+lean "induction"   intro y hy py
+lean "induction"   first | exact h.1 y hy py | exact h.2 y hy py | (rw [add_comm]; first | exact h.1 y hy py | exact h.2 y hy py)
+lean "induction" have all : ∀ n : ℕ, P n := by
+lean "induction"   intro n
+lean "induction"   induction n with
+lean "induction"   | zero => simpa using base
+lean "induction"   | succ m ih => simpa using step m ((k_mem_Nat _).mpr ⟨m, rfl⟩) ih
+lean "induction" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx
+lean "induction" exact all n
+
+;; the theorems Kurt proves above, as theorems of Mathlib too: a proof that loads this file cites them,
+;; and its export proves them in Lean then, instead of taking them as axioms (this file's own export
+;; translates the proofs above) -- those about `⊂`, `even`, `odd`, `∣`, `coprime` too: the export
+;; makes the `def`s of the symbols in what a proof cites Lean `def`s (`coprime($a, $b)`, a `def`
+;; over a pair, is `coprime a b`, a function of two arguments), so the proofs below unfold them
+lean "nat-one" exact (k_mem_Nat _).mpr ⟨1, by simp⟩
+lean "nat-two" exact (k_mem_Nat _).mpr ⟨2, by norm_num⟩
+lean "nat-succ-ne-zero" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; beta_reduce
+lean "nat-succ-ne-zero" intro h; have : (0 : ℝ) ≤ n := n.cast_nonneg; linarith
+lean "nat-pos" intros; casesm* _ ∧ _
+lean "nat-pos" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp ‹k_emb _ ∈ Nat›; beta_reduce at *
+lean "nat-pos" have : n ≠ 0 := by rintro rfl; simp_all
+lean "nat-pos" exact_mod_cast Nat.pos_of_ne_zero this
+lean "nat-zero-or-succ" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; beta_reduce
+lean "nat-zero-or-succ" rcases n with _ | m
+lean "nat-zero-or-succ" · simp
+lean "nat-zero-or-succ" · first | refine Or.inr ⟨(m : ℝ), ?_, ?_⟩ | refine Or.inl ⟨(m : ℝ), ?_, ?_⟩
+lean "nat-zero-or-succ"   all_goals first | exact (k_mem_Nat _).mpr ⟨m, rfl⟩ | (push_cast; ring)
+lean "nat-pred" intros; casesm* _ ∧ _
+lean "nat-pred" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp ‹k_emb _ ∈ Nat›; beta_reduce at *
+lean "nat-pred" rcases n with _ | m
+lean "nat-pred" · simp at *
+lean "nat-pred" · refine ⟨(m : ℝ), ?_, ?_⟩
+lean "nat-pred"   all_goals first | exact (k_mem_Nat _).mpr ⟨m, rfl⟩ | (push_cast; ring)
+lean "nat-discrete" intro x hx y hy
+lean "nat-discrete" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; obtain ⟨k, rfl⟩ := (k_mem_Nat y).mp hy; beta_reduce
+lean "nat-discrete" have : (k : ℝ) ≤ n ∨ (n : ℝ) + 1 ≤ k := by
+lean "nat-discrete"   rcases le_or_gt k n with h | h
+lean "nat-discrete"   · left; exact_mod_cast h
+lean "nat-discrete"   · right; exact_mod_cast h
+lean "nat-discrete" rcases this with h | h <;> first | (left; linarith) | (right; linarith)
+lean "nat-ge-two" intros; casesm* _ ∧ _
+lean "nat-ge-two" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp ‹k_emb _ ∈ Nat›; beta_reduce at *
+lean "nat-ge-two" have h0 : n ≠ 0 := by rintro rfl; simp_all
+lean "nat-ge-two" have h1 : n ≠ 1 := by rintro rfl; simp_all
+lean "nat-ge-two" have : 2 ≤ n := by omega
+lean "nat-ge-two" exact_mod_cast this
+lean "nat-lt-mul" intros; casesm* _ ∧ _
+lean "nat-lt-mul" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp ‹k_emb _ ∈ Nat›; beta_reduce at *
+lean "nat-lt-mul" have h0 : n ≠ 0 := by rintro rfl; simp_all
+lean "nat-lt-mul" have : (0 : ℝ) < n := by exact_mod_cast Nat.pos_of_ne_zero h0
+lean "nat-lt-mul" nlinarith
+lean "even-ne-odd" intro x hx y hy
+lean "even-ne-odd" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; obtain ⟨m, rfl⟩ := (k_mem_Nat y).mp hy; beta_reduce
+lean "even-ne-odd" intro h; have : 2 * n = 1 + 2 * m := by exact_mod_cast h
+lean "even-ne-odd" omega
+lean "well-ordering" intro S h; casesm* _ ∧ _
+lean "well-ordering" obtain ⟨x, hx⟩ : ∃ x, k_emb x ∈ S := by assumption
+lean "well-ordering" have hsub : k_u2282 S Nat := by assumption
+lean "well-ordering" simp only [k_u2282] at hsub
+lean "well-ordering" obtain ⟨n0, rfl⟩ := (k_mem_Nat x).mp (hsub (k_emb x) hx)
+lean "well-ordering" have ex : ∃ n : ℕ, k_emb (n : ℝ) ∈ S := ⟨n0, hx⟩
+lean "well-ordering" classical
+lean "well-ordering" refine ⟨(Nat.find ex : ℝ), ?_⟩
+lean "well-ordering" constructor <;> first
+lean "well-ordering"   | exact Nat.find_spec ex
+lean "well-ordering"   | (intro y hy; obtain ⟨m, rfl⟩ := (k_mem_Nat y).mp (hsub (k_emb y) hy); beta_reduce at hy ⊢; exact_mod_cast Nat.find_min' ex hy)
+lean "even-or-odd" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; simp only [even, odd]
+lean "even-or-odd" rcases Nat.even_or_odd' n with ⟨k, rfl | rfl⟩
+lean "even-or-odd" all_goals first
+lean "even-or-odd"   | (left; refine ⟨(k : ℝ), ?_⟩; constructor <;> first | exact (k_mem_Nat _).mpr ⟨k, rfl⟩ | (push_cast; first | done | ring1))
+lean "even-or-odd"   | (right; refine ⟨(k : ℝ), ?_⟩; constructor <;> first | exact (k_mem_Nat _).mpr ⟨k, rfl⟩ | (push_cast; first | done | ring1))
+lean "not-even-and-odd" intro x h; casesm* _ ∧ _
+lean "not-even-and-odd" have he : even x := by assumption
+lean "not-even-and-odd" have ho : odd x := by assumption
+lean "not-even-and-odd" simp only [even, odd] at he ho
+lean "not-even-and-odd" obtain ⟨a, ha⟩ := he; obtain ⟨b, hb⟩ := ho; casesm* _ ∧ _
+lean "not-even-and-odd" obtain ⟨i, rfl⟩ := (k_mem_Nat a).mp (by assumption)
+lean "not-even-and-odd" obtain ⟨j, rfl⟩ := (k_mem_Nat b).mp (by assumption)
+lean "not-even-and-odd" have e : ((2 * i : ℕ) : ℝ) = ((2 * j + 1 : ℕ) : ℝ) := by push_cast; linarith
+lean "not-even-and-odd" have := Nat.cast_injective e
+lean "not-even-and-odd" omega
+lean "odd-square" intro x h; casesm* _ ∧ _
+lean "odd-square" have ho : odd x := by assumption
+lean "odd-square" simp only [odd] at ho ⊢
+lean "odd-square" obtain ⟨b, hb⟩ := ho; casesm* _ ∧ _
+lean "odd-square" obtain ⟨j, rfl⟩ := (k_mem_Nat b).mp (by assumption)
+lean "odd-square" have e : x = 2 * j + 1 := by linarith
+lean "odd-square" subst e
+lean "odd-square" refine ⟨((2 * j * j + 2 * j : ℕ) : ℝ), ?_⟩
+lean "odd-square" constructor <;> first | exact (k_mem_Nat _).mpr ⟨_, rfl⟩ | (push_cast; first | done | ring1)
+lean "even-square" intro x h; casesm* _ ∧ _
+lean "even-square" have he : even (x * x) := by assumption
+lean "even-square" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp (by assumption)
+lean "even-square" simp only [even] at he ⊢
+lean "even-square" obtain ⟨a, ha⟩ := he; casesm* _ ∧ _
+lean "even-square" obtain ⟨i, rfl⟩ := (k_mem_Nat a).mp (by assumption)
+lean "even-square" have e : ((n * n : ℕ) : ℝ) = ((2 * i : ℕ) : ℝ) := by push_cast; linarith
+lean "even-square" have e' := Nat.cast_injective e
+lean "even-square" have : Even (n * n) := ⟨i, by omega⟩
+lean "even-square" obtain ⟨t, ht⟩ := (Nat.even_mul.mp this).elim id id
+lean "even-square" refine ⟨(t : ℝ), ?_⟩
+lean "even-square" constructor <;> first | exact (k_mem_Nat _).mpr ⟨t, rfl⟩ | (rw [ht]; push_cast; first | done | ring1)
+lean "divides-refl" intro x hx; simp only [k_u2223]; refine ⟨1, ?_⟩
+lean "divides-refl" constructor <;> first | exact (k_mem_Nat _).mpr ⟨1, by simp⟩ | ring1
+lean "one-divides" intro x hx; simp only [k_u2223]; refine ⟨x, ?_⟩
+lean "one-divides" constructor <;> first | exact hx | ring1
+lean "divides-trans" intro a b c h
+lean "divides-trans" obtain ⟨h1, h2⟩ := h
+lean "divides-trans" simp only [k_u2223] at h1 h2 ⊢
+lean "divides-trans" obtain ⟨p, hp⟩ := h1; obtain ⟨q, hq⟩ := h2; casesm* _ ∧ _
+lean "divides-trans" obtain ⟨i, rfl⟩ := (k_mem_Nat p).mp (by assumption)
+lean "divides-trans" obtain ⟨j, rfl⟩ := (k_mem_Nat q).mp (by assumption)
+lean "divides-trans" refine ⟨((i * j : ℕ) : ℝ), ?_⟩
+lean "divides-trans" constructor <;> first | exact (k_mem_Nat _).mpr ⟨_, rfl⟩ | (push_cast; subst_vars; first | done | ring1)
+lean "even-divides" intro x; simp only [even, k_u2223]
+lean "even-divides" first | done | (constructor <;> rintro ⟨k, h1, h2⟩ <;> first | exact ⟨k, h1, h2⟩ | exact ⟨k, h2, h1⟩)
+lean "coprime-not-both-even" intro a b h he
+lean "coprime-not-both-even" obtain ⟨ha, hb⟩ := he
+lean "coprime-not-both-even" simp only [even] at ha hb
+lean "coprime-not-both-even" simp only [coprime, k_u2223] at h
+lean "coprime-not-both-even" have two := h 2 ((k_mem_Nat _).mpr ⟨2, by norm_num⟩)
+lean "coprime-not-both-even" obtain ⟨p, hp⟩ := ha; obtain ⟨q, hq⟩ := hb; casesm* _ ∧ _
+lean "coprime-not-both-even" have : (2 : ℝ) = 1 := by
+lean "coprime-not-both-even"   apply two
+lean "coprime-not-both-even"   constructor
+lean "coprime-not-both-even"   · refine ⟨p, ?_⟩; constructor <;> assumption
+lean "coprime-not-both-even"   · refine ⟨q, ?_⟩; constructor <;> assumption
+lean "coprime-not-both-even" norm_num at this
+lean "range" intros; rw [k_mem_numset]; simp only [k_mem_Nat, Set.mem_range, exists_exists_eq_and]
+lean "range" all_goals constructor <;> rintro ⟨n, h⟩ <;> exact ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "range-infinite" intros; rw [k_mem_numset]; simp only [k_mem_Nat, Set.mem_range, exists_exists_eq_and]
+lean "range-infinite" all_goals constructor <;> rintro ⟨n, h⟩ <;> exact ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression" intros; casesm* _ ∧ _
+lean "progression" obtain ⟨n, h⟩ := (k_mem_numset _ _).mp ‹_›
+lean "progression" exact ⟨n, (k_mem_Nat _).mpr ⟨n, rfl⟩, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression-intro" intros; casesm* _ ∧ _
+lean "progression-intro" obtain ⟨k, hk, h⟩ := ‹∃ _, _›
+lean "progression-intro" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp hk
+lean "progression-intro" exact (k_mem_numset _ _).mpr ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression-infinite" intros; casesm* _ ∧ _
+lean "progression-infinite" obtain ⟨n, h⟩ := (k_mem_numset _ _).mp ‹_›
+lean "progression-infinite" exact ⟨n, (k_mem_Nat _).mpr ⟨n, rfl⟩, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression-infinite-intro" intros; casesm* _ ∧ _
+lean "progression-infinite-intro" obtain ⟨k, hk, h⟩ := ‹∃ _, _›
+lean "progression-infinite-intro" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp hk
+lean "progression-infinite-intro" exact (k_mem_numset _ _).mpr ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩

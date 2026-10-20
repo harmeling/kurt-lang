@@ -22,6 +22,7 @@
 
 load theory/maps
 const A, B, f, S, T
+set A, B, f, S, T        ; sets: a fact `f : A → B` gives no sort
 
 ; (a) The preimage of all of B is all of A.
 show f : A → B ⇒ {x ∈ A | f x ∈ B} = A

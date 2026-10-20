@@ -6,14 +6,14 @@ import kurt.kurt as kurt
 class TestFormat(unittest.TestCase):
     def test_source_preserves_formula_spelling(self):
         source = kurt.check_text(
-            'load prop\n'
-            'bool A, B\n'
+            'load propositional\n'
+            'prop A, B\n'
             'format source\n'
             'use B ∧ A\n'
         )
         normal = kurt.check_text(
-            'load prop\n'
-            'bool A, B\n'
+            'load propositional\n'
+            'prop A, B\n'
             'use B ∧ A\n'
         )
 

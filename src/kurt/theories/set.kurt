@@ -14,7 +14,11 @@
 ;
 ; mappings are ZF-style sets of ordered pairs (their graphs), applied with kurt's ordinary
 ; space-application `$f $a` -- see the comment further down, right above "function-space".
-load prop, equality, logic
+load propositional, equality, logic
+load objects             ; the sorts: `set`, and `real ⊂ set` -- every number is a set
+                         ; -- a set, a number, or one of no sort (`term`); every place that must be a set is
+                         ; declared below (`set ∈ 2`). The default doesn't cross `load`: a student's `∀ x` is over
+                         ; `term`; with `any x` (or `default any`) it is over all objects, as here (todo 35)
 
 ; syntax
 infix    in 25 25        ; element
@@ -25,8 +29,8 @@ infix    ⊃  18 18        ; superset: `A ⊃ B` is read as `B ⊂ A` (the `inli
 infix    ∉  25 25        ; not an element: `x ∉ A` is read as `not (x ∈ A)`
 infix    ∪  30 30        ; union
 infix    ∩  40 40        ; intersection
-bool     in 0
-bool     ⊂ 0
+prop     in 0
+prop     ⊂ 0
 alias    ∈ in            ; `∈` inherits all properties of `in`
 brackets { }             ; curly brackets
 ; sets written with braces: `{a, b, c}` by its elements, `{x ∈ A | P}` by a property (the
@@ -42,6 +46,40 @@ alias    : in
 builtin in element
 infix    × 45 45         ; Cartesian product
 
+; the sorts: the places that are sets -- the right of `∈`, both sides of `⊂`, the results of the
+; set operations; not an element (the left of `∈`, the elements of `{a, b}`, the variable of a
+; set-builder, the components of a pair), which may be any object
+set      in 2            ; `x ∈ A`: `A` a set, `x` anything (also `:` and `∉`, aliases)
+set      ∉ 2
+set      ⊂ 1 2
+set      ⊃ 1 2
+set      ∪ 0 1 2
+set      ∩ 0 1 2
+set      × 0 1 2
+set      → 0 1 2
+set      Pow 0 1         ; the power set
+set      { 0             ; `{a, b}`, `{x ∈ A | P}`: a set, its elements anything
+set      | 0             ; the set-builder `{x ∈ A | P}`: a set, its variable anything
+set      ( 0             ; the pair `(a, b)`: a set (Kuratowski), its components anything
+; the elements of `A → B` and of `Pow(A)` are sets, but a fact or a position says nothing about the sort of
+; an element (todo 35): a proof that needs `c ∈ Pow(A)` as a set says so, `set c`
+
+; how `kurt --lean` writes them (doc/kurt-doc.md, `--lean`): in the sets of Mathlib's model of ZFC
+; (`ZFSet`, objects.kurt's `lean Obj ZFSet`) -- `∈` is its membership, `{z ∈ A | P}` its separation
+; (`ZFSet.sep`), `{a, b, c}` Lean's own, `(a, b)` the Kuratowski pair, `A → B` the set of the
+; mappings (`ZFSet.funs`), and a mapping applied, `f a`, the `b` with `(a, b) ∈ f` (`k_apply`). Each
+; rule below is a theorem of Mathlib: its proof is the `lean "label" ...` at the end of the file
+lean in $1 ∈ $2
+lean ∪ $1 ∪ $2
+lean ∅ (∅ : Obj)
+lean Pow ZFSet.powerset $1
+lean , ZFSet.pair $1 $2
+lean , ZFSet.pair $1 (ZFSet.pair $2 $3)
+lean × ZFSet.prod $1 $2
+lean → ZFSet.funs $1 $2
+lean fst Classical.epsilon (fun a_ => ∃ b_, $1 = ZFSet.pair a_ b_)
+lean snd Classical.epsilon (fun b_ => ∃ a_, $1 = ZFSet.pair a_ b_)
+
 ; we assume that all objects are sets
 
 ; extensionality: two sets are equal iff they have the same elements
@@ -50,7 +88,11 @@ use $a = $b  ≡  ∀ $c  ($c ∈ $a ⇔ $c ∈ $b)                      "extens
 ; separation: the elements of `$A` with the property `%F` -- `$z` is bound by `|`, so `%F` is the
 ; property of *every* occurrence of `$z` (it used to be an ordinary variable, and a `sub` could
 ; take just some of its occurrences: `{ y ∈ Nat | y = y }` then gave `(0 + 1) = y`)
-use $a ∈ { $z ∈ $A | %F }  ≡  $a ∈ $A ∧ sub $z $a %F               "separation"
+use $a ∈ { $$z ∈ $A | %F }  ≡  $a ∈ $A ∧ sub $$z $a %F               "separation"
+; ... one half of it on its own: an element of a part of `$A` is in `$A` -- also an element of
+; every sort for a part chosen among the numbers (`{n ∈ Nat | n > 2}`, its `n` a number), where
+; "separation" says what it says about the numbers only (doc/kurt-doc.md §5.2)
+use $a ∈ { $$z ∈ $A | %F }  ⇒  $a ∈ $A                            "separation-in"
 
 ; subset
 def $a ⊂ $b ≡ ∀ $c  ($c ∈ $a implies $c ∈ $b)                    "subset"
@@ -105,6 +147,7 @@ qed
 
 ; the empty set, unions and power sets exist
 const ∅
+set ∅
 builtin ∅ emptyset       ; `{}` is `∅`
 use not ($a ∈ ∅)                                                 "empty-set"
 use $x ∈ {$y}  ≡  $x = $y                                         "singleton"
@@ -157,6 +200,8 @@ use ($a, $b, $c) = ($d, $e, $f)  ≡  $a = $d ∧ $b = $e ∧ $c = $f    "triple
 const fst, snd
 arity fst 1
 arity snd 1
+; (`fst`, `snd` without a sort: of anything -- `fst c` of a `let c` in a proof about all objects
+; mustn't make `c` a set; for an object that is no pair, they are some object, as in Lean)
 use fst($a, $b) = $a                                              "fst"
 use snd($a, $b) = $b                                              "snd"
 
@@ -169,6 +214,7 @@ use $p ∈ $A × $B  implies  $p = (fst $p, snd $p)                  "product-pa
 ; two mappings from A that agree on A are equal ("function-extensionality", from the
 ; extensionality of sets); only ∅ is a mapping from ∅. (Application `f a` is kurt's ordinary
 ; space-application, also written `f(a)`.)
+set $f, $g              ; mappings are sets: `f ∈ (A → B)` says nothing about the sort of `f` (a fact gives no sort, todo 35)
 use $f ∈ ($A → $B)  ≡  $f ⊂ $A × $B ∧ (∀ $a ∈ $A ∃ $b (($a, $b) ∈ $f)) ∧ ∀ $a ∀ $b ∀ $c (($a, $b) ∈ $f ∧ ($a, $c) ∈ $f  implies  $b = $c)   "function-space"
 use $f ∈ ($A → $B) ∧ ($a, $b) ∈ $f  implies  $f $a = $b              "apply"
 
@@ -246,3 +292,71 @@ proof
         $f ⊂ $g ∧ $g ⊂ $f
         $f = $g                                        ; eq-def
 qed
+
+;; the rules as theorems of Mathlib (see the `lean` declarations above): the sets are those of
+;; Mathlib's model of ZFC, so every rule is a theorem there -- separation too, for every property;
+;; the tactics don't name the variables (`intros`): Kurt orders them its own way
+lean "extensionality" intros; exact ⟨fun h _ => h ▸ Iff.rfl, fun h => ZFSet.ext h⟩
+lean "separation" intros; simp only [ZFSet.mem_sep]; try exact and_comm
+lean "separation-in" intros; exact (ZFSet.mem_sep.mp ‹_›).1
+lean "empty-set" intros; exact ZFSet.notMem_empty _
+lean "singleton" intros; exact ZFSet.mem_singleton
+lean "union" intros; simp only [ZFSet.mem_union]; try exact or_comm
+lean "power-set" intros; simp only [ZFSet.mem_powerset, ZFSet.subset_def, k_u2282]
+lean "pair-eq" intros; exact ZFSet.pair_inj
+lean "triple-eq" intros; simp only [ZFSet.pair_inj]
+lean "fst" have key : ∀ a b : Obj, Classical.epsilon (fun a_ => ∃ b_, ZFSet.pair a b = ZFSet.pair a_ b_) = a := fun a b =>
+lean "fst"   (ZFSet.pair_inj.mp (Classical.epsilon_spec (p := fun a_ => ∃ b_, ZFSet.pair a b = ZFSet.pair a_ b_) ⟨a, b, rfl⟩).choose_spec).1.symm
+lean "fst" intros; apply key
+lean "snd" have key : ∀ a b : Obj, Classical.epsilon (fun b_ => ∃ a_, ZFSet.pair a b = ZFSet.pair a_ b_) = b := fun a b =>
+lean "snd"   (ZFSet.pair_inj.mp (Classical.epsilon_spec (p := fun b_ => ∃ a_, ZFSet.pair a b = ZFSet.pair a_ b_) ⟨b, a, rfl⟩).choose_spec).2.symm
+lean "snd" intros; apply key
+lean "product" intros; exact ZFSet.pair_mem_prod
+lean "product-pairs" have key : ∀ p A B : Obj, p ∈ ZFSet.prod A B → p = ZFSet.pair (Classical.epsilon (fun a_ => ∃ b_, p = ZFSet.pair a_ b_)) (Classical.epsilon (fun b_ => ∃ a_, p = ZFSet.pair a_ b_)) := by
+lean "product-pairs"   intro p A B h
+lean "product-pairs"   obtain ⟨a, _, b, _, rfl⟩ := ZFSet.mem_prod.mp h
+lean "product-pairs"   have h1 := (ZFSet.pair_inj.mp (Classical.epsilon_spec (p := fun a_ => ∃ b_, ZFSet.pair a b = ZFSet.pair a_ b_) ⟨a, b, rfl⟩).choose_spec).1
+lean "product-pairs"   have h2 := (ZFSet.pair_inj.mp (Classical.epsilon_spec (p := fun b_ => ∃ a_, ZFSet.pair a b = ZFSet.pair a_ b_) ⟨b, a, rfl⟩).choose_spec).2
+lean "product-pairs"   rw [← h1, ← h2]
+lean "product-pairs" intros; apply key; assumption
+lean "function-space" have key : ∀ f A B : Obj, f ∈ ZFSet.funs A B ↔ (k_u2282 f (ZFSet.prod A B) ∧ (∀ a, a ∈ A → ∃ b, ZFSet.pair a b ∈ f) ∧ ∀ a b c, ZFSet.pair a b ∈ f ∧ ZFSet.pair a c ∈ f → b = c) := by
+lean "function-space"   intro f A B
+lean "function-space"   rw [ZFSet.mem_funs, ZFSet.IsFunc, ZFSet.subset_def]
+lean "function-space"   constructor
+lean "function-space"   · rintro ⟨hs, hu⟩
+lean "function-space"     refine ⟨fun z hz => hs hz, fun a ha => (hu a ha).exists, fun a b c ⟨hb, hc⟩ => ?_⟩
+lean "function-space"     exact (hu a (ZFSet.pair_mem_prod.mp (hs hb)).1).unique hb hc
+lean "function-space"   · rintro ⟨hs, he, hu⟩
+lean "function-space"     refine ⟨fun z hz => hs z hz, fun a ha => ?_⟩
+lean "function-space"     obtain ⟨b, hb⟩ := he a ha
+lean "function-space"     exact ⟨b, hb, fun c hc => hu a c b ⟨hc, hb⟩⟩
+lean "function-space" intros; rw [key]; tauto
+lean "apply" have key : ∀ f A B a b : Obj, f ∈ ZFSet.funs A B → ZFSet.pair a b ∈ f → k_apply f a = b := by
+lean "apply"   intro f A B a b hf h
+lean "apply"   obtain ⟨hs, hu⟩ := ZFSet.mem_funs.mp hf
+lean "apply"   exact (hu a (ZFSet.pair_mem_prod.mp (ZFSet.subset_def.mp hs h)).1).unique (Classical.epsilon_spec (p := fun b => ZFSet.pair a b ∈ f) ⟨b, h⟩) h
+lean "apply" intros; casesm* _ ∧ _; apply key <;> assumption
+
+;; ... and the theorems above, for a proof that cites them (this file's own export translates their proofs)
+lean "subset-cond" intros; exact Iff.rfl
+lean "eq-def" intros; simp only [k_u2282]; exact ⟨fun h => h ▸ ⟨fun _ => id, fun _ => id⟩, fun ⟨h1, h2⟩ => ZFSet.ext fun z => ⟨h1 z, h2 z⟩⟩
+lean "nonempty-element" intro U h; by_contra hn; exact h (ZFSet.ext fun z => ⟨fun hz => absurd ⟨z, hz⟩ hn, fun hz => absurd hz (ZFSet.notMem_empty z)⟩)
+lean "element-nonempty" intros; rintro rfl; exact ZFSet.notMem_empty _ ‹_›
+lean "in-intersection" intros; simp only [k_u2229, ZFSet.mem_sep]; try exact and_comm
+lean "apply-in" have key : ∀ f A B a : Obj, f ∈ ZFSet.funs A B → a ∈ A → ZFSet.pair a (k_apply f a) ∈ f ∧ k_apply f a ∈ B := by
+lean "apply-in"   intro f A B a hf ha
+lean "apply-in"   obtain ⟨hs, hu⟩ := ZFSet.mem_funs.mp hf
+lean "apply-in"   have hp : ZFSet.pair a (k_apply f a) ∈ f := Classical.epsilon_spec (p := fun b => ZFSet.pair a b ∈ f) (hu a ha).exists
+lean "apply-in"   exact ⟨hp, (ZFSet.pair_mem_prod.mp (ZFSet.subset_def.mp hs hp)).2⟩
+lean "apply-in" intros; casesm* _ ∧ _; first | (apply key <;> assumption) | (constructor <;> first | exact (key _ _ _ _ ‹_› ‹_›).1 | exact (key _ _ _ _ ‹_› ‹_›).2)
+lean "function-extensionality" have sub : ∀ f g A B : Obj, f ∈ ZFSet.funs A B → g ∈ ZFSet.funs A B → (∀ a, a ∈ A → k_apply f a = k_apply g a) → ∀ z, z ∈ f → z ∈ g := by
+lean "function-extensionality"   intro f g A B hf hg he z hz
+lean "function-extensionality"   obtain ⟨fs, fu⟩ := ZFSet.mem_funs.mp hf
+lean "function-extensionality"   obtain ⟨_, gu⟩ := ZFSet.mem_funs.mp hg
+lean "function-extensionality"   obtain ⟨a, ha, b, _, rfl⟩ := ZFSet.mem_prod.mp (ZFSet.subset_def.mp fs hz)
+lean "function-extensionality"   have hfa : k_apply f a = b := (fu a ha).unique (Classical.epsilon_spec (p := fun b => ZFSet.pair a b ∈ f) ⟨b, hz⟩) hz
+lean "function-extensionality"   have hga := Classical.epsilon_spec (p := fun b => ZFSet.pair a b ∈ g) (gu a ha).exists
+lean "function-extensionality"   rw [← hfa, he a ha]; exact hga
+lean "function-extensionality" have key : ∀ f g A B : Obj, f ∈ ZFSet.funs A B → g ∈ ZFSet.funs A B → (∀ a, a ∈ A → k_apply f a = k_apply g a) → f = g :=
+lean "function-extensionality"   fun f g A B hf hg he => ZFSet.ext fun z => ⟨sub f g A B hf hg he z, sub g f A B hg hf (fun a ha => (he a ha).symm) z⟩
+lean "function-extensionality" intros; casesm* _ ∧ _; apply key <;> assumption

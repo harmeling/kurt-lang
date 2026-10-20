@@ -2,8 +2,8 @@
 ; the `proof` -- the claim stays open for a new `proof`; right after the `show`, or after that
 ; `break`, a `break` withdraws the claim. Before, the first `break` discarded the claim too. A
 ; withdrawn claim is a `todo` (2026-10-15: the grader counted a file of withdrawn claims as complete).
-load prop
-bool A, B
+load propositional
+prop A, B
 use A
 
 show A and A

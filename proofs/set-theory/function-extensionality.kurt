@@ -1,0 +1,30 @@
+; functions as values: mappings (doc/kurt-doc.md §5.3, "operators are no objects"). An operator
+; (`arity f 1`, `+`) is no object: `f = g` of two function symbols is a type error. A function that
+; is a value -- compared, quantified over, an element of a set -- is a mapping of set.kurt: a set of
+; pairs, `f ∈ A → B`, applied by juxtaposition, `f a`. Two mappings from `A` that agree on `A` are
+; equal ("function-extensionality"), and equal mappings have equal values (Leibniz's law).
+load set
+
+const A, B
+set f, g                              ; mappings are sets (of pairs) -- `f ∈ A → B` gives no sort, a fact never does
+use f ∈ (A → B)                       ; `f` is an object: a mapping from A to B (no `arity`)
+use g ∈ (A → B)
+use ∀ a ∈ A (f a = g a)               ; they agree on A
+
+f ∈ (A → B) ∧ g ∈ (A → B) ∧ ∀ a ∈ A (f a = g a)
+f = g                                 ; by "function-extensionality"
+
+; ... and the other way: equal mappings have equal values, at any argument
+const c
+f c = g c                             ; by "equal-elim", from `f = g`
+
+; a mapping is a value like any other: an element of a set, a value of a quantifier
+const M
+use M = {f, g}
+f ∈ M                                 ; by "element-1-of-2" and `M = {f, g}`
+
+; an operator is no object: comparing two function symbols is a type error
+const h1, h2
+arity h1 1, h2 1
+expect "TypeError" "`h1` is an operator without its arguments"
+    use h1 = h2

@@ -20,9 +20,11 @@ qed
 ; an assumption inside the block:
 
 load logic, numbers
+calc on              ; for evaluating `1>0` below
 
-show forall $x > 0 ($x > 0)
+show forall $x > 1 ($x > 0)
 proof
-    let x > 0
+    let x > 1
+        1 > 0
         x > 0
 qed

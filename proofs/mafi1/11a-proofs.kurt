@@ -2,7 +2,7 @@
 ; the laws that the slides derive from the tautologies by chains of equivalences
 load tautologies
 
-; tertium non datur: A ∨ ¬A is "excluded-middle" of prop.kurt, here as an equivalence with ⊤
+; tertium non datur: A ∨ ¬A is "excluded-middle" of propositional.kurt, here as an equivalence with ⊤
 (%A ∨ ¬%A)  ⇔  ⊤                                                     "tertium"
 
 ; Reductio ad absurdum / Beweis durch Widerspruch: ¬A ≡ A ⇒ ⊥

@@ -26,7 +26,7 @@ class TestImplicitDeclarations(unittest.TestCase):
         self.assertEqual(declarations, [
             ('const P', 'added constant'),
             ('const a', 'added constant'),
-            ('bool P 0', 'added boolean signature'),
+            ('prop P 0', 'added statement places'),
         ])
         self.assertNotIn('new constant', result.output)
 
@@ -59,7 +59,7 @@ class TestImplicitDeclarations(unittest.TestCase):
         self.assertNotIn('const ∘', variable.output)
         self.assertTrue(definition.ok, definition.error)
         self.assertNotIn('const c', definition.output)
-        self.assertNotIn('bool c', definition.output)
+        self.assertNotIn('prop c', definition.output)
         self.assertIn('const a', definition.output)
 
     def test_semantic_operator_declarations_report_the_roles_they_imply(self):
@@ -70,7 +70,7 @@ class TestImplicitDeclarations(unittest.TestCase):
         self.assertIn('const f', flat.output)
         self.assertTrue(chain.ok, chain.error)
         self.assertIn('const r', chain.output)
-        self.assertIn('bool r 0', chain.output)
+        self.assertIn('prop r 0', chain.output)
 
 
 if __name__ == '__main__':

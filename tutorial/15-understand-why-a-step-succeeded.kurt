@@ -5,7 +5,7 @@
 ; Kurt prints a short reason beside every accepted formula. Labels replace raw source locations
 ; when available. For more detail, use `cert` after a step:
 
-bool A, B
+prop A, B
 use A implies B  "modus-ponens"
 use A
 B

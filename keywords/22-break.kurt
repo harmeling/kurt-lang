@@ -6,7 +6,7 @@
 ; want to abandon a block right now, rather than writing something at a
 ; shallower indentation to trigger the close.
 
-bool A
+prop A
 use A
 
 sandbox
@@ -20,7 +20,7 @@ A                   ; still fine, `A` is a real axiom from outside the sandbox
 ; the innermost open thing. In the `proof` of a `show`, that is the `proof`:
 ; the claim stays open, and a new `proof` can try again (no `show` to repeat):
 
-load prop
+load propositional
 show A implies A
 proof
     break            ; this attempt is given up -- the claim `A implies A` is still open

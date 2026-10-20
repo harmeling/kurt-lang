@@ -12,7 +12,7 @@ from tests.utils import PROJECT_ROOT
 
 # Complete accepted contradictions from dev/astra-suggestions.md, not just error-message tests.
 CONTRADICTIONS = {
-    'self_reference': '''load prop
+    'self_reference': '''load propositional
 def liar iff not liar
 assume liar
     not liar
@@ -21,12 +21,12 @@ not liar
 liar
 false
 ''',
-    'duplicate_batch': '''load prop
+    'duplicate_batch': '''load propositional
 def p iff true, p iff false
 p
 false
 ''',
-    'indirect_cycle': '''load prop
+    'indirect_cycle': '''load propositional
 def p iff q, q iff not p
 assume p
     q
@@ -37,7 +37,7 @@ q
 p
 false
 ''',
-    'diagonal_argument': '''load prop
+    'diagonal_argument': '''load propositional
 const rel
 infix rel 50 50
 def c rel $x iff not ($x rel $x)
@@ -92,6 +92,10 @@ class TestDefinitionSoundness(unittest.TestCase):
                     self.assertFalse(result.ok, result.output)
                     self.assertFalse(result.complete)
                     self.assertEqual(result.error_kind, 'EvalError', result.error)
+                    if not strict:
+                        # (by the check of `def`; with `--strict`, `builtin` and an undeclared `q`
+                        # are refused before it)
+                        self.assertIn('`def`', result.error)
                     self.assertNotIn('Proof checked', result.output)
 
     def test_strict_cli_rejects_contradictions(self):
@@ -109,7 +113,7 @@ class TestDefinitionSoundness(unittest.TestCase):
     def test_aliases_cannot_hide_recursion_or_redefinition(self):
         for definition in ('def p iff not q', 'def p iff true, q iff false'):
             with self.subTest(definition=definition):
-                result = kurt.Session(kurt.RunConfig(strict=True)).check_text('load prop\nalias q p\n' + definition + '\n')
+                result = kurt.Session(kurt.RunConfig(strict=True)).check_text('load propositional\nalias q p\n' + definition + '\n')
                 self.assertFalse(result.ok, result.output)
                 self.assertEqual(result.error_kind, 'EvalError', result.error)
 
@@ -119,7 +123,7 @@ class TestDefinitionSoundness(unittest.TestCase):
                         'def p iff q, q iff not p'):
                 with self.subTest(strict=strict, definition=bad):
                     shell = kurt.Shell(kurt.RunConfig(strict=strict))
-                    self.assertTrue(shell.start_text('load prop\n').ok)
+                    self.assertTrue(shell.start_text('load propositional\n').ok)
                     self.assertIn('EvalError', shell.feed(bad))
                     with shell.session._active():
                         self.assertFalse(shell.kb.is_const('p'))
@@ -132,10 +136,10 @@ class TestDefinitionSoundness(unittest.TestCase):
     def test_conservative_definitions_still_work(self):
         sources = [
             'load group\ndef $a ∘ $b = $a\n',
-            'load prop\ndef p iff true, q iff p\np\nq\n',
+            'load propositional\ndef p iff true, q iff p\np\nq\n',
             'load numbers\ndef square($x) = $x * $x\ncalc on\nsquare(3) = 9\n',
             'load equality\nbrackets ⟨ ⟩\nconst b\ndef q = ⟨b, b⟩\nq = ⟨b, b⟩\n',
-            'load prop\ndef negate(%A) iff not %A\nnegate(true) iff not true\n',
+            'load propositional\ndef negate(%A) iff not %A\nnegate(true) iff not true\n',
         ]
         for strict in (False, True):
             for source in sources:

@@ -9,7 +9,7 @@ import kurt.kurt as kurt
 
 
 class TestPropositionalSemantics(unittest.TestCase):
-    """Check prop.kurt independently of Kurt's search and certificate kernel."""
+    """Check propositional.kurt independently of Kurt's search and certificate kernel."""
 
     CONNECTIVES = {'true', 'false', 'not', 'and', 'or', 'implies', 'invimplies', 'iff'}
 
@@ -49,15 +49,15 @@ class TestPropositionalSemantics(unittest.TestCase):
     def test_every_pure_propositional_rule_and_theorem_is_a_tautology(self):
         kb = copy.deepcopy(kurt.initial_kb)
         with contextlib.redirect_stdout(io.StringIO()):
-            kb = kurt.load_file('prop', kb)
+            kb = kurt.load_file('propositional', kb)
 
         checked = []
         for formula in kb.all_theory():
-            if os.path.basename(formula.filename) != 'prop.kurt':
+            if os.path.basename(formula.filename) != 'propositional.kurt':
                 continue
             symbols = {token.value for token in kurt.get_token_set(formula.expr)}
             if 'sub' in symbols:
-                continue  # `iff-subst` is a meta-level substitution rule, not a truth formula.
+                continue  # `iff-subst` substitutes with `sub`: checked in test_first_order_semantics.py
             unknown_operators = {formula.expr[0].value} - self.CONNECTIVES if isinstance(formula.expr, list) else set()
             self.assertFalse(unknown_operators, formula.formula_str(kb))
             variables = sorted(self.variables(formula.expr))

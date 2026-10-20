@@ -8,20 +8,15 @@ from kurt.kurt import (
     # your functions under test:
     trigger_sub,
     capture_avoiding_replace,
+    SUB_SYMBOL,
 )
 from tests.utils import with_quantifiers
-
-# Try to import your SUB symbol name; fall back to the common literal.
-try:
-    from kurt import SUB_SYMBOL
-except Exception:
-    SUB_SYMBOL = "sub"
 
 # Small helpers to build common ASTs
 def sym(name: str) -> Token:
     return Token(label="SYMBOL", value=name)
 
-def num(n: int) -> Token:
+def real(n: int) -> Token:
     return Token(label="INT", value=str(n))
 
 def is_var_tok(tok: Token, kb) -> bool:
@@ -35,12 +30,11 @@ def is_var_tok(tok: Token, kb) -> bool:
 class TestWalk(unittest.TestCase):
     def setUp(self):
         self.kb = with_quantifiers(copy.deepcopy(initial_kb))
-        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
-        # no need to redeclare them here
+        # (`forall`/`exists` as logic.kurt declares them: the core has none)
 
     def test_walk_chain_deref(self):
         # σ = { $x -> $y, $y -> 1 }
-        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset(), frozenset())
+        s = State({"$x": sym("$y"), "$y": real(1)}, frozenset(), frozenset())
         out = s.walk(sym("$x"))
         self.assertIsInstance(out, Token)
         assert isinstance(out, Token)
@@ -49,19 +43,19 @@ class TestWalk(unittest.TestCase):
 
     def test_walk_respects_blocked_head(self):
         # σ = { $x -> $y, $y -> 1 }, blocked={$x}  ⇒ remains $x
-        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset({"$x"}), frozenset())
+        s = State({"$x": sym("$y"), "$y": real(1)}, frozenset({"$x"}), frozenset())
         out = s.walk(sym("$x"))
         self.assertEqual(out, sym("$x"))
 
     def test_walk_respects_blocked_tail(self):
         # blocked={$y} only: $x resolves to $y and then stops at blocked
-        s = State({"$x": sym("$y"), "$y": num(1)}, frozenset({"$y"}), frozenset())
+        s = State({"$x": sym("$y"), "$y": real(1)}, frozenset({"$y"}), frozenset())
         out = s.walk(sym("$x"))
         self.assertEqual(out, sym("$y"))
 
     def test_walk_non_var_term_unchanged(self):
-        term: Expr = [sym("f"), sym("$x"), num(0)]
-        s = State({"$x": num(1)}, frozenset(), frozenset())
+        term: Expr = [sym("f"), sym("$x"), real(0)]
+        s = State({"$x": real(1)}, frozenset(), frozenset())
         # walk is head-only; lists that aren't variable heads stay as-is
         out = s.walk(term)
         self.assertEqual(out, term)
@@ -70,14 +64,13 @@ class TestWalk(unittest.TestCase):
 class TestTriggerSub(unittest.TestCase):
     def setUp(self):
         self.kb = with_quantifiers(copy.deepcopy(initial_kb))
-        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
-        # no need to redeclare them here
+        # (`forall`/`exists` as logic.kurt declares them: the core has none)
 
     def test_simple_substitution(self):
         # (sub $x $b ($x = 0))  ==>  ($b = 0)
-        expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"), [sym("="), sym("$x"), num(0)]]
+        expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"), [sym("="), sym("$x"), real(0)]]
         out = trigger_sub(expr, State.empty(), kb=self.kb)[0]
-        self.assertEqual(out, [sym("="), sym("$b"), num(0)])
+        self.assertEqual(out, [sym("="), sym("$b"), real(0)])
 
     def test_sub_does_not_fire_with_schema_A(self):
         # (sub $x $b %A) should *not* fire while %A is schematic (boolean schema var)
@@ -100,23 +93,22 @@ class TestTriggerSub(unittest.TestCase):
         # (sub $x t (sub $x u (= $x 1)))
         # inner fires to (= u 1); outer sees no $x anymore → leaves it
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), sym("t"),
-                  [sym(SUB_SYMBOL), sym("$x"), sym("u"), [sym("="), sym("$x"), num(1)]]]
+                  [sym(SUB_SYMBOL), sym("$x"), sym("u"), [sym("="), sym("$x"), real(1)]]]
         out = trigger_sub(expr, State.empty(), kb=self.kb)[0]
-        self.assertEqual(out, [ sym("="), sym("u"), num(1) ])
+        self.assertEqual(out, [ sym("="), sym("u"), real(1) ])
 
     def test_sub_combined_with_sigma_application(self):
         # σ = { $b -> $y, $y -> 0 }, (sub $x $b (= $x $y)) → (= $y 0) after trigger
-        s = State({"$b": sym("$y"), "$y": num(0)}, frozenset(), frozenset())
+        s = State({"$b": sym("$y"), "$y": real(0)}, frozenset(), frozenset())
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), sym("$b"), [sym("="), sym("$x"), sym("$y")]]
         out = trigger_sub(expr, s, kb=self.kb)[0]
-        self.assertEqual(out, [sym("="), num(0), num(0)])
+        self.assertEqual(out, [sym("="), real(0), real(0)])
 
 
 class TestCaptureAvoidingReplace(unittest.TestCase):
     def setUp(self):
         self.kb = with_quantifiers(copy.deepcopy(initial_kb))
-        # `forall`/`exists` are declared (arity + bindop) in `initial_kb` itself now,
-        # no need to redeclare them here
+        # (`forall`/`exists` as logic.kurt declares them: the core has none)
 
     def _decompose_forall(self, e):
         """Utility: ensure e is [forall, bv, body] and return (bv_token, body_expr)."""
@@ -181,12 +173,12 @@ class TestCaptureAvoidingReplace(unittest.TestCase):
 
     def test_composition_with_trigger_sub(self):
         # Evaluate sub after replacement: (sub $x t A[x:=t]) is idempotent
-        A: Expr = [sym("="), sym("$x"), num(0)]
+        A: Expr = [sym("="), sym("$x"), real(0)]
         t: Expr = sym("$b")
         Axt = capture_avoiding_replace(A, "$x", t, State.empty(), self.kb)   # (= $b 0)
         expr: Expr = [sym(SUB_SYMBOL), sym("$x"), t, Axt]           # (sub $x $b (= $b 0))
         out = trigger_sub(expr, State.empty(), self.kb)[0]
-        self.assertEqual(out, [sym("="), sym("$b"), num(0)])
+        self.assertEqual(out, [sym("="), sym("$b"), real(0)])
 
 
 if __name__ == "__main__":

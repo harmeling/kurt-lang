@@ -2,6 +2,7 @@
 ; exactly one pair (a, b) for each a ∈ A ("function-space"), and `f a` is that b ("apply")
 load set
 const A, B, f, g, a
+set f, g                     ; mappings are sets: `f ∈ (A → B)` gives `f` no sort
 
 use f ∈ (A → B)
 use g : A → B

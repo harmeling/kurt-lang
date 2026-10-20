@@ -22,7 +22,7 @@ class TestLoadCache(unittest.TestCase):
         self.student = os.path.join(self.tmp.name, 'student')
         os.mkdir(self.teacher)
         os.mkdir(self.student)
-        write(os.path.join(self.teacher, 'dep.kurt'), 'bool P\nuse P "given"\n')
+        write(os.path.join(self.teacher, 'dep.kurt'), 'prop P\nuse P "given"\n')
         write(os.path.join(self.student, 'helper.kurt'), 'load dep\nP "result"\n')
         write(os.path.join(self.student, 'main.kurt'), 'load helper\nP\n')
         os.chdir(self.student)          # (the working directory comes first in the search path)
@@ -37,7 +37,7 @@ class TestLoadCache(unittest.TestCase):
     def test_a_new_file_earlier_in_the_search_path(self):
         session = kurt.new_session(kurt.RunConfig(paths=(self.teacher,)))
         self.assertTrue(self.check(session).ok)
-        write(os.path.join(self.student, 'dep.kurt'), 'bool P\nP "given"\n')     # unproven
+        write(os.path.join(self.student, 'dep.kurt'), 'prop P\nP "given"\n')     # unproven
         fresh = self.check(kurt.new_session(kurt.RunConfig(paths=(self.teacher,))))
         self.assertFalse(fresh.ok)
         again = self.check(session)
@@ -47,8 +47,8 @@ class TestLoadCache(unittest.TestCase):
         if not hasattr(os, 'symlink'):
             self.skipTest('no symbolic links')
         os.remove(os.path.join(self.teacher, 'dep.kurt'))
-        write(os.path.join(self.teacher, 'given.kurt'), 'bool P\nuse P "given"\n')
-        write(os.path.join(self.teacher, 'other.kurt'), 'bool P\n')
+        write(os.path.join(self.teacher, 'given.kurt'), 'prop P\nuse P "given"\n')
+        write(os.path.join(self.teacher, 'other.kurt'), 'prop P\n')
         link = os.path.join(self.teacher, 'dep.kurt')
         os.symlink('given.kurt', link)
         session = kurt.new_session(kurt.RunConfig(paths=(self.teacher,)))
@@ -61,7 +61,7 @@ class TestLoadCache(unittest.TestCase):
     def test_a_changed_file(self):
         session = kurt.new_session(kurt.RunConfig(paths=(self.teacher,)))
         self.assertTrue(self.check(session).ok)
-        write(os.path.join(self.teacher, 'dep.kurt'), 'bool P\n')
+        write(os.path.join(self.teacher, 'dep.kurt'), 'prop P\n')
         self.assertFalse(self.check(session).ok)
 
     def test_an_unchanged_file_is_checked_once(self):
@@ -71,7 +71,17 @@ class TestLoadCache(unittest.TestCase):
         with session._active():
             entries = list(kurt.run_state._checked_exports.values())
             self.assertTrue(all(kurt.same_load_resolutions(e[2]) for e in entries))
-        self.assertTrue(self.check(session).ok)
+        read = []                       # (the second check reads only the main file: the others from the cache)
+        read_eval_loop = kurt.read_eval_loop
+        def recording(f, kb):
+            read.append(os.path.basename(f.name))
+            return read_eval_loop(f, kb)
+        kurt.read_eval_loop = recording
+        try:
+            self.assertTrue(self.check(session).ok)
+        finally:
+            kurt.read_eval_loop = read_eval_loop
+        self.assertEqual(read, ['main.kurt'])
 
 if __name__ == '__main__':
     unittest.main()

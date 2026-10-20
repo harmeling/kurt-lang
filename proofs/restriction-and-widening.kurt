@@ -1,0 +1,67 @@
+; restriction and widening of a quantifier over subsorts (dev/todo-order-sorted.md item 8, todo 35):
+; no rule of their own, they are derived -- restriction `∀ x:S P ⊢ ∀ y:T P` (T ⊂ S) by `let` and
+; "forall-elim", widening `∃ x:T P ⊢ ∃ y:S P` by `pick` and "exists-intro". The other two
+; directions are not valid and are refused.
+load natural
+
+any x, y
+real n, m
+set u
+prop P
+arity P 1
+
+; restriction: from all objects to the numbers, and from the sets to the numbers
+sandbox
+    use ∀ x (P x)
+    show ∀ n (P n)
+    proof
+        let n
+            P n                         ; by "forall-elim", a number for `x`
+    qed
+sandbox
+    use ∀ u (P u)
+    show ∀ m (P m)
+    proof
+        let m
+            P m
+    qed
+
+; widening: from a number to all objects
+sandbox
+    use ∃ n (P n)
+    show ∃ y (P y)
+    proof
+        pick w with P w
+            ∃ y (P y)                   ; by "exists-intro", the witness a number
+    qed
+
+; the other directions are not valid: the sets don't give all objects, an object is no number
+sandbox
+    use ∀ u (P u)
+    show ∀ y (P y)
+    proof
+        let y
+            expect "ProofError"
+                P y                     ; `y` is any object, `u` takes only a set
+            todo P y
+    qed
+sandbox
+    use ∃ x (P x)
+    show ∃ n (P n)
+    proof
+        pick w with P w
+            expect "ProofError"
+                ∃ n (P n)               ; the witness is any object, no number
+            todo ∃ n (P n)
+    qed
+
+; in one step, it is refused (no rule takes two sorts in one use) -- with a hint how it goes
+sandbox
+    const S
+    use ∀ x ∈ S (P x)                   ; (a top-level `∀ x (P x)` is a schema: its instance `∀ n (P n)` is one step)
+    expect "ProofError" "restrict it -- `let` the variable"
+        ∀ n ∈ S (P n)
+sandbox
+    use ∃ n (P n)
+    expect "ProofError" "widen it -- `pick` its witness"
+        ∃ y (P y)

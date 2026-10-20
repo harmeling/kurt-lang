@@ -6,17 +6,24 @@
 ; loads this and adds the rules of differentiation. Without the rules, a proof of `cont x 3 (2 * x
 ; + 1)` goes through the definition (exercises/09-calculus, exercise 2).
 ;
-; The definitions are stated as axioms, as in derivative.kurt (see there).
-load prop, equality, logic, set, numbers, natural, analysis
+; The definitions are stated as axioms, as in derivative.kurt (see there) -- for Lean they are
+; theorems about Mathlib's `ContinuousAt`, `DifferentiableAt`, `deriv` (`lean "label" ...` at the end).
+load propositional, equality, logic, set, numbers, natural, analysis
+default real              ; every symbol of this file is a number, except where said otherwise
 
 ;; syntax
 const cont, diff, deriv
 arity cont 3, diff 3, deriv 3
 bindop cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
-bool cont 0, diff 0
+prop cont 0, diff 0
 tex cont \operatorname{cont}_{$1=$2} $3
 tex diff \operatorname{diff}_{$1=$2} $3
 tex deriv \left.\frac{d}{d$1} $3\right|_{$1=$2}
+; in Lean with Mathlib (`kurt --lean`): `$1` the point, `$2` the body (a function) -- Mathlib's
+; continuity, differentiability and derivative at a point; the definitions below are theorems then
+lean cont (ContinuousAt $2 $1)
+lean diff (DifferentiableAt ℝ $2 $1)
+lean deriv (deriv $2 $1)
 
 ;; definitions, by ε and δ
 use (cont $v $a $T)  ⇔  ∀ $e > 0 ∃ $d > 0 ∀ $y (abs($y - $a) < $d  ⇒  abs((sub $v $y $T) - (sub $v $a $T)) < $e)   "cont-def"
@@ -28,3 +35,32 @@ use (∀ $e > 0 ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d)  ⇒  abs(((su
 ; continuity with the limit (analysis.kurt's `tends`): `T` tends to its value at `a` -- the same as
 ; "cont-def" (at `y = a` both hold anyway), stated as an axiom like the definitions
 use (cont $v $a $T)  ⇔  tends $v $a (sub $v $a $T) $T                                "cont-tends"
+
+;; the definitions as theorems of Mathlib (see numbers.kurt): `lean "label" TACTIC` is a proof in Lean
+lean "cont-def" intros; beta_reduce
+lean "cont-def" rw [Metric.continuousAt_iff]
+lean "cont-def" simp only [Real.dist_eq, gt_iff_lt]
+lean "diff-def" have key : ∀ (f : ℝ → ℝ) (a L : ℝ), HasDerivAt f L a ↔ ∀ e, 0 < e → ∃ d, 0 < d ∧ ∀ h, (0 < |h| ∧ |h| < d) → |(f (a + h) - f a) / h - L| < e := by
+lean "diff-def"   intro f a L
+lean "diff-def"   rw [hasDerivAt_iff_tendsto_slope_zero, Metric.tendsto_nhdsWithin_nhds]
+lean "diff-def"   simp only [Real.dist_eq, Set.mem_compl_iff, Set.mem_singleton_iff, gt_iff_lt, sub_zero, smul_eq_mul]
+lean "diff-def"   constructor
+lean "diff-def"   · intro h e he; obtain ⟨d, hd, H⟩ := h e he
+lean "diff-def"     exact ⟨d, hd, fun t ht => by rw [div_eq_inv_mul]; exact H (abs_pos.mp ht.1) ht.2⟩
+lean "diff-def"   · intro h e he; obtain ⟨d, hd, H⟩ := h e he
+lean "diff-def"     exact ⟨d, hd, fun t ht htd => by rw [← div_eq_inv_mul]; exact H t ⟨abs_pos.mpr ht, htd⟩⟩
+lean "diff-def" intros; beta_reduce
+lean "diff-def" constructor
+lean "diff-def" · intro hd; exact ⟨_, (key _ _ _).mp hd.hasDerivAt⟩
+lean "diff-def" · rintro ⟨L, hL⟩; exact ((key _ _ L).mpr (by simpa only [and_comm, and_left_comm, and_assoc] using hL)).differentiableAt
+lean "deriv-intro" have key : ∀ (f : ℝ → ℝ) (a L : ℝ), (∀ e, 0 < e → ∃ d, 0 < d ∧ ∀ h, (0 < |h| ∧ |h| < d) → |(f (a + h) - f a) / h - L| < e) → HasDerivAt f L a := by
+lean "deriv-intro"   intro f a L h
+lean "deriv-intro"   rw [hasDerivAt_iff_tendsto_slope_zero, Metric.tendsto_nhdsWithin_nhds]
+lean "deriv-intro"   simp only [Real.dist_eq, Set.mem_compl_iff, Set.mem_singleton_iff, gt_iff_lt, sub_zero, smul_eq_mul]
+lean "deriv-intro"   intro e he; obtain ⟨d, hd, H⟩ := h e he
+lean "deriv-intro"   exact ⟨d, hd, fun t ht htd => by rw [← div_eq_inv_mul]; exact H t ⟨abs_pos.mpr ht, htd⟩⟩
+lean "deriv-intro" intros; beta_reduce at *
+lean "deriv-intro" apply HasDerivAt.deriv; apply key
+lean "deriv-intro" first | assumption | ((try simp only [and_comm, and_left_comm, and_assoc] at *); assumption)
+lean "cont-tends" intros; beta_reduce
+lean "cont-tends" exact continuousWithinAt_compl_self.symm

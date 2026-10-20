@@ -7,8 +7,8 @@
 ; comment Kurt prints after a line, `; by 3(4)`, is the short form of that
 ; certificate. `cert N` shows the long form for line `N`:
 
-load prop
-bool A, B
+load propositional
+prop A, B
 use A implies B
 use A
 B                   ; "by 12(13)": the rule of line 12, with the fact of line 13

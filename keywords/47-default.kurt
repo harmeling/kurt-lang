@@ -1,0 +1,31 @@
+; 47-default.kurt
+
+; `default SORT` gives the new symbols of a file a sort: a symbol without a declared sort and
+; without a sorted place gets it at its first appearance -- as if it were declared there. A file
+; about numbers says `default real` (natural.kurt does), and then every new name is a number.
+
+load natural
+default real
+
+const a
+a = a                  ; `a` appears first: `real a ; sort by default`
+a + 1 = 1 + a          ; a number, as the default said
+
+; The line can say otherwise: `A` is equal to a set, so `A` is a set -- not a number equal to a set
+; of numbers (the sort of the other side of `=`).
+const A
+use A = {n ∈ Nat | n > 2}      ; `set A ; sort inferred`
+expect "TypeError" "`A` has the sort `set`"
+    use A + 1 = 1 + A
+
+; A binder of the file ranges over the default too: `∀ n` here is over the numbers, so it says
+; nothing about other objects (for two sets of numbers, natural.kurt's "ext-real" closes that gap).
+use ∀ n (n + 0 = n)
+
+; A symbol that should be any object says so: `any x` (or `set x` for a set).
+any x
+use x ∈ A ⇒ x ∈ A
+
+; `default` alone names the default in force. `default any` is the same as none. The default
+; doesn't cross `load` (a loading file has its own), but the sorts it gave do.
+default

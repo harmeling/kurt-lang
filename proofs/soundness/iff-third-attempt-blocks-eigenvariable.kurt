@@ -12,9 +12,9 @@
 ; before matching regardless of whether it's boolean, so it was free to be unified straight to
 ; `not (not C)`, satisfying `not-not`'s shape for *some* value of `a` -- never asserted to hold
 ; -- rather than being required to hold for whatever `a` actually, specifically is.
-load prop
+load propositional
 var a
-bool C
+prop C
 expect "ProofError"
     a iff C
 

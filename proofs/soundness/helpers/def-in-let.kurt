@@ -1,6 +1,6 @@
 ; `def` inside `let` (see ../def-not-in-proof-blocks.kurt)
 load logic
-bool P
+prop P
 arity P 1
 const P, c, d
 show (P c) implies (P d)

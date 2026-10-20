@@ -1,0 +1,82 @@
+; well-sorted substitution (dev/todo-order-sorted.md items 2 and 10): every value put in for a
+; variable fits its sort -- in an instance of a fact, in a rule used backwards (a premise with a
+; sorted variable), through `=` and in a `pick`. A fact about the numbers says nothing about a set
+; `b` -- unless `b` is equal to a number, and then it is about that number
+load natural
+
+real n
+set b
+prop Q, R
+arity Q 1
+arity R 1
+
+use ∀ n (Q n)                         ; (the place of `Q` takes any object, the fact the numbers)
+Q 3
+expect "ProofError"
+    Q b                               ; `b` is a set, not necessarily a number
+expect "ProofError"
+    Q {1}
+
+; a rule used backwards: its premise has a number variable
+prop T
+arity T 1
+use ∀ n (R n ⇒ T n)
+sandbox
+    use R 2
+    T 2
+sandbox
+    use R b
+    expect "ProofError"
+        T b                           ; `b` is a set: the rule is about the numbers
+
+; through `=`: a set equal to a number is that number
+sandbox
+    use b = 3
+    Q b                               ; from `Q 3` and `b = 3`
+sandbox
+    use b = {1}
+    expect "ProofError"
+        Q b                           ; `{1}` is no number
+
+; a witness has the sort of its existential, not the sort of a fact about it
+sandbox
+    use ∃ y (y = b)                   ; (`y` over all objects)
+    pick w with w = b
+        expect "ProofError"
+            Q w                       ; `w` is any object, equal to the set `b`
+        true
+
+; a chain of `=`: each step is checked like a line, its values by their sorts
+const f
+arity f 1
+use ∀ n (f n = n)                     ; (`f` takes any object, the fact is about the numbers)
+f (f 3) = f 3
+    = 3
+sandbox
+    const e
+    use e = f b
+    expect "ProofError"
+        e = f b
+            = b                       ; `b` is a set: "f n = n" is about the numbers
+
+; a variable fixed by `assume` without a sort stands for any object: no fact about a sort for it
+sandbox
+    sort foo
+    foo z
+    const H
+    prop H
+    use H
+    use H ⇒ ∀ z (¬(z ∈ Nat))          ; (over `foo`: consistent)
+    ∀ z (¬(z ∈ Nat))
+    const K
+    var y
+    assume y ∈ K
+        expect "ProofError"
+            ¬(y ∈ Nat)                ; `y` is any object, the result would be about all of them
+        true
+    sandbox
+        const k
+        assume k ∈ K
+            expect "ProofError"
+                ¬(k ∈ Nat)            ; a constant without a sort is any object too, no `foo`
+            true

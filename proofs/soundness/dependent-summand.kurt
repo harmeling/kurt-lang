@@ -3,6 +3,7 @@
 ; over it or `sub`s for it (see `find_dependent_vars`) -- like `$T` in the sum axioms below;
 ; anywhere else it stays a fixed term
 load natural
+default real
 const sum
 arity sum 3
 bindop sum
@@ -27,7 +28,7 @@ expect "ProofError"
     (sum y (1, n) y) = (n - 1 + 1) * y
 
 ; and `$T` in the body of `forall`, next to other things, is a fixed term too
-bool Q
+prop Q
 use (forall $x ($x = $T)) and (P $T) implies Q    "attack"
 use forall $w (P $w)
 expect "ProofError"

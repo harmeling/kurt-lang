@@ -1,5 +1,5 @@
 ; lemma2.kurt
-load prop
+load propositional
 
 show (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)
 proof

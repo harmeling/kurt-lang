@@ -1,0 +1,44 @@
+; one reading of a binder without a sort (todo 35, decided 2026-10-19, doc/kurt-soundness.md §8.43):
+; it is over all objects (`any`), inside a formula as at its top. Before, an inner `∀ y` without a
+; sort was over `term`, a top-level line `∀ y ...` a schema over everything -- so `T ⇒ ∀ y (¬(y ∈
+; Nat))` (about the objects without a sort: consistent) became, as a line of its own, `¬(1 ∈ Nat)`
+load natural
+
+const A, B, T
+prop T
+use T
+
+; 1. an inner `∀ x` without a sort is over all objects: it meets extensionality (no `default any`)
+(∀ x (x ∈ A ⇔ x ∈ B)) ⇒ A = B            ; by "extensionality", its `∀ $c` over `any`
+
+; 2. the same formula inside and at the top says the same: nothing is in `C` (`1` neither)
+sandbox
+    const C
+    use T ⇒ ∀ y (¬(y ∈ C))
+    ∀ y (¬(y ∈ C))
+    ¬(1 ∈ C)
+
+; 3. a binder over a declared sort stays over it: its variable takes no number, and a block's
+;    constant without a sort (any object) doesn't fit it either (formerly with the sort `term`)
+sandbox
+    sort foo
+    foo z
+    use T ⇒ ∀ z (¬(z ∈ Nat))              ; (consistent: no `foo` is in `Nat`)
+    ∀ z (¬(z ∈ Nat))
+    expect "ProofError"
+        ¬(1 ∈ Nat)
+    show ∀ y (¬(y ∈ Nat))
+    proof
+        let y
+            expect "ProofError"
+                ¬(y ∈ Nat)
+            todo ¬(y ∈ Nat)
+    qed
+
+; 4. the witness of an `∃ x` without a sort is any object: no number
+sandbox
+    use ∃ x (x ∈ A)
+    pick w with w ∈ A
+        expect "TypeError" "must have sort `real`"
+            w + 0 = w
+        true

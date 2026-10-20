@@ -1,0 +1,33 @@
+; `let` fixes a term -- it is the introduction of `∀`, and binders range over terms (decided
+; 2026-10-20, doc/kurt-doc.md §5.1). A statement variable needs no `let`: in a proof it stays the
+; same statement, and an `assume` holds it fixed in its block. Before, `let %A` was accepted and
+; closed to the schema (labelled "forall-intro", though no `∀` was made).
+load logic, equality
+expect "TypeError" "`let` fixes a term"
+    let %A
+        %A ∨ ¬%A
+var B
+prop B
+expect "TypeError" "`let` fixes a term"
+    let B
+        B ∨ ¬B
+expect "TypeError" "`let` fixes a term"
+    let q
+        q ∨ ¬q                  ; a new name used as a statement
+let x
+    x = x
+
+; a proof about a statement variable needs no `let`: the claim's `%A` is one statement throughout
+; the proof (propositional.kurt has "excluded-middle" as a rule anyway -- the point is the form)
+show %A ∨ ¬%A  "lem-again"
+proof
+    assume ¬(%A ∨ ¬%A)
+        assume %A
+            %A ∨ ¬%A            ; by "or-intro"
+            ⊥
+        ¬%A
+        %A ∨ ¬%A
+        ⊥
+    ¬¬(%A ∨ ¬%A)
+    %A ∨ ¬%A
+qed

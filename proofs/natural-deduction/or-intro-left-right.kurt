@@ -2,14 +2,14 @@
 
 infix  or      14 14  ; logical or
 ;flat   or             ; (a or b) or c  iff  a or b or c
-bool   or      0 1 2  ; and and its inputs have type bool
+prop   or      0 1 2  ; and and its inputs have type prop
 alias  ∨ or
 
 ;; axioms
 ;use %A implies %A or %B                                             "or-intro-left"
 use %B implies %A or %B                                             "or-intro-right"
 
-bool p, q
+prop p, q
 use q
 expect "ProofError" "can not derive `q ∨ p`"
     q ∨ p

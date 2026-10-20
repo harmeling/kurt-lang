@@ -1,0 +1,69 @@
+; two sets of numbers are equal when they have the same numbers ("ext-real", natural.kurt). In a
+; `default real` file a binder ranges over the numbers: `∀ n (n ∈ A ⇔ n ∈ B)` says nothing about other
+; objects, so set.kurt's "extensionality" (over all objects) doesn't apply. "ext-real" closes the gap
+; for sets that contain only numbers -- `A ⊂ Real`, from `Nat ⊂ Real` ("nat-sub-real"). Both rules
+; are proved in Lean (`kurt --lean`). `Real`, `Nat`, `Int`, `Rat` are also written `ℝ`, `ℕ`, `ℤ`, `ℚ`.
+load natural
+default real
+
+const A, B
+use A = {n ∈ Nat | n + 1 > 3}
+use B = {n ∈ Nat | n > 2}
+
+; the sets contain only numbers: their elements are natural numbers, and `Nat ⊂ Real` -- with a
+; bound variable over all objects (`any c`: a `let` of a `default real` file would be a number)
+any c
+show A ⊂ Real ∧ B ⊂ Real
+proof
+    ∀ c (c ∈ Nat ⇒ c ∈ Real)
+    let c
+        assume c ∈ A
+            c ∈ {n ∈ Nat | n + 1 > 3}
+            c ∈ Nat
+            c ∈ Real
+        c ∈ A ⇒ c ∈ Real
+    ∀ c (c ∈ A ⇒ c ∈ Real)
+    A ⊂ Real
+    let c
+        assume c ∈ B
+            c ∈ {n ∈ Nat | n > 2}
+            c ∈ Nat
+            c ∈ Real
+        c ∈ B ⇒ c ∈ Real
+    ∀ c (c ∈ B ⇒ c ∈ Real)
+    B ⊂ Real
+    A ⊂ Real ∧ B ⊂ Real
+qed
+
+show ∀ n (n ∈ A ⇔ n ∈ B)
+proof
+    let m
+        assume m + 1 > 3
+            (1 + m) - 1 > 3 - 1                  ; by "gt-sub"
+            (1 + m) - 1 = m - (1 - 1)            ; by "add-sub"
+            m - (1 - 1) > 3 - 1
+            calc on
+            m - 0 > 2
+            calc off
+            m > 2
+        assume m > 2
+            m + 1 > 2 + 1                        ; by "lt-add"
+            calc on
+            m + 1 > 3
+            calc off
+        m + 1 > 3 ⇔ m > 2
+        m ∈ {n ∈ Nat | n + 1 > 3} ⇔ m ∈ Nat ∧ m + 1 > 3       ; by "separation"
+        m ∈ A ⇔ m ∈ Nat ∧ m + 1 > 3                           ; with `A = {...}`
+        m ∈ {n ∈ Nat | n > 2} ⇔ m ∈ Nat ∧ m > 2
+        m ∈ B ⇔ m ∈ Nat ∧ m > 2
+        m ∈ A ⇔ m ∈ B
+    ∀ n (n ∈ A ⇔ n ∈ B)
+qed
+
+; the same numbers are not yet the same elements
+expect "ProofError" "can not derive"
+    A = B
+
+(∀ n (n ∈ A ⇔ n ∈ B)) ∧ A ⊂ Real ∧ B ⊂ Real
+A = B                                       ; by "ext-real"
+A ⊂ ℝ                                       ; `ℝ` is `Real`

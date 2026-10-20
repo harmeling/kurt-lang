@@ -4,18 +4,18 @@
 ; true of $a is true of $b), and `≠`'s relationship to `=`. Deliberately small -- "equal-elim"
 ; is the substitution primitive nearly every other theory's `=`-chain proofs are built out of
 ; (numbers.kurt's algebraic rules, set.kurt's distributive-law proof, ...).
-load prop
+load propositional
 
 ;; syntax
 infix = 20 20  ; higher binding power than space, equality is left-associative
-bool  = 0      ; equations are boolean, however, the LHS and RHS can be anything
+prop  = 0      ; equations are boolean, however, the LHS and RHS can be anything
 sym   =        ; equality is symmetric
 chain =        ; equality is chainable
 builtin = equality  ; `def` may define with `=` (the engine's equality)
 
 
-infix ≠ 20 20                        ; inequality -- a relation (`bool`), so `a ≠ b ≠ c` on one line is `a ≠ b ∧ b ≠ c`; not transitive (no `chain`)
-bool ≠ 0
+infix ≠ 20 20                        ; inequality -- a relation (`prop`), so `a ≠ b ≠ c` on one line is `a ≠ b ∧ b ≠ c`; not transitive (no `chain`)
+prop ≠ 0
 inline $a ≠ $b  iff  not ($a = $b)    ; `a ≠ b` is read as `not (a = b)`: one term, nothing to switch
 
 ;; inference rules
@@ -29,3 +29,7 @@ use (sub $x $a %A) and ($a = $b)  implies  (sub $x $b %A) "equal-elim"
 ;  e.g.
 ;  other notation
 ;  $a = $b and $f($a) = $f($a)  implies  $f($a) = $f($b)
+
+;; the rules as theorems of Lean's logic (`kurt --lean`, see propositional.kurt): `=` is Lean's
+lean "equal-intro" grind
+lean "equal-elim" grind

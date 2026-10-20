@@ -42,10 +42,13 @@ load analysis
 
 const converges
 arity converges (_, _)
-bool converges 0
+prop converges 0
 
-; the limit of a sequence
-use converges($a, $L) ⇔ ∀ $e > 0 ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ abs($a($n) - $L) < $e)   "converges-def"
+; the limit of a sequence -- the sequence is an operator (`arity a 1`, `a(n)`), so its place is an
+; operator variable `σ` (an operator is no object, doc/kurt-doc.md §5.3)
+var σ
+arity σ 1
+use converges((σ), $L) ⇔ ∀ $e > 0 ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ abs(σ($n) - $L) < $e)   "converges-def"
 
 ; the Archimedean property of the real numbers
 use ∃ $n ∈ Nat ($n > $x)                                "archimedes"

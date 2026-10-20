@@ -15,8 +15,8 @@ from tests.utils import PROJECT_ROOT, numbered
 
 ALL = kurt.RunConfig(all_errors=True)
 
-TWO_FORMULAS = '''load prop
-bool A, B, C, D
+TWO_FORMULAS = '''load propositional
+prop A, B, C, D
 use A implies B
 use A
 B
@@ -58,7 +58,7 @@ class TestAllErrors(unittest.TestCase):
 
     def test_a_proof_that_does_not_reach_its_goal(self):
         # its claim is admitted, and the line that ends it has its own content
-        text = 'load prop\nbool A, B, C\nuse A\nshow A and C\nproof\n    A\nB or C\nA and C\n'
+        text = 'load propositional\nprop A, B, C\nuse A\nshow A and C\nproof\n    A\nB or C\nA and C\n'
         result = check(text)
         said = [(e['line'], next(l for l in e['message'].splitlines() if l.startswith('ProofError'))) for e in result.errors]
         self.assertEqual(said, [(4, 'ProofError: the proof of `A and C` (line 4) ends at line 7 without reaching its goal -- can not derive `C`'),
@@ -67,7 +67,7 @@ class TestAllErrors(unittest.TestCase):
         self.assertTrue(numbered(result.output, 8, 'by 4'), result.output)        # the admitted claim
 
     def test_a_qed_that_fails(self):
-        text = 'load prop\nbool A, C\nuse A\nshow A and C\nproof\n    A\nqed\nA and C\n'
+        text = 'load propositional\nprop A, C\nuse A\nshow A and C\nproof\n    A\nqed\nA and C\n'
         result = check(text)
         self.assertEqual([e['line'] for e in result.errors], [4])         # at the claim
         self.assertIn('ends at line 7 without reaching its goal', result.error)
@@ -75,18 +75,18 @@ class TestAllErrors(unittest.TestCase):
 
     def test_an_unreached_goal_is_the_claims_error(self):
         # also without all errors: at the `show` (the editors mark that line), with what is missing
-        result = check('load prop\nbool A, C\nuse A\nshow A and C\nproof\n    A\nA\n', kurt.RunConfig())
+        result = check('load propositional\nprop A, C\nuse A\nshow A and C\nproof\n    A\nA\n', kurt.RunConfig())
         self.assertEqual((result.error_kind, result.error_line), ('ProofError', 4))
         self.assertIn('show A and C', result.error)
         self.assertIn('the proof of `A and C` (line 4) ends at line 7 without reaching its goal -- can not derive `C`', result.error)
         self.assertIsNotNone(result.failure)             # (why, as data: for the editors)
         # an `expect` still sees it as a `ProofError` that can't derive the goal
-        expected = check('load prop\nbool A, C\nuse A\nexpect "ProofError" "can not derive `C`"\n    show A and C\n    proof\n        A\nA\n', kurt.RunConfig())
+        expected = check('load propositional\nprop A, C\nuse A\nexpect "ProofError" "can not derive `C`"\n    show A and C\n    proof\n        A\nA\n', kurt.RunConfig())
         self.assertTrue(expected.ok, expected.error)
 
     def test_an_error_inside_nested_blocks(self):
-        text = '''load prop
-bool A, B, C
+        text = '''load propositional
+prop A, B, C
 use A
 show B implies A
 proof
@@ -100,43 +100,43 @@ D
         self.assertIn('B implies A', result.output)
 
     def test_an_unreadable_show_skips_its_proof(self):
-        text = 'load prop\nbool A, C\nuse A\nshow A and and C\nproof\n    A\n    C\nC\n'
+        text = 'load propositional\nprop A, C\nuse A\nshow A and and C\nproof\n    A\n    C\nC\n'
         result = check(text)
         self.assertEqual([(e['kind'], e['line']) for e in result.errors], [('ParseError', 4), ('ProofError', 8)])
 
     def test_a_failed_line_that_opens_a_block_skips_it(self):
-        text = 'load prop\nbool A, B\nuse A\npick x with B\n    A\nB\n'
+        text = 'load propositional\nprop A, B\nuse A\npick x with B\n    A\nB\n'
         result = check(text)
         self.assertEqual([e['line'] for e in result.errors], [4, 6])
 
     def test_the_end_of_the_file(self):
         # a proof not finished, and a claim without proof: both errors, at their claims
-        unfinished = check('load prop\nbool A, C\nuse A\nshow C\nproof\n    A\n')
+        unfinished = check('load propositional\nprop A, C\nuse A\nshow C\nproof\n    A\n')
         self.assertEqual([e['line'] for e in unfinished.errors], [4])
         self.assertIn("isn't finished at the end of the file", unfinished.error)
-        both = check('load prop\nbool A, B, C\nuse A\nB\nshow C\n')
+        both = check('load propositional\nprop A, B, C\nuse A\nB\nshow C\n')
         self.assertEqual([e['line'] for e in both.errors], [4, 5])
         self.assertIn('Proof not checked: 2 errors.', both.output)
 
     def test_expect_is_unchanged(self):
-        confirmed = check('load prop\nbool A, B\nexpect "ProofError"\n    B\nuse A\nA\n')
+        confirmed = check('load propositional\nprop A, B\nexpect "ProofError"\n    B\nuse A\nA\n')
         self.assertTrue(confirmed.ok, confirmed.error)
         # an `expect` whose error doesn't come stops, as without all errors
-        missed = check('load prop\nbool A, B\nuse A\nexpect "ProofError"\n    A\nB\n')
+        missed = check('load propositional\nprop A, B\nuse A\nexpect "ProofError"\n    A\nB\n')
         self.assertEqual([e['line'] for e in missed.errors], [6])
         self.assertIn('ExpectationError', missed.error)
 
     def test_an_error_in_a_loaded_file_stops(self):
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'broken.kurt'), 'w', encoding='utf-8') as stream:
-                stream.write('bool P\nP\n')
-            text = 'load broken\nbool A\nA\nA\n'
+                stream.write('prop P\nP\n')
+            text = 'load broken\nprop A\nA\nA\n'
             result = kurt.Session(kurt.RunConfig(all_errors=True, untrusted_paths=(tmp,))).check_text(text, name=os.path.join(tmp, 'main.kurt'))
             self.assertEqual(len(result.errors), 1)
             self.assertIn('broken.kurt', result.error)
 
     def test_strict_mode_reports_each_use(self):
-        text = 'load prop\nbool A, B\nuse A implies B\nuse A\nB\n'
+        text = 'load propositional\nprop A, B\nuse A implies B\nuse A\nB\n'
         result = check(text, kurt.RunConfig(all_errors=True, strict=True))
         lines = [e['line'] for e in result.errors]
         self.assertEqual(lines[:2], [3, 4])
@@ -168,7 +168,7 @@ D
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'eof.kurt')
             with open(path, 'w', encoding='utf-8') as stream:
-                stream.write('bool A, B\nA\nfoo ( bar\n')
+                stream.write('prop A, B\nA\nfoo ( bar\n')
             env = dict(os.environ, PYTHONPATH=str(PROJECT_ROOT / 'src'))
             run = subprocess.run([sys.executable, '-m', 'kurt', '-a', '--no-kurtc', path], capture_output=True, text=True, cwd=tmp, env=env)
             self.assertEqual(run.returncode, 1)
@@ -180,7 +180,7 @@ D
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'claim.kurt')
             with open(path, 'w', encoding='utf-8') as stream:
-                stream.write('load prop\nbool A\nuse A\nA\nshow A\n')
+                stream.write('load propositional\nprop A\nuse A\nA\nshow A\n')
             env = dict(os.environ, PYTHONPATH=str(PROJECT_ROOT / 'src'))
             run = subprocess.run([sys.executable, '-m', 'kurt', path], capture_output=True, text=True, cwd=tmp, env=env)
             self.assertEqual(run.returncode, 1)

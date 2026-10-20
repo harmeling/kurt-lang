@@ -28,7 +28,7 @@ expect "EvalError" "already"
 ; The error may come from anywhere inside the block, also from inside a
 ; nested block, or from a nested block that can't be closed:
 
-bool A, B
+prop A, B
 use A
 expect "ProofError"
     show B

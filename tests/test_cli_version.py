@@ -19,7 +19,11 @@ class TestCliVersion(unittest.TestCase):
             with self.subTest(flag=flag):
                 run = self.run_kurt(flag)
                 self.assertEqual(run.returncode, 0)
-                self.assertEqual(run.stdout.strip(), f'kurt {kurt.version}')
+                first, path, sha = run.stdout.strip().split('\n')
+                self.assertEqual(first, f'kurt {kurt.version}')        # (what scripts compare: the first line)
+                # which kurt.py runs: its path and its fingerprint (an editor may run another Kurt)
+                self.assertEqual(path, str(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'))
+                self.assertEqual(sha, f'{kurt.file_fingerprint()} (SHA-256 of kurt.py)')
 
     def test_no_verbose(self):
         # `--verbose` is gone: `cert N` shows the same, in full

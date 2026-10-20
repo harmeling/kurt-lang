@@ -6,7 +6,8 @@ expect "ProofError"
     1 + 1 = 2                   ; `+` means nothing to the calculator yet
 builtin + add
 1 + 1 = 2
-expect "EvalError"
-    builtin + frobnicate           ; not an operation of the calculator
+expect "EvalError" "`frobnicate` is not built into Kurt"
+    builtin + frobnicate
+           ; not an operation of the calculator
 expect "EvalError"
     builtin + add multiply

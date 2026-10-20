@@ -1,4 +1,4 @@
-; var-const.kurt
+; const-var.kurt
 const x
 expect "EvalError" "symbol `x` is already used as a constant"
     var x

@@ -6,7 +6,7 @@
 ; usually ends with `qed` (09-qed.kurt; `qed` is optional).  This lesson
 ; already uses `proof` and `qed`; the next two lessons explain them.
 
-bool A, B
+prop A, B
 
 use A implies B
 use A
@@ -17,7 +17,7 @@ proof
 qed
 
 ; `show` also accepts a label, just like `use`:
-bool C
+prop C
 use B implies C
 show C  "chained-modus-ponens"
 proof

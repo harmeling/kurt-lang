@@ -1,0 +1,26 @@
+; A `$`-variable stands for a term, never for a formula (doc §3.2): from `Q $x` the direct instance
+; `Q (c = c)` is a type error. But "iff-subst" gave it: the hole of `sub %x %b %A` was cut at the
+; operator `=` of `c = c` (`%b := =`, `%A := Q (%x c c)`), "not-not" gave `%a := ¬¬=`, and the
+; fact's `$x` took `(¬¬=) c c` -- a formula with a compound operator, which `bool_expr` read as no
+; formula (found 2026-10-16 while writing doc/kurt-spec.md; soundness §8.39). Now such a node has
+; the kind of its operator, in the search (`bool_expr`, which the unifier's `compatible` asks) and
+; in the kernel (`k_is_statement`: each value has the kind of its variable).
+load propositional, equality
+prop Q
+arity Q 1
+const c
+use Q $x "qx"
+expect "TypeError" "is a statement where a term is required"
+    Q (c = c)                ; (and since 2026-10-20 already a type error: a statement is no object)
+
+; a `%`-variable takes a formula through the same rule (`%a := ¬¬(c = c)`)
+prop R 0 1              ; `R` takes a statement
+arity R 1
+use R (not (not (c = c))) "rnn"
+R (c = c)
+
+; and a `$`-variable a term (`$y := c`)
+prop S 0 2              ; the second place of `S` takes a statement
+arity S 2
+use S $y (not (not (c = c))) "s"
+S c (c = c)

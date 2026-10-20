@@ -47,11 +47,12 @@ class TestKernelDifferential(unittest.TestCase):
         return [S(rng.choice(['forall', 'exists'])), S(v), self.terms(rng, depth - 1, bound + [v])]
 
     def rename_bound(self, e, rng: random.Random):
-        # an alpha-variant: each binder's variable renamed to a fresh name
+        # an alpha-variant: each binder's variable renamed to a fresh name, as the search names it
+        # (`$$` and digits: `$$d...` would be a polymorphic `$$x` of a rule, todo 35)
         if isinstance(e, Token):
             return e
         if isinstance(e[0], Token) and e[0].value in ('forall', 'exists'):
-            old, new = e[1].value, f'$$d{rng.randrange(10**6)}'
+            old, new = e[1].value, f'$${10**7 + rng.randrange(10**6)}'
             return [e[0], S(new), self.rename_bound(kurt.k_rename(e[2], old, new), rng)]
         return [self.rename_bound(c, rng) for c in e]
 

@@ -47,33 +47,33 @@ class TestSaveCommand(unittest.TestCase):
             source = os.path.join(tmp, 'source.kurt')
             saved = os.path.join(tmp, 'saved.kurt')
             with open(source, 'w') as fh:
-                fh.write(f'load prop\nbool A, B\nuse A implies B "mp"\nuse A\ntheory\n\nshow B\nproof\n    B\nqed\n\nsave "{saved}"\n')
+                fh.write(f'load propositional\nprop A, B\nuse A implies B "mp"\nuse A\ntheory\n\nshow B\nproof\n    B\nqed\n\nsave "{saved}"\n')
             load(source)
             with open(saved) as fh:
                 content = fh.read()
             body = [line for line in content.splitlines() if not line.startswith(';')]
-            self.assertEqual(body, ['', 'load prop', 'bool A, B', 'use A implies B "mp"', 'use A', '', 'show B', 'proof', '    B', 'qed', ''])
+            self.assertEqual(body, ['', 'load propositional', 'prop A, B', 'use A implies B "mp"', 'use A', '', 'show B', 'proof', '    B', 'qed', ''])
             labels = {f.label for f in load(saved).theory}
             self.assertIn('mp', labels)
 
     def test_save_in_the_shell_leaves_out_what_failed(self):
         with tempfile.TemporaryDirectory() as tmp:
             saved = os.path.join(tmp, 'session.kurt')
-            errors = shell(['load prop', 'bool A, B', 'use A implies B "mp"', 'B', 'use A', 'theory',
+            errors = shell(['load propositional', 'prop A, B', 'use A implies B "mp"', 'B', 'use A', 'theory',
                             'show B', 'proof', '    B', 'qed', f'save "{saved}"'])
             self.assertIn('can not derive', errors)            # `B` before `use A` failed
             with open(saved) as fh:
                 body = [line for line in fh.read().splitlines() if line and not line.startswith(';')]
-            self.assertEqual(body, ['load prop', 'bool A, B', 'use A implies B "mp"', 'use A', 'show B', 'proof', '    B', 'qed'])
+            self.assertEqual(body, ['load propositional', 'prop A, B', 'use A implies B "mp"', 'use A', 'show B', 'proof', '    B', 'qed'])
             load(saved)                                         # checks again, without errors
 
     def test_save_keeps_a_confirmed_expect(self):
         with tempfile.TemporaryDirectory() as tmp:
             saved = os.path.join(tmp, 'session.kurt')
-            shell(['load prop', 'bool A', 'expect "ProofError"', '    A', 'use A', f'save "{saved}"'])
+            shell(['load propositional', 'prop A', 'expect "ProofError"', '    A', 'use A', f'save "{saved}"'])
             with open(saved) as fh:
                 body = [line for line in fh.read().splitlines() if line and not line.startswith(';')]
-            self.assertEqual(body, ['load prop', 'bool A', 'expect "ProofError"', '    A', 'use A'])
+            self.assertEqual(body, ['load propositional', 'prop A', 'expect "ProofError"', '    A', 'use A'])
             load(saved)
 
     def test_save_keeps_what_an_expect_expects(self):
@@ -83,17 +83,17 @@ class TestSaveCommand(unittest.TestCase):
             source = os.path.join(tmp, 'source.kurt')
             saved = os.path.join(tmp, 'saved.kurt')
             with open(source, 'w') as fh:
-                fh.write(f'load prop\nbool A\nuse A\ncert\nexpect "EvalError"\n    cert 99\n    save "x.txt"\nA\nsave "{saved}"\n')
+                fh.write(f'load propositional\nprop A\nuse A\ncert\nexpect "EvalError"\n    cert 99\n    save "x.txt"\nA\nsave "{saved}"\n')
             load(source)
             with open(saved) as fh:
                 body = [line for line in fh.read().splitlines() if line and not line.startswith(';')]
-            self.assertEqual(body, ['load prop', 'bool A', 'use A', 'expect "EvalError"', '    cert 99', '    save "x.txt"', 'A'])
+            self.assertEqual(body, ['load propositional', 'prop A', 'use A', 'expect "EvalError"', '    cert 99', '    save "x.txt"', 'A'])
             load(saved)                                         # checks again
 
     def test_save_needs_closed_blocks(self):
         with tempfile.TemporaryDirectory() as tmp:
             saved = os.path.join(tmp, 'session.kurt')
-            errors = shell(['load prop', 'bool A, B', 'show A implies A', f'save "{saved}"',
+            errors = shell(['load propositional', 'prop A, B', 'show A implies A', f'save "{saved}"',
                             'proof', '    assume A', f'        save "{saved}"'])
             self.assertIn('pending `show`', errors)
             self.assertIn('close the open blocks', errors)
@@ -105,12 +105,12 @@ class TestSaveCommand(unittest.TestCase):
             victim = os.path.join(tmp, 'victim.txt')
             with open(victim, 'w') as fh:
                 fh.write('precious')
-            errors = shell(['load prop', f'save "{victim}"', 'save "prop.kurt"'])
+            errors = shell(['load propositional', f'save "{victim}"', 'save "propositional.kurt"'])
             self.assertIn('must end with `.kurt`', errors)
             self.assertIn('is the name of a theory that comes with Kurt', errors)
             with open(victim) as fh:
                 self.assertEqual(fh.read(), 'precious')
-            self.assertFalse(os.path.exists('prop.kurt'))
+            self.assertFalse(os.path.exists('propositional.kurt'))
 
     def test_no_save_with_strict_or_in_a_loaded_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -118,13 +118,13 @@ class TestSaveCommand(unittest.TestCase):
             old = kurt.run_state.strict_mode
             kurt.run_state.strict_mode = True
             try:
-                errors = shell(['load prop', f'save "{saved}"'])
+                errors = shell(['load propositional', f'save "{saved}"'])
             finally:
                 kurt.run_state.strict_mode = old
             self.assertIn('no `save` with `--strict`', errors)
             helper = os.path.join(tmp, 'helper.kurt')
             with open(helper, 'w') as fh:
-                fh.write(f'bool A\nsave "{saved}"\n')
+                fh.write(f'prop A\nsave "{saved}"\n')
             main = os.path.join(tmp, 'main.kurt')
             with open(main, 'w') as fh:
                 fh.write(f'load "{helper}"\n')

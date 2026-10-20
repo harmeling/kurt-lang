@@ -1,7 +1,7 @@
 ; any finite number of `case` blocks combine through the kernel-checked `case-elim`; with
 ; only two of three alternatives, they don't
-load prop
-bool A, B, C, E, G, H, K
+load propositional
+prop A, B, C, E, G, H, K
 use A or B or C
 use A implies G
 use B implies G
