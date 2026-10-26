@@ -34,7 +34,7 @@ class TestCheckExprLabel(unittest.TestCase):
 
     def test_expression_with_plain_label(self):
         # parser shape for `P "foo"`: [STRING, P]
-        expr = [string("foo"), sym("P")]
+        expr: Expr = [string("foo"), sym("P")]
         tail, label, local = check_expr_label(expr, self.kb)
         self.assertEqual(label, "foo")
         self.assertFalse(local)
@@ -42,7 +42,7 @@ class TestCheckExprLabel(unittest.TestCase):
 
     def test_expression_with_local_label(self):
         # parser shape for `P local "foo"`, from `local_led`: [local, STRING, P]
-        expr = [sym("local"), string("foo"), sym("P")]
+        expr: Expr = [sym("local"), string("foo"), sym("P")]
         tail, label, local = check_expr_label(expr, self.kb)
         self.assertEqual(label, "foo")
         self.assertTrue(local)
@@ -50,7 +50,7 @@ class TestCheckExprLabel(unittest.TestCase):
 
 class TestFormulaIsExported(unittest.TestCase):
     def make(self, label, local):
-        return Formula(None, sym("P"), "", "1", "f.kurt", label, "reason", keyword="use", local=local)
+        return Formula(initial_kb, sym("P"), "", "1", "f.kurt", label, "reason", keyword="use", local=local)
 
     def test_labeled_not_local_is_exported(self):
         self.assertTrue(self.make("foo", False).is_exported())

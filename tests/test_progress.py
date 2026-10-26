@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+import unittest.mock
 
 import kurt.kurt as kurt
 
@@ -39,8 +40,8 @@ class TestProgress(unittest.TestCase):
         server.progress = events.append
         uri = 'file:///tmp/progress.kurt'
         server.texts[uri] = 'prop A\nuse A\n'
-        server.publish_diagnostics = lambda *args: None
-        server.check(uri)
+        with unittest.mock.patch.object(server, 'publish_diagnostics', lambda *args: None):
+            server.check(uri)
         self.assertEqual(events[-1], {'file': '/tmp/progress.kurt', 'line': 2, 'lines': 2, 'index': 1, 'files': 1, 'done': True})
 
 

@@ -1,6 +1,6 @@
 ; Statements and terms are two categories: a statement is what is proved (`prop`), a term is an
 ; object (`any` and the sorts below it). A statement is no object -- it can't be compared with `=`,
-; be an element of a set, or be the argument of a function (decided 2026-10-20, doc/kurt-doc.md
+; be an element of a set, or be the argument of a function (decided 2026-10-20, doc/kurt-ref.md
 ; §5.1). Before, the type checker accepted `c = (A ∧ B)` and `A ∈ M`, though the search never put
 ; a statement in for a term variable, and the Lean export, where statements are `Prop` and terms
 ; `Obj`, wrote such a line as an ill-typed axiom.

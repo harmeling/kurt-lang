@@ -3,7 +3,7 @@
 ; `use`/`load`/`def`/`chain`/`inline`: once a block's own notation is used by a formula that
 ; survives the block, the declaration is promoted and locked in for good (`is_used`), so
 ; "declare it, use it inside the block, forget it again on close" was never actually available --
-; see doc/kurt-doc.md §11.2. `case` pushes the same block kind as `assume` (it runs as `assume`,
+; see doc/kurt-ref.md §11.2. `case` pushes the same block kind as `assume` (it runs as `assume`,
 ; see `eval_keyword_expression`), so its message also names `assume`.
 ; (in a helper file: inside `expect`, whose content is discarded, a declaration is still allowed)
 prop A

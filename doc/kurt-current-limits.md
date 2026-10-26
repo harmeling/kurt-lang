@@ -16,7 +16,7 @@ retractions are kept in, on purpose: the thing worth trusting here is the empiri
 one paragraph's confidence.
 
 Companion reading: `dev/deep-logic-experiments.md` (the experiments this grew out of),
-`dev/todo.md` #22 and #36 (the open backlog items), `doc/kurt-doc.md` §8.2 (the theories, including
+`dev/todo.md` #22 and #36 (the open backlog items), `doc/kurt-ref.md` §8.2 (the theories, including
 `lambda.kurt`), `doc/kurt-spec.md` §3 and `doc/kurt-soundness.md` (what Kurt's logic actually
 guarantees).
 
@@ -293,10 +293,10 @@ the *named* `λ` are out of reach, both independent of §2.3's hypothesis 3.
 
 **Hypothesis 1's induction axiom proves `false`.** Kurt reads a schema variable under a binder as
 *not* depending on the bound variable, unless it occurs only under binders over it or in a `sub` for
-it (doc/kurt-doc.md §4.4). In `∀ $x ∀ M ((sub $subj M %A) ⇒ (sub $subj (lam $x M) %A))`, `M` also
+it (doc/kurt-ref.md §4.4). In `∀ $x ∀ M ((sub $subj M %A) ⇒ (sub $subj (lam $x M) %A))`, `M` also
 occurs outside `lam $x`, so the `lam` case is about bodies that don't depend on `$x` -- constant
 functions -- and the conclusion claims every term. With the conclusion written so that the search
-applies it (`⇒ ∀ $s (sub $subj $s %A)`, §5.5; the form `⇒ ∀ $subj %A` is never applied) and two
+applies it (`⇒ ∀ $s (sub $subj $s %A)`, §5.5; the form `⇒ ∀ $subj %A` was never applied before 2026-10-23, §5.5) and two
 no-confusion axioms, this checks:
 
     load logic, equality
@@ -405,17 +405,17 @@ the sort-conditioned `∀` above already has the same expressive power.
 | Want | Blocked? | Why | What works instead |
 |---|---|---|---|
 | Structural induction over a closed, first-order inductively-presented sort | No | `%A`-schema axioms are fully general, same device as `natural.kurt` (§1) | Write the axiom |
-| General preservation / Church–Rosser for `lambda.kurt`, stated over the de Bruijn encoding | No: preservation done (2026-10-20), Church–Rosser unwritten | `term` also contains `λ` (§2.2), so the proof defines its own de Bruijn calculus (sorts `tm`, `ty`, `cx`); induction + weakening + substitution lemma, all first-order (§5.5) | proofs/classics/lambda-preservation.kurt |
+| General preservation / Church–Rosser for `lambda.kurt`, stated over the de Bruijn encoding | No: preservation done (2026-10-20), Church–Rosser done (2026-10-24) | `term` also contains `λ` (§2.2), so the proofs define their own de Bruijn calculus (sorts `tm`, `ty`, `cx`); induction + weakening + substitution lemma, all first-order (§5.5); parallel reduction, complete development, the closures as inductive relations (§5.7) | proofs/classics/lambda-preservation.kurt, proofs/classics/lambda-church-rosser.kurt |
 | Structural induction over a sort with a Kurt binder (HOAS `lam x M`) | **Yes** (§2.5) | The `lam` case of the axiom covers only bodies that don't depend on `x`; with no-confusion axioms it proves `false` | The de Bruijn presentation |
 | A proof about the generic named β-step `sub x N M` | **Yes** (§2.5) | `sub` is refused in proof lines; typing inversion for named `λ` is a disjunction over body shapes, no formula | The de Bruijn presentation |
 | A theorem quantified over real functions as values (`∀ f ∈ ℝ → ℝ`, continuity of `f`) | **Yes** (§5.3) | A mapping applied, `f y`, has the sort `set` of the mapping, never `real`; analysis needs `real` (`cont y x (f y)` is a type error) | A schema over a function symbol (`var f`), applied to any function symbol |
-| The number of elements of a finite set (Lagrange, pigeonhole) | Library gap, not a language limit (§5.4) | No theory has it; `def` can't define `card` (no description operator), but a relation `hassize(A, n) ⇔ ∃ m bijection(m, {1, ..., n}, A)` is expressible | Partition + bijections (proofs/classics/lagrange-cosets.kurt) |
+| The number of elements of a finite set (Lagrange, pigeonhole) | No: finite.kurt (2026-10-24) | `hassize(A, n)` (a bijection from `below(n)` = {0, ..., n - 1} onto A) is a `def`, its lemmas theorems; `card` can't be a `def` (no description operator), the relation says the same | src/kurt/theories/finite.kurt, proofs/classics/lagrange.kurt |
 | Stating the general preservation substitution lemma (one `sub`) | No | Single-`sub` facts parse and type-check fine; the restriction is on *nested* `sub` only (§2.3, hypothesis 2) | State it directly, prove by induction, one `sub` per step |
 | A general fact that composes two substitutions ("substitutions commute") | **Yes**, but doesn't matter here | `sub` can't be nested in one expression, and can't appear outside `use`/`def` at all (§2.3, hypothesis 2) | Not needed for preservation, and not needed for confluence via the standard parallel-reduction route either (todo #37) |
 | A fully general named hypothetical-premise rule (`Γ,x:A⊢M:B ⟹ Γ⊢λx.M:A→B`) for Kurt's own binder | **Yes** | Accepted when declared, but unusable: `block_always(v_p)` keeps the binder's bound-name permanently unassignable for the rest of the rule's matching, by design (it's what makes `forall-elim` sound). A candidate fix was attempted and crashed an existing adversarial regression test (`search-bugs-the-kernel-caught.kurt`), and turned out to need a second, separate change (`dependent_vars`/`may_capture` doesn't cover this pattern either) even before that — reverted (§2.3 hypothesis 3, §2.4) | State the general theorems over the de Bruijn encoding; keep named `λ` as sugar for closed, individually-checked examples |
 | Second-order logic: quantifying over sets as well as individuals | No | `sort` + `set.kurt`'s `℘` + a domain-conditioned `∀`/`let` is already fully sound and general (§3) | `let X ∈ ℘(Obj) (...)` |
-| Two `sub`s in one formula ("substitutions commute") | **Not wanted** (decided 2026-10-20, doc/kurt-doc.md §11.1: the matching would become higher-order unification; nothing known needs it) | |
-| The named hypothetical-premise rule for Kurt's own binder | **Not wanted** (decided 2026-10-20, doc/kurt-doc.md §11.1: the bound name would leave its binder; the de Bruijn presentation has the general rule) | |
+| Two `sub`s in one formula ("substitutions commute") | **Not wanted** (decided 2026-10-20, doc/kurt-ref.md §11.1: the matching would become higher-order unification; nothing known needs it) | |
+| The named hypothetical-premise rule for Kurt's own binder | **Not wanted** (decided 2026-10-20, doc/kurt-ref.md §11.1: the bound name would leave its binder; the de Bruijn presentation has the general rule) | |
 | A *second, visually distinct* quantifier glyph that still gets `let`'s automatic generalization | **Not wanted** (decided 2026-10-20, dev/todo-sorts.md decision 14: the sort of a binder distinguishes the ranges) | `let`/`pick` dispatch to one global role-holder, not by sort; a hand-written intro axiom as a substitute would be unsound without proof-state-aware freshness tracking (§3) | Use the one real `∀`/`let` with a domain condition; add the second glyph as notation bridged to `∀` by a proven equivalence if wanted |
 
 The real limit (§2.3's hypothesis 3) and the near-misses (§1's prerequisite, §2.3's hypothesis 2,
@@ -442,12 +442,13 @@ standard definition, and says so in a comment.
 | Cantor: no mapping from A onto Pow(A) | works, general in A and f | cantor.kurt |
 | Euclid: infinitely many primes (above every n a prime) | works, no axiom | infinitely-many-primes.kurt |
 | Intermediate value theorem | works, a schema in the function (`var f`) and `$a`, `$b`, applied to a function symbol | intermediate-value-theorem.kurt |
-| Lagrange | partial: the cosets partition G and each is in bijection with H; the counting step is a library gap (§5.4) | lagrange-cosets.kurt |
+| Lagrange | works: the cosets partition G and each is in bijection with H; |G| = [G : H] · |H| and |H| divides |G| by induction on unions of cosets, with finite.kurt (§5.4) | lagrange.kurt |
 | Preservation (subject reduction), simply typed λ, call-by-value | works, for a de Bruijn calculus defined in the file (§5.5) | lambda-preservation.kurt |
 | Knaster-Tarski for a power set (extra) | works | knaster-tarski.kurt |
-| Church-Rosser | not attempted: the route is clear (parallel reduction and complete developments over the same de Bruijn calculus), the bulk is two more de Bruijn lemmas (shift and subst commute); no language limit is expected | |
+| Church-Rosser, untyped λ, full β-reduction | works, for a de Bruijn calculus defined in the file: parallel reduction, Takahashi's complete development, the closures as inductive relations (§5.7) | lambda-church-rosser.kurt |
 
-The proofs need no new feature for what they prove; what they found is listed by theorem. Through
+The proofs need no new feature for what they prove; what they found is listed by theorem. Four of the
+limits of the search found here were fixed afterwards (todo 52, 2026-10-23), marked below. Through
 `kurt --lean` and Lean with Mathlib (SLURM job 115579, dev/lab-notes.md), cantor.kurt and
 knaster-tarski.kurt check completely; the exports of the other four fail in Lean for gaps of the
 export (a `def` over a set-builder not unfolded, an operator argument exported as an object, a sort
@@ -482,30 +483,35 @@ completeness of the numbers), continuity by "cont-def", and the two cases f(c) <
   `cont y x (g y)` is a type error ("`g y` must have sort `real`"). So "for every continuous `f : [a, b]
   → ℝ`" can't be a quantifier; the theorem is a schema over a function symbol (`var f`, an operator
   variable as in group.kurt), and it applies to any function symbol `g` in one step. Since an operator
-  is no object (doc/kurt-doc.md §5.3), the function can't be quantified either way.
+  is no object (doc/kurt-ref.md §5.3), the function can't be quantified either way.
 - **Bug, fixed 2026-10-20** (`proofs/soundness/inline-condition-binds-the-written-variable.kurt`,
   doc/kurt-soundness.md §8.49): the bound variable of a condition with an `inline` operator. `∀ x > y (P x)` bound `y`,
   not `x`, and makes `x` a constant: the condition is read as `y < x` (the `inline` of `>`) before the
-  bound variable is chosen as the first new symbol, against doc/kurt-doc.md §4.4 ("decided when it
+  bound variable is chosen as the first new symbol, against doc/kurt-ref.md §4.4 ("decided when it
   reads the line, before anything is reordered"). The same for `>=` and `⊃`, and for `$` variables:
   `use ∀ (x >= $a) (P x)` is `∀ $a ($a <= x ⇒ P x)` for a constant `x`. Nothing warns. (The proof writes
   `x <= $b ∧ $a <= x` instead.)
-- `let w with $a <= w ∧ ...` is refused when `$a` is fixed by an enclosing `assume` ("expected exactly
-  one new symbol or existing, got ['$a', 'w', '$b']"), though the fixed `$a` is no new symbol there;
-  `let w` and `assume ...` instead, and "forall-cond-def" back to the conditioned `∀`.
+- `let w with $a <= w ∧ ...` was refused when `$a` is fixed by an enclosing `assume` ("expected exactly
+  one new symbol or existing, got ['$a', 'w', '$b']"), though the fixed `$a` is no new symbol there.
+  **Fixed 2026-10-23** (todo 52, proofs/debug/let-condition-with-a-fixed-variable.kurt): a variable fixed
+  by an enclosing block is no candidate, as for a binder; the proof now writes `let w with ...`.
 
 ### 5.4 Lagrange
 
 The cosets `coset(a) = {x ∈ G | ∃ h ∈ H (x = a ∘ h)}` are equal or disjoint and cover G, and `h ↦ a
 ∘ h` is a bijection from H onto aH -- a mapping built as a set of pairs with separation, proved to be
-in `H → coset(a)` from "function-space", injective and surjective. What is missing is the counting:
-|G| = [G : H] · |H| needs the number of elements of a finite set, and no theory has finite sets.
-It is expressible -- `hassize(A, n) ⇔ ∃ m bijection(m, {1, ..., n}, A)` checks, with natural.kurt's
-`{1, ..., n}` -- but `card` can't be a `def` (Kurt has no description operator "the n with ..."), and
-the lemmas Lagrange needs (the size of a disjoint union, then of k disjoint sets of size m, by
-induction) are a theory of finite sets of their own: a library gap, not a language limit. One trap: a
+in `H → coset(a)` from "function-space", injective and surjective. The counting (2026-10-24) uses
+finite.kurt: `hassize(A, n)` ("A has n elements", a bijection from `below(n)` = {0, ..., n - 1} onto A)
+with its lemmas, all proved there (adding and removing an element, uniqueness of n, a bijection keeps
+it, disjoint unions add up, subsets are no larger). `card` can't be a `def` (Kurt has no description
+operator "the n with ..."), so the index [G : H] is "the set `cosets(G)` of the cosets has l
+elements". Lagrange's theorem, "lagrange": `hassize(G, N) ∧ hassize(H, K) ⇒ ∃ l (hassize(cosets(G),
+l) ∧ N = l * K)`, by induction on j: every union of cosets T with i <= j elements has i = l · K, with
+l the number of its cosets (take one coset out: i - K elements left, one coset fewer). Two traps: a
 function whose value is a mapping, `shift(a) h`, is read as `shift a h` (one curried call) unless
-`arity shift 1` is declared (doc/kurt-doc.md §3.1).
+`arity shift 1` is declared (doc/kurt-ref.md §3.1); and since a fact gives no sort, an element `x ∈
+below(n)` is any object for the checker -- finite.kurt's one axiom, "nat-number" (`x ∈ Nat ⇒ ∃ k (k =
+x)`, a theorem in the Lean model), gives the number equal to it.
 
 ### 5.5 Preservation for the simply typed λ-calculus
 
@@ -517,22 +523,29 @@ by their recursive equations. Weakening, the substitution lemma and preservation
 induction on the term; the index arithmetic uses numbers.kurt (indices are numbers). The limits
 found are of the search, each with a workaround:
 
-- **Induction over a universally quantified property.** A goal `∀ Q ∀ Γ ∀ T (...)` is read with all
-  its outer `∀`s stripped, so an induction rule concluding `∀ $s (sub $t $s %P)` gets `%P` without the
-  inner `∀ Γ ∀ T` -- the induction hypothesis is then about one fixed Γ, too weak (minimal: a tree
-  induction for `∀ s ∀ y (R s y)` asks for `∀ l ∀ r ((R l y) ∧ (R r y) ⇒ R (node l r) y)`). The
-  workaround is to name the property, `def weakens(M) ⇔ ∀ Γ ...`, and to prove `∀ Q weakens(Q)`.
-- **The form of an induction rule's conclusion.** `... ⇒ ∀ $t %P` is never applied by the search
-  (its outer `∀` is stripped, leaving a bare `%P`); `... ⇒ ∀ $s (sub $t $s %P)` is. (§1's
-  `⇒ ∀ T (tree T ⇒ %A T)` was not tried.)
+- **Induction over a universally quantified property.** A goal `∀ Q ∀ Γ ∀ T (...)` was read with all
+  its outer `∀`s stripped, so an induction rule concluding `∀ $s (sub $t $s %P)` got `%P` without the
+  inner `∀ Γ ∀ T` -- the induction hypothesis was then about one fixed Γ, too weak (minimal: a tree
+  induction for `∀ s ∀ y (R s y)` asked for `∀ l ∀ r ((R l y) ∧ (R r y) ⇒ R (node l r) y)`). The
+  workaround was to name the property, `def weakens(M) ⇔ ∀ Γ ...`. **Fixed 2026-10-23** (todo 52,
+  proofs/debug/induction-over-a-forall-property.kurt): when the stripped goal fails, the whole goal is
+  matched against the conclusion with its `∀`s too; the file proves `∀ Q ∀ Γ ∀ T ...` directly.
+- **The form of an induction rule's conclusion.** `... ⇒ ∀ $t %P` was never applied by the search
+  (its outer `∀` stripped, leaving a bare `%P`, which lost the link to `$t`); `... ⇒ ∀ $s (sub $t $s %P)`
+  was. **Fixed 2026-10-23** by the same change: the whole goal `∀ s P(s)` matches `∀ $t %P` with
+  `%P = P($t)` (the same test file).
 - **A lemma with nested `∀`s can't be unfolded inside a block that fixes its variables.** Inside
   `let Γ, T, c, D`, the line `∀ Γ ∀ T ... ` is refused ("first arg of binding operator must not be
-  constant"), so a lemma like `weakens(N)` can't be unfolded there; the file states its instances as
-  lemmas of their own at the top ("weakening-0", "substitution-0").
-- Conditional rewriting in a chain (doc/kurt-doc.md §6.1): in the lemma "ins-ins", `get (ins 0 B
+  constant"), so the induction hypothesis is unfolded before the `let` (in the `assume`), and the
+  lemmas' instances are lemmas of their own at the top ("weakening-0", "substitution-0").
+- Conditional rewriting in a chain (doc/kurt-ref.md §6.1): in the lemma "ins-ins", `get (ins 0 B
   (ins c A Γ)) n = get (ins c A Γ) n` continued by `= get Γ n` (rule "get-ins-below", its condition
-  `n < c` a fact) is not found, while the same chain in a small file is; the instance as a line of its
-  own first works. Not reduced further.
+  `n < c` a fact) was not found, while the same chain in a small file was; the instance as a line of its
+  own first worked. The difference: `A`, `B`, `Γ` are free variables there, and each line has its own
+  names for them, so the line before differed from the next one everywhere, not only at the place
+  rewritten. **Fixed 2026-10-23** (todo 52, proofs/debug/conditional-rewrite-with-free-variables.kurt):
+  as a last try, the line before is compared under the names of the next one; four instance lines are
+  gone from the file.
 - The failure explanations list, for a rule whose conclusion didn't match, "`$a` needs sort `real`,
   but `get Γ n` has no declared sort", for a term whose sort is declared (`ty get 0`): the
   diagnostic of todo 38 misreports the sort of an application.
@@ -542,3 +555,33 @@ found are of the search, each with a workaround:
 Through, for a monotone mapping `f ∈ Pow(A) → Pow(A)`: L = {x ∈ A | ∀ S ∈ Pow(A) (f S ⊂ S ⇒ x ∈ S)} is
 a fixed point and below every fixed point. (Schröder-Bernstein would follow from it, with images,
 complements and a mapping defined by cases -- long, not attempted.)
+
+### 5.7 Church-Rosser for the untyped λ-calculus
+
+proofs/classics/lambda-church-rosser.kurt (2026-10-24): the calculus of §5.5 without types and
+`unit`, full β-reduction `->` and its closure `->*`; Tait and Martin-Löf's parallel reduction `>>`
+with Takahashi's complete development `dev` ("par-dev", then "par-diamond"), the strip lemma,
+confluence of `>>*`, `>>*` = `->*`, and "church-rosser". The de Bruijn lemmas (shift/shift,
+shift/subst at both sides, subst/shift, subst/subst) and the substitution lemma for `>>` are each
+an induction on the term over a `∀` property, as in §5.5. No language limit; what was found:
+
+- **The indices must be natural numbers.** With any number as an index (as in §5.5), "shift-subst"
+  is false: an index strictly between d and d + 1 is lowered below c by `subst` but not by `shift`
+  (c = d = 0, n = 1/2). The rules for a variable take `n ∈ Nat`, `c ∈ Nat` as hypotheses, the term
+  induction ranges over `ix n` with `n ∈ Nat`, and natural.kurt's "nat-discrete" gives d + 1 <= n
+  from d < n ("nat-above").
+- §2.3's follow-up said the parallel-reduction route needs no "substitutions commute" lemma. For
+  Kurt's own `sub` that holds; with de Bruijn's `subst` the β-in-β case of "par-subst" does need it
+  ("subst-subst": `subst c N (subst 0 R P) = subst 0 (subst c N R) (subst (c + 1) (shift 0 N) P)`),
+  but as an equation between ordinary terms, proved by induction -- no nested `sub`.
+- **A two-place induction principle can't be written** (nested `sub` is refused, §2.3): the closures
+  `>>*`, `->*` are inductive relations whose rule induction is stated for a fixed end P (`sub M P %A`
+  and back along a step, `⇒ ∀ Q (Q >>* P ⇒ sub M Q %A)`). That is enough: the strip lemma, confluence
+  and transitivity all induct on the start with the end fixed.
+- Limits of the search, each with an extra line: a chain step that rewrites two places at once
+  (`= app (f F) (f P)` from `app F P` with two equations) is not found -- one place per step; an
+  `∃ x ∃ y (...)` is introduced one quantifier at a time; a fact under two `∃` (`F = lam B` in
+  `∃ B ∃ B' ∃ Q' (F = lam B ∧ ...)`) is reached by `pick`ing all three, not from the first `pick`.
+- Speed: 53 s for the file without `.kurtc` (lambda-preservation.kurt: 14 s); 40% of it in
+  `add_assumption_parts`, the parts of the `assume (∀ ... F ...) ∧ (∀ ... P ...)` of the application
+  cases (todo 50).

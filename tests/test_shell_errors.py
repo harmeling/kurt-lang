@@ -18,7 +18,7 @@ def shell(lines: list[str]) -> tuple[str, str]:
         try:
             return next(feed)
         except StopIteration:
-            raise EOFError
+            raise EOFError from None
     old_input = builtins.input
     builtins.input = fake_input
     stdin = io.StringIO()

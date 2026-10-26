@@ -19,13 +19,15 @@ from tests.utils import PROJECT_ROOT
 # A proof that loads set.kurt or a number theory (objects.kurt's `lean Obj ZFSet`: the objects are
 # Mathlib's ZF sets, numbers.kurt's `lean real ℝ` the reals embedded into them) is written for Lean with
 # Mathlib (`import Mathlib`): these exports are checked where the lake project scripts/lean is set
-# up (`lake exe cache get`, see doc/kurt-doc.md `--lean`), by scripts/lean_check.py -- skipped
+# up (`lake exe cache get`, see doc/kurt-ref.md `--lean`), by scripts/lean_check.py -- skipped
 # otherwise; KURT_REQUIRE_MATHLIB=1 (the CI job `lean-mathlib`) makes a missing project an error.
 
 KURT = PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'
 LEAN = shutil.which('lean') or next((p for p in [os.path.expanduser('~/.elan/bin/lean')] if os.path.isfile(p)), None)
 TOOLCHAIN = (PROJECT_ROOT / 'scripts' / 'lean-toolchain').read_text(encoding='utf-8').strip()
-TESTED = tuple(int(n) for n in re.search(r'v(\d+)\.(\d+)', TOOLCHAIN).groups())
+_toolchain_version = re.search(r'v(\d+)\.(\d+)', TOOLCHAIN)
+assert _toolchain_version is not None
+TESTED = tuple(int(n) for n in _toolchain_version.groups())
 
 
 def lean_version(lean_path):
@@ -76,6 +78,8 @@ MATHLIB_PROOFS = ['proofs/arithmetic/algebraic-identities.kurt',     # numerals,
                   'proofs/natural-numbers/gauss.kurt',               # natural.kurt: `Nat ⊂ ℝ`, induction a theorem
                   'proofs/natural-numbers/progressions.kurt',        # `6 ∈ Nat` by the calculator, `{a, b, ...}` a set of embedded numbers
                   'proofs/natural-numbers/sets-of-numbers-are-equal.kurt',  # "ext-real", `Nat ⊂ Real`, a chain of `⇔` (by `grind`)
+                  'proofs/complex/complex-numbers.kurt',             # complex.kurt: `ℂ`, `+` of ℝ or of ℂ by the least sort, a real cast
+                  'proofs/complex/powers-and-modulus.kurt',          # `k_cpow`, a complex rule for a real (`norm_cast`/`push_cast`), Gaussian `calc`
                   ] + SET_PROOFS
 
 # the theories of numbers (each loads numbers.kurt, `lean Obj ℝ`): their rules are theorems of
@@ -121,7 +125,7 @@ NUMBER_THEORIES = ['numbers', 'natural', 'integer', 'rational', 'analysis', 'con
 # the theories with a model in Lean (`lean Obj ...`): every rule proved there -- the numbers and sets in
 # Mathlib's ZF sets, modal logic T in Kripke semantics (reflexive frames), the field axioms in the reals (the
 # axiom audit, dev/todo.md 11)
-THEORIES_WITH_A_MODEL = NUMBER_THEORIES + ['modal', 'field']
+THEORIES_WITH_A_MODEL = NUMBER_THEORIES + ['complex', 'modal', 'field']
 STAY_AXIOMS = {
     # true (Riemann sums of a continuous function converge to its integral), but not in Mathlib
     'integral': {'integral-riemann'},
@@ -131,7 +135,7 @@ STAY_AXIOMS = {
 EXPECTED_TEXT = {
     'proofs/mafi1/07-groups.kurt': ['(∃ (x', ' G) ∧ '],                                # `∃ $b ∈ G (...)` is `∃ b, b ∈ G ∧ ...`
     # `flat ·` in field.kurt's model (`lean · def ...`): its associativity a theorem, `U · A · B` nested
-    'proofs/mafi1/15-inverse-matrix.kurt': ['theorem k_ub7_assoc', '(k_ub7_d2 x_U (k_ub7_d2 x_A x_B))'],
+    'proofs/mafi1/15-inverse-matrix.kurt': ['theorem times_assoc', '(times_d2 x_U (times_d2 x_A x_B))'],
     'proofs/mafi1/06-subspaces.kurt': ['noncomputable def subspace (x', ' : Obj) : Prop := ', ' K_d0) → '],   # `def ... ⇔ ...` as a Lean `def`; `∀ $a ∈ K (...)`, `K` field.kurt's model
     'proofs/natural-deduction/existsunique.kurt': ['(∃ x_, ', '"existsunique-unique": proved in Lean'],   # `∃!` by its `lean` (logic.kurt)
     'proofs/mafi1/08-linear-span.kurt': ['noncomputable def L (x', ' : Obj) (x', '(L x_v1 x_v2)'],      # a `def` over a pair
@@ -140,6 +144,9 @@ EXPECTED_TEXT = {
     # a mapping applied: the `b` with `(a, b) ∈ f`, a definition; `A → B` the set of the mappings
     'proofs/set-theory/function-space-membership.kurt': ['noncomputable def k_apply (f a : Obj) : Obj', 'axiom f : Obj', '(ZFSet.funs A B)'],
     'proofs/mafi1/matrices.kurt': ['axiom k_GL : Obj'],
+    # an object applied like a mapping: a term (`pairs(a) a`), a constant with a Lean meaning (`∅ a`), `k_apply`
+    'proofs/debug/lean-object-applied.kurt': ['(k_apply (pairs a) a)', '(k_apply ((∅ : Obj)) a)'],
+    'proofs/debug/lean-object-applied-mixed.kurt': ['(k_apply ((∅ : Obj)) a)'],
 }
 
 # sets and numbers in one proof: the numbers embedded into the sets (`k_emb`), a part of `Nat` by
@@ -191,6 +198,7 @@ def lean_mathlib(path: str) -> subprocess.CompletedProcess:
 
 
 def lean(path: str) -> subprocess.CompletedProcess:
+    assert LEAN is not None         # (the tests that call it are skipped without Lean)
     return subprocess.run([LEAN, os.path.basename(path)], cwd=os.path.dirname(path), capture_output=True, text=True, timeout=300)
 
 
@@ -293,6 +301,22 @@ class TestExportLean(unittest.TestCase):
         self.assertIn('noncomputable def even', text)
         self.assertNotRegex(text, r'axiom f\d+ : .*"even-def"')
 
+    def test_complex_numbers(self):
+        # complex.kurt (todo 48): `lean complex ℂ`, a real where a complex number is required cast into
+        # `ℂ`, an overloaded operator by the least sort of each occurrence -- `x ^ 2` of reals `Real.rpow`,
+        # `z ^ 2` of a complex `z` `k_cpow` (`lean complex ^ ...`), `x + 1` in `ℝ`, `z + x` in `ℂ` --, a
+        # complex number among the sets `k_embC` (a real embedded as itself); refused until 2026-10-23
+        text = export_text('load complex\ncomplex z\nreal x\nuse z = x + 1 "zx"\nz + x = x + 1 + x\nx ^ 2 = x ^ 2\nz ^ 2 = z ^ 2\n')
+        self.assertIn('noncomputable def k_embC (z : ℂ) : Obj', text)
+        self.assertIn('noncomputable def k_cpow (z w : ℂ) : ℂ', text)
+        self.assertIn('axiom z : ℂ', text)
+        self.assertIn('axiom x : ℝ', text)
+        self.assertRegex(text, r'\(\(\(x \+ \(1 : ℝ\)\) : ℝ\) : ℂ\)|\(\(\(\(1 : ℝ\) \+ x\) : ℝ\) : ℂ\)')   # `x + 1` of reals, then cast
+        self.assertIn('(x ^ (2 : ℝ))', text)
+        self.assertIn('(k_cpow z (2 : ℂ))', text)
+        self.assertIn('theorem k_u2b_complex_comm : ∀ (a b : ℂ)', text)             # `sym +` in `ℂ` too
+        self.assertNotIn('not translated', text)
+
     def test_sets_and_numbers_together(self):
         # the objects are Mathlib's ZF sets and the numbers the reals embedded into them (a
         # definition, injective: no axiom); a number where a set is required is `k_emb x`, the rules
@@ -315,7 +339,7 @@ class TestExportLean(unittest.TestCase):
         # each theory's own export (`kurt --lean numbers.kurt`): every `use` of the file a theorem with
         # its proof in Lean, but those of STAY_AXIOMS -- the text, without Lean
         theories = PROJECT_ROOT / 'src' / 'kurt' / 'theories'
-        for theory in THEORIES_WITH_A_MODEL:
+        for theory in THEORIES_WITH_A_MODEL + ['finite']:     # (finite.kurt: its one rule, "nat-number")
             with self.subTest(theory=theory), tempfile.TemporaryDirectory() as tmp:
                 source = (theories / f'{theory}.kurt').read_text(encoding='utf-8')
                 rules = set(re.findall(r'^\s*use .*"([^"]+)"\s*(?:;.*)?$', source, re.MULTILINE))
@@ -360,7 +384,7 @@ class TestExportLean(unittest.TestCase):
 
     def test_a_rule_proved_in_lean_has_the_definitions_it_unfolds(self):
         # integer.kurt's "int-sub-real", `Int ⊂ Real`, is proved by unfolding set.kurt's `⊂`: its
-        # export has the definition of `⊂`, not an axiom `k_u2282` (that `simp only [k_u2282]` can't open)
+        # export has the definition of `⊂`, not an axiom `subset` (that `simp only [subset]` can't open)
         theories = PROJECT_ROOT / 'src' / 'kurt' / 'theories'
         with tempfile.TemporaryDirectory() as tmp:
             out = os.path.join(tmp, 'integer.lean')
@@ -368,8 +392,8 @@ class TestExportLean(unittest.TestCase):
                                     capture_output=True, text=True, timeout=600)
             self.assertEqual(result.returncode, 0, result.stderr)
             text = Path(out).read_text(encoding='utf-8')
-            self.assertIn('noncomputable def k_u2282 ', text)
-            self.assertNotIn('axiom k_u2282 ', text)
+            self.assertIn('noncomputable def subset ', text)
+            self.assertNotIn('axiom subset ', text)
 
     def test_theorems_about_divisibility(self):
         # a `def` over a pair, `def coprime($a, $b)`: a Lean function of two arguments; the `def`s of
@@ -577,7 +601,7 @@ class TestExportLeanMathlib(unittest.TestCase):
             _, out = translate('proofs/arithmetic/algebraic-identities.kurt', tmp)
             text = Path(out).read_text(encoding='utf-8')
             true = re.search(r'theorem f\d+ : \(\(\(2 : ℝ\) \* \(a \+ b\)\) = \(\(\(2 : ℝ\) \* a\) \+ \(\(2 : ℝ\) \* b\)\)\)', text)
-            self.assertIsNotNone(true, 'the theorem `(a + b) * 2 = a * 2 + b * 2`')
+            assert true is not None, 'the theorem `(a + b) * 2 = a * 2 + b * 2`'
             control = lean_mathlib(out)
             self.assertEqual(control.returncode, 0, control.stdout + control.stderr)
             with open(out, 'w', encoding='utf-8') as fh:
@@ -589,7 +613,7 @@ class TestExportLeanMathlib(unittest.TestCase):
             _, out = translate('proofs/arithmetic/chains.kurt', tmp)
             text = Path(out).read_text(encoding='utf-8')
             calculation = re.search(r'theorem f\d+ : \(\(\(1 : ℝ\) \+ \(2 : ℝ\)\) = \(3 : ℝ\)\)', text)
-            self.assertIsNotNone(calculation, 'the calculation `2 + 1 = 3`')
+            assert calculation is not None, 'the calculation `2 + 1 = 3`'
             with open(out, 'w', encoding='utf-8') as fh:
                 fh.write(text.replace(calculation.group(0), calculation.group(0).replace('(3 : ℝ)', '(4 : ℝ)'), 1))
             result = lean_mathlib(out)

@@ -7,6 +7,11 @@ import kurt
 import kurt.kurt as internals
 
 
+def failure_of(result: kurt.CheckResult) -> dict:
+    assert result.failure is not None, 'the check gave no failure explanation'
+    return result.failure
+
+
 class TestFailureExplanations(unittest.TestCase):
     def test_missing_premise_is_structured_and_rendered(self):
         result = kurt.check_text('prop A, B\nuse A implies B "mp"\nB\n')
@@ -30,7 +35,7 @@ class TestFailureExplanations(unittest.TestCase):
     def test_reports_present_and_missing_parts_of_a_premise(self):
         result = kurt.check_text(
             'load propositional\nprop A, B, C\nuse A and B implies C "both"\nuse A\nC\n')
-        candidate = result.failure['candidates'][0]
+        candidate = failure_of(result)['candidates'][0]
         self.assertEqual((candidate['rule'], candidate['missing']), ('both', ['B']))
         self.assertEqual(candidate['matched'], ['line 4'])
 
@@ -44,12 +49,12 @@ class TestFailureExplanations(unittest.TestCase):
             'prop A, B\n'
             'use A implies B "one"\nuse A implies B "two"\n'
             'use A implies B "three"\nuse A implies B "four"\nB\n')
-        self.assertLessEqual(len(result.failure['candidates']), 3)
+        self.assertLessEqual(len(failure_of(result)['candidates']), 3)
 
     def test_failed_goal_uses_source_variable_names(self):
         result = kurt.check_text('var x\nconst P\nP x\n')
         self.assertFalse(result.ok)
-        self.assertEqual(result.failure['goal'], 'P x')
+        self.assertEqual(failure_of(result)['goal'], 'P x')
         self.assertIn('can not derive `P x`', result.error or '')
         self.assertNotIn('$$', result.error or '')
         self.assertNotIn('%%', result.error or '')
@@ -62,9 +67,9 @@ class TestMissingConditions(unittest.TestCase):
         # `=` "extensionality") but not the missing condition of the fact `∀ y ∈ A (y ∈ B)`
         result = kurt.check_text('load set\nconst A, B, x\nuse ∀ y ∈ A (y ∈ B)\nx ∈ B\n')
         self.assertFalse(result.ok)
-        self.assertIn('`line 3`: missing `x ∈ A`', result.error)
-        self.assertNotIn('bottom-elim', result.error)
-        self.assertNotIn('extensionality', result.error)
+        self.assertIn('`line 3`: missing `x ∈ A`', result.error or '')
+        self.assertNotIn('bottom-elim', result.error or '')
+        self.assertNotIn('extensionality', result.error or '')
 
 
 class TestSortMismatches(unittest.TestCase):
@@ -80,29 +85,29 @@ class TestSortMismatches(unittest.TestCase):
     def test_names_the_rule_variable_sort_and_value(self):
         result = kurt.check_text(self.TEXT)
         self.assertFalse(result.ok)
-        self.assertEqual(result.failure['sort_mismatches'], [{
+        self.assertEqual(failure_of(result)['sort_mismatches'], [{
             'rule': 'p-rule',
             'location': 'line 7',
             'violations': ['`x` needs sort `obj`, but `a` has no declared sort'],
         }])
-        self.assertEqual(result.failure['candidates'], [])
-        self.assertIn('`p-rule` (line 7): `x` needs sort `obj`, but `a` has no declared sort', result.error)
-        self.assertIn("a rule's conclusion would match except for a declared sort", result.error)
+        self.assertEqual(failure_of(result)['candidates'], [])
+        self.assertIn('`p-rule` (line 7): `x` needs sort `obj`, but `a` has no declared sort', result.error or '')
+        self.assertIn("a rule's conclusion would match except for a declared sort", result.error or '')
 
     def test_never_fires_when_an_ordinary_candidate_exists(self):
         # a genuine missing-premise case is unaffected: no `sort_mismatches` key at all
         result = kurt.check_text('prop A, B\nuse A implies B "mp"\nB\n')
         self.assertFalse(result.ok)
-        self.assertNotIn('sort_mismatches', result.failure)
+        self.assertNotIn('sort_mismatches', result.failure or {})
 
     def test_a_structurally_impossible_rule_gets_neither(self):
         # `a` and `b` are both unsorted, incompatible constants -- a genuine "no rule at all"
         # case, not a sort issue, so neither `candidates` nor `sort_mismatches` has anything
         result = kurt.check_text('const a, b\narity P 1\nuse P a "p-of-a"\nP b\n')
         self.assertFalse(result.ok)
-        self.assertEqual(result.failure['candidates'], [])
-        self.assertNotIn('sort_mismatches', result.failure)
-        self.assertIn('no rule with a matching conclusion was found', result.error)
+        self.assertEqual(failure_of(result)['candidates'], [])
+        self.assertNotIn('sort_mismatches', result.failure or {})
+        self.assertIn('no rule with a matching conclusion was found', result.error or '')
 
 
 COUNTEREXAMPLE_LINE = ('a counterexample: with `A` false, `B` false and `C` true, every fact holds but the claim '
@@ -128,37 +133,37 @@ class TestCounterexamples(unittest.TestCase):
     def test_a_propositional_claim_gets_a_counterexample(self):
         result = kurt.check_text('load propositional\nprop A, B, C\nuse A ⇒ B\nuse A ∨ C\nB\n')
         self.assertFalse(result.ok)
-        self.assertEqual(result.failure['counterexample'], {'assignment': {'A': False, 'B': False, 'C': True}})
-        self.assertIn(COUNTEREXAMPLE_LINE, result.error)
-        self.assertIn('`line 3`: missing `A`', result.error)       # (the missing premises are still there)
+        self.assertEqual(failure_of(result)['counterexample'], {'assignment': {'A': False, 'B': False, 'C': True}})
+        self.assertIn(COUNTEREXAMPLE_LINE, result.error or '')
+        self.assertIn('`line 3`: missing `A`', result.error or '')       # (the missing premises are still there)
 
     def test_a_claim_that_follows_in_more_steps_gets_none(self):
         # `C` follows from `A`, `A ⇒ B`, `B ⇒ C` -- not in one step, but in every row of the truth
         # table: nothing must suggest that it is false
         result = kurt.check_text('load propositional\nprop A, B, C\nuse A ⇒ B\nuse B ⇒ C\nuse A\nC\n')
         self.assertFalse(result.ok)
-        self.assertNotIn('counterexample', result.failure)
-        self.assertNotIn('counterexample', result.error)
-        self.assertIn('missing `B`', result.error)
+        self.assertNotIn('counterexample', result.failure or {})
+        self.assertNotIn('counterexample', result.error or '')
+        self.assertIn('missing `B`', result.error or '')
         # the same from inside a block: `A` from `A ∨ B` and `¬B` needs or-elim, it holds in every row
         result = kurt.check_text('load propositional\nprop A, B, C\nuse A ∨ B\nuse ¬B\nshow C ⇒ A\nproof\n    assume C\n        A\nqed\n')
         self.assertFalse(result.ok)
-        self.assertNotIn('counterexample', result.error)
+        self.assertNotIn('counterexample', result.error or '')
 
     def test_false_from_consistent_facts_and_opaque_atoms(self):
         result = kurt.check_text('load propositional\nprop A, B\nuse A\nuse A ⇒ B\nfalse\n')
-        self.assertEqual(result.failure['counterexample'], {'assignment': {'A': True, 'B': True}})
+        self.assertEqual(failure_of(result)['counterexample'], {'assignment': {'A': True, 'B': True}})
         # `false` from nothing: the empty assignment is the counterexample (an IndexError, 2026-10-16)
         result = kurt.check_text('load propositional\nfalse\n')
-        self.assertEqual(result.failure['counterexample'], {'assignment': {}})
-        self.assertIn("a counterexample: every fact holds but the claim doesn't", result.error)
+        self.assertEqual(failure_of(result)['counterexample'], {'assignment': {}})
+        self.assertIn("a counterexample: every fact holds but the claim doesn't", result.error or '')
         # a statement about objects is an atom: `P a` says nothing about `P b`
         result = kurt.check_text('load propositional\nconst P, a, b\nuse P a\nP b\n')
-        self.assertEqual(result.failure['counterexample'], {'assignment': {'P a': True, 'P b': False}})
-        self.assertIn('with `P a` true and `P b` false', result.error)
+        self.assertEqual(failure_of(result)['counterexample'], {'assignment': {'P a': True, 'P b': False}})
+        self.assertIn('with `P a` true and `P b` false', result.error or '')
         # a `def` is a fact about its symbol
         result = kurt.check_text('load propositional\nprop A, B\ndef C iff A ∧ B\nuse A\nC\n')
-        self.assertEqual(result.failure['counterexample'], {'assignment': {'A': True, 'B': False, 'C': False}})
+        self.assertEqual(failure_of(result)['counterexample'], {'assignment': {'A': True, 'B': False, 'C': False}})
 
     def test_first_order_facts_and_schematic_claims_get_none(self):
         # a fact with a quantifier or an object variable may say something about the atoms that a
@@ -171,20 +176,20 @@ class TestCounterexamples(unittest.TestCase):
             result = kurt.check_text(text)
             self.assertFalse(result.ok, text)
             self.assertNotIn('counterexample', result.failure or {}, text)
-            self.assertNotIn('counterexample', result.error, text)
+            self.assertNotIn('counterexample', result.error or '', text)
 
     def test_the_bounds(self):
         def chain(n: int) -> str:
             atoms = ', '.join(f'A{i}' for i in range(n))
             return f'load propositional\nprop {atoms}\n' + ''.join(f'use A{i} ∨ A{i + 1}\n' for i in range(n - 1)) + 'A0\n'
-        self.assertIn('counterexample', kurt.check_text(chain(internals.COUNTEREXAMPLE_ATOMS)).failure)
-        self.assertNotIn('counterexample', kurt.check_text(chain(internals.COUNTEREXAMPLE_ATOMS + 1)).failure)
+        self.assertIn('counterexample', kurt.check_text(chain(internals.COUNTEREXAMPLE_ATOMS)).failure or {})
+        self.assertNotIn('counterexample', kurt.check_text(chain(internals.COUNTEREXAMPLE_ATOMS + 1)).failure or {})
         # the time: the one row that refutes `Z` (every `A` true) is the 256th tried; with no time
         # left, the table stops at its first look at the clock
         text = 'load propositional\nprop Z, ' + ', '.join(f'A{i}' for i in range(8)) + '\n' + ''.join(f'use A{i}\n' for i in range(8)) + 'Z\n'
-        self.assertIn('counterexample', kurt.check_text(text).failure)
+        self.assertIn('counterexample', kurt.check_text(text).failure or {})
         with unittest.mock.patch.object(internals, 'COUNTEREXAMPLE_SECONDS', -1.0):
-            self.assertNotIn('counterexample', kurt.check_text(text).failure)
+            self.assertNotIn('counterexample', kurt.check_text(text).failure or {})
 
     def test_the_json_and_lsp_forms(self):
         text = 'load propositional\nprop A, B, C\nuse A ⇒ B\nuse A ∨ C\nB\n'
@@ -216,8 +221,8 @@ class TestCounterexamples(unittest.TestCase):
             self.assertFalse(result.ok)
             self.assertEqual(check.call_count, 1)
             self.assertEqual(result.error_kind, 'ProofError')
-            self.assertIn('`line 3`: missing `A`', result.error)
-            self.assertNotIn('counterexample', result.failure)
+            self.assertIn('`line 3`: missing `A`', result.error or '')
+            self.assertNotIn('counterexample', result.failure or {})
 
 
 if __name__ == '__main__':

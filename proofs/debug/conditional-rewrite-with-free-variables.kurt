@@ -1,0 +1,21 @@
+; todo 52: conditional rewriting in a chain about free variables. Each line has its own names for
+; its free variables (here `A`, `G`: "for all"), so the line before differed from the next one
+; everywhere, not only at the place rewritten, and the instance of the conditional rule "below"
+; (`get (ins c A G) n = get G n`, condition `n < c`) was not found -- unless it was written as a line
+; of its own first. Found in proofs/classics/lambda-preservation.kurt ("ins-ins").
+load numbers
+const get, ins
+arity get 2, ins 3
+var A, G, B
+real n, c
+
+use n < c  ⇒  get (ins c A G) n = get G n                         "below"
+use get (ins 0 B G) n = get G n                                    "front"
+
+show n < 0 ∧ n < c  ⇒  get (ins 0 B (ins c A G)) n = get G n       "chain"
+proof
+    assume n < 0 ∧ n < c
+        n < c
+        get (ins 0 B (ins c A G)) n = get (ins c A G) n            ; front
+                                    = get G n                      ; below
+qed

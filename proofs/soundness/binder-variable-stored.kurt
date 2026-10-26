@@ -1,6 +1,6 @@
 ; which variable a binder with a condition binds is decided when the formula is read, and stored
 ; with it: the first symbol of the condition (as written) that is new or a variable, and not bound
-; by an enclosing binder (doc/kurt-doc.md §3.4). Before, it was read again and again from which
+; by an enclosing binder (doc/kurt-ref.md §3.4). Before, it was read again and again from which
 ; symbols were constants at the time -- so it could change when a block closed (its constants are
 ; free again), and `∀ x > 0 ...` with a new plain `x` was rejected.
 load logic

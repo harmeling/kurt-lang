@@ -1,5 +1,4 @@
 import importlib.util
-import sys
 import unittest
 from pathlib import Path
 
@@ -10,8 +9,8 @@ from tests.utils import PROJECT_ROOT
 # here: change the kernel, then `python3 scripts/kernel_doc.py --update`, and read the prose again.
 
 spec = importlib.util.spec_from_file_location('kernel_doc', PROJECT_ROOT / 'scripts' / 'kernel_doc.py')
+assert spec is not None and spec.loader is not None
 kernel_doc = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
 spec.loader.exec_module(kernel_doc)
 
 

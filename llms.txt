@@ -24,7 +24,7 @@ Website: https://www.kurt-lang.org (the playground, Kurt in the browser); reposi
 
 ## Docs
 
-- [Language reference](doc/kurt-doc.md): every keyword, the syntax, blocks, theories
+- [Language reference](doc/kurt-ref.md): every keyword, the syntax, blocks, theories
 - [Tutorial](tutorial/): numbered lessons, task by task, each a runnable `.kurt` file
 - [Keywords](keywords/plan.md): numbered lessons, one keyword or idea each
 - [Soundness](doc/kurt-soundness.md): what the checker's correctness rests on

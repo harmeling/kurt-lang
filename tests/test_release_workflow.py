@@ -4,7 +4,7 @@ import unittest
 from tests.utils import PROJECT_ROOT
 
 # a release publishes nothing (PyPI, the standalone kurt.py) before the tests pass: each job of
-# release.yml but `verify` needs it (dev/astra-suggestions.md, release gating)
+# release.yml but `verify` needs it (dev/astra-suggestions.md, in git history, release gating)
 
 
 class TestReleaseWorkflow(unittest.TestCase):

@@ -13,7 +13,7 @@ tex Int \mathbb{Z}
 lean Int member $1 ∈ Set.range (fun n : ℤ => (n : ℝ))
 alias ℤ Int
 use Int ⊂ Real  "int-sub-real"      ; a set of numbers (natural.kurt's "ext-real")
-lean "int-sub-real" simp only [k_u2282]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "int-sub-real" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
 
 use $n ∈ Nat  ⇒  $n ∈ Int                         "int-nat"
 use $n ∈ Nat  ⇒  -$n ∈ Int                        "int-neg-nat"

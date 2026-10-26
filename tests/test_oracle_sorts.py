@@ -62,6 +62,13 @@ class TestOracleSorts(unittest.TestCase):
         text = 'load set\nconst x, A\nuse ((∀ X ∈ Pow(A) (x ∈ X)) ∧ {x} ∈ Pow(A)) ⇒ x ∈ {x}  "inst"\n'
         self.assertTrue(instance_valid(text, 'inst'))
 
+    def test_an_applied_mapping_has_the_sort_of_the_mapping(self):
+        # `f L` of a mapping `f` (`set f`) is a set, as Kurt reads it: a binder over the sets reaches
+        # its value (the instance of "forall-cond-elim" in proofs/classics/knaster-tarski.kurt, which
+        # the oracle refuted with `f L` a value of `any`)
+        text = 'load set\nset f\nconst A, L\nuse ((∀ X ∈ Pow(A) (X ⊂ A)) ∧ f L ∈ Pow(A)) ⇒ f L ⊂ A  "inst"\n'
+        self.assertTrue(instance_valid(text, 'inst'))
+
 
 class TestOracleArithmetic(unittest.TestCase):
     # with arithmetic (the calculator's `+`, `<`, `∈ Nat`): the numbers are the rationals
@@ -76,6 +83,24 @@ class TestOracleArithmetic(unittest.TestCase):
         text = self.HEAD + 'use 2 + 2 = 4  "right"\nuse (n < 1) ⇒ (n < 2)  "right-order"\nuse 3 ∈ Nat  "right-set"\n'
         for label in ('right', 'right-order', 'right-set'):
             self.assertTrue(instance_valid(text, label), label)
+
+
+
+class TestOracleComplex(unittest.TestCase):
+    def test_the_imaginary_unit_is_not_modelled(self):
+        # the models have no complex numbers: a step with `i` is skipped, not refuted (a random value
+        # of `i` "refuted" `i ≠ 0` in proofs/complex/complex-numbers.kurt, 2026-10-23)
+        kb = copy.deepcopy(kurt.initial_kb)
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'oracle-complex.kurt')
+            Path(path).write_text('load complex\nuse not (i = 0)  "nonzero"\n', encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                kurt.load_file(path, kb)
+        formula = next(f for f in kb.all_theory() if f.label == 'nonzero')
+        m = oracle_sorts.Model(kb, random.Random(1), 2, oracle_sorts.arithmetic_of(formula.expr, kb))
+        with self.assertRaises(oracle_sorts.Unsupported):
+            oracle_sorts.valid_in(formula.expr, m, kb)
 
 
 if __name__ == '__main__':

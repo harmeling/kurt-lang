@@ -1,0 +1,1449 @@
+; finite sets and their numbers of elements
+;
+; covers: injective, surjective and bijective mappings (`bijection(f, A, B)`, set.kurt's mappings:
+; sets of pairs), their composition, the difference of two sets (`A ∖ B`), the numbers below n
+; (`below(n)` = {0, ..., n - 1}, the counting set of Lean's `Fin n`), "A has n elements"
+; (`hassize(A, n)`: n ∈ Nat and a bijection from below(n) onto A) and `finite(A)` -- with the
+; basic facts, each a theorem proved here: ∅ has 0 elements, {a} has 1; adding a new element adds
+; one, removing one removes one; the number of elements is unique; a bijection keeps it; two
+; disjoint sets add up (and what is left when a part is taken away); a subset of a set with n
+; elements has at most n; subsets, unions and bijective images of finite sets are finite. See
+; proofs/classics/lagrange.kurt for Lagrange's theorem, |G| = [G : H] · |H|, built on them.
+;
+; Why `hassize(A, n)` is a relation and there is no `card(A)`, "the number of elements of A": a
+; `def` is conservative because it names a term or a formula that already exists (doc/kurt-ref.md
+; §6.2), and Kurt has no term for "the n with hassize(A, n)" -- no description operator (ι, or
+; Hilbert's ε) -- and for an infinite A there is no such n at all. `card` would have to be a `use`,
+; `finite(A) ⇒ hassize(A, card(A))`, an axiom (conservative, by "hassize-unique", but not checked
+; as a `def` is). The relation says the same without one: "A has n elements" instead of "|A| = n".
+;
+; One axiom: "nat-number", a natural number is a number. A fact gives no sort (doc/kurt-ref.md §5.2):
+; an object x with x ∈ Nat may be any object for the checker, and the number reasoning about it
+; (`x < n`) needs it as a number; the rule gives a number equal to it (`pick k with k = x`). It is a
+; theorem in the model of the Lean export (Nat is the set of the embedded natural numbers there),
+; see the `lean "nat-number"` at the end. Everything else here is a `def` or a theorem.
+load propositional, equality, logic, set, numbers, natural
+
+; the sorts of the variables (a fact gives no sort, doc/kurt-ref.md §5.2): mappings and sets are
+; sets, sizes are numbers, an element (also of a set of pairs, `c ∈ {(n, a)}`) is any object
+set $m, $u, $v        ; mappings
+set $X, $Y, $Z, $P    ; sets
+real $n, $k, $i, $j   ; numbers (the sizes)
+
+; a natural number is a number (see above)
+use $x ∈ Nat  ⇒  ∃ $k ($k = $x)                                          "nat-number"
+
+; injective, surjective and bijective mappings (of set.kurt: `f ∈ (A → B)`, applied `f x`) -- each
+; of a tuple (`arity`: in Lean a function of its components)
+arity injective (_, _), surjective (_, _, _), bijection (_, _, _), hassize (_, _), below 1, finite 1
+def injective($m, $A)  ⇔  ∀ x ∈ $A ∀ y ∈ $A ($m x = $m y  ⇒  x = y)                 "injective"
+def surjective($m, $A, $B)  ⇔  ∀ y ∈ $B ∃ x ∈ $A ($m x = y)                          "surjective"
+def bijection($m, $A, $B)  ⇔  $m ∈ ($A → $B) ∧ injective($m, $A) ∧ surjective($m, $A, $B)   "bijection"
+
+; the numbers below n, "A has n elements", "A is finite"
+def below($n) = {k ∈ Nat | k < $n}                                   "below"
+def hassize($A, $n)  ⇔  $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $A)  "hassize"
+def finite($A)  ⇔  ∃ $n hassize($A, $n)                                 "finite"
+
+show $x ∈ below($n)  ⇔  $x ∈ Nat ∧ $x < $n                          "in-below"
+proof
+    $x ∈ {k ∈ Nat | k < $n}  ⇔  $x ∈ Nat ∧ $x < $n
+qed
+
+show $n < $n + 1                                                      "lt-succ"
+proof
+    calc on
+    0 < 1
+    calc off
+    0 + $n < 1 + $n                                    ; lt-add
+    $n < $n + 1
+qed
+
+; an element of below(n) is a number
+show $x ∈ below($n)  ⇒  ∃ k (k = $x ∧ k ∈ Nat ∧ k < $n)            "below-number"
+proof
+    assume $x ∈ below($n)
+        $x ∈ {k ∈ Nat | k < $n}
+        $x ∈ Nat                                       ; separation-in
+        ∃ $k ($k = $x)                                 ; nat-number
+        pick j with j = $x
+            j ∈ below($n)
+            j ∈ Nat ∧ j < $n                           ; in-below
+            j = $x ∧ j ∈ Nat ∧ j < $n
+            ∃ k (k = $x ∧ k ∈ Nat ∧ k < $n)
+qed
+
+; below(0) is empty
+show ¬($x ∈ below(0))                                                "below-zero"
+proof
+    assume $x ∈ below(0)
+        ∃ k (k = $x ∧ k ∈ Nat ∧ k < 0)                 ; below-number
+        pick j with j = $x ∧ j ∈ Nat ∧ j < 0
+            j ∈ Nat
+            j < 0
+            0 <= j                                     ; nat-nonneg
+            ⊥
+qed
+
+; n is not below n
+show ¬($n ∈ below($n))                                               "below-irrefl"
+proof
+    assume $n ∈ below($n)
+        $n ∈ Nat ∧ $n < $n                             ; in-below
+        $n < $n
+        $n ≠ $n                                        ; lt-ne
+        ⊥
+qed
+
+; below(n) ⊂ below(n + 1), and n ∈ below(n + 1)
+show $x ∈ below($n)  ⇒  $x ∈ below($n + 1)                         "below-mono"
+proof
+    assume $x ∈ below($n)
+        ∃ k (k = $x ∧ k ∈ Nat ∧ k < $n)                ; below-number
+        pick j with j = $x ∧ j ∈ Nat ∧ j < $n
+            j ∈ Nat
+            j < $n
+            $n < $n + 1
+            j < $n + 1
+            j ∈ Nat ∧ j < $n + 1
+            j ∈ below($n + 1)                          ; in-below
+            $x ∈ below($n + 1)
+qed
+
+show $n ∈ Nat  ⇒  $n ∈ below($n + 1)                                 "below-top"
+proof
+    assume $n ∈ Nat
+        $n < $n + 1
+        $n ∈ Nat ∧ $n < $n + 1
+        $n ∈ below($n + 1)
+qed
+
+; below(n + 1) is below(n) and n
+show $n ∈ Nat ∧ $x ∈ below($n + 1)  ⇒  $x ∈ below($n) ∨ $x = $n   "below-succ"
+proof
+    assume $n ∈ Nat ∧ $x ∈ below($n + 1)
+        $n ∈ Nat
+        ∃ k (k = $x ∧ k ∈ Nat ∧ k < $n + 1)            ; below-number
+        pick j with j = $x ∧ j ∈ Nat ∧ j < $n + 1
+            j ∈ Nat
+            j < $n + 1
+            ∀ $i ∈ Nat ($i <= $n ∨ $n + 1 <= $i)        ; nat-discrete
+            j <= $n ∨ $n + 1 <= j
+            case j <= $n
+                j < $n ∨ j = $n ∨ j > $n               ; trichotomy
+                case j < $n
+                    j ∈ Nat ∧ j < $n
+                    j ∈ below($n)
+                    $x ∈ below($n)
+                    $x ∈ below($n) ∨ $x = $n
+                case j = $n
+                    $x = $n
+                    $x ∈ below($n) ∨ $x = $n
+                case j > $n
+                    ⊥                                  ; gt-le-contra
+                    $x ∈ below($n) ∨ $x = $n
+                $x ∈ below($n) ∨ $x = $n
+            case $n + 1 <= j
+                j >= $n + 1
+                ⊥                                      ; lt-ge-contra
+                $x ∈ below($n) ∨ $x = $n
+            $x ∈ below($n) ∨ $x = $n
+qed
+
+; the composition of two mappings, x ↦ g(f(x)), as a set of pairs
+arity comp (_, _, _, _)
+def comp($v, $u, $X, $Z) = {p ∈ $X × $Z | snd p = $v ($u (fst p))}   "comp"
+
+show $u ∈ ($X → $Y) ∧ $v ∈ ($Y → $Z) ∧ $x ∈ $X  ⇒  ($x, $v ($u $x)) ∈ comp($v, $u, $X, $Z)   "comp-pair"
+proof
+    assume $u ∈ ($X → $Y) ∧ $v ∈ ($Y → $Z) ∧ $x ∈ $X
+        $u ∈ ($X → $Y)
+        $v ∈ ($Y → $Z)
+        $x ∈ $X
+        ($x, $u $x) ∈ $u ∧ $u $x ∈ $Y                  ; apply-in
+        $u $x ∈ $Y
+        ($u $x, $v ($u $x)) ∈ $v ∧ $v ($u $x) ∈ $Z     ; apply-in
+        $v ($u $x) ∈ $Z
+        ($x, $v ($u $x)) ∈ $X × $Z                     ; product
+        fst ($x, $v ($u $x)) = $x                      ; fst
+        snd ($x, $v ($u $x)) = $v ($u $x)              ; snd
+        snd ($x, $v ($u $x)) = $v ($u (fst ($x, $v ($u $x))))
+        ($x, $v ($u $x)) ∈ $X × $Z ∧ snd ($x, $v ($u $x)) = $v ($u (fst ($x, $v ($u $x))))
+        ($x, $v ($u $x)) ∈ {p ∈ $X × $Z | snd p = $v ($u (fst p))}     ; separation
+        ($x, $v ($u $x)) ∈ comp($v, $u, $X, $Z)
+qed
+
+; a pair of comp(v, u, A, C) is (x, v(u(x)))
+show ($x, $y) ∈ comp($v, $u, $X, $Z)  ⇒  $x ∈ $X ∧ $y ∈ $Z ∧ $y = $v ($u $x)   "comp-pair-elim"
+proof
+    assume ($x, $y) ∈ comp($v, $u, $X, $Z)
+        ($x, $y) ∈ {p ∈ $X × $Z | snd p = $v ($u (fst p))}
+        ($x, $y) ∈ $X × $Z ∧ snd ($x, $y) = $v ($u (fst ($x, $y)))     ; separation
+        ($x, $y) ∈ $X × $Z
+        $x ∈ $X ∧ $y ∈ $Z                              ; product
+        $x ∈ $X
+        snd ($x, $y) = $v ($u (fst ($x, $y)))
+        fst ($x, $y) = $x                              ; fst
+        snd ($x, $y) = $y                              ; snd
+        $y = $v ($u $x)
+        $y ∈ $Z
+        $x ∈ $X ∧ $y ∈ $Z ∧ $y = $v ($u $x)
+qed
+
+show $u ∈ ($X → $Y) ∧ $v ∈ ($Y → $Z)  ⇒  comp($v, $u, $X, $Z) ∈ ($X → $Z)   "comp-mapping"
+proof
+    assume $u ∈ ($X → $Y) ∧ $v ∈ ($Y → $Z)
+        $u ∈ ($X → $Y)
+        $v ∈ ($Y → $Z)
+        let c
+            assume c ∈ comp($v, $u, $X, $Z)
+                c ∈ {p ∈ $X × $Z | snd p = $v ($u (fst p))}
+                c ∈ $X × $Z                            ; separation-in
+        comp($v, $u, $X, $Z) ⊂ $X × $Z
+        let x ∈ $X
+            (x, $v ($u x)) ∈ comp($v, $u, $X, $Z)   ; comp-pair
+            ∃ y ((x, y) ∈ comp($v, $u, $X, $Z))
+        ∀ x ∈ $X ∃ y ((x, y) ∈ comp($v, $u, $X, $Z))
+        let x, y, z
+            assume (x, y) ∈ comp($v, $u, $X, $Z) ∧ (x, z) ∈ comp($v, $u, $X, $Z)
+                x ∈ $X ∧ y ∈ $Z ∧ y = $v ($u x)        ; comp-pair-elim
+                x ∈ $X ∧ z ∈ $Z ∧ z = $v ($u x)        ; comp-pair-elim
+                y = $v ($u x)
+                z = $v ($u x)
+                y = z
+        ∀ x ∀ y ∀ z ((x, y) ∈ comp($v, $u, $X, $Z) ∧ (x, z) ∈ comp($v, $u, $X, $Z)  ⇒  y = z)
+        comp($v, $u, $X, $Z) ⊂ $X × $Z ∧ (∀ x ∈ $X ∃ y ((x, y) ∈ comp($v, $u, $X, $Z))) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ comp($v, $u, $X, $Z) ∧ (x, z) ∈ comp($v, $u, $X, $Z)  ⇒  y = z)
+        comp($v, $u, $X, $Z) ∈ ($X → $Z)            ; function-space
+qed
+
+show $u ∈ ($X → $Y) ∧ $v ∈ ($Y → $Z) ∧ $x ∈ $X  ⇒  comp($v, $u, $X, $Z) $x = $v ($u $x)   "comp-apply"
+proof
+    assume $u ∈ ($X → $Y) ∧ $v ∈ ($Y → $Z) ∧ $x ∈ $X
+        comp($v, $u, $X, $Z) ∈ ($X → $Z)            ; comp-mapping
+        ($x, $v ($u $x)) ∈ comp($v, $u, $X, $Z)     ; comp-pair
+        comp($v, $u, $X, $Z) $x = $v ($u $x)        ; apply
+qed
+
+; two bijections comp to a bijection
+show bijection($u, $X, $Y) ∧ bijection($v, $Y, $Z)  ⇒  bijection(comp($v, $u, $X, $Z), $X, $Z)   "comp-bijection"
+proof
+    assume bijection($u, $X, $Y) ∧ bijection($v, $Y, $Z)
+        bijection($u, $X, $Y)
+        bijection($v, $Y, $Z)
+        $u ∈ ($X → $Y) ∧ injective($u, $X) ∧ surjective($u, $X, $Y)
+        $v ∈ ($Y → $Z) ∧ injective($v, $Y) ∧ surjective($v, $Y, $Z)
+        $u ∈ ($X → $Y)
+        $v ∈ ($Y → $Z)
+        injective($u, $X)
+        injective($v, $Y)
+        surjective($u, $X, $Y)
+        surjective($v, $Y, $Z)
+        ∀ x ∈ $X ∀ y ∈ $X ($u x = $u y  ⇒  x = y)
+        ∀ x ∈ $Y ∀ y ∈ $Y ($v x = $v y  ⇒  x = y)
+        ∀ y ∈ $Y ∃ x ∈ $X ($u x = y)
+        ∀ y ∈ $Z ∃ x ∈ $Y ($v x = y)
+        comp($v, $u, $X, $Z) ∈ ($X → $Z)            ; comp-mapping
+        ; injective
+        let x ∈ $X
+            let y ∈ $X
+                assume comp($v, $u, $X, $Z) x = comp($v, $u, $X, $Z) y
+                    comp($v, $u, $X, $Z) x = $v ($u x)      ; comp-apply
+                    comp($v, $u, $X, $Z) y = $v ($u y)      ; comp-apply
+                    $v ($u x) = $v ($u y)
+                    (x, $u x) ∈ $u ∧ $u x ∈ $Y                 ; apply-in
+                    $u x ∈ $Y
+                    (y, $u y) ∈ $u ∧ $u y ∈ $Y                 ; apply-in
+                    $u y ∈ $Y
+                    ∀ b ∈ $Y ($v ($u x) = $v b  ⇒  $u x = b)
+                    $v ($u x) = $v ($u y)  ⇒  $u x = $u y
+                    $u x = $u y
+                    ∀ b ∈ $X ($u x = $u b  ⇒  x = b)
+                    $u x = $u y  ⇒  x = y
+                    x = y
+        ∀ x ∈ $X ∀ y ∈ $X (comp($v, $u, $X, $Z) x = comp($v, $u, $X, $Z) y  ⇒  x = y)
+        injective(comp($v, $u, $X, $Z), $X)
+        ; surjective
+        let z ∈ $Z
+            ∃ y ∈ $Y ($v y = z)
+            pick y with y ∈ $Y ∧ $v y = z
+                ∃ x ∈ $X ($u x = y)
+                pick x with x ∈ $X ∧ $u x = y
+                    comp($v, $u, $X, $Z) x = $v ($u x)      ; comp-apply
+                                              = $v y
+                                              = z
+                    ∃ w ∈ $X (comp($v, $u, $X, $Z) w = z)
+        ∀ z ∈ $Z ∃ w ∈ $X (comp($v, $u, $X, $Z) w = z)
+        surjective(comp($v, $u, $X, $Z), $X, $Z)
+        comp($v, $u, $X, $Z) ∈ ($X → $Z) ∧ injective(comp($v, $u, $X, $Z), $X) ∧ surjective(comp($v, $u, $X, $Z), $X, $Z)
+        bijection(comp($v, $u, $X, $Z), $X, $Z)
+qed
+
+; a bijection keeps the number of elements
+show hassize($X, $n) ∧ bijection($u, $X, $Y)  ⇒  hassize($Y, $n)    "hassize-bijection"
+proof
+    assume hassize($X, $n) ∧ bijection($u, $X, $Y)
+        hassize($X, $n)
+        bijection($u, $X, $Y)
+        $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $X)    ; hassize
+        $n ∈ Nat
+        ∃ $m bijection($m, below($n), $X)
+        pick f with bijection(f, below($n), $X)
+            bijection(f, below($n), $X) ∧ bijection($u, $X, $Y)
+            bijection(comp($u, f, below($n), $Y), below($n), $Y)      ; comp-bijection
+            ∃ $m bijection($m, below($n), $Y)
+            $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $Y)
+            hassize($Y, $n)
+qed
+
+; ∅ has 0 elements: the empty mapping is a bijection from below(0) onto ∅
+show hassize(∅, 0)                                                   "hassize-empty"
+proof
+    let c
+        assume c ∈ ∅
+            ⊥                                          ; empty-set
+            c ∈ below(0) × ∅
+    ∅ ⊂ below(0) × ∅
+    let x ∈ below(0)
+        ¬(x ∈ below(0))                                ; below-zero
+        ⊥
+        ∃ y ((x, y) ∈ ∅)
+    ∀ x ∈ below(0) ∃ y ((x, y) ∈ ∅)
+    let x, y, z
+        assume (x, y) ∈ ∅ ∧ (x, z) ∈ ∅
+            (x, y) ∈ ∅
+            ¬((x, y) ∈ ∅)                              ; empty-set
+            ⊥
+            y = z
+    ∀ x ∀ y ∀ z ((x, y) ∈ ∅ ∧ (x, z) ∈ ∅  ⇒  y = z)
+    ∅ ⊂ below(0) × ∅ ∧ (∀ x ∈ below(0) ∃ y ((x, y) ∈ ∅)) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ ∅ ∧ (x, z) ∈ ∅  ⇒  y = z)
+    ∅ ∈ (below(0) → ∅)                                 ; function-space
+    let x ∈ below(0)
+        ¬(x ∈ below(0))                                ; below-zero
+        ⊥
+        ∀ y ∈ below(0) (∅ x = ∅ y  ⇒  x = y)
+    ∀ x ∈ below(0) ∀ y ∈ below(0) (∅ x = ∅ y  ⇒  x = y)
+    injective(∅, below(0))
+    let y ∈ ∅
+        ¬(y ∈ ∅)                                       ; empty-set
+        ⊥
+        ∃ x ∈ below(0) (∅ x = y)
+    ∀ y ∈ ∅ ∃ x ∈ below(0) (∅ x = y)
+    surjective(∅, below(0), ∅)
+    ∅ ∈ (below(0) → ∅) ∧ injective(∅, below(0)) ∧ surjective(∅, below(0), ∅)
+    bijection(∅, below(0), ∅)
+    ∃ $m bijection($m, below(0), ∅)
+    0 ∈ Nat                                            ; nat-zero
+    0 ∈ Nat ∧ ∃ $m bijection($m, below(0), ∅)
+    hassize(∅, 0)
+qed
+
+; a set with 0 elements is empty
+show hassize($X, 0)  ⇒  $X = ∅                                       "hassize-zero"
+proof
+    assume hassize($X, 0)
+        0 ∈ Nat ∧ ∃ $m bijection($m, below(0), $X)       ; hassize
+        ∃ $m bijection($m, below(0), $X)
+        pick f with bijection(f, below(0), $X)
+            f ∈ (below(0) → $X) ∧ injective(f, below(0)) ∧ surjective(f, below(0), $X)
+            surjective(f, below(0), $X)
+            ∀ y ∈ $X ∃ x ∈ below(0) (f x = y)
+            let c
+                assume c ∈ $X
+                    ∃ x ∈ below(0) (f x = c)
+                    pick x with x ∈ below(0) ∧ f x = c
+                        x ∈ below(0)
+                        ¬(x ∈ below(0))                ; below-zero
+                        ⊥
+                    ⊥
+                    c ∈ ∅
+                assume c ∈ ∅
+                    ⊥                                  ; empty-set
+                    c ∈ $X
+                c ∈ $X  ⇔  c ∈ ∅
+            ∀ c (c ∈ $X  ⇔  c ∈ ∅)
+            $X = ∅                                     ; extensionality
+qed
+
+; a set with n ≠ 0 elements has an element
+show hassize($X, $n) ∧ $n ≠ 0  ⇒  ∃ x (x ∈ $X)                         "hassize-nonempty"
+proof
+    assume hassize($X, $n) ∧ $n ≠ 0
+        hassize($X, $n)
+        $n ≠ 0
+        $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $X)    ; hassize
+        $n ∈ Nat
+        ∃ $m bijection($m, below($n), $X)
+        pick f with bijection(f, below($n), $X)
+            f ∈ (below($n) → $X) ∧ injective(f, below($n)) ∧ surjective(f, below($n), $X)
+            f ∈ (below($n) → $X)
+            0 < $n                                     ; nat-pos
+            0 ∈ Nat                                    ; nat-zero
+            0 ∈ Nat ∧ 0 < $n
+            0 ∈ below($n)                              ; in-below
+            (0, f 0) ∈ f ∧ f 0 ∈ $X                    ; apply-in
+            f 0 ∈ $X
+            ∃ x (x ∈ $X)
+qed
+
+; two subsets of Z make one, and so does an element of Z
+show $X ⊂ $Z ∧ $Y ⊂ $Z  ⇒  $X ∪ $Y ⊂ $Z                                "union-subset"
+proof
+    assume $X ⊂ $Z ∧ $Y ⊂ $Z
+        $X ⊂ $Z
+        $Y ⊂ $Z
+        ∀ c (c ∈ $X  ⇒  c ∈ $Z)                        ; subset
+        ∀ c (c ∈ $Y  ⇒  c ∈ $Z)                        ; subset
+        let c
+            assume c ∈ $X ∪ $Y
+                c ∈ $X ∨ c ∈ $Y                        ; union
+                case c ∈ $X
+                    c ∈ $X  ⇒  c ∈ $Z
+                    c ∈ $Z
+                case c ∈ $Y
+                    c ∈ $Y  ⇒  c ∈ $Z
+                    c ∈ $Z
+                c ∈ $Z
+        ∀ c (c ∈ $X ∪ $Y  ⇒  c ∈ $Z)
+        $X ∪ $Y ⊂ $Z
+qed
+
+show $x ∈ $Z  ⇒  {$x} ⊂ $Z                                             "singleton-subset"
+proof
+    assume $x ∈ $Z
+        let c
+            assume c ∈ {$x}
+                c = $x                                 ; singleton
+                c ∈ $Z
+        ∀ c (c ∈ {$x}  ⇒  c ∈ $Z)
+        {$x} ⊂ $Z
+qed
+
+; adding a new element adds one: f ∪ {(n, a)} counts X ∪ {a}
+show hassize($X, $n) ∧ ¬($a ∈ $X)  ⇒  hassize($X ∪ {$a}, $n + 1)    "hassize-add"
+proof
+    assume hassize($X, $n) ∧ ¬($a ∈ $X)
+        hassize($X, $n)
+        ¬($a ∈ $X)
+        $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $X)    ; hassize
+        $n ∈ Nat
+        $n + 1 ∈ Nat                                   ; nat-succ
+        ∃ $m bijection($m, below($n), $X)
+        $n ∈ below($n + 1)                             ; below-top
+        $a ∈ {$a}                                      ; singleton
+        $a ∈ $X ∨ $a ∈ {$a}
+        $a ∈ $X ∪ {$a}                                 ; union
+        pick f with bijection(f, below($n), $X)
+            f ∈ (below($n) → $X) ∧ injective(f, below($n)) ∧ surjective(f, below($n), $X)
+            f ∈ (below($n) → $X)
+            injective(f, below($n))
+            surjective(f, below($n), $X)
+            ∀ x ∈ below($n) ∀ y ∈ below($n) (f x = f y  ⇒  x = y)      ; injective
+            f ⊂ below($n) × $X ∧ (∀ x ∈ below($n) ∃ y ((x, y) ∈ f)) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ f ∧ (x, z) ∈ f  ⇒  y = z)   ; function-space
+            f ⊂ below($n) × $X
+            ∀ c (c ∈ f  ⇒  c ∈ below($n) × $X)         ; subset
+            ∀ x ∀ y ∀ z ((x, y) ∈ f ∧ (x, z) ∈ f  ⇒  y = z)
+            ; the pairs of f: (x, y) with x below n, y ∈ X
+            let x, y
+                assume (x, y) ∈ f
+                    (x, y) ∈ f  ⇒  (x, y) ∈ below($n) × $X
+                    (x, y) ∈ below($n) × $X
+                    x ∈ below($n) ∧ y ∈ $X             ; product
+            ∀ x ∀ y ((x, y) ∈ f  ⇒  x ∈ below($n) ∧ y ∈ $X)
+            ; g = f ∪ {(n, a)} is a mapping from below(n + 1) to X ∪ {a}
+            let c
+                assume c ∈ f
+                    c ∈ f  ⇒  c ∈ below($n) × $X
+                    c ∈ below($n) × $X
+                    c = (fst c, snd c)                 ; product-pairs
+                    (fst c, snd c) ∈ below($n) × $X
+                    fst c ∈ below($n) ∧ snd c ∈ $X     ; product
+                    fst c ∈ below($n)
+                    snd c ∈ $X
+                    fst c ∈ below($n + 1)              ; below-mono
+                    snd c ∈ $X ∨ snd c ∈ {$a}
+                    snd c ∈ $X ∪ {$a}                  ; union
+                    (fst c, snd c) ∈ below($n + 1) × ($X ∪ {$a})     ; product
+                    c ∈ below($n + 1) × ($X ∪ {$a})
+            f ⊂ below($n + 1) × ($X ∪ {$a})
+            ($n, $a) ∈ below($n + 1) × ($X ∪ {$a})     ; product
+            {($n, $a)} ⊂ below($n + 1) × ($X ∪ {$a})   ; singleton-subset
+            f ⊂ below($n + 1) × ($X ∪ {$a}) ∧ {($n, $a)} ⊂ below($n + 1) × ($X ∪ {$a})
+            f ∪ {($n, $a)} ⊂ below($n + 1) × ($X ∪ {$a})     ; union-subset
+            ($n, $a) ∈ {($n, $a)}                      ; singleton
+            ($n, $a) ∈ f ∨ ($n, $a) ∈ {($n, $a)}
+            ($n, $a) ∈ f ∪ {($n, $a)}                  ; union
+            ; g x = f x below n, g n = a
+            let x ∈ below($n)
+                (x, f x) ∈ f ∧ f x ∈ $X                ; apply-in
+                (x, f x) ∈ f
+                (x, f x) ∈ f ∨ (x, f x) ∈ {($n, $a)}
+                (x, f x) ∈ f ∪ {($n, $a)}              ; union
+            ∀ x ∈ below($n) ((x, f x) ∈ f ∪ {($n, $a)})
+            let x ∈ below($n + 1)
+                x ∈ below($n) ∨ x = $n                 ; below-succ
+                case x ∈ below($n)
+                    (x, f x) ∈ f ∪ {($n, $a)}
+                    ∃ y ((x, y) ∈ f ∪ {($n, $a)})
+                case x = $n
+                    (x, $a) ∈ f ∪ {($n, $a)}
+                    ∃ y ((x, y) ∈ f ∪ {($n, $a)})
+                ∃ y ((x, y) ∈ f ∪ {($n, $a)})
+            ∀ x ∈ below($n + 1) ∃ y ((x, y) ∈ f ∪ {($n, $a)})
+            ; (a pair of g is one of f, or (n, a); n is not below n)
+            let x, y
+                assume (x, y) ∈ f ∪ {($n, $a)}
+                    (x, y) ∈ f ∨ (x, y) ∈ {($n, $a)}   ; union
+                    case (x, y) ∈ f
+                        (x, y) ∈ f ∨ (x = $n ∧ y = $a)
+                    case (x, y) ∈ {($n, $a)}
+                        (x, y) = ($n, $a)              ; singleton
+                        x = $n ∧ y = $a                ; pair-eq
+                        (x, y) ∈ f ∨ (x = $n ∧ y = $a)
+                    (x, y) ∈ f ∨ (x = $n ∧ y = $a)
+            ∀ x ∀ y ((x, y) ∈ f ∪ {($n, $a)}  ⇒  (x, y) ∈ f ∨ (x = $n ∧ y = $a))
+            let y
+                assume ($n, y) ∈ f
+                    $n ∈ below($n) ∧ y ∈ $X
+                    $n ∈ below($n)
+                    ¬($n ∈ below($n))                  ; below-irrefl
+                    ⊥
+                ¬(($n, y) ∈ f)
+            ∀ y ¬(($n, y) ∈ f)
+            let x, y, z
+                assume (x, y) ∈ f ∪ {($n, $a)} ∧ (x, z) ∈ f ∪ {($n, $a)}
+                    (x, y) ∈ f ∪ {($n, $a)}
+                    (x, z) ∈ f ∪ {($n, $a)}
+                    (x, y) ∈ f ∨ (x = $n ∧ y = $a)
+                    (x, z) ∈ f ∨ (x = $n ∧ z = $a)
+                    case (x, y) ∈ f
+                        case (x, z) ∈ f
+                            (x, y) ∈ f ∧ (x, z) ∈ f
+                            y = z
+                        case x = $n ∧ z = $a
+                            x = $n
+                            ($n, y) ∈ f
+                            ¬(($n, y) ∈ f)
+                            ⊥
+                            y = z
+                        y = z
+                    case x = $n ∧ y = $a
+                        x = $n
+                        y = $a
+                        case (x, z) ∈ f
+                            ($n, z) ∈ f
+                            ¬(($n, z) ∈ f)
+                            ⊥
+                            y = z
+                        case x = $n ∧ z = $a
+                            z = $a
+                            y = z
+                        y = z
+                    y = z
+            ∀ x ∀ y ∀ z ((x, y) ∈ f ∪ {($n, $a)} ∧ (x, z) ∈ f ∪ {($n, $a)}  ⇒  y = z)
+            f ∪ {($n, $a)} ⊂ below($n + 1) × ($X ∪ {$a}) ∧ (∀ x ∈ below($n + 1) ∃ y ((x, y) ∈ f ∪ {($n, $a)})) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ f ∪ {($n, $a)} ∧ (x, z) ∈ f ∪ {($n, $a)}  ⇒  y = z)
+            f ∪ {($n, $a)} ∈ (below($n + 1) → ($X ∪ {$a}))       ; function-space
+            ; its values
+            let x ∈ below($n)
+                (x, f x) ∈ f ∪ {($n, $a)}
+                (f ∪ {($n, $a)}) x = f x               ; apply
+            ∀ x ∈ below($n) ((f ∪ {($n, $a)}) x = f x)
+            (f ∪ {($n, $a)}) $n = $a                   ; apply
+            ; injective
+            let x ∈ below($n + 1)
+                let y ∈ below($n + 1)
+                    assume (f ∪ {($n, $a)}) x = (f ∪ {($n, $a)}) y
+                        x ∈ below($n) ∨ x = $n         ; below-succ
+                        y ∈ below($n) ∨ y = $n         ; below-succ
+                        case x ∈ below($n)
+                            (f ∪ {($n, $a)}) x = f x
+                            (x, f x) ∈ f ∧ f x ∈ $X    ; apply-in
+                            f x ∈ $X
+                            case y ∈ below($n)
+                                (f ∪ {($n, $a)}) y = f y
+                                f x = f y
+                                ∀ w ∈ below($n) (f x = f w  ⇒  x = w)
+                                f x = f y  ⇒  x = y
+                                x = y
+                            case y = $n
+                                (f ∪ {($n, $a)}) y = $a
+                                f x = $a
+                                $a ∈ $X
+                                ⊥
+                                x = y
+                            x = y
+                        case x = $n
+                            (f ∪ {($n, $a)}) x = $a
+                            case y ∈ below($n)
+                                (f ∪ {($n, $a)}) y = f y
+                                (y, f y) ∈ f ∧ f y ∈ $X    ; apply-in
+                                f y ∈ $X
+                                f y = $a
+                                $a ∈ $X
+                                ⊥
+                                x = y
+                            case y = $n
+                                x = y
+                            x = y
+                        x = y
+            ∀ x ∈ below($n + 1) ∀ y ∈ below($n + 1) ((f ∪ {($n, $a)}) x = (f ∪ {($n, $a)}) y  ⇒  x = y)
+            injective(f ∪ {($n, $a)}, below($n + 1))
+            ; surjective
+            ∀ y ∈ $X ∃ x ∈ below($n) (f x = y)
+            let y ∈ $X ∪ {$a}
+                y ∈ $X ∨ y ∈ {$a}                      ; union
+                case y ∈ $X
+                    ∃ x ∈ below($n) (f x = y)
+                    pick x with x ∈ below($n) ∧ f x = y
+                        x ∈ below($n + 1)              ; below-mono
+                        (f ∪ {($n, $a)}) x = f x
+                        (f ∪ {($n, $a)}) x = y
+                        ∃ w ∈ below($n + 1) ((f ∪ {($n, $a)}) w = y)
+                    ∃ w ∈ below($n + 1) ((f ∪ {($n, $a)}) w = y)
+                case y ∈ {$a}
+                    y = $a                             ; singleton
+                    (f ∪ {($n, $a)}) $n = y
+                    ∃ w ∈ below($n + 1) ((f ∪ {($n, $a)}) w = y)
+                ∃ w ∈ below($n + 1) ((f ∪ {($n, $a)}) w = y)
+            ∀ y ∈ $X ∪ {$a} ∃ w ∈ below($n + 1) ((f ∪ {($n, $a)}) w = y)
+            surjective(f ∪ {($n, $a)}, below($n + 1), $X ∪ {$a})
+            f ∪ {($n, $a)} ∈ (below($n + 1) → ($X ∪ {$a})) ∧ injective(f ∪ {($n, $a)}, below($n + 1)) ∧ surjective(f ∪ {($n, $a)}, below($n + 1), $X ∪ {$a})
+            bijection(f ∪ {($n, $a)}, below($n + 1), $X ∪ {$a})
+            ∃ $m bijection($m, below($n + 1), $X ∪ {$a})
+            $n + 1 ∈ Nat ∧ ∃ $m bijection($m, below($n + 1), $X ∪ {$a})
+            hassize($X ∪ {$a}, $n + 1)
+qed
+
+; the difference of two sets
+infix setminus 30 30
+alias ∖ setminus
+set setminus 0 1 2
+def $A ∖ $B = {x ∈ $A | ¬(x ∈ $B)}                                   "setminus"
+
+show $x ∈ $X ∖ $Y  ⇔  $x ∈ $X ∧ ¬($x ∈ $Y)                            "in-setminus"
+proof
+    $x ∈ {z ∈ $X | ¬(z ∈ $Y)}  ⇔  $x ∈ $X ∧ ¬($x ∈ $Y)                 ; separation
+    $X ∖ $Y = {z ∈ $X | ¬(z ∈ $Y)}
+qed
+
+show $x ∈ $X ∧ $x ≠ $a  ⇒  $x ∈ $X ∖ {$a}                              "in-remove"
+proof
+    assume $x ∈ $X ∧ $x ≠ $a
+        $x ∈ $X
+        $x ≠ $a
+        assume $x ∈ {$a}
+            $x = $a                                    ; singleton
+            ⊥
+        ¬($x ∈ {$a})
+        $x ∈ $X ∧ ¬($x ∈ {$a})
+        $x ∈ $X ∖ {$a}                                 ; in-setminus
+qed
+
+show $x ∈ $X ∖ {$a}  ⇒  $x ∈ $X ∧ $x ≠ $a                              "in-remove-elim"
+proof
+    assume $x ∈ $X ∖ {$a}
+        $x ∈ $X ∧ ¬($x ∈ {$a})                         ; in-setminus
+        $x ∈ $X
+        ¬($x ∈ {$a})
+        assume $x = $a
+            $x ∈ {$a}                                  ; singleton
+            ⊥
+        $x ≠ $a
+        $x ∈ $X ∧ $x ≠ $a
+qed
+
+; the mapping of "hassize-remove": u below n, except at j, where it is u(n)
+arity cut (_, _, _, _)
+def cut($u, $t, $n, $Y) = {p ∈ below($n) × $Y | p ∈ $u ∨ p = ($t, $u $n)}   "cut"
+
+; removing an element removes one: f counts X with n + 1, f(j) = a; g is f below n, except that
+; g(j) = f(n) (if j < n)
+show $n ∈ Nat ∧ hassize($X, $n + 1) ∧ $a ∈ $X  ⇒  hassize($X ∖ {$a}, $n)    "hassize-remove"
+proof
+    assume $n ∈ Nat ∧ hassize($X, $n + 1) ∧ $a ∈ $X
+        $n ∈ Nat
+        hassize($X, $n + 1)
+        $a ∈ $X
+        $n + 1 ∈ Nat ∧ ∃ $m bijection($m, below($n + 1), $X)    ; hassize
+        ∃ $m bijection($m, below($n + 1), $X)
+        $n ∈ below($n + 1)                             ; below-top
+        ¬($n ∈ below($n))                              ; below-irrefl
+        pick f with bijection(f, below($n + 1), $X)
+            f ∈ (below($n + 1) → $X) ∧ injective(f, below($n + 1)) ∧ surjective(f, below($n + 1), $X)
+            f ∈ (below($n + 1) → $X)
+            injective(f, below($n + 1))
+            surjective(f, below($n + 1), $X)
+            ∀ x ∈ below($n + 1) ∀ y ∈ below($n + 1) (f x = f y  ⇒  x = y)      ; injective
+            ∀ y ∈ $X ∃ x ∈ below($n + 1) (f x = y)                             ; surjective
+            ($n, f $n) ∈ f ∧ f $n ∈ $X                 ; apply-in
+            f $n ∈ $X
+            ∃ x ∈ below($n + 1) (f x = $a)
+            pick j with j ∈ below($n + 1) ∧ f j = $a
+                j ∈ below($n + 1)
+                f j = $a
+                ; (1) below n, other than j: (x, f x) is a pair of cut
+                let x ∈ below($n)
+                    assume x ≠ j
+                        x ∈ below($n + 1)              ; below-mono
+                        (x, f x) ∈ f ∧ f x ∈ $X        ; apply-in
+                        (x, f x) ∈ f
+                        f x ∈ $X
+                        assume f x = $a
+                            f x = f j
+                            ∀ y ∈ below($n + 1) (f x = f y  ⇒  x = y)
+                            f x = f j  ⇒  x = j
+                            x = j
+                            ⊥
+                        f x ≠ $a
+                        f x ∈ $X ∧ f x ≠ $a
+                        f x ∈ $X ∖ {$a}                ; in-remove
+                        (x, f x) ∈ below($n) × ($X ∖ {$a})          ; product
+                        (x, f x) ∈ f ∨ (x, f x) = (j, f $n)
+                        (x, f x) ∈ below($n) × ($X ∖ {$a}) ∧ ((x, f x) ∈ f ∨ (x, f x) = (j, f $n))
+                        (x, f x) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}    ; separation
+                        (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
+                ∀ x ∈ below($n) (x ≠ j  ⇒  (x, f x) ∈ cut(f, j, $n, $X ∖ {$a}))
+                ; (2) j below n: (j, f n) is a pair of cut
+                assume j ∈ below($n)
+                    assume f $n = $a
+                        f $n = f j
+                        ∀ y ∈ below($n + 1) (f $n = f y  ⇒  $n = y)
+                        f $n = f j  ⇒  $n = j
+                        $n = j
+                        $n ∈ below($n)
+                        ⊥
+                    f $n ≠ $a
+                    f $n ∈ $X ∧ f $n ≠ $a
+                    f $n ∈ $X ∖ {$a}                   ; in-remove
+                    (j, f $n) ∈ below($n) × ($X ∖ {$a})             ; product
+                    (j, f $n) = (j, f $n)
+                    (j, f $n) ∈ f ∨ (j, f $n) = (j, f $n)
+                    (j, f $n) ∈ below($n) × ($X ∖ {$a}) ∧ ((j, f $n) ∈ f ∨ (j, f $n) = (j, f $n))
+                    (j, f $n) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}    ; separation
+                    (j, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
+                ; (3) the pairs of cut: (j, f n), or (x, f x) with x ≠ j
+                let x, y
+                    assume (x, y) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, y) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}
+                        (x, y) ∈ below($n) × ($X ∖ {$a}) ∧ ((x, y) ∈ f ∨ (x, y) = (j, f $n))   ; separation
+                        (x, y) ∈ below($n) × ($X ∖ {$a})
+                        x ∈ below($n) ∧ y ∈ $X ∖ {$a}  ; product
+                        x ∈ below($n)
+                        y ∈ $X ∖ {$a}
+                        y ∈ $X ∧ y ≠ $a                ; in-remove-elim
+                        y ≠ $a
+                        (x, y) ∈ f ∨ (x, y) = (j, f $n)
+                        case (x, y) ∈ f
+                            f x = y                    ; apply
+                            assume x = j
+                                f j = y
+                                y = $a
+                                ⊥
+                            x ≠ j
+                            (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
+                        case (x, y) = (j, f $n)
+                            x = j ∧ y = f $n           ; pair-eq
+                            (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
+                        (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
+                ∀ x ∀ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a})  ⇒  (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x))
+                ; (4) cut is a mapping from below(n) to X ∖ {a}
+                let c
+                    assume c ∈ cut(f, j, $n, $X ∖ {$a})
+                        c ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}
+                        c ∈ below($n) × ($X ∖ {$a})    ; separation-in
+                cut(f, j, $n, $X ∖ {$a}) ⊂ below($n) × ($X ∖ {$a})
+                let x ∈ below($n)
+                    x = j ∨ x ≠ j                      ; excluded-middle
+                    case x = j
+                        j ∈ below($n)
+                        (j, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
+                        ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
+                    case x ≠ j
+                        x ≠ j  ⇒  (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
+                        ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
+                    ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
+                ∀ x ∈ below($n) ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
+                let x, y, z
+                    assume (x, y) ∈ cut(f, j, $n, $X ∖ {$a}) ∧ (x, z) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, y) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, z) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
+                        (x = j ∧ z = f $n) ∨ (x ≠ j ∧ z = f x)
+                        case x = j ∧ y = f $n
+                            x = j
+                            y = f $n
+                            case x = j ∧ z = f $n
+                                z = f $n
+                                y = z
+                            case x ≠ j ∧ z = f x
+                                x ≠ j
+                                ⊥
+                                y = z
+                            y = z
+                        case x ≠ j ∧ y = f x
+                            x ≠ j
+                            y = f x
+                            case x = j ∧ z = f $n
+                                x = j
+                                ⊥
+                                y = z
+                            case x ≠ j ∧ z = f x
+                                z = f x
+                                y = z
+                            y = z
+                        y = z
+                ∀ x ∀ y ∀ z ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}) ∧ (x, z) ∈ cut(f, j, $n, $X ∖ {$a})  ⇒  y = z)
+                cut(f, j, $n, $X ∖ {$a}) ⊂ below($n) × ($X ∖ {$a}) ∧ (∀ x ∈ below($n) ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}) ∧ (x, z) ∈ cut(f, j, $n, $X ∖ {$a})  ⇒  y = z)
+                cut(f, j, $n, $X ∖ {$a}) ∈ (below($n) → ($X ∖ {$a}))      ; function-space
+                ; (5) its values
+                let x ∈ below($n)
+                    assume x ≠ j
+                        x ≠ j  ⇒  (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
+                        cut(f, j, $n, $X ∖ {$a}) x = f x     ; apply
+                ∀ x ∈ below($n) (x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f x)
+                assume j ∈ below($n)
+                    (j, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
+                    cut(f, j, $n, $X ∖ {$a}) j = f $n        ; apply
+                ; (6) injective
+                let x ∈ below($n)
+                    let y ∈ below($n)
+                        assume cut(f, j, $n, $X ∖ {$a}) x = cut(f, j, $n, $X ∖ {$a}) y
+                            x ∈ below($n + 1)          ; below-mono
+                            y ∈ below($n + 1)          ; below-mono
+                            x = j ∨ x ≠ j              ; excluded-middle
+                            y = j ∨ y ≠ j              ; excluded-middle
+                            case x = j
+                                j ∈ below($n)
+                                cut(f, j, $n, $X ∖ {$a}) j = f $n
+                                cut(f, j, $n, $X ∖ {$a}) x = f $n
+                                case y = j
+                                    x = y
+                                case y ≠ j
+                                    y ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) y = f y
+                                    cut(f, j, $n, $X ∖ {$a}) y = f y
+                                    f $n = f y
+                                    ∀ w ∈ below($n + 1) (f $n = f w  ⇒  $n = w)
+                                    f $n = f y  ⇒  $n = y
+                                    $n = y
+                                    $n ∈ below($n)
+                                    ⊥
+                                    x = y
+                                x = y
+                            case x ≠ j
+                                x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f x
+                                cut(f, j, $n, $X ∖ {$a}) x = f x
+                                case y = j
+                                    j ∈ below($n)
+                                    cut(f, j, $n, $X ∖ {$a}) j = f $n
+                                    cut(f, j, $n, $X ∖ {$a}) y = f $n
+                                    f x = f $n
+                                    ∀ w ∈ below($n + 1) (f x = f w  ⇒  x = w)
+                                    f x = f $n  ⇒  x = $n
+                                    x = $n
+                                    $n ∈ below($n)
+                                    ⊥
+                                    x = y
+                                case y ≠ j
+                                    y ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) y = f y
+                                    cut(f, j, $n, $X ∖ {$a}) y = f y
+                                    f x = f y
+                                    ∀ w ∈ below($n + 1) (f x = f w  ⇒  x = w)
+                                    f x = f y  ⇒  x = y
+                                    x = y
+                                x = y
+                            x = y
+                ∀ x ∈ below($n) ∀ y ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) x = cut(f, j, $n, $X ∖ {$a}) y  ⇒  x = y)
+                injective(cut(f, j, $n, $X ∖ {$a}), below($n))
+                ; (7) surjective
+                let y ∈ $X ∖ {$a}
+                    y ∈ $X ∧ y ≠ $a                    ; in-remove-elim
+                    y ∈ $X
+                    y ≠ $a
+                    ∃ x ∈ below($n + 1) (f x = y)
+                    pick x with x ∈ below($n + 1) ∧ f x = y
+                        x ∈ below($n) ∨ x = $n         ; below-succ
+                        case x ∈ below($n)
+                            assume x = j
+                                f j = y
+                                y = $a
+                                ⊥
+                            x ≠ j
+                            x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f x
+                            cut(f, j, $n, $X ∖ {$a}) x = f x
+                            cut(f, j, $n, $X ∖ {$a}) x = y
+                            ∃ w ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) w = y)
+                        case x = $n
+                            f $n = y
+                            assume j = $n
+                                f $n = $a
+                                y = $a
+                                ⊥
+                            j ≠ $n
+                            j ∈ below($n) ∨ j = $n     ; below-succ
+                            case j ∈ below($n)
+                                j ∈ below($n)
+                            case j = $n
+                                ⊥
+                                j ∈ below($n)
+                            j ∈ below($n)
+                            cut(f, j, $n, $X ∖ {$a}) j = f $n
+                            cut(f, j, $n, $X ∖ {$a}) j = y
+                            ∃ w ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) w = y)
+                        ∃ w ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) w = y)
+                ∀ y ∈ $X ∖ {$a} ∃ w ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) w = y)
+                surjective(cut(f, j, $n, $X ∖ {$a}), below($n), $X ∖ {$a})
+                cut(f, j, $n, $X ∖ {$a}) ∈ (below($n) → ($X ∖ {$a})) ∧ injective(cut(f, j, $n, $X ∖ {$a}), below($n)) ∧ surjective(cut(f, j, $n, $X ∖ {$a}), below($n), $X ∖ {$a})
+                bijection(cut(f, j, $n, $X ∖ {$a}), below($n), $X ∖ {$a})
+                ∃ $m bijection($m, below($n), $X ∖ {$a})
+                $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $X ∖ {$a})
+                hassize($X ∖ {$a}, $n)
+qed
+
+; a singleton has 1 element
+show hassize({$a}, 1)                                                 "hassize-singleton"
+proof
+    hassize(∅, 0)                                      ; hassize-empty
+    ¬($a ∈ ∅)                                          ; empty-set
+    hassize(∅, 0) ∧ ¬($a ∈ ∅)
+    hassize(∅ ∪ {$a}, 0 + 1)                           ; hassize-add
+    let c
+        assume c ∈ ∅ ∪ {$a}
+            c ∈ ∅ ∨ c ∈ {$a}                           ; union
+            case c ∈ ∅
+                ⊥                                      ; empty-set
+                c ∈ {$a}
+            case c ∈ {$a}
+                c ∈ {$a}
+            c ∈ {$a}
+        assume c ∈ {$a}
+            c ∈ ∅ ∨ c ∈ {$a}
+            c ∈ ∅ ∪ {$a}                               ; union
+        c ∈ ∅ ∪ {$a}  ⇔  c ∈ {$a}
+    ∀ c (c ∈ ∅ ∪ {$a}  ⇔  c ∈ {$a})
+    ∅ ∪ {$a} = {$a}                                    ; extensionality
+    hassize({$a}, 0 + 1)
+    calc on
+    0 + 1 = 1
+    calc off
+    hassize({$a}, 1)
+qed
+
+; the number of elements is unique -- by induction on k, for all sets X and numbers n at once
+show hassize($X, $k) ∧ hassize($X, $n)  ⇒  $k = $n                     "hassize-unique"
+proof
+    ; k = 0: X is empty, so n = 0
+    let X, n
+        set X
+        real n
+        assume hassize(X, 0) ∧ hassize(X, n)
+            hassize(X, 0)
+            hassize(X, n)
+            X = ∅                                      ; hassize-zero
+            n = 0 ∨ n ≠ 0                              ; excluded-middle
+            case n = 0
+                0 = n
+            case n ≠ 0
+                hassize(X, n) ∧ n ≠ 0
+                ∃ x (x ∈ X)                            ; hassize-nonempty
+                pick x with x ∈ X
+                    x ∈ ∅
+                    ⊥                                  ; empty-set
+                0 = n
+            0 = n
+    ∀ $P ∀ $j (hassize($P, 0) ∧ hassize($P, $j)  ⇒  0 = $j)
+    ; k → k + 1: remove an element a, X ∖ {a} has k and n - 1 elements
+    let k ∈ Nat
+        assume ∀ $P ∀ $j (hassize($P, k) ∧ hassize($P, $j)  ⇒  k = $j)
+            let X, n
+                set X
+                real n
+                assume hassize(X, k + 1) ∧ hassize(X, n)
+                    hassize(X, k + 1)
+                    hassize(X, n)
+                    n ∈ Nat ∧ ∃ $m bijection($m, below(n), X)     ; hassize
+                    n ∈ Nat
+                    k + 1 ≠ 0                          ; nat-succ-ne-zero
+                    hassize(X, k + 1) ∧ k + 1 ≠ 0
+                    ∃ x (x ∈ X)                        ; hassize-nonempty
+                    pick a with a ∈ X
+                        k ∈ Nat ∧ hassize(X, k + 1) ∧ a ∈ X
+                        hassize(X ∖ {a}, k)            ; hassize-remove
+                        assume n = 0
+                            hassize(X, 0)
+                            X = ∅                      ; hassize-zero
+                            a ∈ ∅
+                            ⊥                          ; empty-set
+                        n ≠ 0
+                        n ∈ Nat ∧ n ≠ 0
+                        ∃ i (i ∈ Nat ∧ n = i + 1)      ; nat-pred
+                        pick i with i ∈ Nat ∧ n = i + 1
+                            i ∈ Nat
+                            n = i + 1
+                            hassize(X, i + 1)
+                            i ∈ Nat ∧ hassize(X, i + 1) ∧ a ∈ X
+                            hassize(X ∖ {a}, i)        ; hassize-remove
+                            hassize(X ∖ {a}, k) ∧ hassize(X ∖ {a}, i)  ⇒  k = i
+                            hassize(X ∖ {a}, k) ∧ hassize(X ∖ {a}, i)
+                            k = i
+                            k + 1 = i + 1
+                            k + 1 = n
+            ∀ $P ∀ $j (hassize($P, k + 1) ∧ hassize($P, $j)  ⇒  k + 1 = $j)
+    ∀ k ∈ Nat (∀ $P ∀ $j (hassize($P, k) ∧ hassize($P, $j)  ⇒  k = $j)  ⇒  ∀ $P ∀ $j (hassize($P, k + 1) ∧ hassize($P, $j)  ⇒  k + 1 = $j))
+    (∀ $P ∀ $j (hassize($P, 0) ∧ hassize($P, $j)  ⇒  0 = $j)) ∧ ∀ k ∈ Nat (∀ $P ∀ $j (hassize($P, k) ∧ hassize($P, $j)  ⇒  k = $j)  ⇒  ∀ $P ∀ $j (hassize($P, k + 1) ∧ hassize($P, $j)  ⇒  k + 1 = $j))
+    ∀ $i ∈ Nat ∀ $P ∀ $j (hassize($P, $i) ∧ hassize($P, $j)  ⇒  $i = $j)     ; induction
+    assume hassize($X, $k) ∧ hassize($X, $n)
+        hassize($X, $k)
+        $k ∈ Nat ∧ ∃ $m bijection($m, below($k), $X)    ; hassize
+        $k ∈ Nat
+        ∀ $P ∀ $j (hassize($P, $k) ∧ hassize($P, $j)  ⇒  $k = $j)
+        hassize($X, $k) ∧ hassize($X, $n)  ⇒  $k = $n
+        $k = $n
+qed
+
+show ($X ∪ $Y) ∪ $Z = $X ∪ ($Y ∪ $Z)                                  "union-assoc"
+proof
+    let c
+        assume c ∈ ($X ∪ $Y) ∪ $Z
+            c ∈ $X ∪ $Y ∨ c ∈ $Z                       ; union
+            case c ∈ $X ∪ $Y
+                c ∈ $X ∨ c ∈ $Y                        ; union
+                case c ∈ $X
+                    c ∈ $X ∨ c ∈ $Y ∪ $Z
+                case c ∈ $Y
+                    c ∈ $Y ∨ c ∈ $Z
+                    c ∈ $Y ∪ $Z                        ; union
+                    c ∈ $X ∨ c ∈ $Y ∪ $Z
+                c ∈ $X ∨ c ∈ $Y ∪ $Z
+            case c ∈ $Z
+                c ∈ $Y ∨ c ∈ $Z
+                c ∈ $Y ∪ $Z                            ; union
+                c ∈ $X ∨ c ∈ $Y ∪ $Z
+            c ∈ $X ∨ c ∈ $Y ∪ $Z
+            c ∈ $X ∪ ($Y ∪ $Z)                         ; union
+        assume c ∈ $X ∪ ($Y ∪ $Z)
+            c ∈ $X ∨ c ∈ $Y ∪ $Z                       ; union
+            case c ∈ $X
+                c ∈ $X ∨ c ∈ $Y
+                c ∈ $X ∪ $Y                            ; union
+                c ∈ $X ∪ $Y ∨ c ∈ $Z
+            case c ∈ $Y ∪ $Z
+                c ∈ $Y ∨ c ∈ $Z                        ; union
+                case c ∈ $Y
+                    c ∈ $X ∨ c ∈ $Y
+                    c ∈ $X ∪ $Y                        ; union
+                    c ∈ $X ∪ $Y ∨ c ∈ $Z
+                case c ∈ $Z
+                    c ∈ $X ∪ $Y ∨ c ∈ $Z
+                c ∈ $X ∪ $Y ∨ c ∈ $Z
+            c ∈ $X ∪ $Y ∨ c ∈ $Z
+            c ∈ ($X ∪ $Y) ∪ $Z                         ; union
+        c ∈ ($X ∪ $Y) ∪ $Z  ⇔  c ∈ $X ∪ ($Y ∪ $Z)
+    ∀ c (c ∈ ($X ∪ $Y) ∪ $Z  ⇔  c ∈ $X ∪ ($Y ∪ $Z))
+    ($X ∪ $Y) ∪ $Z = $X ∪ ($Y ∪ $Z)                    ; extensionality
+qed
+
+; X ∖ {b} and {b} put together again
+show $b ∈ $Y  ⇒  ($Y ∖ {$b}) ∪ {$b} = $Y                             "remove-add"
+proof
+    assume $b ∈ $Y
+        let c
+            assume c ∈ ($Y ∖ {$b}) ∪ {$b}
+                c ∈ $Y ∖ {$b} ∨ c ∈ {$b}               ; union
+                case c ∈ $Y ∖ {$b}
+                    c ∈ $Y ∧ c ≠ $b                    ; in-remove-elim
+                    c ∈ $Y
+                case c ∈ {$b}
+                    c = $b                             ; singleton
+                    c ∈ $Y
+                c ∈ $Y
+            assume c ∈ $Y
+                c = $b ∨ c ≠ $b                        ; excluded-middle
+                case c = $b
+                    c ∈ {$b}                           ; singleton
+                    c ∈ $Y ∖ {$b} ∨ c ∈ {$b}
+                case c ≠ $b
+                    c ∈ $Y ∧ c ≠ $b
+                    c ∈ $Y ∖ {$b}                      ; in-remove
+                    c ∈ $Y ∖ {$b} ∨ c ∈ {$b}
+                c ∈ $Y ∖ {$b} ∨ c ∈ {$b}
+                c ∈ ($Y ∖ {$b}) ∪ {$b}                 ; union
+            c ∈ ($Y ∖ {$b}) ∪ {$b}  ⇔  c ∈ $Y
+        ∀ c (c ∈ ($Y ∖ {$b}) ∪ {$b}  ⇔  c ∈ $Y)
+        ($Y ∖ {$b}) ∪ {$b} = $Y                        ; extensionality
+qed
+
+; removing what isn't there changes nothing
+show ¬($b ∈ $Y)  ⇒  $Y ∖ {$b} = $Y                                    "remove-absent"
+proof
+    assume ¬($b ∈ $Y)
+        let c
+            assume c ∈ $Y ∖ {$b}
+                c ∈ $Y ∧ c ≠ $b                        ; in-remove-elim
+                c ∈ $Y
+            assume c ∈ $Y
+                assume c = $b
+                    $b ∈ $Y
+                    ⊥
+                c ≠ $b
+                c ∈ $Y ∧ c ≠ $b
+                c ∈ $Y ∖ {$b}                          ; in-remove
+            c ∈ $Y ∖ {$b}  ⇔  c ∈ $Y
+        ∀ c (c ∈ $Y ∖ {$b}  ⇔  c ∈ $Y)
+        $Y ∖ {$b} = $Y                                 ; extensionality
+qed
+
+show $Y ∖ {$b} ⊂ $Y                                                   "remove-subset"
+proof
+    let c
+        assume c ∈ $Y ∖ {$b}
+            c ∈ $Y ∧ c ≠ $b                            ; in-remove-elim
+            c ∈ $Y
+    ∀ c (c ∈ $Y ∖ {$b}  ⇒  c ∈ $Y)
+qed
+
+; disjoint sets added up: by induction on the number n of elements of Y
+show hassize($X, $k) ∧ hassize($Y, $n) ∧ $X ∩ $Y = ∅  ⇒  hassize($X ∪ $Y, $k + $n)    "hassize-union"
+proof
+    assume hassize($X, $k) ∧ hassize($Y, $n) ∧ $X ∩ $Y = ∅
+        hassize($X, $k)
+        hassize($Y, $n)
+        $X ∩ $Y = ∅
+        $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $Y)    ; hassize
+        $n ∈ Nat
+        ; n = 0: Y is empty
+        let Y
+            assume hassize(Y, 0) ∧ $X ∩ Y = ∅
+                hassize(Y, 0)
+                Y = ∅                                  ; hassize-zero
+                let c
+                    assume c ∈ $X ∪ Y
+                        c ∈ $X ∨ c ∈ Y                 ; union
+                        case c ∈ $X
+                            c ∈ $X
+                        case c ∈ Y
+                            c ∈ ∅
+                            ⊥                          ; empty-set
+                            c ∈ $X
+                        c ∈ $X
+                    assume c ∈ $X
+                        c ∈ $X ∨ c ∈ Y
+                        c ∈ $X ∪ Y                     ; union
+                    c ∈ $X ∪ Y  ⇔  c ∈ $X
+                ∀ c (c ∈ $X ∪ Y  ⇔  c ∈ $X)
+                $X ∪ Y = $X                            ; extensionality
+                $k + 0 = $k                            ; add-identity
+                hassize($X ∪ Y, $k)
+                hassize($X ∪ Y, $k + 0)
+        ∀ Y (hassize(Y, 0) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + 0))
+        ; n → n + 1: take an element b out of Y
+        let i ∈ Nat
+            assume ∀ Y (hassize(Y, i) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + i))
+                let Y
+                    assume hassize(Y, i + 1) ∧ $X ∩ Y = ∅
+                        hassize(Y, i + 1)
+                        $X ∩ Y = ∅
+                        i + 1 ≠ 0                      ; nat-succ-ne-zero
+                        hassize(Y, i + 1) ∧ i + 1 ≠ 0
+                        ∃ y (y ∈ Y)                    ; hassize-nonempty
+                        pick b with b ∈ Y
+                            i ∈ Nat ∧ hassize(Y, i + 1) ∧ b ∈ Y
+                            hassize(Y ∖ {b}, i)        ; hassize-remove
+                            ; X and Y ∖ {b} are disjoint, and b is in neither
+                            let c
+                                assume c ∈ $X ∩ (Y ∖ {b})
+                                    c ∈ $X ∧ c ∈ Y ∖ {b}       ; in-intersection
+                                    c ∈ $X
+                                    c ∈ Y ∖ {b}
+                                    c ∈ Y ∧ c ≠ b              ; in-remove-elim
+                                    c ∈ Y
+                                    c ∈ $X ∧ c ∈ Y
+                                    c ∈ $X ∩ Y                 ; in-intersection
+                                    c ∈ ∅
+                                    ⊥                          ; empty-set
+                                    c ∈ ∅
+                                assume c ∈ ∅
+                                    ⊥                          ; empty-set
+                                    c ∈ $X ∩ (Y ∖ {b})
+                                c ∈ $X ∩ (Y ∖ {b})  ⇔  c ∈ ∅
+                            ∀ c (c ∈ $X ∩ (Y ∖ {b})  ⇔  c ∈ ∅)
+                            $X ∩ (Y ∖ {b}) = ∅                 ; extensionality
+                            hassize(Y ∖ {b}, i) ∧ $X ∩ (Y ∖ {b}) = ∅  ⇒  hassize($X ∪ (Y ∖ {b}), $k + i)
+                            hassize(Y ∖ {b}, i) ∧ $X ∩ (Y ∖ {b}) = ∅
+                            hassize($X ∪ (Y ∖ {b}), $k + i)
+                            assume b ∈ $X ∪ (Y ∖ {b})
+                                b ∈ $X ∨ b ∈ Y ∖ {b}           ; union
+                                case b ∈ $X
+                                    b ∈ $X ∧ b ∈ Y
+                                    b ∈ $X ∩ Y                 ; in-intersection
+                                    b ∈ ∅
+                                    ⊥                          ; empty-set
+                                case b ∈ Y ∖ {b}
+                                    b ∈ Y ∧ b ≠ b              ; in-remove-elim
+                                    b ≠ b
+                                    ⊥
+                                ⊥
+                            ¬(b ∈ $X ∪ (Y ∖ {b}))
+                            hassize($X ∪ (Y ∖ {b}), $k + i) ∧ ¬(b ∈ $X ∪ (Y ∖ {b}))
+                            hassize(($X ∪ (Y ∖ {b})) ∪ {b}, $k + i + 1)     ; hassize-add
+                            ; ... which is X ∪ Y
+                            (Y ∖ {b}) ∪ {b} = Y                ; remove-add
+                            ($X ∪ (Y ∖ {b})) ∪ {b} = $X ∪ ((Y ∖ {b}) ∪ {b})  ; union-assoc
+                            ($X ∪ (Y ∖ {b})) ∪ {b} = $X ∪ Y
+                            hassize($X ∪ Y, $k + i + 1)
+                            hassize($X ∪ Y, $k + (i + 1))
+        ∀ i ∈ Nat (∀ Y (hassize(Y, i) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + i))  ⇒  ∀ Y (hassize(Y, i + 1) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + (i + 1))))
+        (∀ Y (hassize(Y, 0) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + 0))) ∧ ∀ i ∈ Nat (∀ Y (hassize(Y, i) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + i))  ⇒  ∀ Y (hassize(Y, i + 1) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + (i + 1))))
+        ∀ i ∈ Nat ∀ Y (hassize(Y, i) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + i))     ; induction
+        ∀ Y (hassize(Y, $n) ∧ $X ∩ Y = ∅  ⇒  hassize($X ∪ Y, $k + $n))
+        hassize($Y, $n) ∧ $X ∩ $Y = ∅  ⇒  hassize($X ∪ $Y, $k + $n)
+        hassize($Y, $n) ∧ $X ∩ $Y = ∅
+        hassize($X ∪ $Y, $k + $n)
+qed
+
+; a subset of a set with n elements has at most n elements -- by induction on n, for all X and Y
+show hassize($X, $n) ∧ $Y ⊂ $X  ⇒  ∃ i (i <= $n ∧ hassize($Y, i))     "hassize-subset"
+proof
+    ; n = 0: X is empty, and so is Y
+    let X, Y
+        assume hassize(X, 0) ∧ Y ⊂ X
+            hassize(X, 0)
+            Y ⊂ X
+            X = ∅                                      ; hassize-zero
+            ∀ c (c ∈ Y  ⇒  c ∈ X)                      ; subset
+            let c
+                assume c ∈ Y
+                    c ∈ Y  ⇒  c ∈ X
+                    c ∈ X
+                    c ∈ ∅
+                assume c ∈ ∅
+                    ⊥                                  ; empty-set
+                    c ∈ Y
+                c ∈ Y  ⇔  c ∈ ∅
+            ∀ c (c ∈ Y  ⇔  c ∈ ∅)
+            Y = ∅                                      ; extensionality
+            hassize(∅, 0)                              ; hassize-empty
+            hassize(Y, 0)
+            0 <= 0                                     ; le-refl
+            0 <= 0 ∧ hassize(Y, 0)
+            ∃ i (i <= 0 ∧ hassize(Y, i))
+    ∀ X ∀ Y (hassize(X, 0) ∧ Y ⊂ X  ⇒  ∃ i (i <= 0 ∧ hassize(Y, i)))
+    ; n → n + 1: take an element a out of X (and out of Y)
+    let n ∈ Nat
+        assume ∀ X ∀ Y (hassize(X, n) ∧ Y ⊂ X  ⇒  ∃ i (i <= n ∧ hassize(Y, i)))
+            n <= n + 1                                 ; lt-le
+            let X, Y
+                assume hassize(X, n + 1) ∧ Y ⊂ X
+                    hassize(X, n + 1)
+                    Y ⊂ X
+                    ∀ c (c ∈ Y  ⇒  c ∈ X)              ; subset
+                    n + 1 ≠ 0                          ; nat-succ-ne-zero
+                    hassize(X, n + 1) ∧ n + 1 ≠ 0
+                    ∃ x (x ∈ X)                        ; hassize-nonempty
+                    pick a with a ∈ X
+                        n ∈ Nat ∧ hassize(X, n + 1) ∧ a ∈ X
+                        hassize(X ∖ {a}, n)            ; hassize-remove
+                        let c
+                            assume c ∈ Y ∖ {a}
+                                c ∈ Y ∧ c ≠ a          ; in-remove-elim
+                                c ∈ Y
+                                c ≠ a
+                                c ∈ Y  ⇒  c ∈ X
+                                c ∈ X
+                                c ∈ X ∧ c ≠ a
+                                c ∈ X ∖ {a}            ; in-remove
+                        ∀ c (c ∈ Y ∖ {a}  ⇒  c ∈ X ∖ {a})
+                        Y ∖ {a} ⊂ X ∖ {a}
+                        hassize(X ∖ {a}, n) ∧ Y ∖ {a} ⊂ X ∖ {a}  ⇒  ∃ i (i <= n ∧ hassize(Y ∖ {a}, i))
+                        hassize(X ∖ {a}, n) ∧ Y ∖ {a} ⊂ X ∖ {a}
+                        ∃ i (i <= n ∧ hassize(Y ∖ {a}, i))
+                        pick i with i <= n ∧ hassize(Y ∖ {a}, i)
+                            i <= n
+                            hassize(Y ∖ {a}, i)
+                            a ∈ Y ∨ ¬(a ∈ Y)           ; excluded-middle
+                            case a ∈ Y
+                                assume a ∈ Y ∖ {a}
+                                    a ∈ Y ∧ a ≠ a      ; in-remove-elim
+                                    a ≠ a
+                                    ⊥
+                                ¬(a ∈ Y ∖ {a})
+                                hassize(Y ∖ {a}, i) ∧ ¬(a ∈ Y ∖ {a})
+                                hassize((Y ∖ {a}) ∪ {a}, i + 1)    ; hassize-add
+                                (Y ∖ {a}) ∪ {a} = Y    ; remove-add
+                                hassize(Y, i + 1)
+                                i + 1 <= n + 1         ; le-add
+                                i + 1 <= n + 1 ∧ hassize(Y, i + 1)
+                                ∃ j (j <= n + 1 ∧ hassize(Y, j))
+                            case ¬(a ∈ Y)
+                                Y ∖ {a} = Y            ; remove-absent
+                                hassize(Y, i)
+                                i <= n + 1
+                                i <= n + 1 ∧ hassize(Y, i)
+                                ∃ j (j <= n + 1 ∧ hassize(Y, j))
+                            ∃ j (j <= n + 1 ∧ hassize(Y, j))
+                    ∃ j (j <= n + 1 ∧ hassize(Y, j))
+            ∀ X ∀ Y (hassize(X, n + 1) ∧ Y ⊂ X  ⇒  ∃ j (j <= n + 1 ∧ hassize(Y, j)))
+    ∀ n ∈ Nat (∀ X ∀ Y (hassize(X, n) ∧ Y ⊂ X  ⇒  ∃ i (i <= n ∧ hassize(Y, i)))  ⇒  ∀ X ∀ Y (hassize(X, n + 1) ∧ Y ⊂ X  ⇒  ∃ i (i <= n + 1 ∧ hassize(Y, i))))
+    (∀ X ∀ Y (hassize(X, 0) ∧ Y ⊂ X  ⇒  ∃ i (i <= 0 ∧ hassize(Y, i)))) ∧ ∀ n ∈ Nat (∀ X ∀ Y (hassize(X, n) ∧ Y ⊂ X  ⇒  ∃ i (i <= n ∧ hassize(Y, i)))  ⇒  ∀ X ∀ Y (hassize(X, n + 1) ∧ Y ⊂ X  ⇒  ∃ i (i <= n + 1 ∧ hassize(Y, i))))
+    ∀ n ∈ Nat ∀ X ∀ Y (hassize(X, n) ∧ Y ⊂ X  ⇒  ∃ i (i <= n ∧ hassize(Y, i)))      ; induction
+    assume hassize($X, $n) ∧ $Y ⊂ $X
+        hassize($X, $n)
+        $n ∈ Nat ∧ ∃ $m bijection($m, below($n), $X)    ; hassize
+        $n ∈ Nat
+        ∀ X ∀ Y (hassize(X, $n) ∧ Y ⊂ X  ⇒  ∃ i (i <= $n ∧ hassize(Y, i)))
+        hassize($X, $n) ∧ $Y ⊂ $X  ⇒  ∃ i (i <= $n ∧ hassize($Y, i))
+        ∃ i (i <= $n ∧ hassize($Y, i))
+qed
+
+; what is left of a set when a disjoint part with n elements is taken away
+show hassize($X ∪ $Y, $k) ∧ hassize($Y, $n) ∧ $X ∩ $Y = ∅  ⇒  hassize($X, $k - $n)    "hassize-difference"
+proof
+    assume hassize($X ∪ $Y, $k) ∧ hassize($Y, $n) ∧ $X ∩ $Y = ∅
+        hassize($X ∪ $Y, $k)
+        hassize($Y, $n)
+        $X ∩ $Y = ∅
+        let c
+            assume c ∈ $X
+                c ∈ $X ∨ c ∈ $Y
+                c ∈ $X ∪ $Y                            ; union
+        $X ⊂ $X ∪ $Y
+        hassize($X ∪ $Y, $k) ∧ $X ⊂ $X ∪ $Y
+        ∃ i (i <= $k ∧ hassize($X, i))                 ; hassize-subset
+        pick i with i <= $k ∧ hassize($X, i)
+            hassize($X, i)
+            hassize($X, i) ∧ hassize($Y, $n) ∧ $X ∩ $Y = ∅
+            hassize($X ∪ $Y, i + $n)                   ; hassize-union
+            hassize($X ∪ $Y, i + $n) ∧ hassize($X ∪ $Y, $k)
+            i + $n = $k                                ; hassize-unique
+            (i + $n) - $n = $k - $n                    ; sub-eq
+            (i + $n) - $n = i - ($n - $n)              ; add-sub
+                          = i - 0                      ; sub-inverse
+                          = i                          ; sub-identity
+            i = $k - $n
+            hassize($X, $k - $n)
+qed
+
+; finite sets
+show finite(∅)                                                        "finite-empty"
+proof
+    hassize(∅, 0)                                      ; hassize-empty
+    ∃ $n hassize(∅, $n)
+qed
+
+show finite({$a})                                                     "finite-singleton"
+proof
+    hassize({$a}, 1)                                   ; hassize-singleton
+    ∃ $n hassize({$a}, $n)
+qed
+
+show finite($X) ∧ $Y ⊂ $X  ⇒  finite($Y)                               "finite-subset"
+proof
+    assume finite($X) ∧ $Y ⊂ $X
+        finite($X)
+        $Y ⊂ $X
+        ∃ $n hassize($X, $n)                             ; finite
+        pick n with hassize($X, n)
+            hassize($X, n) ∧ $Y ⊂ $X
+            ∃ i (i <= n ∧ hassize($Y, i))              ; hassize-subset
+            pick i with i <= n ∧ hassize($Y, i)
+                hassize($Y, i)
+                ∃ $n hassize($Y, $n)
+                finite($Y)
+qed
+
+show finite($X) ∧ $u ∈ ($X → $Y) ∧ injective($u, $X) ∧ surjective($u, $X, $Y)  ⇒  finite($Y)    "finite-bijection"
+proof
+    assume finite($X) ∧ $u ∈ ($X → $Y) ∧ injective($u, $X) ∧ surjective($u, $X, $Y)
+        finite($X)
+        $u ∈ ($X → $Y) ∧ injective($u, $X) ∧ surjective($u, $X, $Y)
+        bijection($u, $X, $Y)
+        ∃ $n hassize($X, $n)                             ; finite
+        pick n with hassize($X, n)
+            hassize($X, n) ∧ bijection($u, $X, $Y)
+            hassize($Y, n)                             ; hassize-bijection
+            ∃ $n hassize($Y, $n)
+            finite($Y)
+qed
+
+; the union of two finite sets is finite: X ∪ Y is X and the part of Y outside X
+show finite($X) ∧ finite($Y)  ⇒  finite($X ∪ $Y)                      "finite-union"
+proof
+    assume finite($X) ∧ finite($Y)
+        finite($X)
+        finite($Y)
+        let c
+            assume c ∈ $Y ∖ $X
+                c ∈ $Y ∧ ¬(c ∈ $X)                     ; in-setminus
+                c ∈ $Y
+        $Y ∖ $X ⊂ $Y
+        finite($Y) ∧ $Y ∖ $X ⊂ $Y
+        finite($Y ∖ $X)                                ; finite-subset
+        ∃ $n hassize($X, $n)                             ; finite
+        ∃ $n hassize($Y ∖ $X, $n)                      ; finite
+        let c
+            assume c ∈ $X ∩ ($Y ∖ $X)
+                c ∈ $X ∧ c ∈ $Y ∖ $X                   ; in-intersection
+                c ∈ $X
+                c ∈ $Y ∖ $X
+                c ∈ $Y ∧ ¬(c ∈ $X)                     ; in-setminus
+                ¬(c ∈ $X)
+                ⊥
+                c ∈ ∅
+            assume c ∈ ∅
+                ⊥                                      ; empty-set
+                c ∈ $X ∩ ($Y ∖ $X)
+            c ∈ $X ∩ ($Y ∖ $X)  ⇔  c ∈ ∅
+        ∀ c (c ∈ $X ∩ ($Y ∖ $X)  ⇔  c ∈ ∅)
+        $X ∩ ($Y ∖ $X) = ∅                             ; extensionality
+        let c
+            assume c ∈ $X ∪ ($Y ∖ $X)
+                c ∈ $X ∨ c ∈ $Y ∖ $X                   ; union
+                case c ∈ $X
+                    c ∈ $X ∨ c ∈ $Y
+                case c ∈ $Y ∖ $X
+                    c ∈ $Y ∧ ¬(c ∈ $X)                 ; in-setminus
+                    c ∈ $Y
+                    c ∈ $X ∨ c ∈ $Y
+                c ∈ $X ∨ c ∈ $Y
+                c ∈ $X ∪ $Y                            ; union
+            assume c ∈ $X ∪ $Y
+                c ∈ $X ∨ c ∈ $Y                        ; union
+                case c ∈ $X
+                    c ∈ $X ∨ c ∈ $Y ∖ $X
+                case c ∈ $Y
+                    c ∈ $X ∨ ¬(c ∈ $X)                 ; excluded-middle
+                    case c ∈ $X
+                        c ∈ $X ∨ c ∈ $Y ∖ $X
+                    case ¬(c ∈ $X)
+                        c ∈ $Y ∧ ¬(c ∈ $X)
+                        c ∈ $Y ∖ $X                    ; in-setminus
+                        c ∈ $X ∨ c ∈ $Y ∖ $X
+                    c ∈ $X ∨ c ∈ $Y ∖ $X
+                c ∈ $X ∨ c ∈ $Y ∖ $X
+                c ∈ $X ∪ ($Y ∖ $X)                     ; union
+            c ∈ $X ∪ ($Y ∖ $X)  ⇔  c ∈ $X ∪ $Y
+        ∀ c (c ∈ $X ∪ ($Y ∖ $X)  ⇔  c ∈ $X ∪ $Y)
+        $X ∪ ($Y ∖ $X) = $X ∪ $Y                       ; extensionality
+        pick n with hassize($X, n)
+            pick k with hassize($Y ∖ $X, k)
+                hassize($X, n) ∧ hassize($Y ∖ $X, k) ∧ $X ∩ ($Y ∖ $X) = ∅
+                hassize($X ∪ ($Y ∖ $X), n + k)         ; hassize-union
+                hassize($X ∪ $Y, n + k)
+                ∃ $n hassize($X ∪ $Y, $n)
+                finite($X ∪ $Y)
+qed
+
+; how `kurt --latex` writes them
+tex below \{0, \ldots, $1 - 1\}
+tex hassize \left|$1\right| = $2
+tex finite $1 \text{ finite}
+tex bijection $1\colon $2 \xrightarrow{\sim} $3
+tex injective $1 \text{ injective on } $2
+tex surjective $1\colon $2 \to $3 \text{ onto}
+tex comp $1 \circ $2
+tex setminus \setminus
+
+;; the axiom as a theorem of Mathlib: `Nat` is the set of the embedded natural numbers there
+;; (`k_numset`, natural.kurt's `lean Nat member ...`), so each of its elements is an embedded number
+lean "nat-number" intro x h; obtain ⟨r, rfl, _⟩ := k_numset_elem _ x h; exact ⟨r, rfl⟩

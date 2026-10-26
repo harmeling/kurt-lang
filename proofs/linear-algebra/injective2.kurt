@@ -10,7 +10,7 @@ load equality
 ; task: prove that the composition of two injective functions is injective
 
 infix ∘ 40 40                  ; composition
-var φ, ψ, χ, ω                 ; operator variables: an operator is no object (doc/kurt-doc.md §5.3),
+var φ, ψ, χ, ω                 ; operator variables: an operator is no object (doc/kurt-ref.md §5.3),
 arity φ 1, ψ 1, χ 1, ω 1       ; so the functions that `∘` composes are operator parameters
 
 use (%A ⇒ (%B ⇒ %C))  ⇒  (%A ∧ %B ⇒ %C)    "lemma"

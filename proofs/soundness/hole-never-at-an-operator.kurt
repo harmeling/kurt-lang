@@ -5,8 +5,8 @@
 ; formula, since its signature says that it yields one -- applied (found 2026-10-16 after soundness
 ; §8.39; soundness §8.40). Now the hole search skips operator positions (`hole_nodes`), a
 ; `%`-variable takes no bare operator (`bare_operator_for`), and the kernel reads a bare operator
-; as no formula (`k_is_statement`, `k_has_kind`). Since todo 32 (the same day), a bare boolean
-; operator where a statement is required is a type error, so the attempts below can't even be
+; as no formula (`k_is_statement`, `k_has_kind`). Since todo 32 (the same day), a bare
+; operator (with a statement as its result) where a statement is required is a type error, so the attempts below can't even be
 ; written any more: they are `TypeError`s at their `use`. The defenses of the search and the kernel
 ; stay, and are tested with forged certificates (tests/test_kernel.py,
 ; `test_a_bare_operator_is_no_formula`).
@@ -34,7 +34,7 @@ use R (not (not (P c c))) "rnn"
 R (P c c)
 
 ; an operator variable (`var ∘`) matches an operator through the unifier, not through a hole:
-; `∘ := plus`, and `rel := sim`, an operator variable with a boolean result
+; `∘ := plus`, and `rel := sim`, an operator variable with a statement as its result
 var ∘
 infix ∘ 70 70
 use ($a ∘ $b) = ($b ∘ $a) "comm"
@@ -51,8 +51,8 @@ const sim
 prop sim 0
 (c sim d) ⇒ (d sim c)
 
-; an operator is no object (decided 2026-10-20, doc/kurt-doc.md §5.3): neither a function symbol nor
-; a boolean operator is a term on its own, so an equation of function symbols can't be stated
+; an operator is no object (decided 2026-10-20, doc/kurt-ref.md §5.3): neither a function symbol nor
+; an operator with a statement as its result is a term on its own, so an equation of function symbols can't be stated
 ; (from todo 31 to 2026-10-20 it could, and rewrote `f c` to `g c`); a function as a value is a
 ; mapping of set.kurt (proofs/set-theory/function-extensionality.kurt). Since todo 32 the same
 ; holds for predicate symbols: `U ⇔ V` with `arity U 1` is a type error

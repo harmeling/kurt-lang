@@ -4,9 +4,11 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import threading
 import unittest
 import unittest.mock
+from typing import IO, Any
 
 import kurt.kurt as kurt
 
@@ -18,6 +20,11 @@ class Client:
     def __init__(self, cwd: str) -> None:
         self.process = subprocess.Popen([sys.executable, str(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'), '--lsp'],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        stdin, stdout, stderr = self.process.stdin, self.process.stdout, self.process.stderr
+        assert stdin is not None and stdout is not None and stderr is not None      # (the pipes asked for above)
+        self.stdin: IO[bytes] = stdin
+        self.stdout: IO[bytes] = stdout
+        self.stderr: IO[bytes] = stderr
         self.next_id = 0
 
     def send(self, method: str, params: dict, request: bool = True) -> None:
@@ -26,20 +33,20 @@ class Client:
             self.next_id += 1
             message['id'] = self.next_id
         body = json.dumps(message).encode('utf-8')
-        self.process.stdin.write(f'Content-Length: {len(body)}\r\n\r\n'.encode('ascii') + body)
-        self.process.stdin.flush()
+        self.stdin.write(f'Content-Length: {len(body)}\r\n\r\n'.encode('ascii') + body)
+        self.stdin.flush()
 
     def receive(self) -> dict:
         length = 0
         while True:
-            line = self.process.stdout.readline().decode('ascii').strip()
+            line = self.stdout.readline().decode('ascii').strip()
             if not line:
                 break
             if line.lower().startswith('content-length:'):
                 length = int(line.split(':')[1])
-        return json.loads(self.process.stdout.read(length))
+        return json.loads(self.stdout.read(length))
 
-    def request(self, method: str, params: dict) -> object:
+    def request(self, method: str, params: dict) -> Any:       # (the JSON of the result)
         self.send(method, params)
         while True:
             message = self.receive()
@@ -56,9 +63,9 @@ class Client:
         if self.process.poll() is None:
             self.process.kill()
         self.process.wait(timeout=10)
-        self.process.stdin.close()
-        self.process.stdout.close()
-        self.process.stderr.close()
+        self.stdin.close()
+        self.stdout.close()
+        self.stderr.close()
 
 
 class TestLanguageServer(unittest.TestCase):
@@ -86,14 +93,14 @@ class TestLanguageServer(unittest.TestCase):
             def hover(line):
                 found = server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})
                 return found['contents']['value'] if found else None
-            self.assertIn('; premise:   `A` (line 4)', hover(5))
-            self.assertIn('builtin not negation', hover(6))
-            theory = hover(7)
+            self.assertIn('; premise:   `A` (line 4)', hover(5) or '')
+            self.assertIn('builtin not negation', hover(6) or '')
+            theory = hover(7) or ''
             self.assertIn('"and-intro"', theory)
             self.assertIn('more lines', theory)                       # (long: only the first lines)
             self.assertLessEqual(theory.count('\n'), 10 + 5)
-            self.assertIn('; by 3(4)', hover(4))                      # (a step: its reason, as before)
-            self.assertIn('**statement:** `A`, `B` are statements', hover(1))   # (until 2026-10-14: nothing)
+            self.assertIn('; by 3(4)', hover(4) or '')                      # (a step: its reason, as before)
+            self.assertIn('**statement:** `A`, `B` are statements', hover(1) or '')   # (until 2026-10-14: nothing)
 
     def test_hover_says_what_a_declaration_does(self):
         # every line that isn't a comment has a hover (todo 32, 2026-10-14): a declaration, a toggle,
@@ -108,15 +115,15 @@ class TestLanguageServer(unittest.TestCase):
             def hover(line):
                 found = server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})
                 return found['contents']['value'] if found else None
-            self.assertIn('`a`, `b` stand for anything', hover(0))
-            self.assertIn('**constants:** `pi`', hover(1))
-            self.assertIn('left-associative', hover(2))
-            self.assertIn('right-associative', hover(3))
-            self.assertIn('`f` takes 2 arguments', hover(4))
-            self.assertIn('`g (_, _)`', hover(5))
-            self.assertIn('**theory:**', hover(6))                    # (a reason: as before)
-            self.assertIn('**calculator on:**', hover(7))
-            self.assertIn('write `pi` as `\\pi`', hover(8))
+            self.assertIn('`a`, `b` stand for anything', hover(0) or '')
+            self.assertIn('**constants:** `pi`', hover(1) or '')
+            self.assertIn('left-associative', hover(2) or '')
+            self.assertIn('right-associative', hover(3) or '')
+            self.assertIn('`f` takes 2 arguments', hover(4) or '')
+            self.assertIn('`g (_, _)`', hover(5) or '')
+            self.assertIn('**theory:**', hover(6) or '')                    # (a reason: as before)
+            self.assertIn('**calculator on:**', hover(7) or '')
+            self.assertIn('write `pi` as `\\pi`', hover(8) or '')
             self.assertIsNone(hover(9))                               # a comment: nothing
 
     def test_an_open_theory_of_kurt_stays_trusted(self):
@@ -263,7 +270,10 @@ class TestLanguageServer(unittest.TestCase):
                     release.wait(timeout=10)
                 return kurt.CheckResult(text == 'new', '', None if text == 'new' else 'old error')
 
-        server.session_for = lambda ignored_uri, **options: ControlledSession()     # (`cancel`: the check of a stale text stops, tests/test_budgets.py)
+        # (`cancel`: the check of a stale text stops, tests/test_budgets.py)
+        patcher = unittest.mock.patch.object(server, 'session_for', lambda ignored_uri, **options: ControlledSession())
+        patcher.start()
+        self.addCleanup(patcher.stop)
         old = threading.Thread(target=server.check, args=(uri, 1))
         old.start()
         self.assertTrue(started.wait(timeout=10))
@@ -402,6 +412,48 @@ class TestLanguageServer(unittest.TestCase):
                 self.assertEqual(client.process.wait(timeout=10), 0)
             finally:
                 client.close()
+
+
+    def test_a_cancelled_request_and_an_edit_stop_a_running_check(self):
+        # todo 51: a reader thread takes `$/cancelRequest` and `didChange` while a check runs (an 8 s search,
+        # tests/test_budgets.py): the check of the cancelled request, or of the text that was edited, stops at its next step
+        from tests.test_budgets import SLOW, PROOF
+        with tempfile.TemporaryDirectory() as tmp:
+            uri = 'file://' + os.path.join(tmp, 'proof.kurt')
+            client = Client(tmp)
+            try:
+                client.request('initialize', {'processId': None, 'rootUri': None, 'capabilities': {}})
+                client.send('initialized', {}, request=False)
+                client.send('textDocument/didOpen', {'textDocument': {'uri': uri, 'languageId': 'kurt', 'version': 1, 'text': PROOF}}, request=False)
+                client.notification('textDocument/publishDiagnostics')
+                # (1) a request is cancelled: answered with `RequestCancelled`, long before the search ends
+                client.send('textDocument/didChange', {'textDocument': {'uri': uri, 'version': 2}, 'contentChanges': [{'text': SLOW}]}, request=False)
+                started = time.monotonic()
+                client.send('kurt/check', {'textDocument': {'uri': uri}})
+                request = client.next_id
+                time.sleep(1.0)
+                client.send('$/cancelRequest', {'id': request}, request=False)
+                while True:
+                    message = client.receive()
+                    if message.get('id') == request:
+                        break
+                self.assertEqual(message['error']['code'], -32800)
+                self.assertLess(time.monotonic() - started, 6.0)
+                # (2) an edit arrives while a check runs: the old text's check stops, the new one is answered
+                client.send('kurt/check', {'textDocument': {'uri': uri}})
+                request = client.next_id
+                time.sleep(1.0)
+                started = time.monotonic()
+                client.send('textDocument/didChange', {'textDocument': {'uri': uri, 'version': 3}, 'contentChanges': [{'text': PROOF}]}, request=False)
+                while True:
+                    message = client.receive()
+                    if message.get('id') == request:
+                        break
+                self.assertLess(time.monotonic() - started, 6.0)
+                client.close()
+            finally:
+                client.close()
+
 
 
 if __name__ == '__main__':

@@ -73,13 +73,13 @@ def grade(exercise: Path, solution: Path, budget: float = DEFAULT_BUDGET) -> tup
             tmp_theory.mkdir()
         checked = Path(tmp) / exercise.name
         # (only the scene and Kurt's theories, not the grader's directory)
-        paths = dict(paths=(str(tmp_theory),), search_cwd=False)
+        scene = (str(tmp_theory),)
         checked.write_text(exercise_text, encoding='utf-8')      # the exercise itself: what it loads
-        given = kurt.check_file(str(checked), session=kurt.Session(kurt.RunConfig(**paths)))
+        given = kurt.check_file(str(checked), session=kurt.Session(kurt.RunConfig(paths=scene, search_cwd=False)))
         if not given.ok:
             return False, f'the exercise itself does not check: line {given.error_line}: {given.error}'
         checked.write_text(solution_text, encoding='utf-8')
-        result = kurt.check_file(str(checked), session=kurt.Session(kurt.RunConfig(strict=True, all_errors=True, time_limit=budget or None, **paths)))
+        result = kurt.check_file(str(checked), session=kurt.Session(kurt.RunConfig(strict=True, all_errors=True, time_limit=budget or None, paths=scene, search_cwd=False)))
         extra = [os.path.relpath(f, tmp) for f in result.loaded if f not in given.loaded]
     report = []
     if result.exhausted:
@@ -106,7 +106,7 @@ def grade(exercise: Path, solution: Path, budget: float = DEFAULT_BUDGET) -> tup
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.strip().split('\n\n')[0], usage=__doc__.strip().split('\n\n')[1].strip())
+    parser = argparse.ArgumentParser(description=(__doc__ or '').strip().split('\n\n')[0], usage=(__doc__ or '').strip().split('\n\n')[1].strip())
     parser.add_argument('exercise', type=Path)
     parser.add_argument('solution', type=Path)
     parser.add_argument('--budget', type=float, default=DEFAULT_BUDGET, metavar='SECONDS',

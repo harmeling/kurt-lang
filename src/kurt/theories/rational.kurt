@@ -15,7 +15,7 @@ tex Rat \mathbb{Q}
 lean Rat member $1 ∈ Set.range (fun q : ℚ => (q : ℝ))
 alias ℚ Rat
 use Rat ⊂ Real  "rat-sub-real"      ; a set of numbers (natural.kurt's "ext-real")
-lean "rat-sub-real" simp only [k_u2282]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "rat-sub-real" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
 
 ; A defining axiom, not `def`: `Rat` is an existing calculator-bound carrier, and this
 ; characterizes membership in it rather than introducing one fresh predicate abbreviation.
@@ -233,8 +233,8 @@ lean "lowest-terms"   | exact_mod_cast hb
 lean "lowest-terms"   | (simp only [coprime]
 lean "lowest-terms"      intro d hd hdiv
 lean "lowest-terms"      obtain ⟨e, rfl⟩ := (k_mem_Nat d).mp hd
-lean "lowest-terms"      have dvd : ∀ c : ℕ, k_u2223 (e : ℝ) (c : ℝ) → e ∣ c := by
-lean "lowest-terms"        intro c hc; simp only [k_u2223] at hc; obtain ⟨s, hs⟩ := hc; casesm* _ ∧ _
+lean "lowest-terms"      have dvd : ∀ c : ℕ, divides (e : ℝ) (c : ℝ) → e ∣ c := by
+lean "lowest-terms"        intro c hc; simp only [divides] at hc; obtain ⟨s, hs⟩ := hc; casesm* _ ∧ _
 lean "lowest-terms"        obtain ⟨s', rfl⟩ := (k_mem_Nat s).mp (by assumption)
 lean "lowest-terms"        exact ⟨s', by exact_mod_cast (by linarith : (c : ℝ) = e * s')⟩
 lean "lowest-terms"      have hda := dvd a (by first | exact hdiv.1 | exact hdiv.2)

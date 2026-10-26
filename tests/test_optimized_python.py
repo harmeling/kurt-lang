@@ -6,7 +6,7 @@ import unittest
 from tests.utils import PROJECT_ROOT
 
 # `python -O` removes the `assert`s, and with them internal soundness checks: Kurt refuses to
-# check there, on the command line and from Python code (dev/astra-suggestions.md, finding 8)
+# check there, on the command line and from Python code (dev/astra-suggestions.md, in git history, finding 8)
 
 
 class TestOptimizedPython(unittest.TestCase):

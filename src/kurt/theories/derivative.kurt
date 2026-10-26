@@ -18,7 +18,7 @@
 ;
 ; In a rule, `$T` in `deriv $v $a $T` is any function of `$v`: it may depend on `$v`, since it is
 ; the whole body of a binder over `$v` and occurs only inside binders over `$v` or `sub`s for it
-; (doc/kurt-doc.md §4). A constant must not depend on `$v`: `$c` also occurs outside of the
+; (doc/kurt-ref.md §4). A constant must not depend on `$v`: `$c` also occurs outside of the
 ; binders (the premise `$c = $c` of "deriv-const", the factor of "deriv-scale").
 ;
 ; These rules are theorems of real analysis, stated as axioms (their proofs need the

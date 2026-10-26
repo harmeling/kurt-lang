@@ -16,7 +16,7 @@ true
 
 ; The kinds: `ScanError` (a symbol can't be scanned), `ParseError` (the line can't be read),
 ; `EvalError` (readable, but not allowed -- e.g. wrong arguments of a keyword, a claim that isn't
-; boolean), `TypeError` (sorts, the arguments of `sub`, the variable of a binder), `ProofError`
+; a statement), `TypeError` (sorts, the arguments of `sub`, the variable of a binder), `ProofError`
 ; (a claim can't be derived, a block can't close). If
 ; the block succeeds instead of raising the named error, the expectation itself fails.
 ;

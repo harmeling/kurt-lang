@@ -31,7 +31,7 @@ expect "EvalError" "between 0 and its arity 1"
     prefix p 90
     prop p 0 2
 
-expect "EvalError" "non-boolean result"
+expect "EvalError" "a term as its result"
     builtin arithmetic add
     prop arithmetic 0
 

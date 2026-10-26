@@ -25,7 +25,11 @@ arity vectorspace 1
 arity vectorclosed 1
 arity vectoradditive 1
 arity vectorscalar 1
-def vectorclosed($V)  ⇔  0 ∈ $V ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧ (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧ (∀ $u ∈ $V (- $u ∈ $V))   "vectorclosed"      ; closed: the zero vector, `+`, `·` and `-`
+def vectorclosed($V)  ⇔
+     0 ∈ $V ∧
+     (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w ∈ $V))) ∧
+     (∀ $p ∈ K (∀ $u ∈ $V ($p · $u ∈ $V))) ∧
+     (∀ $u ∈ $V (- $u ∈ $V))   "vectorclosed"      ; closed: the zero vector, `+`, `·` and `-`
 def vectoradditive($V)  ⇔  (∀ $u ∈ $V (∀ $w ∈ $V (∀ $t ∈ $V (($u + $w) + $t = $u + ($w + $t))))) ∧ (∀ $u ∈ $V (∀ $w ∈ $V ($u + $w = $w + $u))) ∧ (∀ $u ∈ $V ($u + 0 = $u)) ∧ (∀ $u ∈ $V ($u + (- $u) = 0))   "vectoradditive"      ; the laws of `+`, (V1)-(V4)
 def vectorscalar($V)  ⇔  (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V ($p · ($q · $u) = ($p · $q) · $u)))) ∧ (∀ $u ∈ $V (1 · $u = $u)) ∧ (∀ $p ∈ K (∀ $u ∈ $V (∀ $w ∈ $V ($p · ($u + $w) = $p · $u + $p · $w)))) ∧ (∀ $p ∈ K (∀ $q ∈ K (∀ $u ∈ $V (($p + $q) · $u = $p · $u + $q · $u))))   "vectorscalar"      ; the laws of `·`, (V5)-(V8)
 def vectorspace($V)  ⇔  vectorclosed($V) ∧ vectoradditive($V) ∧ vectorscalar($V)   "vectorspace"

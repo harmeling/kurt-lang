@@ -61,7 +61,7 @@ proof
 qed
 
 ; f: an operator variable (`var f`), the function -- the theorem is a schema, for every function
-; symbol (an operator is no object, doc/kurt-doc.md §5.3: it can't be quantified, so the theorem is
+; symbol (an operator is no object, doc/kurt-ref.md §5.3: it can't be quantified, so the theorem is
 ; "for every f" as a schema, like the rules of group.kurt). a, b: `$a`, `$b`.
 var f
 arity f 1
@@ -78,9 +78,8 @@ proof
         ∃ c0 (c0 = zpt((f), $a, $b))
         pick c with c = zpt((f), $a, $b)
             ; the set is bounded by b and has the element a
-            let w
-                assume w <= $b ∧ $a <= w ∧ f w <= 0
-                    w <= $b
+            let w with w <= $b ∧ $a <= w ∧ f w <= 0
+                w <= $b
             ∀ (w <= $b ∧ $a <= w ∧ f w <= 0) (w <= $b)
             $a <= $a
             $a <= $b
@@ -182,44 +181,43 @@ proof
                     0 + d / 2 < d / 2 + d / 2              ; lt-add
                     d / 2 < d / 2 + d / 2
                     d / 2 < d                              ; halves
-                    let w
-                        assume w <= $b ∧ $a <= w ∧ f w <= 0
-                            w <= sup (x <= $b ∧ $a <= x ∧ f x <= 0) x            ; sup-upper
-                            w <= c
-                            w < c - d / 2 ∨ w = c - d / 2 ∨ w > c - d / 2     ; trichotomy
-                            ; w > c - d/2: w is closer to c than d, so f(w) > 0
-                            assume w > c - d / 2
-                                (c - d / 2) + d / 2 < w + d / 2                ; lt-add
-                                c < w + d / 2                                  ; sub-add-cancel
-                                c - w < (w + d / 2) - w                        ; lt-sub
-                                (w + d / 2) - w = d / 2 - (w - w)              ; add-sub
-                                                = d / 2 - 0
-                                                = d / 2
-                                c - w < d / 2
-                                c - w < d
-                                w - w <= c - w                                 ; le-sub
-                                0 <= c - w
-                                abs(c - w) = c - w                             ; abs-nonneg
-                                abs(w - c) = abs(c - w)                        ; abs-sub-sym
-                                           = c - w
-                                abs(w - c) < d
-                                abs(w - c) < d  ⇒  abs(f w - f c) < f c
-                                abs(f w - f c) < f c
-                                -(f c) < f w - f c                             ; abs-lt-lower
-                                -(f c) + f c < (f w - f c) + f c               ; lt-add
-                                (f w - f c) + f c = f w                        ; sub-add-cancel
-                                -(f c) + f c = 0                               ; add-inverse
-                                0 < f w
-                                f w <= 0
-                                false
-                            case w < c - d / 2
-                                w <= c - d / 2
-                            case w = c - d / 2
-                                w <= c - d / 2
-                            case w > c - d / 2
-                                false
-                                w <= c - d / 2
+                    let w with w <= $b ∧ $a <= w ∧ f w <= 0
+                        w <= sup (x <= $b ∧ $a <= x ∧ f x <= 0) x            ; sup-upper
+                        w <= c
+                        w < c - d / 2 ∨ w = c - d / 2 ∨ w > c - d / 2     ; trichotomy
+                        ; w > c - d/2: w is closer to c than d, so f(w) > 0
+                        assume w > c - d / 2
+                            (c - d / 2) + d / 2 < w + d / 2                ; lt-add
+                            c < w + d / 2                                  ; sub-add-cancel
+                            c - w < (w + d / 2) - w                        ; lt-sub
+                            (w + d / 2) - w = d / 2 - (w - w)              ; add-sub
+                                            = d / 2 - 0
+                                            = d / 2
+                            c - w < d / 2
+                            c - w < d
+                            w - w <= c - w                                 ; le-sub
+                            0 <= c - w
+                            abs(c - w) = c - w                             ; abs-nonneg
+                            abs(w - c) = abs(c - w)                        ; abs-sub-sym
+                                       = c - w
+                            abs(w - c) < d
+                            abs(w - c) < d  ⇒  abs(f w - f c) < f c
+                            abs(f w - f c) < f c
+                            -(f c) < f w - f c                             ; abs-lt-lower
+                            -(f c) + f c < (f w - f c) + f c               ; lt-add
+                            (f w - f c) + f c = f w                        ; sub-add-cancel
+                            -(f c) + f c = 0                               ; add-inverse
+                            0 < f w
+                            f w <= 0
+                            false
+                        case w < c - d / 2
                             w <= c - d / 2
+                        case w = c - d / 2
+                            w <= c - d / 2
+                        case w > c - d / 2
+                            false
+                            w <= c - d / 2
+                        w <= c - d / 2
                     ∀ (w <= $b ∧ $a <= w ∧ f w <= 0) (w <= c - d / 2)
                     sup (x <= $b ∧ $a <= x ∧ f x <= 0) x <= c - d / 2        ; sup-least
                     c <= c - d / 2

@@ -51,7 +51,7 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Check that we can extract 'a'
         found_a = False
         for expr_a, expr_A in combinations:
-            if expr_a != None:
+            if expr_a is not None:
                 if kurt.equal_expr(expr_a, self.token_a, self.kb):
                     found_a = True
                     expected_A: kurt.Expr = [self.token_plus, self.token_x, self.token_b]
@@ -62,7 +62,7 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Check that we can extract 'b'
         found_b = False
         for expr_a, expr_A in combinations:
-            if expr_a != None:
+            if expr_a is not None:
                 if kurt.equal_expr(expr_a, self.token_b, self.kb):
                     found_b = True
                     expected_A: kurt.Expr = [self.token_plus, self.token_a, self.token_x]
@@ -79,7 +79,7 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Should be able to extract (b + c) as a subterm
         found_bc = False
         for expr_a, expr_A in combinations:
-            if expr_a != None:
+            if expr_a is not None:
                 if kurt.equal_expr(expr_a, inner_expr, self.kb):
                     found_bc = True
                     expected_A: kurt.Expr = [self.token_plus, self.token_a, self.token_x]
@@ -90,7 +90,7 @@ class TestGenerateAllCombinations(unittest.TestCase):
         # Should be able to extract 'c' from deep inside
         found_c = False
         for expr_a, expr_A in combinations:
-            if expr_a != None:
+            if expr_a is not None:
                 if kurt.equal_expr(expr_a, self.token_c, self.kb):
                     found_c = True
                     # expr_A should be a + (b + $x)
@@ -129,7 +129,6 @@ class TestGenerateAllCombinations(unittest.TestCase):
         
         # Check specific decompositions
         subterms = [subterm for subterm, _ in decompositions]
-        hole_exprs = [hole_expr for _, hole_expr in decompositions]
         
         # Should be able to extract 'a'
         self.assertIn(self.token_a, subterms)

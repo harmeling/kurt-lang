@@ -27,7 +27,7 @@ expect "ProofError"
         x < 0
 
 ; the witness of a `pick` never leaves the block, even if it is a "vocabulary" symbol; since
-; operators are no objects (doc/kurt-doc.md §5.3), an operator `w` can't even be the witness: the
+; operators are no objects (doc/kurt-ref.md §5.3), an operator `w` can't even be the witness: the
 ; type check stops `w = x` before the block rules are asked
 arity w 1
 expect "TypeError" "`w` is an operator without its arguments"

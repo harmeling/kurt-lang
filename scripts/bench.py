@@ -40,6 +40,7 @@ def main() -> None:
             best = seconds if best is None else min(best, seconds)
             if done.returncode != 0:
                 print(f'{name}: FAILED\n{done.stderr[-500:]}')
+        assert best is not None        # (`--runs` is at least 1)
         total += best
         print(f'{best:7.2f} s  {name}', flush=True)
     print(f'{total:7.2f} s  total')

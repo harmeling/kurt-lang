@@ -6,7 +6,7 @@ import kurt.kurt as kurt
 
 # a session checks a loaded file once (`_checked_exports`) -- and again when one of its `load`s
 # would now find another file: a new one earlier in the search path, or a link that points
-# elsewhere (dev/astra-suggestions.md, finding 4)
+# elsewhere (dev/astra-suggestions.md, in git history, finding 4)
 
 
 def write(path, text):

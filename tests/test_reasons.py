@@ -49,6 +49,14 @@ class TestReasons(unittest.TestCase):
         r = reasons('load numbers\nprop A\nuse A\nA and A\n')
         self.assertEqual(r['A and A'], '4 by and-intro(3, 3)')
 
+    def test_qed_cites_its_proof(self):
+        # `qed` tries the proof's own last line first: it was "by chain-trans-1-1(iff-elim-backward,
+        # top-elim)" for the proof of "iff-true-elim" in propositional.kurt, whose lines then
+        # counted as unused (2026-10-20)
+        r = reasons('load propositional\nshow (%A iff true) implies %A\nproof\n    assume %A iff true\n'
+                    '        true implies %A\n        %A\nqed\n')
+        self.assertEqual(r['qed'], '7 by 4-6')
+
     def test_modus_ponens(self):
         r = reasons('load propositional\nprop A, B\nuse A implies B\nuse A\nB\n')
         self.assertEqual(r['B'], '5 by 3(4)')

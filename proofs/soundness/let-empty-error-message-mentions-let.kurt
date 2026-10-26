@@ -4,5 +4,5 @@
 ; statement is correctly rejected either way, so `expect "EvalError"` alone wouldn't catch a
 ; regression back to the old wording), just a confusing error message -- caught here by the text
 ; of the message.
-expect "EvalError" "`let` takes new constants or boolean expressions"
+expect "EvalError" "`let` takes new constants or statements"
     let

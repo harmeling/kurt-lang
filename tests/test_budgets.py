@@ -21,11 +21,16 @@ sys.path.remove(str(PROJECT_ROOT / 'scripts'))   # (only needed for the import a
 # `ProofError`, it is neither proved nor refuted -- and a budget that isn't hit changes nothing
 
 
-def false_case(n: int, scene: bool = False) -> str:
+def false_case(n: int, scene: bool = False, decoy: bool = False) -> str:
     # a false goal `G` after a disjunction of `n` alternatives, each but the last with its
-    # implication, among as many unrelated disjunctions (as scripts/bench_case.py writes them): the
-    # search for `G` takes 1.2 s for n = 6, more than 8 s for n = 8 (2026-10-16) -- with `load propositional`
-    # only, so no theory has to be checked first. `scene`: the facts labelled, as a theory to load
+    # implication, among as many unrelated disjunctions (as scripts/bench_case.py writes them) -- with
+    # `load propositional` only, so no theory has to be checked first. `scene`: the facts labelled, as
+    # a theory to load. The search tried every split of the alternatives among the groups of
+    # "or-elim"/"-3"/"-4": 1.2 s for n = 6, more than 8 s for n = 8 (2026-10-16); since 2026-10-23 only if
+    # the premises `Ai ⇒ G` can cover the alternatives (`hopeless_split`): 0.2 s for n = 16. `decoy`: a
+    # rule `(A0 ∨ (D ∧ %X)) ⇒ G` too, whose premise with a variable might fit any group -- then every
+    # split was tried again (16 s for n = 8, 2026-10-23); since 2026-10-24 its part `D ∧ %X` is one of
+    # the alternatives it may unify with, none here (0.06 s)
     alts = [f'A{i}' for i in range(n)]
     noise = [(f'B{j}', f'C{j}', f'H{j}') for j in range(n)]
     label = (lambda name: f' "{name}"') if scene else (lambda name: '')
@@ -34,12 +39,43 @@ def false_case(n: int, scene: bool = False) -> str:
     for b, c, h in noise:
         lines += [f'use {b} or {c}{label(b)}', f'use {b} implies {h}{label(b + h)}', f'use {c} implies {h}{label(c + h)}']
     lines += [f'use {a} implies G{label(a + "G")}' for a in alts[:-1]]
+    if decoy:
+        lines += ['prop D', f'use ({alts[0]} or (D and %X)) implies G{label("decoy")}']
     return '\n'.join(lines) + '\n' + ('' if scene else 'G\n')
 
 
-SLOW = false_case(8)                   # more than 8 s of search, then a `ProofError`
+def shared_case(n: int, scene: bool = False) -> str:
+    # a false goal `G` after a disjunction of `n` alternatives, two of them `D ∧ P` and `E ∧ Q`, whose
+    # groups of four the rules `(A0 ∨ A4 ∨ ...) ⇒ G`, ... could cover, if the last one's premise
+    # `A3 ∨ ... ∨ (D ∧ %X) ∨ (E ∧ %X)` could take both: `hopeless_split` took each part of it for an
+    # alternative it may unify with, alone, and couldn't tell that the two need different values of `%X`
+    # -- so "or-elim-4" tried every split (1.7 s for n = 7, 7.4 s for n = 8, 2026-10-24); since
+    # 2026-10-25 the parts are unified together (0.05 s for n = 32; todo 50)
+    alts = [f'A{i}' for i in range(n - 2)]
+    label = (lambda name: f' "{name}"') if scene else (lambda name: '')
+    lines = ['load propositional', 'prop ' + ', '.join(alts + ['G', 'D', 'E', 'P', 'Q']),
+             'use ' + ' or '.join(alts + ['(D and P)', '(E and Q)']) + label('alternatives')]
+    lines += [f'use ({" or ".join(alts[j::4])}) implies G{label(f"group{j}")}' for j in range(3)]
+    lines += ['use (' + ' or '.join(alts[3::4] + ['(D and %X)', '(E and %X)']) + ') implies G' + label('decoy')]
+    return '\n'.join(lines) + '\n' + ('' if scene else 'G\n')
+
+
+def twice_case(n: int, scene: bool = False) -> str:
+    # a false goal `G` after a disjunction of `n` alternatives, the last one twice (`A0 ∨ ... ∨ A7 ∨ A7`),
+    # each but the last with its implication: `hopeless_split` takes the alternatives for a set, so
+    # with one twice it can't tell, and every split is tried (1.3 s for n = 7, 5.8 s for n = 8, 25 s
+    # for n = 9; what is left of todo 50, 2026-10-25)
+    alts = [f'A{i}' for i in range(n - 1)]
+    label = (lambda name: f' "{name}"') if scene else (lambda name: '')
+    lines = ['load propositional', 'prop ' + ', '.join(alts + ['G']),
+             'use ' + ' or '.join(alts + [alts[-1]]) + label('alternatives')]
+    lines += [f'use {a} implies G{label(a + "G")}' for a in alts[:-1]]
+    return '\n'.join(lines) + '\n' + ('' if scene else 'G\n')
+
+
+SLOW = twice_case(9)                   # more than 8 s of search, then a `ProofError`
 SLOW_LINE = SLOW.count('\n')           # the line of `G`
-FALSE = false_case(6)                  # about 1.2 s, a `ProofError`
+FALSE = twice_case(6)                  # about 0.4 s, a `ProofError`
 PROOF = 'load propositional\nprop A, B\nuse A implies B\nuse A\nB\n'
 
 
@@ -86,9 +122,9 @@ class TestBudgets(unittest.TestCase):
         self.assertEqual((result.error_kind, result.error_line), ('ResourceError', SLOW_LINE))
         self.assertTrue(result.exhausted)
         self.assertFalse(result.cancelled)
-        self.assertIn(f'ResourceError: the search for this line stopped after {BUDGET} s, its budget', result.error)
-        self.assertIn('neither proved nor refuted', result.error)
-        self.assertNotIn('can not derive', result.error)                 # (no rejection)
+        self.assertIn(f'ResourceError: the search for this line stopped after {BUDGET} s, its budget', result.error or '')
+        self.assertIn('neither proved nor refuted', result.error or '')
+        self.assertNotIn('can not derive', result.error or '')                 # (no rejection)
         self.assertLess(seconds, 2.0, seconds)                           # (the line takes more than 8 s; checked every few ms)
         self.assertEqual(result.errors[0]['kind'], 'ResourceError')
         self.assertEqual(json.loads(result.to_json())['exhausted'], True)
@@ -101,10 +137,38 @@ class TestBudgets(unittest.TestCase):
         # a step: a goal against one fact, or a premise against the facts (`budget_step`)
         result = session(step_limit=100).check_text(SLOW)
         self.assertEqual(result.error_kind, 'ResourceError')
-        self.assertIn('stopped after 100 steps, its budget', result.error)
+        self.assertIn('stopped after 100 steps, its budget', result.error or '')
         self.assertTrue(result.exhausted)
         self.assertEqual(session(step_limit=100).check_text(SLOW).output, result.output)
         self.assertEqual(session(step_limit=10 ** 7).check_text(FALSE).error_kind, 'ProofError')   # (enough steps: refuted, as without)
+
+    def test_a_false_goal_after_a_disjunction_is_refuted_without_trying_every_split(self):
+        # todo 50: the alternative without an implication can be in no group (`hopeless_split`), so no
+        # split of the 12 alternatives is tried -- before, 20000 steps weren't enough
+        result = session(step_limit=2000).check_text(false_case(12))
+        self.assertEqual(result.error_kind, 'ProofError', result.error)
+        self.assertIn('can not derive `G`', result.error or '')
+        # and with a rule whose premise has a variable, `(A0 ∨ (D ∧ %X)) ⇒ G`: its part `D ∧ %X` fits
+        # no alternative, so it gives no group (2026-10-24) -- before, every split was tried again
+        result = session(step_limit=2000).check_text(false_case(12, decoy=True))
+        self.assertEqual(result.error_kind, 'ProofError', result.error)
+        self.assertIn('can not derive `G`', result.error or '')
+        # and with a premise whose parts need two values of one variable, `... ∨ (D ∧ %X) ∨ (E ∧ %X)`
+        # against `D ∧ P` and `E ∧ Q`: the parts are unified together (2026-10-25) -- before, every split
+        result = session(step_limit=2000).check_text(shared_case(12))
+        self.assertEqual(result.error_kind, 'ProofError', result.error)
+        self.assertIn('can not derive `G`', result.error or '')
+        # and with `load logic`: "forall-elim" `(∀ $$x %A) ⇒ sub $$x $a %A` fits each premise `%A ⇒ G`,
+        # its premise a binder, which fits no alternative (2026-10-25) -- before, it might be any group
+        result = session(step_limit=2000).check_text(false_case(12).replace('load propositional', 'load logic'))
+        self.assertEqual(result.error_kind, 'ProofError', result.error)
+        self.assertIn('can not derive `G`', result.error or '')
+        # ... and the diagnosis after it: `(A0 ∨ ∀ y %X)` four times against the 12 alternatives is no
+        # match by the count of its parts (`cannot_unify`, a binder matches one argument, 2026-10-25)
+        text = false_case(12).replace('load propositional', 'load logic').replace('\nG\n', '\nuse (A0 or (forall y %X)) implies G\nG\n')
+        result, seconds = timed(lambda: session().check_text(text))
+        self.assertEqual(result.error_kind, 'ProofError', result.error)
+        self.assertLess(seconds, 2.0)
 
     def test_a_budget_that_is_not_hit_changes_nothing(self):
         generous = kurt.RunConfig(time_limit=1000, step_limit=10 ** 9)
@@ -148,7 +212,7 @@ class TestBudgets(unittest.TestCase):
         finally:
             kurt.budget_step = original
         self.assertEqual(result.error_kind, 'ResourceError')
-        self.assertNotIn('KernelError', result.error)
+        self.assertNotIn('KernelError', result.error or '')
 
     def test_expect_does_not_catch_it(self):
         # a budget is no verdict, so `expect "ProofError"` isn't confirmed by it -- and a proof file
@@ -159,11 +223,11 @@ class TestBudgets(unittest.TestCase):
         self.assertTrue(session().check_text(expecting(FALSE)).ok)      # without a budget: the expected rejection
         result = session(time_limit=BUDGET).check_text(expecting(SLOW))
         self.assertEqual(result.error_kind, 'ResourceError')
-        self.assertIn('expect "ProofError" expected a `ProofError`, got a different error instead', result.error)
+        self.assertIn('expect "ProofError" expected a `ProofError`, got a different error instead', result.error or '')
         self.assertTrue(result.exhausted)
         named = kurt.check_text('expect "ResourceError"\n    prop A\n')
         self.assertEqual(named.error_kind, 'EvalError')
-        self.assertIn('unknown error kind `ResourceError`', named.error)
+        self.assertIn('unknown error kind `ResourceError`', named.error or '')
 
     def test_all_errors_goes_on_after_it(self):
         # the line is admitted (as a `todo` would), the lines after it are checked; the budget
@@ -187,7 +251,7 @@ class TestBudgets(unittest.TestCase):
         self.assertEqual((result.error_kind, result.error_line), ('ResourceError', SLOW_LINE))
         self.assertTrue(result.cancelled)
         self.assertFalse(result.exhausted)
-        self.assertIn('the check was cancelled at this line', result.error)
+        self.assertIn('the check was cancelled at this line', result.error or '')
         self.assertEqual(len(result.errors), 1, result.errors)           # (not the `ParseError` of the line after it)
         # from another thread, e.g. a `threading.Event` (where the check is when it is set depends on the machine)
         event = threading.Event()
@@ -198,6 +262,7 @@ class TestBudgets(unittest.TestCase):
         finally:
             timer.cancel()
         self.assertEqual((result.error_kind, result.cancelled), ('ResourceError', True))
+        assert result.error_line is not None
         self.assertLessEqual(result.error_line, SLOW_LINE)
         self.assertLess(seconds, 2.0)
         # at a line boundary too, where there is no search
@@ -264,12 +329,39 @@ class TestBudgets(unittest.TestCase):
         server.check(uri, 2)
         self.assertTrue(server.results[uri].ok)
 
+    def test_an_embedder_stops_the_language_servers_check(self):
+        # todo 51: the playground runs the server in a worker, one check at a time, which can't read a
+        # message while it checks -- its Cancel button sets a flag in a SharedArrayBuffer, which
+        # `LanguageServer.cancel` reads (here: a flag set by a timer). The check stops at its next step,
+        # publishes nothing, and the same server checks the next text (before: the worker was killed, and
+        # Pyodide and the theories loaded again)
+        server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
+        server.budget = 0
+        flag = threading.Event()
+        server.cancel = flag.is_set
+        uri = 'file:///tmp/cancel.kurt'
+        server.texts[uri], server.versions[uri] = SLOW, 1
+        timer = threading.Timer(0.5, flag.set)
+        start = time.monotonic()
+        timer.start()
+        try:
+            server.check(uri, 1)            # (in this thread, as in the worker)
+        finally:
+            timer.cancel()
+        self.assertLess(time.monotonic() - start, 3.0)
+        self.assertNotIn(uri, server.results)
+        self.assertEqual(lsp_messages(server.writer), [])
+        flag.clear()                        # (the playground clears the flag before the next check)
+        server.texts[uri], server.versions[uri] = PROOF, 2
+        server.check(uri, 2)
+        self.assertTrue(server.results[uri].ok)
+
     def test_the_grader_has_a_budget(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.mkdir(os.path.join(tmp, 'theory'))
             exercise, solution = os.path.join(tmp, 'ex.kurt'), os.path.join(tmp, 'sol.kurt')
             with open(os.path.join(tmp, 'theory', 'scene.kurt'), 'w', encoding='utf-8') as f:
-                f.write(false_case(8, scene=True))                       # (the facts of the scene, trusted)
+                f.write(twice_case(9, scene=True))                     # (the facts of the scene, trusted)
             with open(exercise, 'w', encoding='utf-8') as f:
                 f.write('load scene\nshow G\nproof\n    todo\nqed\n')
             with open(solution, 'w', encoding='utf-8') as f:

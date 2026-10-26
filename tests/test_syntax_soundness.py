@@ -73,8 +73,8 @@ false
         self.assert_rejected('prop f 0 1\narity f 2\nbindop f\n', 'first position')
 
     def test_calculator_result_type_is_fixed(self):
-        self.assert_rejected('builtin f add\nprop f 0\n', 'non-boolean result')
-        self.assert_rejected('prop f 0\nbuiltin f add\n', 'non-boolean result')
+        self.assert_rejected('builtin f add\nprop f 0\n', 'a term as its result')
+        self.assert_rejected('prop f 0\nbuiltin f add\n', 'a term as its result')
         result = kurt.check_text('builtin r eq\n')
         self.assertTrue(result.ok, result.error)
         self.assertIn('const r', result.output)

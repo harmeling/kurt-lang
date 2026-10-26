@@ -17,7 +17,11 @@ proof written for 0.10 may need small changes for 1.0 (for 0.9 to 0.10: the "bre
 browser, with the tutorial, the keyword lessons, the exercises, and the proofs of a lecture
 (mafi1). A link can open one of these files, e.g. for a course:
 [`www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt`](https://www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt)
-(`#file=` and the file's path in the playground; see `doc/kurt-doc.md`, §1).
+(`#file=` and the file's path in the playground; see `doc/kurt-ref.md`, §1).
+
+**The reference**, the whole language in one place: [`doc/kurt-ref.md`](doc/kurt-ref.md), also as a
+website with a search and a page per section,
+[harmeling.github.io/kurt-web/reference](https://harmeling.github.io/kurt-web/reference/).
 
 ## A first proof
 
@@ -32,7 +36,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.10.0 (made by Stefan Harmeling, 2016-2026), 6cc39e5bab2c (SHA-256 of kurt.py)
+    This is Kurt, v0.11.0 (made by Stefan Harmeling, 2016-2026), 96086fce2cd1 (SHA-256 of kurt.py)
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -132,7 +136,9 @@ in parallel, use processes.
 - [`exercises/`](exercises/): exercises for students, by topic (logic puzzles, quantifiers, sets,
   functions, relations, groups, induction, limits, calculus): each loads the scene of its topic
   and leaves the proofs to do; `scripts/grade_exercise.py` grades a solution.
-- [`doc/kurt-doc.md`](doc/kurt-doc.md): the language reference.
+- [`doc/kurt-ref.md`](doc/kurt-ref.md): the language reference; also a website, with a search
+  and a page per section: <https://harmeling.github.io/kurt-web/reference/>, next to the
+  playground (generated from `doc/kurt-ref.md` at each release by `scripts/build_reference_site.py`).
 - [`doc/kurt-spec.md`](doc/kurt-spec.md): the logic, specified: variables, the step relation, the
   rules of the blocks, definitions, files, trust, the kernel.
 - [`doc/kurt-soundness.md`](doc/kurt-soundness.md): what the checker's correctness rests on,
@@ -182,7 +188,7 @@ line. The design of the language, and the responsibility for it, remain the auth
 
 `kurt --lsp` is a language server for editors: the errors and `todo`s at their lines, the reason
 of each checked line at its end and on hover (also what a line like `cert 14` or `builtin`
-prints), and completion with the state at the cursor. It
+prints, and what a theorem rests on), and completion with the state at the cursor. It
 checks after open and save, and can check edits after a short debounce; two open files use each
 other's unsaved text when one loads the other.
 

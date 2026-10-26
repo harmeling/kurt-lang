@@ -1,0 +1,13 @@
+; a number against `sub $x $a $T`: `match_against_sub` matches `1` with `sub i 1 i`, but the quick
+; check `cannot_unify` took a number (or a string) against a `sub` term for a clash -- so
+; `cannot_conclude` and `match_all_theory` skipped a rule that fits, and these steps were rejected
+; (found 2026-10-25, todo 50); a constant symbol was right already
+load analysis
+(sum i (1, 1) i) = 1
+(sum i (1, 1) 7) = 7
+(sum i (2, 2) (i * i)) = 2 * 2
+const c
+(sum i (1, 1) c) = c
+; ... and what doesn't follow still doesn't
+expect "ProofError"
+    (sum i (1, 1) i) = 2

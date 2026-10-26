@@ -10,7 +10,7 @@ import unittest
 import kurt.kurt as kurt
 from tests.utils import PROJECT_ROOT
 
-# three small bugs found in dev/codex-suggestions.md (2026-09-29)
+# three small bugs found in dev/codex-suggestions.md, in git history (2026-09-29)
 
 
 def check(text: str) -> tuple[str, str]:
@@ -41,7 +41,7 @@ class TestSmallFixes(unittest.TestCase):
         with contextlib.redirect_stderr(out):
             result = kurt.check_text('prop P\narity P 1\nP (1 implies 2)\n')
         self.assertFalse(result.ok)
-        self.assertIn('(the line was read as `P (1 implies 2)`)', result.error)
+        self.assertIn('(the line was read as `P (1 implies 2)`)', result.error or '')
         self.assertEqual(out.getvalue(), '')     # nothing leaked to the real stderr
 
     def test_each_definition_of_a_line_is_logged(self):
@@ -129,8 +129,8 @@ class TestSmallFixes(unittest.TestCase):
         with contextlib.redirect_stderr(err):
             result = kurt.check_text('load propositional\nprop P\narity P 2\nuse not P\n')
         self.assertEqual(err.getvalue(), '')
-        self.assertIn('TypeError', result.error)
-        self.assertIn('(the line was read as `not P`)', result.error)
+        self.assertIn('TypeError', result.error or '')
+        self.assertIn('(the line was read as `not P`)', result.error or '')
 
 if __name__ == '__main__':
     unittest.main()

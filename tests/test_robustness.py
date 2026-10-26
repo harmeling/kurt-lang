@@ -55,16 +55,16 @@ class TestUnreadableFiles(unittest.TestCase):
                 fh.write(b'\xff\xfe\x00 not utf-8')
             result = kurt.check_file(path)
             self.assertFalse(result.ok)
-            self.assertIn('is not a text file in UTF-8', result.error)
+            self.assertIn('is not a text file in UTF-8', result.error or '')
             loader = kurt.check_text('load bin\n', name=os.path.join(tmp, 'main.kurt'))
-            self.assertIn('is not a text file in UTF-8', loader.error)
+            self.assertIn('is not a text file in UTF-8', loader.error or '')
 
     def test_a_directory_is_an_error_not_a_traceback(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.mkdir(os.path.join(tmp, 'dir.kurt'))
             result = kurt.check_file(os.path.join(tmp, 'dir.kurt'))
             self.assertFalse(result.ok)
-            self.assertIn('unable to read', result.error)
+            self.assertIn('unable to read', result.error or '')
 
 
 class TestExports(unittest.TestCase):
@@ -101,7 +101,7 @@ class TestShellAndEditor(unittest.TestCase):
             with self.subTest(line=line):
                 result = kurt.check_text(f'load propositional\n{line}\n')
                 self.assertEqual(result.error_kind, 'EvalError')
-                self.assertIn('save', result.error)
+                self.assertIn('save', result.error or '')
 
     def test_a_search_that_matches_nothing_any_more(self):
         editor = kurt.LineEditor(['abc'])
@@ -142,15 +142,15 @@ class TestDecisionsOfTheSecondHunt(unittest.TestCase):
     def test_a_nul_byte_is_shown_escaped(self):
         result = kurt.check_text('load propositional\nprop A\nA\x00B\n')
         self.assertEqual(result.error_kind, 'ScanError')
-        self.assertIn('`\\x00`', result.error)
+        self.assertIn('`\\x00`', result.error or '')
 
     def test_the_caret_of_an_indentation_error_is_at_the_line(self):
         # it was drawn at the block's indentation, beyond the end of a short line
         result = kurt.check_text('load propositional\nexpect "EvalError"\nconst A\n')
-        self.assertIn('\nconst A\n^\n', result.error)
+        self.assertIn('\nconst A\n^\n', result.error or '')
         result = kurt.check_text('load propositional\nprop A\nuse A\nqed\n')
-        self.assertIn('no block is open', result.error)
-        self.assertIn('\nqed\n^\n', result.error)
+        self.assertIn('no block is open', result.error or '')
+        self.assertIn('\nqed\n^\n', result.error or '')
 
     def test_help_with_a_keyword(self):
         result = kurt.check_text('help use\nhelp nonsense\n')
@@ -201,7 +201,7 @@ class TestLeftoversOfTheSecondHunt(unittest.TestCase):
             path = os.path.join(tmp, 'notes.txt')
             Path(path).write_text('load propositional\nprop A\nuse A\nA\n', encoding='utf-8')
             self.assertTrue(kurt.check_file(path).ok)
-            self.assertIn('unable to open `notes.kurt`', kurt.check_text('load notes\n', name=os.path.join(tmp, 'm.kurt')).error)
+            self.assertIn('unable to open `notes.kurt`', kurt.check_text('load notes\n', name=os.path.join(tmp, 'm.kurt')).error or '')
 
     def test_no_warning_when_run_as_a_module_file(self):
         # `python3 -m kurt.kurt FILE` printed "'kurt.kurt' found in sys.modules after import of package 'kurt'"
@@ -223,7 +223,9 @@ class TestLeftoversOfTheSecondHunt(unittest.TestCase):
             server.texts[uri], server.versions[uri] = 'load propositional, equality\nload lib\nP\n', 1
             server.check(uri)
             def hover(line):
-                return server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})['contents']['value']
+                found = server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})
+                assert found is not None, f'no hover at line {line}'
+                return found['contents']['value']
             self.assertIn('[propositional.kurt](file://', hover(0))
             self.assertIn('[equality.kurt](file://', hover(0))
             self.assertIn(f'[lib.kurt]({Path(tmp, "lib.kurt").as_uri()})', hover(1))
@@ -232,7 +234,7 @@ class TestLeftoversOfTheSecondHunt(unittest.TestCase):
         # `load propositional numbers` loaded `numbers` only; `propositional` was dropped without a word
         result = kurt.check_text('load propositional numbers\n')
         self.assertEqual(result.error_kind, 'ScanError')
-        self.assertIn('`load propositional, numbers`', result.error)
+        self.assertIn('`load propositional, numbers`', result.error or '')
         self.assertTrue(kurt.check_text('load propositional, numbers\nload "propositional"\n').ok)
 
     def test_a_false_membership_fails_fast(self):

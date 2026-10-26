@@ -37,7 +37,7 @@ a document that is gone.)
 - [`29-numbers-sets-and-sorts.kurt`](29-numbers-sets-and-sorts.kurt): Numbers and sets together: sorts
 
 The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one by one, and
-[`doc/kurt-doc.md`](../doc/kurt-doc.md) is the complete language reference. More examples:
+[`doc/kurt-ref.md`](../doc/kurt-ref.md) is the complete language reference. More examples:
 
 - `proofs/natural-deduction/`: implication, negation, cases, quantifiers, and equality.
 - `proofs/arithmetic/`: calculation, algebraic rewriting, order, exponents, and factorial.

@@ -1,0 +1,32 @@
+; well-sorted substitution in chains with sorted sides and in `case` blocks (todo 55):
+; the step of a chain and the instance of a case, too, put in only what fits the sort of a variable
+load natural
+
+real n
+set b
+prop Q, R
+arity Q 1
+arity R 1
+
+use ∀ n (Q n)
+use b = {1}
+
+; a chain whose sides are sets: the rule about numbers does not reach them
+sandbox
+    use ∀ n (n + 0 = n)
+    2 + 0 = 2
+      = 2 + 0
+    expect "TypeError" "must have sort `real`"
+        b + 0 = b
+          = b + 0
+
+; a case block: what is shown for a number, holds for the cases of a number, not of a set
+sandbox
+    use Q 1 ∨ Q 2
+    case Q 1
+        Q 1
+    case Q 2
+        Q 2
+    Q 1 ∨ Q 2
+    expect "ProofError"
+        Q b

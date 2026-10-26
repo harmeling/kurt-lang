@@ -45,7 +45,7 @@ class TestStrictMode(unittest.TestCase):
     def test_a_chain_has_at_most_three_operators(self):
         kurt.run_state.strict_mode = False
         result = kurt.check_text('infix a1 20 20, a2 20 20, a3 20 20, a4 20 20\nchain a1 a2 a3 a4\n')
-        self.assertIn('at most three operators', result.error)
+        self.assertIn('at most three operators', result.error or '')
 
     def test_requires_declarations(self):
         with tempfile.TemporaryDirectory() as tmp:

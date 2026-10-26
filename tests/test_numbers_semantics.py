@@ -44,7 +44,7 @@ class TestNumberTheorySemantics(unittest.TestCase):
         args = [self.evaluate(arg, values) for arg in expr[1:]]
         if op in ('iff', '='):
             return args[0] == args[1]
-        if op == '≠':
+        if op == 'neq':
             return args[0] != args[1]
         if op == '+':
             return sum(args, Fraction())

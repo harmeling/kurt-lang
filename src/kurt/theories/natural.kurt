@@ -514,8 +514,9 @@ proof
 qed
 
 ;; divisibility
-infix ∣ 20 20
-prop ∣ 0
+infix divides 20 20
+prop divides 0
+alias ∣ divides
 def $a ∣ $b  ⇔  ∃ $k ($k ∈ Nat ∧ $b = $a * $k)       "divides"
 
 show $a ∈ Nat  ⇒  $a ∣ $a     "divides-refl"
@@ -612,8 +613,8 @@ lean {_,_,...} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ * ($2 - $1))
 ;; the rules as theorems of Mathlib (see numbers.kurt): `Nat` by its axiom `k_mem_Nat` (`lean Nat
 ;; member ...` above: `x ∈ Nat` iff `x` is `↑n` for an `n : ℕ`)
 lean "real-all" intro x; exact (k_mem_Real _).mpr rfl
-lean "nat-sub-real" simp only [k_u2282]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
-lean "ext-real" intro A B ⟨h, hA, hB⟩; simp only [k_u2282] at hA hB; apply ZFSet.ext; intro z; constructor
+lean "nat-sub-real" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "ext-real" intro A B ⟨h, hA, hB⟩; simp only [subset] at hA hB; apply ZFSet.ext; intro z; constructor
 lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hA z hz); exact (h x).mp hz
 lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hB z hz); exact (h x).mpr hz
 lean "nat-zero" exact (k_mem_Nat _).mpr ⟨0, by simp⟩
@@ -683,8 +684,8 @@ lean "even-ne-odd" intro h; have : 2 * n = 1 + 2 * m := by exact_mod_cast h
 lean "even-ne-odd" omega
 lean "well-ordering" intro S h; casesm* _ ∧ _
 lean "well-ordering" obtain ⟨x, hx⟩ : ∃ x, k_emb x ∈ S := by assumption
-lean "well-ordering" have hsub : k_u2282 S Nat := by assumption
-lean "well-ordering" simp only [k_u2282] at hsub
+lean "well-ordering" have hsub : subset S Nat := by assumption
+lean "well-ordering" simp only [subset] at hsub
 lean "well-ordering" obtain ⟨n0, rfl⟩ := (k_mem_Nat x).mp (hsub (k_emb x) hx)
 lean "well-ordering" have ex : ∃ n : ℕ, k_emb (n : ℝ) ∈ S := ⟨n0, hx⟩
 lean "well-ordering" classical
@@ -728,24 +729,24 @@ lean "even-square" have : Even (n * n) := ⟨i, by omega⟩
 lean "even-square" obtain ⟨t, ht⟩ := (Nat.even_mul.mp this).elim id id
 lean "even-square" refine ⟨(t : ℝ), ?_⟩
 lean "even-square" constructor <;> first | exact (k_mem_Nat _).mpr ⟨t, rfl⟩ | (rw [ht]; push_cast; first | done | ring1)
-lean "divides-refl" intro x hx; simp only [k_u2223]; refine ⟨1, ?_⟩
+lean "divides-refl" intro x hx; simp only [divides]; refine ⟨1, ?_⟩
 lean "divides-refl" constructor <;> first | exact (k_mem_Nat _).mpr ⟨1, by simp⟩ | ring1
-lean "one-divides" intro x hx; simp only [k_u2223]; refine ⟨x, ?_⟩
+lean "one-divides" intro x hx; simp only [divides]; refine ⟨x, ?_⟩
 lean "one-divides" constructor <;> first | exact hx | ring1
 lean "divides-trans" intro a b c h
 lean "divides-trans" obtain ⟨h1, h2⟩ := h
-lean "divides-trans" simp only [k_u2223] at h1 h2 ⊢
+lean "divides-trans" simp only [divides] at h1 h2 ⊢
 lean "divides-trans" obtain ⟨p, hp⟩ := h1; obtain ⟨q, hq⟩ := h2; casesm* _ ∧ _
 lean "divides-trans" obtain ⟨i, rfl⟩ := (k_mem_Nat p).mp (by assumption)
 lean "divides-trans" obtain ⟨j, rfl⟩ := (k_mem_Nat q).mp (by assumption)
 lean "divides-trans" refine ⟨((i * j : ℕ) : ℝ), ?_⟩
 lean "divides-trans" constructor <;> first | exact (k_mem_Nat _).mpr ⟨_, rfl⟩ | (push_cast; subst_vars; first | done | ring1)
-lean "even-divides" intro x; simp only [even, k_u2223]
+lean "even-divides" intro x; simp only [even, divides]
 lean "even-divides" first | done | (constructor <;> rintro ⟨k, h1, h2⟩ <;> first | exact ⟨k, h1, h2⟩ | exact ⟨k, h2, h1⟩)
 lean "coprime-not-both-even" intro a b h he
 lean "coprime-not-both-even" obtain ⟨ha, hb⟩ := he
 lean "coprime-not-both-even" simp only [even] at ha hb
-lean "coprime-not-both-even" simp only [coprime, k_u2223] at h
+lean "coprime-not-both-even" simp only [coprime, divides] at h
 lean "coprime-not-both-even" have two := h 2 ((k_mem_Nat _).mpr ⟨2, by norm_num⟩)
 lean "coprime-not-both-even" obtain ⟨p, hp⟩ := ha; obtain ⟨q, hq⟩ := hb; casesm* _ ∧ _
 lean "coprime-not-both-even" have : (2 : ℝ) = 1 := by

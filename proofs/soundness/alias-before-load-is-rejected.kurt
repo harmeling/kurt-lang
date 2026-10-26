@@ -7,6 +7,6 @@ expect "EvalError" "is an alias of `true` here"
     load propositional
 load set
 alias Leer ∅                  ; an alias of a name of its own: fine
-expect "EvalError" "is an alias of `∅` here"
+expect "EvalError" "is an alias of `emptyset` here"    ; (`∅` is set.kurt's alias of `emptyset`)
     alias Nat ∅
     load natural

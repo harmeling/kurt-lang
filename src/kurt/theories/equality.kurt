@@ -8,14 +8,15 @@ load propositional
 
 ;; syntax
 infix = 20 20  ; higher binding power than space, equality is left-associative
-prop  = 0      ; equations are boolean, however, the LHS and RHS can be anything
+prop  = 0      ; equations are statements, however, the LHS and RHS can be anything
 sym   =        ; equality is symmetric
 chain =        ; equality is chainable
 builtin = equality  ; `def` may define with `=` (the engine's equality)
 
 
-infix ≠ 20 20                        ; inequality -- a relation (`prop`), so `a ≠ b ≠ c` on one line is `a ≠ b ∧ b ≠ c`; not transitive (no `chain`)
-prop ≠ 0
+infix neq 20 20                       ; inequality -- a relation (`prop`), so `a ≠ b ≠ c` on one line is `a ≠ b ∧ b ≠ c`; not transitive (no `chain`)
+prop neq 0
+alias ≠ neq                          ; the word is the standard name, the symbol its alias (doc/kurt-ref.md, `alias`)
 inline $a ≠ $b  iff  not ($a = $b)    ; `a ≠ b` is read as `not (a = b)`: one term, nothing to switch
 
 ;; inference rules

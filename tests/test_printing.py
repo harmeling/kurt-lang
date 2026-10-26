@@ -7,7 +7,7 @@ import tests.test_kernel as test_kernel
 class TestPrinting(unittest.TestCase):
     # how formulas are printed: as they are written, and so that they read back the same
     def output(self, text):
-        return test_kernel.TestCertCommand.output(self, text)
+        return test_kernel.TestCertCommand.output(text)
 
     def test_comma_lists(self):
         out = self.output('load set\nbrackets ⟨ ⟩\nconst a, b, A\nuse ⟨a, b⟩ = a\nuse (a, b) ∈ A\nuse {a, b} = A\nuse ⟨a⟩ = b\n')
@@ -22,7 +22,7 @@ class TestPrinting(unittest.TestCase):
         # a computed negative number (e.g. Tab after `0 - 8 =`): `(-8)`, not `-8`, which could read as `- 8`
         kb = kurt.copy.deepcopy(kurt.initial_kb)
         kurt.load_file('numbers.kurt', kb)               # (`=` an infix operator)
-        equation = [kurt.Token('SYMBOL', '='), kurt.Token('SYMBOL', 'x'), kurt.Token('INT', -8)]
+        equation: kurt.Expr = [kurt.Token('SYMBOL', '='), kurt.Token('SYMBOL', 'x'), kurt.Token('INT', -8)]
         self.assertEqual(kurt.expr_str(equation, kb), 'x = (-8)')
 
 

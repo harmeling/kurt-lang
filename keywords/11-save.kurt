@@ -20,7 +20,7 @@ save "/tmp/kurt-tutorial-save-demo.kurt"
 ; the path is relative to the current working directory, not to this file
 
 ; The saved file is ordinary Kurt source: checking it proves `B` again (and
-; writes its certificates to a `.kurtc` next to it, see doc/kurt-doc.md).
+; writes its certificates to a `.kurtc` next to it, see doc/kurt-ref.md).
 ; Try it from the command line:
 ;
 ;     kurt /tmp/kurt-tutorial-save-demo.kurt

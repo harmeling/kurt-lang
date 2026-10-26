@@ -2,7 +2,7 @@ import unittest
 
 import kurt.kurt as kurt
 
-# the kind of an error says at which stage a line failed (decided 2026-10-09, doc/kurt-doc.md §9.6):
+# the kind of an error says at which stage a line failed (decided 2026-10-09, doc/kurt-ref.md §9.6):
 # ScanError (a symbol), ParseError (reading the line), EvalError (readable, but not allowed --
 # also wrong arguments of a keyword), TypeError, ProofError
 

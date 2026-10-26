@@ -13,6 +13,7 @@ BUILD_SCRIPT = PROJECT_ROOT / "scripts" / "build_standalone.py"
 
 def build_bundle(output_path):
     spec = importlib.util.spec_from_file_location("build_standalone", BUILD_SCRIPT)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.build(output_path)
@@ -93,7 +94,7 @@ class TestStandaloneBundle(unittest.TestCase):
         result = subprocess.run([sys.executable, "-c", script], cwd=self.tmpdir, env=env,
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
-        self.assertGreater(int(result.stdout), 500)
+        self.assertGreater(int(result.stdout), 300)     # (the parts of an `assume A ∧ B` are not replayed since 2026-10-23: "and-elim" first, todo 50)
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, "cache")))   # (nothing to write)
 
     def test_no_directory_named_theories_exists(self):

@@ -31,7 +31,9 @@ def definitions(lines: list[str]) -> dict[str, tuple[int, int]]:
     found: dict[str, tuple[int, int]] = {}
     starts = [i for i, line in enumerate(lines) if re.match(r'(def|class) \w+', line)]
     for i in starts:
-        name = re.match(r'(?:def|class) (\w+)', lines[i]).group(1)
+        declaration = re.match(r'(?:def|class) (\w+)', lines[i])
+        assert declaration is not None          # (`starts` are the lines that match)
+        name = declaration.group(1)
         first = i - 1 if i > 0 and lines[i - 1].startswith('@') else i
         last = i
         for j in range(i + 1, len(lines)):
@@ -123,6 +125,7 @@ def process(document: Path, update: bool) -> list[str]:
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2 or argv[1] not in ('--check', '--update'):
+        assert __doc__ is not None
         print(__doc__.strip().split('\n\n')[1])
         return 2
     document = Path(argv[2]) if len(argv) > 2 else DOCUMENT

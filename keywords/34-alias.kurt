@@ -23,3 +23,14 @@ A ^ B                  ; same formula, either spelling
 ; An alias is resolved while scanning, before parsing even starts -- unlike
 ; `def` (12-def.kurt), which introduces a genuinely new constant and needs an
 ; inference step to unfold (see `doc/dev-notes.md`'s 2025-04-17 notes).
+
+; In Kurt's own theories this is the rule: the standard name of every symbol is an ASCII word,
+; and the Unicode symbol is its alias -- set.kurt has `infix union 30 30` and `alias ∪ union`,
+; `in` and `∈`, `subset` and `⊂`, `emptyset` and `∅` (the whole table: doc/kurt-ref.md §4.7). A
+; proof may write either, and each line is printed as it was written. (Your own files may declare
+; Unicode symbols as they like.)
+load set
+const M, N
+use M ⊂ N "M-in-N"
+M subset N             ; the same formula, printed with the word
+M ⊂ N                  ; ... and with the symbol

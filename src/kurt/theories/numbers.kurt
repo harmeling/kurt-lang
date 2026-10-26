@@ -41,7 +41,7 @@ inline  $a > $b   iff  $b < $a
 inline  $a >= $b  iff  $b <= $a
 chain   = >= >
 
-; `calc on` computes these with numbers, exactly (see doc/kurt-doc.md, `calc`)
+; `calc on` computes these with numbers, exactly (see doc/kurt-ref.md, `calc`)
 builtin + add, - subtract, - negate, * multiply, / divide, ^ power
 builtin = eq, < lt, <= le
 
@@ -49,7 +49,7 @@ builtin = eq, < lt, <= le
 tex / \frac{$1}{$2}
 tex ^ {$1}^{$2}
 
-; how `kurt --lean` writes them with Mathlib (doc/kurt-doc.md, `--lean`): the numbers are Mathlib's
+; how `kurt --lean` writes them with Mathlib (doc/kurt-ref.md, `--lean`): the numbers are Mathlib's
 ; reals -- for every theory of numbers (natural.kurt, integer.kurt, rational.kurt: `Nat`, `Int`,
 ; `Rat` are sets of them, as here) --, embedded into the sets of Mathlib, the objects (`lean Obj
 ; ZFSet`, objects.kurt: every number is a set), a number `2` is `(2 : ℝ)`, `^` the real power
@@ -181,7 +181,7 @@ use $n > 0  ⇒  $n! = $n * ($n - 1)!     "factorial-step"
 
 ;; the rules as theorems of Mathlib: `lean "label" TACTIC` is a proof in Lean of the rule "label"
 ;; (in `ℝ`, see `lean real ℝ` above) -- `kurt --lean` writes the rule as a `theorem` with it, and
-;; Lean checks it; Kurt itself doesn't read the tactic (doc/kurt-doc.md, `--lean`). The tactics don't
+;; Lean checks it; Kurt itself doesn't read the tactic (doc/kurt-ref.md, `--lean`). The tactics don't
 ;; name the variables (`intros`): Kurt orders the arguments of `+` and `*` its own way.
 lean "add-eq" intros; subst_vars; rfl
 lean "sub-eq" intros; subst_vars; rfl

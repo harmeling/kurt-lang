@@ -349,7 +349,8 @@ class TestKernelRejectsBlocks(unittest.TestCase):
 
 
 class TestCertCommand(unittest.TestCase):
-    def output(self, text):
+    @staticmethod
+    def output(text):
         with tempfile.TemporaryDirectory() as tmp:          # (not in tests/, see `run_with_certificates`)
             path = Path(os.path.realpath(tmp)) / 'cert-test.kurt'
             path.write_text(text, encoding='utf-8')
@@ -396,7 +397,7 @@ class TestCertCommand(unittest.TestCase):
 class TestShortForm(unittest.TestCase):
     # the reason printed for a step is the short form of its certificate: the rule applied to facts
     def output(self, text):
-        return TestCertCommand.output(self, text)
+        return TestCertCommand.output(text)
 
     def test_short_forms(self):
         out = self.output('\n'.join(['load equality', 'prop A, B', 'const a, b, f', 'arity f 1',

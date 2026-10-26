@@ -4,7 +4,7 @@
 ; a ∉ f a is a subset of A, but no f a, since a ∈ D ⇔ a ∉ f a. Mappings are the mappings of
 ; set.kurt (`f ∈ A → B`, applied `f a`); no axiom beyond set.kurt.
 load set
-set $h          ; a mapping is a set (a fact gives no sort, doc/kurt-doc.md §5.3)
+set $h          ; a mapping is a set (a fact gives no sort, doc/kurt-ref.md §5.3)
 
 ; the diagonal set of a mapping f on A -- a `def`, conservative
 def diag($A, $h) = {x ∈ $A | ¬(x ∈ $h x)}                            "diag"
@@ -12,10 +12,9 @@ def diag($A, $h) = {x ∈ $A | ¬(x ∈ $h x)}                            "diag"
 ; the diagonal set is a subset of A, an element of its power set
 show diag($A, $h) ∈ Pow($A)                                          "diag-in-pow"
 proof
-    let c
-        assume c ∈ diag($A, $h)
-            c ∈ {x ∈ $A | ¬(x ∈ $h x)}
-            c ∈ $A
+    let c ∈ diag($A, $h)
+        c ∈ {x ∈ $A | ¬(x ∈ $h x)}
+        c ∈ $A
     ∀ $c ($c ∈ diag($A, $h) ⇒ $c ∈ $A)
     diag($A, $h) ⊂ $A
 qed

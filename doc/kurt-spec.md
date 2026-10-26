@@ -2,7 +2,7 @@
 
 This document says what Kurt's logic *is*: which terms there are, which symbols are variables,
 when a line follows from the facts before it, what a block proves, what a file exports, and who
-may postulate what. It is normative and short; `doc/kurt-doc.md` is the reference of the language
+may postulate what. It is normative and short; `doc/kurt-ref.md` is the reference of the language
 (syntax, keywords, output), `doc/kurt-soundness.md` the audit with its history, and
 `doc/kurt-kernel.md` the kernel with examples. Where this document and `src/kurt/kurt.py`
 disagree, one of them has a bug; the rules below are the ones the implementation is held to.
@@ -18,7 +18,7 @@ arithmetic.
 
 **1.1 Trees.** A term is a leaf or a node. A leaf is a symbol, a number (an exact integer or
 decimal) or a string; a node is an operator applied to one or more terms, `[op, t1, ..., tn]`.
-There is no separate syntax for formulas: a formula is a term whose result is boolean (§2).
+There is no separate syntax for formulas: a formula is a term whose result is a statement (§2).
 
 **1.2 Declared syntax.** How text is read into trees is declared in Kurt source, not fixed in the
 implementation: `infix OP lbp rbp`, `prefix OP rbp`, `postfix OP lbp`, `brackets L R`, `arity OP
@@ -52,8 +52,8 @@ its variables have values. In the variable slot of a binder, `sub $x $v %C` stan
 condition on the bound variable `$v` (§3.6); such a `%C` is used only as `sub $x ... %C`. Where a
 step matches a term against `sub $x $a %A` with `%A` unknown, the hole `$x` ranges over the
 subterms -- statements and terms --, at one, several or all of their occurrences. An operator is
-no object (§3.1), so the hole is never an operator position: not a function symbol, not a boolean
-operator (`=`, `∧`, a `prop P` of arity 1 or more), not a binder, not a compound operator: in
+no object (§3.1), so the hole is never an operator position: not a function symbol, not an
+operator with a statement as its result (`=`, `∧`, a `prop P` of arity 1 or more), not a binder, not a compound operator: in
 `c = c` the hole is a `c`, both `c`s or the whole, not the `=` (an operator variable, §3.1,
 matches an operator by itself, not as a hole).
 
@@ -95,6 +95,16 @@ sort. A `$$x` occurs only where it is bound, in `sub`s and as a side of `=` (not
 elements of the sort matter), it is bound inside the rule (not by an outer `∀`), and it has no sort
 of its own. All sorts are inhabited.
 
+**2.3a Overloading (stage 1).** An operator may have several signatures on the same places, when
+their sorts are in one chain (`real + 0 1 2`, `complex + 0 1 2`, `real ⊂ complex`); a theory of Kurt
+adds one to a symbol of another file, and after the symbol occurs in a fact only a signature above
+all it has. The sort of an application is its *least sort*: the smallest signature whose sort every
+argument at a sorted place fits (the greatest if none does), from the syntax alone. A place takes
+every value that fits the greatest signature; a new constant at a place gets the smallest (so a file
+reads as before the overload). A signature is a claim about the model (the carrier of its sort is
+closed under the operator), not a fact (doc/kurt-kernel.md §8.5). Decision 19 of dev/todo-sorts.md;
+unrelated sorts (ad hoc overloading) are not part of it.
+
 **2.4 Inference: the first sorted use is final.** A symbol without a declared sort gets one when a
 line is read: a constant (also one a file loaded without a sort, and the number literals) the sort
 of its first sorted use -- the greatest sort that fits all of its places in that line (their meet,
@@ -114,7 +124,7 @@ are over the same objects. A constant of a block (`let`, a fixed variable of `as
 like any constant, and is a variable of that sort in the block's result (§6).
 
 **2.5 `default`.** `default s` (after `sort s`, not `prop`, at the top of a file): from that line
-on, every `$` variable, operator position (at the operator's first use, except a boolean one; a
+on, every `$` variable, operator position (at the operator's first use, except a statement place; a
 binder's variable slot too), bound variable and new constant of the file without a declared or
 inferred sort gets `s` -- a new constant at its first appearance, like a declaration. `default any`
 is the same as no default (a symbol without a sort is any object anyway: a constant then gets its
@@ -132,18 +142,18 @@ A fact's free variables are schematic: the fact holds for every instance, where 
 a `var` used as a term take a term, a `%`-variable and a `var` used as a formula take a formula, and
 a sorted variable takes a term of its sort. A variable operator (`var ∘` with `infix ∘ 70 70`)
 takes an operator. A bare operator (`=`, `∧`, a `prop P` with `arity P 2`) is no formula, although
-its signature gives a boolean result -- that is the result of its application --, so a
+its signature gives a statement as its result -- that is the result of its application --, so a
 `%`-variable never takes one; and an operator is no object (decided 2026-10-20), so a bare
-operator with a non-boolean result is no term either: a `$`-variable doesn't take it, and in a
+operator with a term as its result is no term either: a `$`-variable doesn't take it, and in a
 formula it is a type error, except as the argument of an operator parameter, the place of an
 operator variable in the left side of a definition (`(+)` in `group(R, (+), 0, (-))`, by group.kurt's
 `def group($G, (∘), $e, (ι)) ⇔ ...`). A function that is a value is a mapping (set.kurt). Each use of a fact renames its variables fresh, so a variable name is never
 shared between a fact and a goal. Where a statement is required -- an argument of a connective, a quantifier's body, a
-line -- a bare boolean operator is a type error (`¬ P` with `arity P 2`, `A ∧ (=)`, `P ⇔ Q`), also
+line -- a bare operator (also one with a statement as its result) is a type error (`¬ P` with `arity P 2`, `A ∧ (=)`, `P ⇔ Q`), also
 inside an operator that is itself an expression (`(¬ (=)) a b`).
 
 **3.2 Outer universal quantifiers.** When a formula is stored or claimed, its outer `∀`s *without
-a condition* are removed and their variables become schematic (a `%`-name stays boolean). So `use
+a condition* are removed and their variables become schematic (a `%`-name stays a statement variable). So `use
 ∀ x (P x ⇒ Q x)` and `use P $x ⇒ Q $x` are the same fact, and a claim `∀ x P x` is first derived as
 `P x'` for a fresh `x'`, then as the whole formula. A `∀` with a condition is not removed; its
 meaning is given by rules (§3.6).
@@ -316,7 +326,7 @@ discarded.
 
 ## 7. Postulates
 
-**7.1 `use F`.** Adds the boolean formula `F` as an axiom, schematic in its free variables. Kurt
+**7.1 `use F`.** Adds the formula `F` (a statement) as an axiom, schematic in its free variables. Kurt
 warns (and does not refuse) when `F` is a bare `%A`, or `%A ⇒ X` / `X iff %A` with `%A` not
 occurring in `X`, since these make everything or `X` provable. `use` is the honest spelling of a
 recursive, conditional, implicit or characterizing definition.
@@ -347,13 +357,13 @@ new (`1 = 2`, `false`, ...).
 admits the next line (§5.8). Both make the file incomplete.
 
 **7.4 `chain R0 R1 ... Rk` (k ≤ 2).** Each `Ri` is a constant, non-binding infix relation with
-boolean result (`chain` adds `const` and `prop Ri 0`). The declaration adds, for every ordered pair
+a statement as its result (`chain` adds `const` and `prop Ri 0`). The declaration adds, for every ordered pair
 (i, j), the axiom `($a Ri $b) ∧ ($b Rj $c) ⇒ ($a Rmax(i,j) $c)` ("chain-trans-i-j"; with
 `%`-variables if the relations take formulas): the later relation absorbs the earlier, so `chain =
 <` is a different claim than `chain < =`. All chains together form a DAG. Notation that a `chain`
 enables: a continuation line `  R t` indented under a line `s R' u` is the line `s R'' t` with `R''`
 the relation of the largest index seen so far in the chain, checked by §5 like any line. Independent
-of `chain`, `a R b S c` on one line, for relations with boolean result, non-boolean arguments and
+of `chain`, `a R b S c` on one line, for relations with a statement as their result, terms as arguments and
 the same binding power, is `(a R b) ∧ (b S c)`.
 
 **7.5 Generated rules for sets by their elements.** With set.kurt's roles, each `{a1, ..., an}` in a
@@ -471,7 +481,7 @@ result, and the witness has at most the sort of the existential's variable.
 calculator); the axioms of the theories and the roles they assign; the conservativity check of
 `def`; and plain helpers. It uses nothing of the search: not its unification, α-equivalence,
 substitution or reading of conditions. It re-checks the term/formula distinction of §3.1 with
-its own reading of what a formula is (a boolean variable or symbol, an operator with a boolean
+its own reading of what a formula is (a statement variable or symbol, an operator with a statement as its
 result, a `sub` whose body is one): a `$`-variable's value is a term, a `%`-variable's a formula.
 
 **10.4 `.kurtc`.** A stored certificate is a hint: rebuilt against the facts as they are and checked

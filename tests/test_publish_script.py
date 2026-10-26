@@ -6,7 +6,7 @@ import unittest
 from tests.utils import PROJECT_ROOT
 
 # scripts/publish-public.sh replaces everything in the public checkout: it must refuse anything
-# that isn't a clean checkout of the public repository on main (dev/astra-suggestions.md, 9)
+# that isn't a clean checkout of the public repository on main (dev/astra-suggestions.md, in git history, 9)
 
 SCRIPT = PROJECT_ROOT / 'scripts' / 'publish-public.sh'
 

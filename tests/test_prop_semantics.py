@@ -58,7 +58,11 @@ class TestPropositionalSemantics(unittest.TestCase):
             symbols = {token.value for token in kurt.get_token_set(formula.expr)}
             if 'sub' in symbols:
                 continue  # `iff-subst` substitutes with `sub`: checked in test_first_order_semantics.py
-            unknown_operators = {formula.expr[0].value} - self.CONNECTIVES if isinstance(formula.expr, list) else set()
+            unknown_operators: set = set()
+            if isinstance(formula.expr, list):
+                head = formula.expr[0]
+                assert isinstance(head, kurt.Token)
+                unknown_operators = {head.value} - self.CONNECTIVES
             self.assertFalse(unknown_operators, formula.formula_str(kb))
             variables = sorted(self.variables(formula.expr))
             for bits in itertools.product((False, True), repeat=len(variables)):

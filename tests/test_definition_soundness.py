@@ -10,7 +10,7 @@ import kurt.kurt as kurt
 from tests.utils import PROJECT_ROOT
 
 
-# Complete accepted contradictions from dev/astra-suggestions.md, not just error-message tests.
+# Complete accepted contradictions from dev/astra-suggestions.md, in git history, not just error-message tests.
 CONTRADICTIONS = {
     'self_reference': '''load propositional
 def liar iff not liar
@@ -95,7 +95,7 @@ class TestDefinitionSoundness(unittest.TestCase):
                     if not strict:
                         # (by the check of `def`; with `--strict`, `builtin` and an undeclared `q`
                         # are refused before it)
-                        self.assertIn('`def`', result.error)
+                        self.assertIn('`def`', result.error or '')
                     self.assertNotIn('Proof checked', result.output)
 
     def test_strict_cli_rejects_contradictions(self):

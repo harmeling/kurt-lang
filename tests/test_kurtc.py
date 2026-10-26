@@ -235,6 +235,7 @@ class TestDependencies(KurtcTestCase):
 def theory_line(theory: str, label: str) -> tuple[str, str]:
     # the file (as Kurt names it) and the line of the formula with `label` in a packaged theory
     path = kurt.resolve_load(theory, __file__)
+    assert path is not None, f'no theory {theory}'
     with open(path) as fh:
         for n, text in enumerate(fh, start=1):
             if f'"{label}"' in text:

@@ -1,0 +1,8 @@
+; `kurt --lean`: a constant with a Lean meaning that is applied (`∅ a`) and also an object of its own
+; (`a ∈ ∅`) keeps its meaning, `k_apply (∅ : Obj) a`, not a new axiom `emptyset : Obj`
+; (tests/test_export_lean.py, EXPECTED_TEXT; found by finite.kurt's "hassize-empty")
+load set
+const a, b
+use ∅ a = b                                    "empty-applied"
+¬(a ∈ ∅)                                       ; empty-set
+∅ a = b ∧ ¬(a ∈ ∅)

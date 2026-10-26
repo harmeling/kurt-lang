@@ -1,0 +1,11 @@
+; `kurt --lean`: an object applied like a mapping of set.kurt is `k_apply` -- also where the object
+; is a term (`pairs(a) a`, a `def` of a tuple-free argument) or a constant with a Lean meaning (`∅ a`,
+; Lean's `∅`), not a function of Lean applied, nor a new axiom for the constant
+; (tests/test_export_lean.py, EXPECTED_TEXT; found by finite.kurt's `comp(v, u, X, Z) x` and `∅ x`)
+load set
+const a, b
+arity pairs 1
+def pairs($x) = {($x, $x)}                     "pairs"
+use ∅ a = b                                    "empty-applied"
+use pairs(a) a = b                             "term-applied"
+∅ a = b ∧ pairs(a) a = b

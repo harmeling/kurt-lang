@@ -44,5 +44,10 @@ dist/
 kurt-rs/
 # personal Claude Code overrides
 .claude/settings.local.json
-# certificates of checked files (see doc/kurt-doc.md, `.kurtc`)
+# certificates of checked files (see doc/kurt-ref.md, `.kurtc`)
 *.kurtc
+# local trash: files taken out of the repository, kept here (never deleted outright)
+trash/
+
+# the reference site (scripts/build_reference_site.py; generated, never committed)
+site/

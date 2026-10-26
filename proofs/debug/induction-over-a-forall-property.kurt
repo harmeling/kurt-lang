@@ -1,0 +1,33 @@
+; todo 52: an induction rule applied to a goal that is itself a `∀`. The goal `∀ s ∀ y R(s, y)` is
+; matched also as a whole against the rule's conclusion with its `∀`, so the property is
+; `∀ y R(s, y)` -- the induction hypothesis holds for every y. (Before, only the goal without its
+; outer `∀`s was matched, `R(s, y)` for one y, and the line was refused; the workaround was a `def`
+; for the property.) The same makes a rule concluding `∀ $t %P` usable, not only `∀ $s (sub $t $s %P)`.
+load logic
+const leaf, c
+arity node 2
+prop R
+arity R 2
+var M, Q, l, r
+
+; trees: the structural induction, with the conclusion `∀ M %P`
+prop S
+arity S 2
+use (sub M leaf %P) ∧ (∀ l ∀ r (sub M l %P ∧ sub M r %P ⇒ sub M (node l r) %P))  ⇒  ∀ M %P   "tree-induction-2"
+use S leaf c                                                          "S-leaf"
+use ∀ l ∀ r ((S l c) ∧ (S r c)  ⇒  S (node l r) c)                    "S-node"
+S leaf c
+∀ l ∀ r ((S l c) ∧ (S r c)  ⇒  S (node l r) c)
+∀ s (S s c)                                                           ; tree-induction-2
+
+; the property is as written: about `c` only, not every y
+expect "ProofError" "can not derive"
+    ∀ s ∀ y (S s y)                                                   ; tree-induction-2
+
+; the same with the conclusion `∀ Q (sub M Q %P)`, for a property that is itself a `∀`
+use (sub M leaf %P) ∧ (∀ l ∀ r (sub M l %P ∧ sub M r %P ⇒ sub M (node l r) %P))  ⇒  ∀ Q (sub M Q %P)   "tree-induction"
+use ∀ y (R leaf y)                                                    "R-leaf"
+use ∀ l ∀ r ((∀ y (R l y)) ∧ (∀ y (R r y))  ⇒  ∀ y (R (node l r) y))   "R-node"
+∀ y (R leaf y)
+∀ l ∀ r ((∀ y (R l y)) ∧ (∀ y (R r y))  ⇒  ∀ y (R (node l r) y))
+∀ s ∀ y (R s y)                                                       ; tree-induction

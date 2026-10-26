@@ -1,7 +1,7 @@
 ; 26-syntax.kurt
 
 ; `syntax` prints everything Kurt currently knows about a symbol's grammar:
-; its fixity (infix/prefix/postfix/bindop), arity, boolean signature,
+; its fixity (infix/prefix/postfix/bindop), arity, statement places,
 ; aliases, and so on -- the same "syntax info" block `parse` (25-parse.kurt)
 ; shows, but for one symbol on demand, and without needing an example
 ; expression to parse first.

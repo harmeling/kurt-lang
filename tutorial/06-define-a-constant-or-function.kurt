@@ -41,4 +41,4 @@ square(5) = 25
 ; on a badly-stated recursion -- and printing a trusted answer instead of a checked proof would
 ; break the rule that every claim gets a reason the kernel can check. So `fact(3) = 6` has to be
 ; proved the same way as any other claim: one step at a time, unfolding "factorial-step" by hand
-; (doc/kurt-doc.md §11.1, "Not implemented, maybe never").
+; (doc/kurt-ref.md §11.1, "Not implemented, maybe never").

@@ -1,5 +1,4 @@
 import re
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,8 +19,8 @@ class TestSubtractionLaws(unittest.TestCase):
     def test_the_laws_follow_from_sub_def(self):
         theory = THEORY.read_text(encoding='utf-8')
         laws = [line for line in theory.splitlines()
-                if line.startswith('use ') and re.search(r'"([a-z-]+)"\s*$', line)
-                and re.search(r'"([a-z-]+)"\s*$', line).group(1) in LAWS]
+                if line.startswith('use ') and (label := re.search(r'"([a-z-]+)"\s*$', line))
+                and label.group(1) in LAWS]
         self.assertEqual(len(laws), len(LAWS))
         self.assertIn('"sub-def"', theory)
         # (and their proofs in Lean, `lean "sub-zero" ...`, which need the facts)

@@ -1,0 +1,680 @@
+; Lagrange's theorem: for a subgroup H of a finite group G, |G| = [G : H] · |H| -- the number of
+; elements of G is the number of left cosets of H times the number of elements of H; so |H| divides
+; |G|. First the cosets: they partition G, and each is in bijection with H (h ↦ a ∘ h, a mapping of
+; set.kurt built as a set of pairs); then the counting, with the finite sets of finite.kurt
+; (`hassize(A, n)`: A has n elements), by induction on the number of elements of a union of cosets.
+; Hypotheses: `G` is a group and `H` a subgroup, as `use` lines about new constants (nothing else is
+; known about them).
+load group
+load finite             ; finite sets: `bijection`, `hassize`
+load analysis           ; "sub-add-cancel": (a - b) + b = a
+
+; a group G, with the operation ∘ (group.kurt), the identity e and the inverse inv -- the hypothesis
+; "let G be a group" (a `use` about new constants, nothing else is known about them)
+const G, e, inv
+use group(G, (∘), e, inv)                                              "G-group"
+
+; a subgroup H of G: a subset with e, closed under ∘ and the inverse -- the hypothesis "let H be a
+; subgroup"
+const H
+use H ⊂ G                                                              "H-subset"
+use e ∈ H                                                              "H-identity"
+use ∀ $a ∈ H ∀ $b ∈ H ($a ∘ $b ∈ H)                                    "H-closed"
+use ∀ $a ∈ H (inv $a ∈ H)                                              "H-inverse"
+
+; the left coset aH -- a `def`
+def coset($a) = {x ∈ G | ∃ h ∈ H (x = $a ∘ h)}                         "coset"
+
+show $h ∈ H  ⇒  $h ∈ G                                                 "H-in-G"
+proof
+    assume $h ∈ H
+        ∀ $c ($c ∈ H ⇒ $c ∈ G)
+        $h ∈ G
+qed
+
+; a ∈ aH
+show $a ∈ G  ⇒  $a ∈ coset($a)                                         "coset-self"
+proof
+    assume $a ∈ G
+        $a ∘ e = $a                                    ; group-right-identity
+        $a = $a ∘ e
+        e ∈ H ∧ $a = $a ∘ e
+        ∃ h ∈ H ($a = $a ∘ h)
+        $a ∈ G ∧ ∃ h ∈ H ($a = $a ∘ h)
+        $a ∈ {x ∈ G | ∃ h ∈ H (x = $a ∘ h)}            ; separation
+        $a ∈ coset($a)
+qed
+
+; b ∈ aH, b = a h: then bH ⊂ aH (b k = a (h k)) and aH ⊂ bH (a k = b (h⁻¹ k)), so bH = aH
+show $b ∈ coset($a) ∧ $a ∈ G  ⇒  coset($b) = coset($a)                 "coset-of-member"
+proof
+    assume $b ∈ coset($a) ∧ $a ∈ G
+        $b ∈ {x ∈ G | ∃ h ∈ H (x = $a ∘ h)}
+        $b ∈ G ∧ ∃ h ∈ H ($b = $a ∘ h)                 ; separation
+        $b ∈ G
+        ∃ h ∈ H ($b = $a ∘ h)
+        pick h with h ∈ H ∧ $b = $a ∘ h
+            h ∈ G                                      ; H-in-G
+            inv h ∈ H
+            inv h ∈ G
+            ; bH ⊂ aH
+            let y
+                assume y ∈ coset($b)
+                    y ∈ {x ∈ G | ∃ k ∈ H (x = $b ∘ k)}
+                    y ∈ G ∧ ∃ k ∈ H (y = $b ∘ k)       ; separation
+                    y ∈ G
+                    ∃ k ∈ H (y = $b ∘ k)
+                    pick k with k ∈ H ∧ y = $b ∘ k
+                        k ∈ G
+                        ∀ $m ∈ H (h ∘ $m ∈ H)          ; H-closed
+                        h ∘ k ∈ H
+                        y = ($a ∘ h) ∘ k
+                          = $a ∘ (h ∘ k)               ; group-associative
+                        h ∘ k ∈ H ∧ y = $a ∘ (h ∘ k)
+                        ∃ l ∈ H (y = $a ∘ l)
+                        y ∈ G ∧ ∃ l ∈ H (y = $a ∘ l)
+                        y ∈ {x ∈ G | ∃ l ∈ H (x = $a ∘ l)}    ; separation
+                        y ∈ coset($a)
+            coset($b) ⊂ coset($a)
+            ; aH ⊂ bH
+            $b ∘ inv h = ($a ∘ h) ∘ inv h
+                       = $a ∘ (h ∘ inv h)              ; group-associative
+                       = $a ∘ e                        ; group-right-inverse
+                       = $a                            ; group-right-identity
+            let y
+                assume y ∈ coset($a)
+                    y ∈ {x ∈ G | ∃ k ∈ H (x = $a ∘ k)}
+                    y ∈ G ∧ ∃ k ∈ H (y = $a ∘ k)       ; separation
+                    y ∈ G
+                    ∃ k ∈ H (y = $a ∘ k)
+                    pick k with k ∈ H ∧ y = $a ∘ k
+                        k ∈ G
+                        ∀ $m ∈ H (inv h ∘ $m ∈ H)      ; H-closed
+                        inv h ∘ k ∈ H
+                        y = ($b ∘ inv h) ∘ k
+                          = $b ∘ (inv h ∘ k)           ; group-associative
+                        inv h ∘ k ∈ H ∧ y = $b ∘ (inv h ∘ k)
+                        ∃ l ∈ H (y = $b ∘ l)
+                        y ∈ G ∧ ∃ l ∈ H (y = $b ∘ l)
+                        y ∈ {x ∈ G | ∃ l ∈ H (x = $b ∘ l)}    ; separation
+                        y ∈ coset($b)
+            coset($a) ⊂ coset($b)
+            coset($b) ⊂ coset($a) ∧ coset($a) ⊂ coset($b)
+            coset($b) = coset($a)                      ; eq-def
+qed
+
+; two cosets are equal or disjoint
+show $a ∈ G ∧ $b ∈ G  ⇒  coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅     "cosets-equal-or-disjoint"
+proof
+    assume $a ∈ G ∧ $b ∈ G
+        (∃ x (x ∈ coset($a) ∩ coset($b))) ∨ ¬(∃ x (x ∈ coset($a) ∩ coset($b)))     ; excluded-middle
+        case ∃ x (x ∈ coset($a) ∩ coset($b))
+            pick x with x ∈ coset($a) ∩ coset($b)
+                x ∈ coset($a) ∧ x ∈ coset($b)          ; in-intersection
+                x ∈ coset($a)
+                x ∈ coset($b)
+                coset(x) = coset($a)                   ; coset-of-member
+                coset(x) = coset($b)                   ; coset-of-member
+                coset($a) = coset($b)
+            coset($a) = coset($b)
+            coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅
+        case ¬(∃ x (x ∈ coset($a) ∩ coset($b)))
+            let c
+                assume c ∈ coset($a) ∩ coset($b)
+                    ∃ x (x ∈ coset($a) ∩ coset($b))
+                    false
+                    c ∈ ∅
+                assume c ∈ ∅
+                    ¬(c ∈ ∅)                           ; empty-set
+                    false
+                    c ∈ coset($a) ∩ coset($b)
+                c ∈ coset($a) ∩ coset($b)  ⇔  c ∈ ∅
+            ∀ $c ($c ∈ coset($a) ∩ coset($b)  ⇔  $c ∈ ∅)
+            coset($a) ∩ coset($b) = ∅                  ; extensionality
+            coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅
+        coset($a) = coset($b) ∨ coset($a) ∩ coset($b) = ∅
+qed
+
+; ... and every element of G is in one: G is the disjoint union of the cosets
+show $x ∈ G  ⇒  ∃ a (a ∈ G ∧ $x ∈ coset(a))                            "cosets-cover"
+proof
+    assume $x ∈ G
+        $x ∈ coset($x)                                 ; coset-self
+        $x ∈ G ∧ $x ∈ coset($x)
+        ∃ a (a ∈ G ∧ $x ∈ coset(a))
+qed
+
+; h ↦ a ∘ h is a bijection from H onto aH: all cosets have as many elements as H
+; (`injective`, `surjective`, `bijection`: finite.kurt)
+
+; the mapping h ↦ a ∘ h, as a set of pairs (`arity shift 1`: `shift(a) h` is the mapping `shift(a)`
+; applied to h, not `shift` with the two arguments a and h)
+arity shift 1
+def shift($a) = {p ∈ H × coset($a) | ∃ h ∈ H (p = (h, $a ∘ h))}       "shift"
+
+show $a ∈ G ∧ $h ∈ H  ⇒  ($h, $a ∘ $h) ∈ shift($a)                     "shift-pair"
+proof
+    assume $a ∈ G ∧ $h ∈ H
+        $h ∈ G                                         ; H-in-G
+        $a ∘ $h = $a ∘ $h
+        $h ∈ H ∧ $a ∘ $h = $a ∘ $h
+        ∃ k ∈ H ($a ∘ $h = $a ∘ k)
+        $a ∘ $h ∈ G                                    ; group-closed
+        $a ∘ $h ∈ G ∧ ∃ k ∈ H ($a ∘ $h = $a ∘ k)
+        $a ∘ $h ∈ {x ∈ G | ∃ k ∈ H (x = $a ∘ k)}       ; separation
+        $a ∘ $h ∈ coset($a)
+        ($h, $a ∘ $h) ∈ H × coset($a)                  ; product
+        ($h, $a ∘ $h) = ($h, $a ∘ $h)
+        $h ∈ H ∧ ($h, $a ∘ $h) = ($h, $a ∘ $h)
+        ∃ k ∈ H (($h, $a ∘ $h) = (k, $a ∘ k))
+        ($h, $a ∘ $h) ∈ H × coset($a) ∧ ∃ k ∈ H (($h, $a ∘ $h) = (k, $a ∘ k))
+        ($h, $a ∘ $h) ∈ {p ∈ H × coset($a) | ∃ k ∈ H (p = (k, $a ∘ k))}     ; separation
+        ($h, $a ∘ $h) ∈ shift($a)
+qed
+
+; a pair of shift(a) is (h, a ∘ h)
+show ($x, $y) ∈ shift($a)  ⇒  $x ∈ H ∧ $y = $a ∘ $x                     "shift-pair-elim"
+proof
+    assume ($x, $y) ∈ shift($a)
+        ($x, $y) ∈ {p ∈ H × coset($a) | ∃ k ∈ H (p = (k, $a ∘ k))}
+        ($x, $y) ∈ H × coset($a) ∧ ∃ k ∈ H (($x, $y) = (k, $a ∘ k))      ; separation
+        ∃ k ∈ H (($x, $y) = (k, $a ∘ k))
+        pick k with k ∈ H ∧ ($x, $y) = (k, $a ∘ k)
+            $x = k ∧ $y = $a ∘ k                       ; pair-eq
+            $x = k
+            $y = $a ∘ k
+            $x ∈ H
+            $y = $a ∘ $x
+            $x ∈ H ∧ $y = $a ∘ $x
+qed
+
+show $a ∈ G  ⇒  shift($a) ∈ (H → coset($a))                           "shift-mapping"
+proof
+    assume $a ∈ G
+        let c
+            assume c ∈ shift($a)
+                c ∈ {p ∈ H × coset($a) | ∃ k ∈ H (p = (k, $a ∘ k))}
+                c ∈ H × coset($a)                      ; separation-in
+        shift($a) ⊂ H × coset($a)
+        let h ∈ H
+            (h, $a ∘ h) ∈ shift($a)                    ; shift-pair
+            ∃ y ((h, y) ∈ shift($a))
+        ∀ h ∈ H ∃ y ((h, y) ∈ shift($a))
+        let x, y, z
+            assume (x, y) ∈ shift($a) ∧ (x, z) ∈ shift($a)
+                x ∈ H ∧ y = $a ∘ x                     ; shift-pair-elim
+                x ∈ H ∧ z = $a ∘ x                     ; shift-pair-elim
+                y = $a ∘ x
+                z = $a ∘ x
+                y = z
+        ∀ x ∀ y ∀ z ((x, y) ∈ shift($a) ∧ (x, z) ∈ shift($a)  ⇒  y = z)
+        shift($a) ⊂ H × coset($a) ∧ (∀ h ∈ H ∃ y ((h, y) ∈ shift($a))) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ shift($a) ∧ (x, z) ∈ shift($a)  ⇒  y = z)
+        shift($a) ∈ (H → coset($a))                    ; function-space
+qed
+
+show $a ∈ G ∧ $h ∈ H  ⇒  shift($a) $h = $a ∘ $h                        "shift-apply"
+proof
+    assume $a ∈ G ∧ $h ∈ H
+        shift($a) ∈ (H → coset($a))                    ; shift-mapping
+        ($h, $a ∘ $h) ∈ shift($a)                      ; shift-pair
+        shift($a) $h = $a ∘ $h                         ; apply
+qed
+
+; the cosets of H all have as many elements as H: shift(a) is a bijection from H onto aH
+show $a ∈ G  ⇒  bijection(shift($a), H, coset($a))                     "coset-bijection"
+proof
+    assume $a ∈ G
+        shift($a) ∈ (H → coset($a))                    ; shift-mapping
+        inv $a ∈ G                                     ; group-inverse-in
+        ; injective: a ∘ x = a ∘ y gives x = y
+        let x ∈ H
+            let y ∈ H
+                assume shift($a) x = shift($a) y
+                    x ∈ G
+                    y ∈ G
+                    shift($a) x = $a ∘ x               ; shift-apply
+                    shift($a) y = $a ∘ y               ; shift-apply
+                    $a ∘ x = $a ∘ y
+                    (inv $a) ∘ ($a ∘ x) = (inv $a) ∘ ($a ∘ y)
+                    (inv $a) ∘ ($a ∘ x) = ((inv $a) ∘ $a) ∘ x     ; group-associative
+                                        = e ∘ x                   ; group-left-inverse
+                                        = x                       ; group-left-identity
+                    (inv $a) ∘ ($a ∘ y) = ((inv $a) ∘ $a) ∘ y     ; group-associative
+                                        = e ∘ y                   ; group-left-inverse
+                                        = y                       ; group-left-identity
+                    x = y
+        ∀ x ∈ H ∀ y ∈ H (shift($a) x = shift($a) y  ⇒  x = y)
+        injective(shift($a), H)
+        ; surjective: an element a ∘ h of aH is shift(a) h
+        let y ∈ coset($a)
+            y ∈ {x ∈ G | ∃ k ∈ H (x = $a ∘ k)}
+            y ∈ G ∧ ∃ k ∈ H (y = $a ∘ k)               ; separation
+            ∃ k ∈ H (y = $a ∘ k)
+            pick k with k ∈ H ∧ y = $a ∘ k
+                shift($a) k = $a ∘ k                   ; shift-apply
+                shift($a) k = y
+                k ∈ H ∧ shift($a) k = y
+                ∃ x ∈ H (shift($a) x = y)
+        ∀ y ∈ coset($a) ∃ x ∈ H (shift($a) x = y)
+        surjective(shift($a), H, coset($a))
+        shift($a) ∈ (H → coset($a)) ∧ injective(shift($a), H) ∧ surjective(shift($a), H, coset($a))
+        bijection(shift($a), H, coset($a))
+qed
+
+; ... so all cosets have as many elements as H
+show $a ∈ G  ⇒  ∃ m bijection(m, H, coset($a))                         "cosets-as-large-as-H"
+proof
+    assume $a ∈ G
+        bijection(shift($a), H, coset($a))             ; coset-bijection
+        ∃ m bijection(m, H, coset($a))
+qed
+
+;; counting
+
+; the sorts of the variables of the counting (a fact gives no sort): parts of G are sets, numbers of
+; elements are numbers
+set $T, $M
+real $N, $K
+set T, S
+real i, j, l
+any c
+
+; the cosets of the elements of a part T of G -- for T = G the set of all left cosets, whose number
+; of elements is the index [G : H] -- and the parts of G that are unions of cosets
+arity cosets 1, saturated 1
+def cosets($T) = {c ∈ Pow(G) | ∃ a ∈ $T (c = coset(a))}               "cosets"
+def saturated($T)  ⇔  $T ⊂ G ∧ ∀ a ∈ $T (coset(a) ⊂ $T)               "saturated"
+
+; a coset is a part of G, and one of the cosets of T if its element is in T
+show coset($a) ⊂ G                                                     "coset-in-G"
+proof
+    let c
+        assume c ∈ coset($a)
+            c ∈ {x ∈ G | ∃ h ∈ H (x = $a ∘ h)}
+            c ∈ G                                      ; separation-in
+    ∀ c (c ∈ coset($a)  ⇒  c ∈ G)
+qed
+
+show $a ∈ $T  ⇒  coset($a) ∈ cosets($T)                               "coset-in-cosets"
+proof
+    assume $a ∈ $T
+        coset($a) ⊂ G                                  ; coset-in-G
+        coset($a) ∈ Pow(G)                             ; power-set
+        coset($a) = coset($a)
+        $a ∈ $T ∧ coset($a) = coset($a)
+        ∃ b ∈ $T (coset($a) = coset(b))
+        coset($a) ∈ Pow(G) ∧ ∃ b ∈ $T (coset($a) = coset(b))
+        coset($a) ∈ {c ∈ Pow(G) | ∃ b ∈ $T (c = coset(b))}       ; separation
+        coset($a) ∈ cosets($T)
+qed
+
+show $c ∈ cosets($T)  ⇒  $c ∈ Pow(G) ∧ ∃ b ∈ $T ($c = coset(b))       "in-cosets"
+proof
+    assume $c ∈ cosets($T)
+        $c ∈ {d ∈ Pow(G) | ∃ b ∈ $T (d = coset(b))}
+        $c ∈ Pow(G) ∧ ∃ b ∈ $T ($c = coset(b))          ; separation
+qed
+
+; each coset has as many elements as H
+show $a ∈ G ∧ hassize(H, $K)  ⇒  hassize(coset($a), $K)               "coset-size"
+proof
+    assume $a ∈ G ∧ hassize(H, $K)
+        bijection(shift($a), H, coset($a))             ; coset-bijection
+        hassize(H, $K) ∧ bijection(shift($a), H, coset($a))
+        hassize(coset($a), $K)                         ; hassize-bijection
+qed
+
+; a ∈ T: taking the coset of a out of a union of cosets T leaves a union of cosets ...
+show saturated($T) ∧ $a ∈ $T  ⇒  saturated($T ∖ coset($a))           "saturated-remove"
+proof
+    assume saturated($T) ∧ $a ∈ $T
+        saturated($T)
+        $a ∈ $T
+        $T ⊂ G ∧ ∀ b ∈ $T (coset(b) ⊂ $T)              ; saturated
+        $T ⊂ G
+        ∀ b ∈ $T (coset(b) ⊂ $T)
+        ∀ c (c ∈ $T  ⇒  c ∈ G)                         ; subset
+        $a ∈ G
+        let c
+            assume c ∈ $T ∖ coset($a)
+                c ∈ $T ∧ ¬(c ∈ coset($a))              ; in-setminus
+                c ∈ $T
+                c ∈ G
+        $T ∖ coset($a) ⊂ G
+        let x ∈ $T ∖ coset($a)
+            x ∈ $T ∧ ¬(x ∈ coset($a))                  ; in-setminus
+            x ∈ $T
+            ¬(x ∈ coset($a))
+            x ∈ G
+            coset(x) ⊂ $T
+            ∀ c (c ∈ coset(x)  ⇒  c ∈ $T)              ; subset
+            x ∈ coset(x)                               ; coset-self
+            let y
+                assume y ∈ coset(x)
+                    y ∈ coset(x)  ⇒  y ∈ $T
+                    y ∈ $T
+                    assume y ∈ coset($a)
+                        coset(y) = coset($a)           ; coset-of-member
+                        coset(y) = coset(x)            ; coset-of-member
+                        coset(x) = coset($a)
+                        x ∈ coset($a)
+                        ⊥
+                    ¬(y ∈ coset($a))
+                    y ∈ $T ∧ ¬(y ∈ coset($a))
+                    y ∈ $T ∖ coset($a)                 ; in-setminus
+            ∀ y (y ∈ coset(x)  ⇒  y ∈ $T ∖ coset($a))
+            coset(x) ⊂ $T ∖ coset($a)
+        ∀ x ∈ $T ∖ coset($a) (coset(x) ⊂ $T ∖ coset($a))
+        $T ∖ coset($a) ⊂ G ∧ ∀ x ∈ $T ∖ coset($a) (coset(x) ⊂ $T ∖ coset($a))
+        saturated($T ∖ coset($a))
+qed
+
+; ... and T is what is left and the coset, two disjoint sets
+show saturated($T) ∧ $a ∈ $T  ⇒  ($T ∖ coset($a)) ∪ coset($a) = $T ∧ ($T ∖ coset($a)) ∩ coset($a) = ∅   "saturated-split"
+proof
+    assume saturated($T) ∧ $a ∈ $T
+        saturated($T)
+        $a ∈ $T
+        $T ⊂ G ∧ ∀ b ∈ $T (coset(b) ⊂ $T)              ; saturated
+        ∀ b ∈ $T (coset(b) ⊂ $T)
+        coset($a) ⊂ $T
+        ∀ c (c ∈ coset($a)  ⇒  c ∈ $T)                 ; subset
+        let c
+            assume c ∈ ($T ∖ coset($a)) ∪ coset($a)
+                c ∈ $T ∖ coset($a) ∨ c ∈ coset($a)     ; union
+                case c ∈ $T ∖ coset($a)
+                    c ∈ $T ∧ ¬(c ∈ coset($a))          ; in-setminus
+                    c ∈ $T
+                case c ∈ coset($a)
+                    c ∈ coset($a)  ⇒  c ∈ $T
+                    c ∈ $T
+                c ∈ $T
+            assume c ∈ $T
+                c ∈ coset($a) ∨ ¬(c ∈ coset($a))       ; excluded-middle
+                case c ∈ coset($a)
+                    c ∈ $T ∖ coset($a) ∨ c ∈ coset($a)
+                case ¬(c ∈ coset($a))
+                    c ∈ $T ∧ ¬(c ∈ coset($a))
+                    c ∈ $T ∖ coset($a)                 ; in-setminus
+                    c ∈ $T ∖ coset($a) ∨ c ∈ coset($a)
+                c ∈ $T ∖ coset($a) ∨ c ∈ coset($a)
+                c ∈ ($T ∖ coset($a)) ∪ coset($a)       ; union
+            c ∈ ($T ∖ coset($a)) ∪ coset($a)  ⇔  c ∈ $T
+        ∀ c (c ∈ ($T ∖ coset($a)) ∪ coset($a)  ⇔  c ∈ $T)
+        ($T ∖ coset($a)) ∪ coset($a) = $T              ; extensionality
+        let c
+            assume c ∈ ($T ∖ coset($a)) ∩ coset($a)
+                c ∈ $T ∖ coset($a) ∧ c ∈ coset($a)     ; in-intersection
+                c ∈ $T ∖ coset($a)
+                c ∈ coset($a)
+                c ∈ $T ∧ ¬(c ∈ coset($a))              ; in-setminus
+                ¬(c ∈ coset($a))
+                ⊥
+                c ∈ ∅
+            assume c ∈ ∅
+                ⊥                                      ; empty-set
+                c ∈ ($T ∖ coset($a)) ∩ coset($a)
+            c ∈ ($T ∖ coset($a)) ∩ coset($a)  ⇔  c ∈ ∅
+        ∀ c (c ∈ ($T ∖ coset($a)) ∩ coset($a)  ⇔  c ∈ ∅)
+        ($T ∖ coset($a)) ∩ coset($a) = ∅               ; extensionality
+        ($T ∖ coset($a)) ∪ coset($a) = $T ∧ ($T ∖ coset($a)) ∩ coset($a) = ∅
+qed
+
+; the cosets of T: those of what is left, and the coset of a, which is not one of them
+show saturated($T) ∧ $a ∈ $T  ⇒  cosets($T) = cosets($T ∖ coset($a)) ∪ {coset($a)} ∧ ¬(coset($a) ∈ cosets($T ∖ coset($a)))   "cosets-split"
+proof
+    assume saturated($T) ∧ $a ∈ $T
+        saturated($T)
+        $a ∈ $T
+        $T ⊂ G ∧ ∀ b ∈ $T (coset(b) ⊂ $T)              ; saturated
+        $T ⊂ G
+        ∀ c (c ∈ $T  ⇒  c ∈ G)                         ; subset
+        $a ∈ G
+        coset($a) ∈ cosets($T)                         ; coset-in-cosets
+        let c
+            assume c ∈ cosets($T)
+                c ∈ Pow(G) ∧ ∃ b ∈ $T (c = coset(b))   ; in-cosets
+                c ∈ Pow(G)
+                ∃ b ∈ $T (c = coset(b))
+                pick b with b ∈ $T ∧ c = coset(b)
+                    b ∈ $T
+                    c = coset(b)
+                    b ∈ coset($a) ∨ ¬(b ∈ coset($a))   ; excluded-middle
+                    case b ∈ coset($a)
+                        coset(b) = coset($a)           ; coset-of-member
+                        c = coset($a)
+                        c ∈ {coset($a)}                ; singleton
+                        c ∈ cosets($T ∖ coset($a)) ∨ c ∈ {coset($a)}
+                    case ¬(b ∈ coset($a))
+                        b ∈ $T ∧ ¬(b ∈ coset($a))
+                        b ∈ $T ∖ coset($a)             ; in-setminus
+                        b ∈ $T ∖ coset($a) ∧ c = coset(b)
+                        ∃ d ∈ $T ∖ coset($a) (c = coset(d))
+                        c ∈ Pow(G) ∧ ∃ d ∈ $T ∖ coset($a) (c = coset(d))
+                        c ∈ {q ∈ Pow(G) | ∃ d ∈ $T ∖ coset($a) (q = coset(d))}     ; separation
+                        c ∈ cosets($T ∖ coset($a))
+                        c ∈ cosets($T ∖ coset($a)) ∨ c ∈ {coset($a)}
+                    c ∈ cosets($T ∖ coset($a)) ∨ c ∈ {coset($a)}
+                c ∈ cosets($T ∖ coset($a)) ∪ {coset($a)}         ; union
+            assume c ∈ cosets($T ∖ coset($a)) ∪ {coset($a)}
+                c ∈ cosets($T ∖ coset($a)) ∨ c ∈ {coset($a)}     ; union
+                case c ∈ cosets($T ∖ coset($a))
+                    c ∈ Pow(G) ∧ ∃ b ∈ $T ∖ coset($a) (c = coset(b))   ; in-cosets
+                    c ∈ Pow(G)
+                    ∃ b ∈ $T ∖ coset($a) (c = coset(b))
+                    pick b with b ∈ $T ∖ coset($a) ∧ c = coset(b)
+                        b ∈ $T ∧ ¬(b ∈ coset($a))      ; in-setminus
+                        b ∈ $T
+                        b ∈ $T ∧ c = coset(b)
+                        ∃ d ∈ $T (c = coset(d))
+                        c ∈ Pow(G) ∧ ∃ d ∈ $T (c = coset(d))
+                        c ∈ {q ∈ Pow(G) | ∃ d ∈ $T (q = coset(d))}     ; separation
+                        c ∈ cosets($T)
+                    c ∈ cosets($T)
+                case c ∈ {coset($a)}
+                    c = coset($a)                      ; singleton
+                    c ∈ cosets($T)
+                c ∈ cosets($T)
+            c ∈ cosets($T)  ⇔  c ∈ cosets($T ∖ coset($a)) ∪ {coset($a)}
+        ∀ c (c ∈ cosets($T)  ⇔  c ∈ cosets($T ∖ coset($a)) ∪ {coset($a)})
+        cosets($T) = cosets($T ∖ coset($a)) ∪ {coset($a)}         ; extensionality
+        ; the coset of a is no coset of an element outside it
+        assume coset($a) ∈ cosets($T ∖ coset($a))
+            coset($a) ∈ Pow(G) ∧ ∃ b ∈ $T ∖ coset($a) (coset($a) = coset(b))   ; in-cosets
+            ∃ b ∈ $T ∖ coset($a) (coset($a) = coset(b))
+            pick b with b ∈ $T ∖ coset($a) ∧ coset($a) = coset(b)
+                b ∈ $T ∧ ¬(b ∈ coset($a))              ; in-setminus
+                b ∈ $T
+                ¬(b ∈ coset($a))
+                b ∈ G
+                b ∈ coset(b)                           ; coset-self
+                b ∈ coset($a)
+                ⊥
+        ¬(coset($a) ∈ cosets($T ∖ coset($a)))
+        cosets($T) = cosets($T ∖ coset($a)) ∪ {coset($a)} ∧ ¬(coset($a) ∈ cosets($T ∖ coset($a)))
+qed
+
+; H has at least one element, e
+show hassize(H, $K)  ⇒  1 <= $K                                        "H-size-positive"
+proof
+    assume hassize(H, $K)
+        $K ∈ Nat ∧ ∃ $M bijection($M, below($K), H)    ; hassize
+        $K ∈ Nat
+        assume $K = 0
+            hassize(H, 0)
+            H = ∅                                      ; hassize-zero
+            e ∈ ∅
+            ⊥                                          ; empty-set
+        $K ≠ 0
+        ∀ $n ∈ Nat ∀ $k ∈ Nat ($k <= $n ∨ $n + 1 <= $k)     ; nat-discrete
+        0 ∈ Nat                                        ; nat-zero
+        ∀ $k ∈ Nat ($k <= 0 ∨ 0 + 1 <= $k)
+        $K <= 0 ∨ 0 + 1 <= $K
+        case $K <= 0
+            0 <= $K                                    ; nat-nonneg
+            $K >= 0
+            $K = 0                                     ; le-ge-antisym
+            ⊥
+            1 <= $K
+        case 0 + 1 <= $K
+            calc on
+            0 + 1 = 1
+            calc off
+            1 <= $K
+        1 <= $K
+qed
+
+; Lagrange's theorem: |G| = [G : H] · |H| -- by induction on j: every union of cosets T with i <= j
+; elements has i = l · |H|, with l the number of its cosets
+show hassize(G, $N) ∧ hassize(H, $K)  ⇒  ∃ l (hassize(cosets(G), l) ∧ $N = l * $K)     "lagrange"
+proof
+    assume hassize(G, $N) ∧ hassize(H, $K)
+        hassize(G, $N)
+        hassize(H, $K)
+        1 <= $K                                        ; H-size-positive
+        ; j = 0: T is empty, and so is the set of its cosets
+        let i ∈ Nat
+            assume i <= 0
+                0 <= i                                 ; nat-nonneg
+                i >= 0
+                i = 0                                  ; le-ge-antisym
+                let T
+                    assume saturated(T) ∧ hassize(T, i)
+                        hassize(T, i)
+                        hassize(T, 0)
+                        T = ∅                          ; hassize-zero
+                        let c
+                            assume c ∈ cosets(T)
+                                c ∈ Pow(G) ∧ ∃ b ∈ T (c = coset(b))     ; in-cosets
+                                ∃ b ∈ T (c = coset(b))
+                                pick b with b ∈ T ∧ c = coset(b)
+                                    b ∈ T
+                                    b ∈ ∅
+                                    ⊥                  ; empty-set
+                                c ∈ ∅
+                            assume c ∈ ∅
+                                ⊥                      ; empty-set
+                                c ∈ cosets(T)
+                            c ∈ cosets(T)  ⇔  c ∈ ∅
+                        ∀ c (c ∈ cosets(T)  ⇔  c ∈ ∅)
+                        cosets(T) = ∅                  ; extensionality
+                        hassize(∅, 0)                  ; hassize-empty
+                        hassize(cosets(T), 0)
+                        0 * $K = 0                     ; mul-zero
+                        i = 0 * $K
+                        hassize(cosets(T), 0) ∧ i = 0 * $K
+                        ∃ l (hassize(cosets(T), l) ∧ i = l * $K)
+        ∀ i ∈ Nat (i <= 0  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K)))
+        ; j → j + 1: take a coset out of T
+        let j ∈ Nat
+            assume ∀ i ∈ Nat (i <= j  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K)))
+                j + 1 ∈ Nat                            ; nat-succ
+                ; (j + 1) - |H| <= j
+                1 + j <= $K + j                        ; le-add
+                (j + 1) - $K <= ($K + j) - $K          ; le-sub
+                ($K + j) - $K = j - ($K - $K)          ; add-sub
+                              = j - 0                  ; sub-inverse
+                              = j                      ; sub-identity
+                (j + 1) - $K <= j
+                ; a union of cosets with j + 1 elements
+                let S
+                    assume saturated(S) ∧ hassize(S, j + 1)
+                        saturated(S)
+                        hassize(S, j + 1)
+                        S ⊂ G ∧ ∀ b ∈ S (coset(b) ⊂ S) ; saturated
+                        S ⊂ G
+                        ∀ c (c ∈ S  ⇒  c ∈ G)          ; subset
+                        j + 1 ≠ 0                      ; nat-succ-ne-zero
+                        hassize(S, j + 1) ∧ j + 1 ≠ 0
+                        ∃ x (x ∈ S)                    ; hassize-nonempty
+                        pick a with a ∈ S
+                            a ∈ G
+                            saturated(S) ∧ a ∈ S
+                            saturated(S ∖ coset(a))    ; saturated-remove
+                            (S ∖ coset(a)) ∪ coset(a) = S ∧ (S ∖ coset(a)) ∩ coset(a) = ∅     ; saturated-split
+                            (S ∖ coset(a)) ∪ coset(a) = S
+                            (S ∖ coset(a)) ∩ coset(a) = ∅
+                            cosets(S) = cosets(S ∖ coset(a)) ∪ {coset(a)} ∧ ¬(coset(a) ∈ cosets(S ∖ coset(a)))    ; cosets-split
+                            cosets(S) = cosets(S ∖ coset(a)) ∪ {coset(a)}
+                            ¬(coset(a) ∈ cosets(S ∖ coset(a)))
+                            ; what is left has (j + 1) - |H| elements, j or fewer
+                            a ∈ G ∧ hassize(H, $K)
+                            hassize(coset(a), $K)      ; coset-size
+                            hassize((S ∖ coset(a)) ∪ coset(a), j + 1)
+                            hassize((S ∖ coset(a)) ∪ coset(a), j + 1) ∧ hassize(coset(a), $K) ∧ (S ∖ coset(a)) ∩ coset(a) = ∅
+                            hassize(S ∖ coset(a), (j + 1) - $K)       ; hassize-difference
+                            (j + 1) - $K ∈ Nat ∧ ∃ $M bijection($M, below((j + 1) - $K), S ∖ coset(a))   ; hassize
+                            (j + 1) - $K ∈ Nat
+                            (j + 1) - $K <= j  ⇒  ∀ T (saturated(T) ∧ hassize(T, (j + 1) - $K)  ⇒  ∃ l (hassize(cosets(T), l) ∧ (j + 1) - $K = l * $K))
+                            ∀ T (saturated(T) ∧ hassize(T, (j + 1) - $K)  ⇒  ∃ l (hassize(cosets(T), l) ∧ (j + 1) - $K = l * $K))
+                            saturated(S ∖ coset(a)) ∧ hassize(S ∖ coset(a), (j + 1) - $K)  ⇒  ∃ l (hassize(cosets(S ∖ coset(a)), l) ∧ (j + 1) - $K = l * $K)
+                            saturated(S ∖ coset(a)) ∧ hassize(S ∖ coset(a), (j + 1) - $K)
+                            ∃ l (hassize(cosets(S ∖ coset(a)), l) ∧ (j + 1) - $K = l * $K)
+                            pick l with hassize(cosets(S ∖ coset(a)), l) ∧ (j + 1) - $K = l * $K
+                                hassize(cosets(S ∖ coset(a)), l)
+                                (j + 1) - $K = l * $K
+                                ; ... and the cosets of S one more
+                                hassize(cosets(S ∖ coset(a)), l) ∧ ¬(coset(a) ∈ cosets(S ∖ coset(a)))
+                                hassize(cosets(S ∖ coset(a)) ∪ {coset(a)}, l + 1)     ; hassize-add
+                                hassize(cosets(S), l + 1)
+                                (l + 1) * $K = l * $K + 1 * $K             ; distrib-add
+                                             = l * $K + $K                 ; mul-identity
+                                             = ((j + 1) - $K) + $K
+                                             = j + 1                       ; sub-add-cancel
+                                j + 1 = (l + 1) * $K
+                                hassize(cosets(S), l + 1) ∧ j + 1 = (l + 1) * $K
+                                ∃ q (hassize(cosets(S), q) ∧ j + 1 = q * $K)
+                ∀ T (saturated(T) ∧ hassize(T, j + 1)  ⇒  ∃ l (hassize(cosets(T), l) ∧ j + 1 = l * $K))
+                ; so for every i <= j + 1
+                let i ∈ Nat
+                    assume i <= j + 1
+                        ∀ $n ∈ Nat ∀ $k ∈ Nat ($k <= $n ∨ $n + 1 <= $k)     ; nat-discrete
+                        ∀ $k ∈ Nat ($k <= j ∨ j + 1 <= $k)
+                        i <= j ∨ j + 1 <= i
+                        case i <= j
+                            i <= j  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))
+                            ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))
+                        case j + 1 <= i
+                            i >= j + 1
+                            i = j + 1                  ; le-ge-antisym
+                            ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))
+                        ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))
+        ∀ j ∈ Nat ((∀ i ∈ Nat (i <= j  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))))  ⇒  ∀ i ∈ Nat (i <= j + 1  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))))
+        (∀ i ∈ Nat (i <= 0  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K)))) ∧ ∀ j ∈ Nat ((∀ i ∈ Nat (i <= j  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))))  ⇒  ∀ i ∈ Nat (i <= j + 1  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K))))
+        ∀ j ∈ Nat ∀ i ∈ Nat (i <= j  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K)))     ; induction
+        ; G is a union of cosets with |G| elements
+        $N ∈ Nat ∧ ∃ $M bijection($M, below($N), G)    ; hassize
+        $N ∈ Nat
+        ∀ i ∈ Nat (i <= $N  ⇒  ∀ T (saturated(T) ∧ hassize(T, i)  ⇒  ∃ l (hassize(cosets(T), l) ∧ i = l * $K)))
+        $N <= $N                                       ; le-refl
+        $N <= $N  ⇒  ∀ T (saturated(T) ∧ hassize(T, $N)  ⇒  ∃ l (hassize(cosets(T), l) ∧ $N = l * $K))
+        ∀ T (saturated(T) ∧ hassize(T, $N)  ⇒  ∃ l (hassize(cosets(T), l) ∧ $N = l * $K))
+        let c
+            assume c ∈ G
+                c ∈ G
+        G ⊂ G
+        let a ∈ G
+            coset(a) ⊂ G                               ; coset-in-G
+        ∀ a ∈ G (coset(a) ⊂ G)
+        G ⊂ G ∧ ∀ a ∈ G (coset(a) ⊂ G)
+        saturated(G)
+        saturated(G) ∧ hassize(G, $N)  ⇒  ∃ l (hassize(cosets(G), l) ∧ $N = l * $K)
+        saturated(G) ∧ hassize(G, $N)
+        ∃ l (hassize(cosets(G), l) ∧ $N = l * $K)
+qed
+
+; ... so the number of elements of H divides that of G
+show hassize(G, $N) ∧ hassize(H, $K)  ⇒  $K ∣ $N                       "lagrange-divides"
+proof
+    assume hassize(G, $N) ∧ hassize(H, $K)
+        ∃ l (hassize(cosets(G), l) ∧ $N = l * $K)      ; lagrange
+        pick l with hassize(cosets(G), l) ∧ $N = l * $K
+            hassize(cosets(G), l)
+            $N = l * $K
+            l ∈ Nat ∧ ∃ $M bijection($M, below(l), cosets(G))     ; hassize
+            l ∈ Nat
+            $N = $K * l
+            l ∈ Nat ∧ $N = $K * l
+            ∃ $k ($k ∈ Nat ∧ $N = $K * $k)
+            $K ∣ $N                                    ; divides
+qed

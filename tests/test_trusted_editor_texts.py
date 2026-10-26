@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 
 import kurt.kurt as kurt
 from tests.utils import PROJECT_ROOT

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A semantic oracle for Kurt's sorts (dev/todo-order-sorted.md item 16, doc/kurt-soundness.md §10.4).
+"""A semantic oracle for Kurt's sorts (doc/kurt-soundness.md §10.4).
 
 Every step the kernel accepts with a rule of logic (propositional.kurt, logic.kurt, equality.kurt: valid in
 every model) is an instance of that rule -- so the instance itself, as the kernel builds it
@@ -33,9 +33,9 @@ import io
 import itertools
 import os
 import random
-import sys
 from fractions import Fraction
 from pathlib import Path
+from typing import Optional
 
 import kurt.kurt as k
 from kurt.kurt import Token
@@ -118,6 +118,15 @@ class Model:
             self.rels[key] = self.rng.random() < 0.5
         return self.rels[key]
 
+    def application(self, sort, args: tuple) -> object:
+        # `f c` of a mapping `f`: a value of the sort Kurt gives the application -- that of `f`, as
+        # for any application (`top_sorts`); of `any` it could lie outside the sort a binder ranges
+        # over, and a valid instance of "forall-cond-elim" looked false (knaster-tarski.kurt, 2026-10-20)
+        key = (APPLY, sort, args)
+        if key not in self.funs:
+            self.funs[key] = self.value_of_sort(sort)
+        return self.funs[key]
+
     def function(self, op: str, args: tuple) -> object:
         key = (op, args)
         if key not in self.funs:
@@ -146,12 +155,13 @@ def arithmetic_of(e, kb) -> bool:
 def calculator(op: str, ops: list, args: list, vals: list, m: Model, kb) -> object:
     # the calculator's meaning of `op` (its roles `ops`, kurt.py's CALCULATOR_*): exact on rationals,
     # and on anything else some value of the result sort, as an operation total on all objects
-    numbers = all(isinstance(v, Fraction) for v in vals)
+    fractions = [v for v in vals if isinstance(v, Fraction)]
+    numbers = len(fractions) == len(vals)
     if any(r in k.CALCULATOR_LITERALS for r in ops):
         raise Unsupported('vectors and matrices')      # (`[1, 2]`: a literal the calculator computes with)
     for role in ops:
         if role in k.CALCULATOR_RELATIONS and len(vals) == 2:
-            return k.CALCULATOR_RELATIONS[role](vals[0], vals[1]) if numbers else m.relation(op, tuple(vals))
+            return k.CALCULATOR_RELATIONS[role](fractions[0], fractions[1]) if numbers else m.relation(op, tuple(vals))
         if role == k.CALCULATOR_MEMBERSHIP and len(args) == 2:
             container = args[1]
             sets = kb.get_builtins(container.value) if isinstance(container, Token) and isinstance(container.value, str) else []
@@ -188,10 +198,10 @@ def role(kb, op: str) -> str:
         if kb.has_role(op, r):
             return r
     return {k.AND_SYMBOL: 'and', k.IMPL_SYMBOL: 'implies', 'true': 'true', 'existsunique': 'unique',
-            '≠': 'neq', 'invimplies': 'invimplies'}.get(op, '')
+            'neq': 'neq', 'invimplies': 'invimplies'}.get(op, '')
 
 
-def evaluate(e, m: Model, env: dict, kb) -> object:
+def evaluate(e: k.Expr, m: Model, env: dict, kb) -> object:
     match e:
         case Token(label='SYMBOL', value=v) if isinstance(v, str):
             if v in env:
@@ -202,6 +212,8 @@ def evaluate(e, m: Model, env: dict, kb) -> object:
                 return m.relation(v, ())
             if kb.is_var(v):
                 raise Unsupported(f'a free variable `{v}`')
+            if k.IMAGINARY_UNIT in kb.get_builtins(v):
+                raise Unsupported('complex numbers')     # (`i`: the models have no complex numbers -- a random value of `i` refuted `i ≠ 0`)
             if k.k_takes_arguments(v, kb):
                 raise Unsupported(f'an operator as a value `{v}`')     # (`f = g`: functions as objects aren't modelled)
             return m.constant(v)
@@ -255,7 +267,7 @@ def evaluate(e, m: Model, env: dict, kb) -> object:
                     and not kb.is_bracket_placeholder(op):
                 # (`f c` of a mapping `f`, an object: the application of its value, set.kurt's "apply" --
                 # equal mappings have equal values)
-                return m.function(APPLY, (m.constant(op),) + tuple(vals))
+                return m.application(kb.pos_sort(op, 0), (m.constant(op),) + tuple(vals))
             return m.function(op, tuple(vals))
     raise Unsupported(f'`{e}`')
 
@@ -270,11 +282,13 @@ def quantify(r: str, e, m: Model, env: dict, kb) -> bool:
     if m.has_numbers(binder_sorts):
         raise Unsupported('a quantifier over the numbers in a step with arithmetic')
     rng = m.sorts_set(binder_sorts)
-    def holds(d) -> bool:
+    def holds(d) -> Optional[bool]:
         inner = {**env, x: d}
         if condition is not None and not evaluate(condition, m, inner, kb):
             return False if r != 'universal' else None
-        return evaluate(body[-1], m, inner, kb)
+        result = evaluate(body[-1], m, inner, kb)
+        assert isinstance(result, bool)         # (the body of a quantifier is a statement)
+        return result
     if r == 'universal':
         return all(holds(d) is not False for d in rng)
     found = [d for d in rng if holds(d)]
@@ -332,7 +346,7 @@ def check_file(path: str, models: int, seed: int, stats: dict, problems: list) -
                 instance = rule_instance(cert, kb)
             except k.KernelReject as why:
                 # (the whole rule with its `∀` premise unstripped: the kernel strips it first)
-                raise Unsupported(f'the whole rule\'s instance `{why}`')
+                raise Unsupported(f'the whole rule\'s instance `{why}`') from why
             check_claim(instance, cert.rule.label, cert, kb)
         except Unsupported as why:
             stats['skipped'] = stats.get('skipped', 0) + 1

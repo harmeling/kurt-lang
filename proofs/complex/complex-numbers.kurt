@@ -1,0 +1,59 @@
+; the complex numbers (complex.kurt, todo 48): `calc on` computes exactly with Gaussian rationals, the overloaded
+; `+ - * /` have the least sort of their arguments, and the laws of the field, the parts and the conjugate are rules
+load complex
+calc on
+complex z, w
+real x
+
+; computed: the unit, a product, a quotient
+i * i = -1
+(1 + 2 * i) * (3 - i) = 5 + 5 * i
+1 / i = -i
+(1 + i) * (1 + i) = 2 * i
+i ≠ 0
+expect "ProofError"
+    i = 1
+
+; the laws of the field hold for a complex number and, being complex too, for a real one
+show z * (x + 1) = z * x + z * 1
+proof
+    z * (x + 1) = z * x + z * 1   "complex-distrib-add"
+qed
+
+; the unit squared, with a variable
+show z * (i * i) = -z
+proof
+    z * (i * i) = z * (-1)
+    z * (-1) = -z
+    z * (i * i) = -z
+qed
+
+; real and imaginary part
+show re(z + w) = re(z) + re(w)
+proof
+    re(z + w) = re(z) + re(w)   "re-add"
+qed
+show re(x) = x
+proof
+    re(x) = x   "re-real"
+qed
+show re(i * i) = -1
+proof
+    re(i * i) = re(-1)
+    re(-1) = -1
+    re(i * i) = -1
+qed
+
+; the conjugate
+show conj(conj(z)) = z
+proof
+    conj(conj(z)) = z   "conj-conj"
+qed
+show z * conj(z) = re(z) * re(z) + im(z) * im(z)
+proof
+    z * conj(z) = re(z) * re(z) + im(z) * im(z)   "conj-mul-self"
+qed
+
+; the sort of `z + 1` is `complex`: `<` takes only reals
+expect "TypeError" "must have sort `real`"
+    use re(z) < z

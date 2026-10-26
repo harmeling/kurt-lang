@@ -20,7 +20,7 @@ TARGET = os.path.join(ROOT, 'src', 'kurt', 'kurt.py')
 
 
 def run_tests() -> set[int]:
-    mon = sys.monitoring
+    mon = sys.monitoring     # pyright: ignore[reportAttributeAccessIssue]  (Python 3.12 and later: this script needs it)
     tool = mon.COVERAGE_ID
     mon.use_tool_id(tool, 'line_coverage')
     hit: set[int] = set()
@@ -79,7 +79,7 @@ def main() -> None:
     print(f'{len(lines) - len(missed)}/{len(lines)} lines = {100 * (len(lines) - len(missed)) / len(lines):.1f}%')
 
     functions = sorted((node.lineno, node.end_lineno, node.name) for node in ast.walk(ast.parse(src))
-                       if isinstance(node, ast.FunctionDef))
+                       if isinstance(node, ast.FunctionDef) and node.end_lineno is not None)
     def owner(line: int) -> str:
         inner = [f for f in functions if f[0] <= line <= f[1]]
         return max(inner)[2] if inner else '<module>'

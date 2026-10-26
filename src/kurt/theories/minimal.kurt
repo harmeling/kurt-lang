@@ -18,7 +18,7 @@ const true                                   ; declare constant symbol
 prop  true                                   ; true has type prop
 infix implies 13 12                          ; logical implies, right associative (since 13>12)
 infix and     16 16                          ; and operator
-prop  implies 0 1 2, and 0 1 2               ; both take and give booleans
+prop  implies 0 1 2, and 0 1 2               ; both take and give statements
 const implies, and                           ; both are constants
 flat  and                                    ; conjunctions need no nesting
 sym   and                                    ; `A and B` is the same as `B and A`

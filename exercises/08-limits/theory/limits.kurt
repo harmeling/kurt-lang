@@ -45,7 +45,7 @@ arity converges (_, _)
 prop converges 0
 
 ; the limit of a sequence -- the sequence is an operator (`arity a 1`, `a(n)`), so its place is an
-; operator variable `σ` (an operator is no object, doc/kurt-doc.md §5.3)
+; operator variable `σ` (an operator is no object, doc/kurt-ref.md §5.3)
 var σ
 arity σ 1
 use converges((σ), $L) ⇔ ∀ $e > 0 ∃ $N ∀ $n ∈ Nat ($n > $N ⇒ abs(σ($n) - $L) < $e)   "converges-def"

@@ -1,0 +1,11 @@
+; a `load` that adds a signature to an operator the loading file has used already (decision 19 of
+; dev/todo-sorts.md, stage 1): `complex +` is above `real +`, so what the file proved about `x + 1` is read as before
+load natural
+real x
+use x + 1 > x
+load complex                    ; the overload merges with the loader's signature on `real`
+complex z
+use z + x = x + z
+use x + 1 > x                   ; still a `real` term: `>` takes it
+expect "TypeError" "must have sort `real`"
+    use z + 1 > x

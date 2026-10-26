@@ -1,0 +1,1409 @@
+; The Church-Rosser theorem for the untyped lambda calculus with de Bruijn indices: two sequences of
+; beta steps from one term meet again ("church-rosser"). The proof is Tait and Martin-Löf's, with
+; Takahashi's complete development: parallel reduction `>>` contracts any set of redexes at once;
+; every parallel step from M ends in a term that steps in parallel to the complete development
+; `dev M` ("par-dev"), so `>>` has the diamond property ("par-diamond"); the strip lemma and an
+; induction on the sequence give confluence of its reflexive-transitive closure `>>*`
+; ("church-rosser-par"); and `>>*` is the closure `->*` of the beta steps ("pars-betas",
+; "betas-pars"), since one beta step is a parallel step and one parallel step is a sequence of beta
+; steps. On the way: the commutation lemmas of shifting and substitution ("shift-shift",
+; "shift-subst", "shift-subst-above", "subst-shift", "subst-subst") and the substitution lemma
+; for parallel reduction ("par-subst"), each by induction on the term.
+;
+; The calculus is the one of lambda-preservation.kurt without types: confluence doesn't depend on
+; them, so the abstraction is `lam M` (no type annotation) and there is no `unit` -- two cases less
+; in every induction, the same shifting and substitution otherwise (`subst c N M` replaces the index
+; c by N and lowers the indices above c, under an abstraction it substitutes the shifted N for c + 1).
+;
+; The indices are natural numbers: the rules for a variable `ix n` have `n ∈ Nat` and `c ∈ Nat` as
+; hypotheses, and the induction over the terms ranges over `ix n` with n ∈ Nat (an `ix r` for another
+; number r is some term the rules say nothing about). lambda-preservation.kurt gets by with any
+; number as an index; here that is not so: for c = d = 0 and n = 1/2, `shift 0 (subst 0 N (ix n))` is
+; `ix (-1/2)`, but `subst 1 (shift 0 N) (shift 0 (ix n))` is `ix (1/2)` -- "shift-subst" needs that
+; no index lies strictly between d and d + 1 ("nat-above").
+;
+; Every `use` below is a standard definition: the constructors of the terms with their structural
+; induction and `lam` injective; shifting, substitution, parallel reduction, one beta step and the
+; complete development by recursion on the term (the clauses of `>>` and `->` for a term name only
+; its proper subterms); and the two closures as inductive relations -- the least relations with
+; their two rules, hence the induction principle. That principle is for a fixed end P (a property
+; of the start M that holds of P and goes back along a step): Kurt's `sub` takes one variable, not
+; two (nested `sub` is refused), and the fixed-end form is all the strip lemma and confluence need.
+;
+; Each induction is over a property that is itself a `∀` (as in lambda-preservation.kurt), so the
+; induction hypothesis holds for every index, every term substituted and every reduct.
+
+load natural, logic
+load analysis          ; for "sub-add-cancel": (n - 1) + 1 = n
+
+sort tm
+const ix, lam, app, shift, subst, dev
+arity ix 1, lam 1, app 2, shift 2, subst 3, dev 1
+infix >> 20 20
+infix >>* 20 20
+prop >> 0, >>* 0
+tm ix 0, lam 0 1, app 0 1 2, shift 0 2, subst 0 2 3, dev 0 1, >> 1 2, >>* 1 2
+real ix 1, shift 1, subst 1
+
+var M, N, F, P, Q, R, B, M', N', F', P', Q', B'
+tm M, N, F, P, Q, R, B, M', N', F', P', Q', B'
+var c, d, n
+real c, d, n
+
+;; terms: the structural induction (the indices are natural numbers), and `lam` is injective
+use (∀ n ∈ Nat (sub M (ix n) %P)) ∧ (∀ N (sub M N %P ⇒ sub M (lam N) %P)) ∧ (∀ F ∀ N (sub M F %P ∧ sub M N %P ⇒ sub M (app F N) %P))  ⇒  ∀ Q (sub M Q %P)   "term-induction"
+use lam M = lam N  ⇒  M = N                                             "lam-injective"
+
+;; shifting the indices from c on, and substituting N for c (and lowering the indices above c)
+use n ∈ Nat ∧ c ∈ Nat ∧ n < c  ⇒  shift c (ix n) = ix n                 "shift-var-below"
+use n ∈ Nat ∧ c ∈ Nat ∧ c <= n  ⇒  shift c (ix n) = ix (n + 1)          "shift-var-above"
+use shift c (lam M) = lam (shift (c + 1) M)                             "shift-lam"
+use shift c (app M N) = app (shift c M) (shift c N)                     "shift-app"
+use n ∈ Nat ∧ c ∈ Nat ∧ n < c  ⇒  subst c N (ix n) = ix n               "subst-var-below"
+use c ∈ Nat  ⇒  subst c N (ix c) = N                                    "subst-var-at"
+use n ∈ Nat ∧ c ∈ Nat ∧ c < n  ⇒  subst c N (ix n) = ix (n - 1)         "subst-var-above"
+use subst c N (lam M) = lam (subst (c + 1) (shift 0 N) M)               "subst-lam"
+use subst c N (app M P) = app (subst c N M) (subst c N P)               "subst-app"
+
+;; parallel reduction, by recursion on the left side
+use ix n >> M  ⇔  M = ix n                                              "par-var"
+use lam P >> M  ⇔  ∃ P' (P >> P' ∧ M = lam P')                          "par-lam"
+use app F N >> M  ⇔  (∃ F' ∃ N' (F >> F' ∧ N >> N' ∧ M = app F' N')) ∨ (∃ P ∃ P' ∃ N' (F = lam P ∧ P >> P' ∧ N >> N' ∧ M = subst 0 N' P'))   "par-app"
+
+; a closed term, the identity (the sort `tm` has a constant)
+def I = lam (ix 0)                                                      "identity"
+
+; arithmetic
+show c < c + 1                                                          "lt-succ"
+proof
+    calc on
+    0 < 1
+    calc off
+    0 + c < 1 + c                                      ; lt-add
+    c < c + 1
+qed
+
+show (n + 1) - 1 = n                                                    "add-sub-one"
+proof
+    (n + 1) - 1 = n - (1 - 1)                          ; add-sub
+                = n - 0
+                = n
+qed
+
+; above d, a natural number is at least d + 1, and one less is a natural number again
+show n ∈ Nat ∧ d ∈ Nat ∧ d < n  ⇒  n - 1 ∈ Nat ∧ d <= n - 1             "nat-above"
+proof
+    assume n ∈ Nat ∧ d ∈ Nat ∧ d < n
+        ∀ $n ∈ Nat ∀ $k ∈ Nat ($k <= $n ∨ $n + 1 <= $k)     ; nat-discrete
+        ∀ $k ∈ Nat ($k <= d ∨ d + 1 <= $k)
+        n <= d ∨ d + 1 <= n
+        case n <= d
+            false                                      ; lt-ge-contra
+            d + 1 <= n
+        case d + 1 <= n
+            d + 1 <= n
+        d + 1 <= n
+        (d + 1) - 1 <= n - 1                           ; le-sub
+        (d + 1) - 1 = d                                ; add-sub-one
+        d <= n - 1
+        0 <= d                                         ; nat-nonneg
+        0 < n
+        n ≠ 0
+        ∃ $m ($m ∈ Nat ∧ n = $m + 1)                   ; nat-pred
+        pick m with m ∈ Nat ∧ n = m + 1
+            n - 1 = (m + 1) - 1
+                  = m                                  ; add-sub-one
+            n - 1 ∈ Nat
+        n - 1 ∈ Nat ∧ d <= n - 1
+qed
+
+; substituting for c in a term shifted at c gives the term back
+show ∀ Q ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c Q) = Q)                "subst-shift"
+proof
+    let n ∈ Nat
+        let c, N
+            assume c ∈ Nat
+                n < c ∨ n = c ∨ n > c                  ; trichotomy
+                case n < c
+                    shift c (ix n) = ix n              ; shift-var-below
+                    subst c N (ix n) = ix n            ; subst-var-below
+                    subst c N (shift c (ix n)) = subst c N (ix n)
+                                               = ix n
+                assume c <= n
+                    shift c (ix n) = ix (n + 1)        ; shift-var-above
+                    n + 1 ∈ Nat                        ; nat-succ
+                    n < n + 1                          ; lt-succ
+                    c < n + 1
+                    subst c N (ix (n + 1)) = ix ((n + 1) - 1)    ; subst-var-above
+                                           = ix n      ; add-sub-one
+                    subst c N (shift c (ix n)) = subst c N (ix (n + 1))
+                                               = ix n
+                case n = c
+                    c <= n
+                    subst c N (shift c (ix n)) = ix n
+                case n > c
+                    c <= n
+                    subst c N (shift c (ix n)) = ix n
+                subst c N (shift c (ix n)) = ix n
+        ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c (ix n)) = ix n)
+    let P
+        assume ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c P) = P)
+            let c, N
+                assume c ∈ Nat
+                    c + 1 ∈ Nat                        ; nat-succ
+                    subst (c + 1) (shift 0 N) (shift (c + 1) P) = P       ; the induction hypothesis
+                    subst c N (shift c (lam P)) = subst c N (lam (shift (c + 1) P))   ; shift-lam
+                                                = lam (subst (c + 1) (shift 0 N) (shift (c + 1) P))   ; subst-lam
+                                                = lam P
+            ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c (lam P)) = lam P)
+    let F, P
+        assume (∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c F) = F)) ∧ (∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c P) = P))
+            ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c F) = F)
+            ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c P) = P)
+            let c, N
+                assume c ∈ Nat
+                    subst c N (shift c F) = F
+                    subst c N (shift c P) = P
+                    subst c N (shift c (app F P)) = subst c N (app (shift c F) (shift c P))   ; shift-app
+                                                  = app (subst c N (shift c F)) (subst c N (shift c P))   ; subst-app
+                                                  = app F (subst c N (shift c P))
+                                                  = app F P
+            ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c (app F P)) = app F P)
+    ∀ Q ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c Q) = Q)                ; term-induction
+qed
+
+; shifting at d and then at c <= d is shifting at c and then at d + 1
+show ∀ Q ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d Q) = shift (d + 1) (shift c Q))   "shift-shift"
+proof
+    let n ∈ Nat
+        let c, d
+            assume c ∈ Nat ∧ d ∈ Nat ∧ c <= d
+                n + 1 ∈ Nat                            ; nat-succ
+                d + 1 ∈ Nat                            ; nat-succ
+                n < n + 1                              ; lt-succ
+                d < d + 1                              ; lt-succ
+                n < c ∨ n = c ∨ n > c                  ; trichotomy
+                case n < c
+                    n < d
+                    n < d + 1
+                    shift d (ix n) = ix n              ; shift-var-below
+                    shift c (ix n) = ix n              ; shift-var-below
+                    shift (d + 1) (ix n) = ix n        ; shift-var-below
+                    shift c (shift d (ix n)) = shift c (ix n)
+                                             = ix n
+                    shift (d + 1) (shift c (ix n)) = shift (d + 1) (ix n)
+                                                   = ix n
+                    shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                assume c <= n
+                    shift c (ix n) = ix (n + 1)        ; shift-var-above
+                    n < d ∨ n = d ∨ n > d              ; trichotomy
+                    case n < d
+                        n + 1 < d + 1                  ; lt-add
+                        shift d (ix n) = ix n          ; shift-var-below
+                        shift (d + 1) (ix (n + 1)) = ix (n + 1)   ; shift-var-below
+                        shift c (shift d (ix n)) = shift c (ix n)
+                                                 = ix (n + 1)
+                        shift (d + 1) (shift c (ix n)) = shift (d + 1) (ix (n + 1))
+                                                       = ix (n + 1)
+                        shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                    assume d <= n
+                        d + 1 <= n + 1                 ; le-add
+                        c < n + 1
+                        c <= n + 1                     ; lt-le
+                        shift d (ix n) = ix (n + 1)    ; shift-var-above
+                        shift c (ix (n + 1)) = ix ((n + 1) + 1)   ; shift-var-above
+                        shift (d + 1) (ix (n + 1)) = ix ((n + 1) + 1)   ; shift-var-above
+                        shift c (shift d (ix n)) = shift c (ix (n + 1))
+                                                 = ix ((n + 1) + 1)
+                        shift (d + 1) (shift c (ix n)) = shift (d + 1) (ix (n + 1))
+                                                       = ix ((n + 1) + 1)
+                        shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                    case n = d
+                        d <= n
+                        shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                    case n > d
+                        d <= n
+                        shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                    shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                case n = c
+                    c <= n
+                    shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                case n > c
+                    c <= n
+                    shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+                shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n))
+        ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d (ix n)) = shift (d + 1) (shift c (ix n)))
+    let P
+        assume ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d P) = shift (d + 1) (shift c P))
+            let c, d
+                assume c ∈ Nat ∧ d ∈ Nat ∧ c <= d
+                    c + 1 ∈ Nat                        ; nat-succ
+                    d + 1 ∈ Nat                        ; nat-succ
+                    c + 1 <= d + 1                     ; le-add
+                    c + 1 ∈ Nat ∧ d + 1 ∈ Nat ∧ c + 1 <= d + 1
+                    shift (c + 1) (shift (d + 1) P) = shift ((d + 1) + 1) (shift (c + 1) P)   ; the induction hypothesis
+                    shift c (shift d (lam P)) = shift c (lam (shift (d + 1) P))      ; shift-lam
+                                              = lam (shift (c + 1) (shift (d + 1) P))   ; shift-lam
+                                              = lam (shift ((d + 1) + 1) (shift (c + 1) P))
+                    shift (d + 1) (shift c (lam P)) = shift (d + 1) (lam (shift (c + 1) P))   ; shift-lam
+                                                    = lam (shift ((d + 1) + 1) (shift (c + 1) P))   ; shift-lam
+                    shift c (shift d (lam P)) = shift (d + 1) (shift c (lam P))
+            ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d (lam P)) = shift (d + 1) (shift c (lam P)))
+    let F, P
+        assume (∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d F) = shift (d + 1) (shift c F))) ∧ (∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d P) = shift (d + 1) (shift c P)))
+            ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d F) = shift (d + 1) (shift c F))
+            ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d P) = shift (d + 1) (shift c P))
+            let c, d
+                assume c ∈ Nat ∧ d ∈ Nat ∧ c <= d
+                    shift c (shift d F) = shift (d + 1) (shift c F)
+                    shift c (shift d P) = shift (d + 1) (shift c P)
+                    shift c (shift d (app F P)) = shift c (app (shift d F) (shift d P))     ; shift-app
+                                                = app (shift c (shift d F)) (shift c (shift d P))   ; shift-app
+                                                = app (shift (d + 1) (shift c F)) (shift c (shift d P))
+                                                = app (shift (d + 1) (shift c F)) (shift (d + 1) (shift c P))
+                    shift (d + 1) (shift c (app F P)) = shift (d + 1) (app (shift c F) (shift c P))   ; shift-app
+                                                      = app (shift (d + 1) (shift c F)) (shift (d + 1) (shift c P))   ; shift-app
+                    shift c (shift d (app F P)) = shift (d + 1) (shift c (app F P))
+            ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d (app F P)) = shift (d + 1) (shift c (app F P)))
+    ∀ Q ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d Q) = shift (d + 1) (shift c Q))   ; term-induction
+qed
+
+; ... at 0: shifting at c + 1 after 0 is shifting at 0 after c
+show c ∈ Nat  ⇒  shift (c + 1) (shift 0 N) = shift 0 (shift c N)       "shift-shift-0"
+proof
+    assume c ∈ Nat
+        0 ∈ Nat                                        ; nat-zero
+        0 <= c                                         ; nat-nonneg
+        0 ∈ Nat ∧ c ∈ Nat ∧ 0 <= c
+        ∀ Q ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d Q) = shift (d + 1) (shift c Q))   ; shift-shift
+        ∀ c ∀ d (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (shift d N) = shift (d + 1) (shift c N))
+        shift 0 (shift c N) = shift (c + 1) (shift 0 N)
+        shift (c + 1) (shift 0 N) = shift 0 (shift c N)
+qed
+
+; shifting at c after substituting for d >= c is substituting for d + 1 after shifting at c
+show ∀ Q ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N Q) = subst (d + 1) (shift c N) (shift c Q))   "shift-subst"
+proof
+    let n ∈ Nat
+        let c, d, N
+            assume c ∈ Nat ∧ d ∈ Nat ∧ c <= d
+                n + 1 ∈ Nat                            ; nat-succ
+                d + 1 ∈ Nat                            ; nat-succ
+                n < n + 1                              ; lt-succ
+                d < d + 1                              ; lt-succ
+                n < c ∨ n = c ∨ n > c                  ; trichotomy
+                case n < c
+                    n < d
+                    n < d + 1
+                    subst d N (ix n) = ix n            ; subst-var-below
+                    shift c (ix n) = ix n              ; shift-var-below
+                    subst (d + 1) (shift c N) (ix n) = ix n    ; subst-var-below
+                    shift c (subst d N (ix n)) = shift c (ix n)
+                                               = ix n
+                    subst (d + 1) (shift c N) (shift c (ix n)) = subst (d + 1) (shift c N) (ix n)
+                                                               = ix n
+                    shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+                assume c <= n
+                    shift c (ix n) = ix (n + 1)        ; shift-var-above
+                    subst (d + 1) (shift c N) (shift c (ix n)) = subst (d + 1) (shift c N) (ix (n + 1))
+                    n < d ∨ n = d ∨ n > d              ; trichotomy
+                    case n < d
+                        n + 1 < d + 1                  ; lt-add
+                        subst d N (ix n) = ix n        ; subst-var-below
+                        subst (d + 1) (shift c N) (ix (n + 1)) = ix (n + 1)   ; subst-var-below
+                        shift c (subst d N (ix n)) = shift c (ix n)
+                                                   = ix (n + 1)
+                        subst (d + 1) (shift c N) (shift c (ix n)) = ix (n + 1)
+                        shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+                    case n = d
+                        subst d N (ix d) = N           ; subst-var-at
+                        subst d N (ix n) = N
+                        subst (d + 1) (shift c N) (ix (d + 1)) = shift c N    ; subst-var-at
+                        subst (d + 1) (shift c N) (ix (n + 1)) = shift c N
+                        shift c (subst d N (ix n)) = shift c N
+                        subst (d + 1) (shift c N) (shift c (ix n)) = shift c N
+                        shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+                    case n > d
+                        d < n
+                        n - 1 ∈ Nat ∧ d <= n - 1       ; nat-above
+                        n - 1 ∈ Nat
+                        d <= n - 1
+                        c <= n - 1
+                        d + 1 < n + 1                  ; lt-add
+                        subst d N (ix n) = ix (n - 1)  ; subst-var-above
+                        shift c (ix (n - 1)) = ix ((n - 1) + 1)    ; shift-var-above
+                                             = ix n    ; sub-add-cancel
+                        subst (d + 1) (shift c N) (ix (n + 1)) = ix ((n + 1) - 1)   ; subst-var-above
+                                                               = ix n   ; add-sub-one
+                        shift c (subst d N (ix n)) = shift c (ix (n - 1))
+                                                   = ix n
+                        subst (d + 1) (shift c N) (shift c (ix n)) = ix n
+                        shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+                    shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+                case n = c
+                    c <= n
+                    shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+                case n > c
+                    c <= n
+                    shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+                shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n))
+        ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N (ix n)) = subst (d + 1) (shift c N) (shift c (ix n)))
+    let P
+        assume ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N P) = subst (d + 1) (shift c N) (shift c P))
+            let c, d, N
+                assume c ∈ Nat ∧ d ∈ Nat ∧ c <= d
+                    c + 1 ∈ Nat                        ; nat-succ
+                    d + 1 ∈ Nat                        ; nat-succ
+                    c + 1 <= d + 1                     ; le-add
+                    c + 1 ∈ Nat ∧ d + 1 ∈ Nat ∧ c + 1 <= d + 1
+                    shift (c + 1) (subst (d + 1) (shift 0 N) P) = subst ((d + 1) + 1) (shift (c + 1) (shift 0 N)) (shift (c + 1) P)   ; the induction hypothesis
+                    shift (c + 1) (shift 0 N) = shift 0 (shift c N)            ; shift-shift-0
+                    shift c (subst d N (lam P)) = shift c (lam (subst (d + 1) (shift 0 N) P))   ; subst-lam
+                                                = lam (shift (c + 1) (subst (d + 1) (shift 0 N) P))   ; shift-lam
+                                                = lam (subst ((d + 1) + 1) (shift (c + 1) (shift 0 N)) (shift (c + 1) P))
+                                                = lam (subst ((d + 1) + 1) (shift 0 (shift c N)) (shift (c + 1) P))
+                    subst (d + 1) (shift c N) (shift c (lam P)) = subst (d + 1) (shift c N) (lam (shift (c + 1) P))   ; shift-lam
+                                                                = lam (subst ((d + 1) + 1) (shift 0 (shift c N)) (shift (c + 1) P))   ; subst-lam
+                    shift c (subst d N (lam P)) = subst (d + 1) (shift c N) (shift c (lam P))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N (lam P)) = subst (d + 1) (shift c N) (shift c (lam P)))
+    let F, P
+        assume (∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N F) = subst (d + 1) (shift c N) (shift c F))) ∧ (∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N P) = subst (d + 1) (shift c N) (shift c P)))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N F) = subst (d + 1) (shift c N) (shift c F))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N P) = subst (d + 1) (shift c N) (shift c P))
+            let c, d, N
+                assume c ∈ Nat ∧ d ∈ Nat ∧ c <= d
+                    shift c (subst d N F) = subst (d + 1) (shift c N) (shift c F)
+                    shift c (subst d N P) = subst (d + 1) (shift c N) (shift c P)
+                    shift c (subst d N (app F P)) = shift c (app (subst d N F) (subst d N P))   ; subst-app
+                                                  = app (shift c (subst d N F)) (shift c (subst d N P))   ; shift-app
+                                                  = app (subst (d + 1) (shift c N) (shift c F)) (shift c (subst d N P))
+                                                  = app (subst (d + 1) (shift c N) (shift c F)) (subst (d + 1) (shift c N) (shift c P))
+                    subst (d + 1) (shift c N) (shift c (app F P)) = subst (d + 1) (shift c N) (app (shift c F) (shift c P))   ; shift-app
+                                                                  = app (subst (d + 1) (shift c N) (shift c F)) (subst (d + 1) (shift c N) (shift c P))   ; subst-app
+                    shift c (subst d N (app F P)) = subst (d + 1) (shift c N) (shift c (app F P))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N (app F P)) = subst (d + 1) (shift c N) (shift c (app F P)))
+    ∀ Q ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N Q) = subst (d + 1) (shift c N) (shift c Q))   ; term-induction
+qed
+
+; shifting at c after substituting for d <= c is substituting for d after shifting at c + 1
+show ∀ Q ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N Q) = subst d (shift c N) (shift (c + 1) Q))   "shift-subst-above"
+proof
+    let n ∈ Nat
+        let c, d, N
+            assume c ∈ Nat ∧ d ∈ Nat ∧ d <= c
+                n + 1 ∈ Nat                            ; nat-succ
+                c + 1 ∈ Nat                            ; nat-succ
+                n < n + 1                              ; lt-succ
+                c < c + 1                              ; lt-succ
+                n < d ∨ n = d ∨ n > d                  ; trichotomy
+                case n < d
+                    n < c
+                    n < c + 1
+                    subst d N (ix n) = ix n            ; subst-var-below
+                    shift c (ix n) = ix n              ; shift-var-below
+                    shift (c + 1) (ix n) = ix n        ; shift-var-below
+                    subst d (shift c N) (ix n) = ix n  ; subst-var-below
+                    shift c (subst d N (ix n)) = shift c (ix n)
+                                               = ix n
+                    subst d (shift c N) (shift (c + 1) (ix n)) = subst d (shift c N) (ix n)
+                                                               = ix n
+                    shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+                case n = d
+                    d < c + 1
+                    n < c + 1
+                    shift (c + 1) (ix n) = ix n        ; shift-var-below
+                    subst d N (ix d) = N               ; subst-var-at
+                    subst d N (ix n) = N
+                    subst d (shift c N) (ix d) = shift c N     ; subst-var-at
+                    subst d (shift c N) (ix n) = shift c N
+                    shift c (subst d N (ix n)) = shift c N
+                    subst d (shift c N) (shift (c + 1) (ix n)) = subst d (shift c N) (ix n)
+                                                               = shift c N
+                    shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+                case n > d
+                    d < n
+                    n - 1 ∈ Nat ∧ d <= n - 1           ; nat-above
+                    n - 1 ∈ Nat
+                    subst d N (ix n) = ix (n - 1)      ; subst-var-above
+                    (n - 1) + 1 = n                    ; sub-add-cancel
+                    n - 1 < c ∨ n - 1 = c ∨ n - 1 > c  ; trichotomy
+                    case n - 1 < c
+                        (n - 1) + 1 < c + 1            ; lt-add
+                        n < c + 1
+                        shift c (ix (n - 1)) = ix (n - 1)      ; shift-var-below
+                        shift (c + 1) (ix n) = ix n            ; shift-var-below
+                        subst d (shift c N) (ix n) = ix (n - 1)    ; subst-var-above
+                        shift c (subst d N (ix n)) = shift c (ix (n - 1))
+                                                   = ix (n - 1)
+                        subst d (shift c N) (shift (c + 1) (ix n)) = subst d (shift c N) (ix n)
+                                                                   = ix (n - 1)
+                        shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+                    assume c <= n - 1
+                        c + 1 <= (n - 1) + 1           ; le-add
+                        c + 1 <= n
+                        d < n + 1
+                        shift c (ix (n - 1)) = ix ((n - 1) + 1)    ; shift-var-above
+                                             = ix n
+                        shift (c + 1) (ix n) = ix (n + 1)          ; shift-var-above
+                        subst d (shift c N) (ix (n + 1)) = ix ((n + 1) - 1)   ; subst-var-above
+                                                         = ix n    ; add-sub-one
+                        shift c (subst d N (ix n)) = shift c (ix (n - 1))
+                                                   = ix n
+                        subst d (shift c N) (shift (c + 1) (ix n)) = subst d (shift c N) (ix (n + 1))
+                                                                   = ix n
+                        shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+                    case n - 1 = c
+                        c <= n - 1
+                        shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+                    case n - 1 > c
+                        c <= n - 1
+                        shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+                    shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+                shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n))
+        ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N (ix n)) = subst d (shift c N) (shift (c + 1) (ix n)))
+    let P
+        assume ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N P) = subst d (shift c N) (shift (c + 1) P))
+            let c, d, N
+                assume c ∈ Nat ∧ d ∈ Nat ∧ d <= c
+                    c + 1 ∈ Nat                        ; nat-succ
+                    d + 1 ∈ Nat                        ; nat-succ
+                    d + 1 <= c + 1                     ; le-add
+                    c + 1 ∈ Nat ∧ d + 1 ∈ Nat ∧ d + 1 <= c + 1
+                    shift (c + 1) (subst (d + 1) (shift 0 N) P) = subst (d + 1) (shift (c + 1) (shift 0 N)) (shift ((c + 1) + 1) P)   ; the induction hypothesis
+                    shift (c + 1) (shift 0 N) = shift 0 (shift c N)            ; shift-shift-0
+                    shift c (subst d N (lam P)) = shift c (lam (subst (d + 1) (shift 0 N) P))   ; subst-lam
+                                                = lam (shift (c + 1) (subst (d + 1) (shift 0 N) P))   ; shift-lam
+                                                = lam (subst (d + 1) (shift (c + 1) (shift 0 N)) (shift ((c + 1) + 1) P))
+                                                = lam (subst (d + 1) (shift 0 (shift c N)) (shift ((c + 1) + 1) P))
+                    subst d (shift c N) (shift (c + 1) (lam P)) = subst d (shift c N) (lam (shift ((c + 1) + 1) P))   ; shift-lam
+                                                                = lam (subst (d + 1) (shift 0 (shift c N)) (shift ((c + 1) + 1) P))   ; subst-lam
+                    shift c (subst d N (lam P)) = subst d (shift c N) (shift (c + 1) (lam P))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N (lam P)) = subst d (shift c N) (shift (c + 1) (lam P)))
+    let F, P
+        assume (∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N F) = subst d (shift c N) (shift (c + 1) F))) ∧ (∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N P) = subst d (shift c N) (shift (c + 1) P)))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N F) = subst d (shift c N) (shift (c + 1) F))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N P) = subst d (shift c N) (shift (c + 1) P))
+            let c, d, N
+                assume c ∈ Nat ∧ d ∈ Nat ∧ d <= c
+                    shift c (subst d N F) = subst d (shift c N) (shift (c + 1) F)
+                    shift c (subst d N P) = subst d (shift c N) (shift (c + 1) P)
+                    shift c (subst d N (app F P)) = shift c (app (subst d N F) (subst d N P))   ; subst-app
+                                                  = app (shift c (subst d N F)) (shift c (subst d N P))   ; shift-app
+                                                  = app (subst d (shift c N) (shift (c + 1) F)) (shift c (subst d N P))
+                                                  = app (subst d (shift c N) (shift (c + 1) F)) (subst d (shift c N) (shift (c + 1) P))
+                    subst d (shift c N) (shift (c + 1) (app F P)) = subst d (shift c N) (app (shift (c + 1) F) (shift (c + 1) P))   ; shift-app
+                                                                  = app (subst d (shift c N) (shift (c + 1) F)) (subst d (shift c N) (shift (c + 1) P))   ; subst-app
+                    shift c (subst d N (app F P)) = subst d (shift c N) (shift (c + 1) (app F P))
+            ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N (app F P)) = subst d (shift c N) (shift (c + 1) (app F P)))
+    ∀ Q ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N Q) = subst d (shift c N) (shift (c + 1) Q))   ; term-induction
+qed
+
+show d ∈ Nat  ⇒  subst d R (shift d N) = N                             "subst-shift-at"
+proof
+    assume d ∈ Nat
+        ∀ Q ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c Q) = Q)   ; subst-shift
+        ∀ c ∀ N (c ∈ Nat  ⇒  subst c N (shift c N) = N)
+        subst d R (shift d N) = N
+qed
+
+; ... at 0
+show c ∈ Nat  ⇒  shift 0 (subst c N R) = subst (c + 1) (shift 0 N) (shift 0 R)     "shift-subst-0"
+proof
+    assume c ∈ Nat
+        0 ∈ Nat                                        ; nat-zero
+        0 <= c                                         ; nat-nonneg
+        0 ∈ Nat ∧ c ∈ Nat ∧ 0 <= c
+        ∀ Q ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N Q) = subst (d + 1) (shift c N) (shift c Q))   ; shift-subst
+        ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ c <= d  ⇒  shift c (subst d N R) = subst (d + 1) (shift c N) (shift c R))
+        shift 0 (subst c N R) = subst (c + 1) (shift 0 N) (shift 0 R)
+qed
+
+; two substitutions: for d <= c, substituting N for c after R for d is substituting for d after
+; substituting for c + 1 (the index c, seen from below the index d that is replaced)
+show ∀ Q ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R Q) = subst d (subst c N R) (subst (c + 1) (shift d N) Q))   "subst-subst"
+proof
+    let n ∈ Nat
+        let c, d, N, R
+            assume c ∈ Nat ∧ d ∈ Nat ∧ d <= c
+                c + 1 ∈ Nat                            ; nat-succ
+                c < c + 1                              ; lt-succ
+                n < d ∨ n = d ∨ n > d                  ; trichotomy
+                case n < d
+                    n < c
+                    n < c + 1
+                    subst d R (ix n) = ix n            ; subst-var-below
+                    subst c N (ix n) = ix n            ; subst-var-below
+                    subst (c + 1) (shift d N) (ix n) = ix n     ; subst-var-below
+                    subst d (subst c N R) (ix n) = ix n         ; subst-var-below
+                    subst c N (subst d R (ix n)) = subst c N (ix n)
+                                                 = ix n
+                    subst d (subst c N R) (subst (c + 1) (shift d N) (ix n)) = subst d (subst c N R) (ix n)
+                                                                             = ix n
+                    subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n))
+                case n = d
+                    d < c + 1
+                    n < c + 1
+                    subst d R (ix d) = R               ; subst-var-at
+                    subst d R (ix n) = R
+                    subst (c + 1) (shift d N) (ix n) = ix n     ; subst-var-below
+                    subst d (subst c N R) (ix d) = subst c N R  ; subst-var-at
+                    subst d (subst c N R) (ix n) = subst c N R
+                    subst c N (subst d R (ix n)) = subst c N R
+                    subst d (subst c N R) (subst (c + 1) (shift d N) (ix n)) = subst d (subst c N R) (ix n)
+                                                                             = subst c N R
+                    subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n))
+                case n > d
+                    d < n
+                    n - 1 ∈ Nat ∧ d <= n - 1           ; nat-above
+                    n - 1 ∈ Nat
+                    d <= n - 1
+                    subst d R (ix n) = ix (n - 1)      ; subst-var-above
+                    (n - 1) + 1 = n                    ; sub-add-cancel
+                    n - 1 < c ∨ n - 1 = c ∨ n - 1 > c  ; trichotomy
+                    case n - 1 < c
+                        (n - 1) + 1 < c + 1            ; lt-add
+                        n < c + 1
+                        subst c N (ix (n - 1)) = ix (n - 1)            ; subst-var-below
+                        subst (c + 1) (shift d N) (ix n) = ix n        ; subst-var-below
+                        subst d (subst c N R) (ix n) = ix (n - 1)      ; subst-var-above
+                        subst c N (subst d R (ix n)) = subst c N (ix (n - 1))
+                                                     = ix (n - 1)
+                        subst d (subst c N R) (subst (c + 1) (shift d N) (ix n)) = subst d (subst c N R) (ix n)
+                                                                                 = ix (n - 1)
+                        subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n))
+                    case n - 1 = c
+                        subst c N (ix c) = N           ; subst-var-at
+                        subst c N (ix (n - 1)) = N
+                        (n - 1) + 1 = c + 1
+                        n = c + 1
+                        subst (c + 1) (shift d N) (ix (c + 1)) = shift d N    ; subst-var-at
+                        subst (c + 1) (shift d N) (ix n) = shift d N
+                        subst d (subst c N R) (shift d N) = N       ; subst-shift-at
+                        subst c N (subst d R (ix n)) = subst c N (ix (n - 1))
+                                                     = N
+                        subst d (subst c N R) (subst (c + 1) (shift d N) (ix n)) = subst d (subst c N R) (shift d N)
+                                                                                 = N
+                        subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n))
+                    case n - 1 > c
+                        c < n - 1
+                        (n - 1) - 1 ∈ Nat ∧ c <= (n - 1) - 1           ; nat-above
+                        (n - 1) - 1 ∈ Nat
+                        (n - 1) + 1 > c + 1            ; gt-add
+                        c + 1 < n
+                        d < n - 1
+                        subst c N (ix (n - 1)) = ix ((n - 1) - 1)      ; subst-var-above
+                        subst (c + 1) (shift d N) (ix n) = ix (n - 1)  ; subst-var-above
+                        subst d (subst c N R) (ix (n - 1)) = ix ((n - 1) - 1)    ; subst-var-above
+                        subst c N (subst d R (ix n)) = subst c N (ix (n - 1))
+                                                     = ix ((n - 1) - 1)
+                        subst d (subst c N R) (subst (c + 1) (shift d N) (ix n)) = subst d (subst c N R) (ix (n - 1))
+                                                                                 = ix ((n - 1) - 1)
+                        subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n))
+                    subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n))
+                subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n))
+        ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R (ix n)) = subst d (subst c N R) (subst (c + 1) (shift d N) (ix n)))
+    let P
+        assume ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R P) = subst d (subst c N R) (subst (c + 1) (shift d N) P))
+            let c, d, N, R
+                assume c ∈ Nat ∧ d ∈ Nat ∧ d <= c
+                    c + 1 ∈ Nat                        ; nat-succ
+                    d + 1 ∈ Nat                        ; nat-succ
+                    d + 1 <= c + 1                     ; le-add
+                    c + 1 ∈ Nat ∧ d + 1 ∈ Nat ∧ d + 1 <= c + 1
+                    subst (c + 1) (shift 0 N) (subst (d + 1) (shift 0 R) P) = subst (d + 1) (subst (c + 1) (shift 0 N) (shift 0 R)) (subst ((c + 1) + 1) (shift (d + 1) (shift 0 N)) P)   ; the induction hypothesis
+                    shift (d + 1) (shift 0 N) = shift 0 (shift d N)            ; shift-shift-0
+                    shift 0 (subst c N R) = subst (c + 1) (shift 0 N) (shift 0 R)    ; shift-subst-0
+                    subst (c + 1) (shift 0 N) (shift 0 R) = shift 0 (subst c N R)
+                    subst c N (subst d R (lam P)) = subst c N (lam (subst (d + 1) (shift 0 R) P))   ; subst-lam
+                                                  = lam (subst (c + 1) (shift 0 N) (subst (d + 1) (shift 0 R) P))   ; subst-lam
+                                                  = lam (subst (d + 1) (subst (c + 1) (shift 0 N) (shift 0 R)) (subst ((c + 1) + 1) (shift (d + 1) (shift 0 N)) P))
+                                                  = lam (subst (d + 1) (shift 0 (subst c N R)) (subst ((c + 1) + 1) (shift (d + 1) (shift 0 N)) P))
+                                                  = lam (subst (d + 1) (shift 0 (subst c N R)) (subst ((c + 1) + 1) (shift 0 (shift d N)) P))
+                    subst d (subst c N R) (subst (c + 1) (shift d N) (lam P)) = subst d (subst c N R) (lam (subst ((c + 1) + 1) (shift 0 (shift d N)) P))   ; subst-lam
+                                                                              = lam (subst (d + 1) (shift 0 (subst c N R)) (subst ((c + 1) + 1) (shift 0 (shift d N)) P))   ; subst-lam
+                    subst c N (subst d R (lam P)) = subst d (subst c N R) (subst (c + 1) (shift d N) (lam P))
+            ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R (lam P)) = subst d (subst c N R) (subst (c + 1) (shift d N) (lam P)))
+    let F, P
+        assume (∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R F) = subst d (subst c N R) (subst (c + 1) (shift d N) F))) ∧ (∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R P) = subst d (subst c N R) (subst (c + 1) (shift d N) P)))
+            ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R F) = subst d (subst c N R) (subst (c + 1) (shift d N) F))
+            ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R P) = subst d (subst c N R) (subst (c + 1) (shift d N) P))
+            let c, d, N, R
+                assume c ∈ Nat ∧ d ∈ Nat ∧ d <= c
+                    subst c N (subst d R F) = subst d (subst c N R) (subst (c + 1) (shift d N) F)
+                    subst c N (subst d R P) = subst d (subst c N R) (subst (c + 1) (shift d N) P)
+                    subst c N (subst d R (app F P)) = subst c N (app (subst d R F) (subst d R P))   ; subst-app
+                                                    = app (subst c N (subst d R F)) (subst c N (subst d R P))   ; subst-app
+                                                    = app (subst d (subst c N R) (subst (c + 1) (shift d N) F)) (subst c N (subst d R P))
+                                                    = app (subst d (subst c N R) (subst (c + 1) (shift d N) F)) (subst d (subst c N R) (subst (c + 1) (shift d N) P))
+                    subst d (subst c N R) (subst (c + 1) (shift d N) (app F P)) = subst d (subst c N R) (app (subst (c + 1) (shift d N) F) (subst (c + 1) (shift d N) P))   ; subst-app
+                                                                                = app (subst d (subst c N R) (subst (c + 1) (shift d N) F)) (subst d (subst c N R) (subst (c + 1) (shift d N) P))   ; subst-app
+                    subst c N (subst d R (app F P)) = subst d (subst c N R) (subst (c + 1) (shift d N) (app F P))
+            ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R (app F P)) = subst d (subst c N R) (subst (c + 1) (shift d N) (app F P)))
+    ∀ Q ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R Q) = subst d (subst c N R) (subst (c + 1) (shift d N) Q))   ; term-induction
+qed
+
+;; parallel reduction: the introduction rules, reflexivity, and it commutes with shifting
+
+show lam P >> lam Q  ⇒  P >> Q                                          "par-lam-inv"
+proof
+    assume lam P >> lam Q
+        ∃ P' (P >> P' ∧ lam Q = lam P')                ; par-lam
+        pick B with P >> B ∧ lam Q = lam B
+            Q = B                                      ; lam-injective
+            P >> Q
+qed
+
+show P >> Q  ⇒  lam P >> lam Q                                          "par-lam-intro"
+proof
+    assume P >> Q
+        lam Q = lam Q
+        P >> Q ∧ lam Q = lam Q
+        ∃ P' (P >> P' ∧ lam Q = lam P')
+        lam P >> lam Q                                 ; par-lam
+qed
+
+show F >> F' ∧ N >> N'  ⇒  app F N >> app F' N'                         "par-app-intro"
+proof
+    assume F >> F' ∧ N >> N'
+        app F' N' = app F' N'
+        F >> F' ∧ N >> N' ∧ app F' N' = app F' N'
+        ∃ B' (F >> F' ∧ N >> B' ∧ app F' N' = app F' B')
+        ∃ B ∃ B' (F >> B ∧ N >> B' ∧ app F' N' = app B B')
+        (∃ B ∃ B' (F >> B ∧ N >> B' ∧ app F' N' = app B B')) ∨ (∃ P ∃ P' ∃ B' (F = lam P ∧ P >> P' ∧ N >> B' ∧ app F' N' = subst 0 B' P'))
+        app F N >> app F' N'                           ; par-app
+qed
+
+show P >> P' ∧ N >> N'  ⇒  app (lam P) N >> subst 0 N' P'              "par-beta-intro"
+proof
+    assume P >> P' ∧ N >> N'
+        lam P = lam P
+        subst 0 N' P' = subst 0 N' P'
+        lam P = lam P ∧ P >> P' ∧ N >> N' ∧ subst 0 N' P' = subst 0 N' P'
+        ∃ Q' (lam P = lam P ∧ P >> P' ∧ N >> Q' ∧ subst 0 N' P' = subst 0 Q' P')
+        ∃ B' ∃ Q' (lam P = lam P ∧ P >> B' ∧ N >> Q' ∧ subst 0 N' P' = subst 0 Q' B')
+        ∃ B ∃ B' ∃ Q' (lam P = lam B ∧ B >> B' ∧ N >> Q' ∧ subst 0 N' P' = subst 0 Q' B')
+        (∃ F' ∃ Q' (lam P >> F' ∧ N >> Q' ∧ subst 0 N' P' = app F' Q')) ∨ (∃ B ∃ B' ∃ Q' (lam P = lam B ∧ B >> B' ∧ N >> Q' ∧ subst 0 N' P' = subst 0 Q' B'))
+        app (lam P) N >> subst 0 N' P'                 ; par-app
+qed
+
+show ∀ Q (Q >> Q)                                                       "par-refl"
+proof
+    let n ∈ Nat
+        ix n = ix n
+        ix n >> ix n                                   ; par-var
+    let P
+        assume P >> P
+            lam P >> lam P                             ; par-lam-intro
+    let F, P
+        assume F >> F ∧ P >> P
+            app F P >> app F P                         ; par-app-intro
+    ∀ Q (Q >> Q)                                       ; term-induction
+qed
+
+show c ∈ Nat  ⇒  shift c (subst 0 N P) = subst 0 (shift c N) (shift (c + 1) P)     "shift-subst-above-0"
+proof
+    assume c ∈ Nat
+        0 ∈ Nat                                        ; nat-zero
+        0 <= c                                         ; nat-nonneg
+        c ∈ Nat ∧ 0 ∈ Nat ∧ 0 <= c
+        ∀ Q ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N Q) = subst d (shift c N) (shift (c + 1) Q))   ; shift-subst-above
+        ∀ c ∀ d ∀ N (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  shift c (subst d N P) = subst d (shift c N) (shift (c + 1) P))
+        shift c (subst 0 N P) = subst 0 (shift c N) (shift (c + 1) P)
+qed
+
+; a parallel step stays one when the indices are shifted
+show ∀ Q ∀ M' ∀ c (c ∈ Nat ∧ Q >> M'  ⇒  shift c Q >> shift c M')       "par-shift"
+proof
+    let n ∈ Nat
+        let M', c
+            assume c ∈ Nat ∧ ix n >> M'
+                M' = ix n                              ; par-var
+                ∀ Q (Q >> Q)                           ; par-refl
+                shift c (ix n) >> shift c (ix n)
+                shift c (ix n) >> shift c M'
+        ∀ M' ∀ c (c ∈ Nat ∧ ix n >> M'  ⇒  shift c (ix n) >> shift c M')
+    let P
+        assume ∀ M' ∀ c (c ∈ Nat ∧ P >> M'  ⇒  shift c P >> shift c M')
+            let M', c
+                assume c ∈ Nat ∧ lam P >> M'
+                    c + 1 ∈ Nat                        ; nat-succ
+                    ∃ P' (P >> P' ∧ M' = lam P')       ; par-lam
+                    pick B with P >> B ∧ M' = lam B
+                        c + 1 ∈ Nat ∧ P >> B
+                        shift (c + 1) P >> shift (c + 1) B     ; the induction hypothesis
+                        lam (shift (c + 1) P) >> lam (shift (c + 1) B)   ; par-lam-intro
+                        shift c (lam P) = lam (shift (c + 1) P)          ; shift-lam
+                        shift c (lam B) = lam (shift (c + 1) B)          ; shift-lam
+                        shift c (lam P) >> shift c (lam B)
+                        shift c (lam P) >> shift c M'
+                    shift c (lam P) >> shift c M'
+            ∀ M' ∀ c (c ∈ Nat ∧ lam P >> M'  ⇒  shift c (lam P) >> shift c M')
+    let F, P
+        assume (∀ M' ∀ c (c ∈ Nat ∧ F >> M'  ⇒  shift c F >> shift c M')) ∧ (∀ M' ∀ c (c ∈ Nat ∧ P >> M'  ⇒  shift c P >> shift c M'))
+            ∀ M' ∀ c (c ∈ Nat ∧ F >> M'  ⇒  shift c F >> shift c M')
+            ∀ M' ∀ c (c ∈ Nat ∧ P >> M'  ⇒  shift c P >> shift c M')
+            let M', c
+                assume c ∈ Nat ∧ app F P >> M'
+                    shift c (app F P) = app (shift c F) (shift c P)      ; shift-app
+                    (∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')) ∨ (∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'))   ; par-app
+                    case ∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                        pick F' with ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                            pick Q' with F >> F' ∧ P >> Q' ∧ M' = app F' Q'
+                                c ∈ Nat ∧ F >> F'
+                                shift c F >> shift c F'          ; the induction hypothesis
+                                c ∈ Nat ∧ P >> Q'
+                                shift c P >> shift c Q'          ; the induction hypothesis
+                                app (shift c F) (shift c P) >> app (shift c F') (shift c Q')   ; par-app-intro
+                                shift c (app F' Q') = app (shift c F') (shift c Q')        ; shift-app
+                                shift c (app F P) >> shift c (app F' Q')
+                                shift c (app F P) >> shift c M'
+                            shift c (app F P) >> shift c M'
+                        shift c (app F P) >> shift c M'
+                    case ∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                        pick B with ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                            pick B' with ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                pick Q' with F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'
+                                    lam B >> lam B'                  ; par-lam-intro
+                                    F >> lam B'
+                                    c ∈ Nat ∧ F >> lam B'
+                                    shift c F >> shift c (lam B')    ; the induction hypothesis
+                                    shift c F = shift c (lam B)
+                                              = lam (shift (c + 1) B)    ; shift-lam
+                                    shift c (lam B') = lam (shift (c + 1) B')    ; shift-lam
+                                    lam (shift (c + 1) B) >> shift c (lam B')
+                                    lam (shift (c + 1) B) >> lam (shift (c + 1) B')
+                                    shift (c + 1) B >> shift (c + 1) B'          ; par-lam-inv
+                                    c ∈ Nat ∧ P >> Q'
+                                    shift c P >> shift c Q'          ; the induction hypothesis
+                                    shift (c + 1) B >> shift (c + 1) B' ∧ shift c P >> shift c Q'
+                                    app (lam (shift (c + 1) B)) (shift c P) >> subst 0 (shift c Q') (shift (c + 1) B')   ; par-beta-intro
+                                    shift c (subst 0 Q' B') = subst 0 (shift c Q') (shift (c + 1) B')     ; shift-subst-above-0
+                                    shift c (app F P) = app (lam (shift (c + 1) B)) (shift c P)
+                                    shift c (app F P) >> shift c (subst 0 Q' B')
+                                    shift c (app F P) >> shift c M'
+                                shift c (app F P) >> shift c M'
+                            shift c (app F P) >> shift c M'
+                        shift c (app F P) >> shift c M'
+                    shift c (app F P) >> shift c M'
+            ∀ M' ∀ c (c ∈ Nat ∧ app F P >> M'  ⇒  shift c (app F P) >> shift c M')
+    ∀ Q ∀ M' ∀ c (c ∈ Nat ∧ Q >> M'  ⇒  shift c Q >> shift c M')       ; term-induction
+qed
+
+; ... at 0
+show c ∈ Nat  ⇒  subst c N (subst 0 R P) = subst 0 (subst c N R) (subst (c + 1) (shift 0 N) P)     "subst-subst-0"
+proof
+    assume c ∈ Nat
+        0 ∈ Nat                                        ; nat-zero
+        0 <= c                                         ; nat-nonneg
+        c ∈ Nat ∧ 0 ∈ Nat ∧ 0 <= c
+        ∀ Q ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R Q) = subst d (subst c N R) (subst (c + 1) (shift d N) Q))   ; subst-subst
+        ∀ c ∀ d ∀ N ∀ R (c ∈ Nat ∧ d ∈ Nat ∧ d <= c  ⇒  subst c N (subst d R P) = subst d (subst c N R) (subst (c + 1) (shift d N) P))
+        subst c N (subst 0 R P) = subst 0 (subst c N R) (subst (c + 1) (shift 0 N) P)
+qed
+
+show N >> N'  ⇒  shift 0 N >> shift 0 N'                               "par-shift-0"
+proof
+    assume N >> N'
+        0 ∈ Nat                                        ; nat-zero
+        0 ∈ Nat ∧ N >> N'
+        ∀ Q ∀ M' ∀ c (c ∈ Nat ∧ Q >> M'  ⇒  shift c Q >> shift c M')   ; par-shift
+        ∀ M' ∀ c (c ∈ Nat ∧ N >> M'  ⇒  shift c N >> shift c M')
+        shift 0 N >> shift 0 N'
+qed
+
+; the substitution lemma: substituting in parallel steps gives a parallel step
+show ∀ Q ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ Q >> M' ∧ N >> N'  ⇒  subst c N Q >> subst c N' M')   "par-subst"
+proof
+    let n ∈ Nat
+        let M', c, N, N'
+            assume c ∈ Nat ∧ ix n >> M' ∧ N >> N'
+                M' = ix n                              ; par-var
+                ∀ Q (Q >> Q)                           ; par-refl
+                n < c ∨ n = c ∨ n > c                  ; trichotomy
+                case n < c
+                    subst c N (ix n) = ix n            ; subst-var-below
+                    subst c N' (ix n) = ix n           ; subst-var-below
+                    ix n >> ix n
+                    subst c N (ix n) >> ix n
+                    subst c N (ix n) >> subst c N' (ix n)
+                    subst c N (ix n) >> subst c N' M'
+                case n = c
+                    subst c N (ix c) = N               ; subst-var-at
+                    subst c N' (ix c) = N'             ; subst-var-at
+                    subst c N (ix c) >> N'
+                    subst c N (ix c) >> subst c N' (ix c)
+                    subst c N (ix n) >> subst c N' (ix n)
+                    subst c N (ix n) >> subst c N' M'
+                case n > c
+                    subst c N (ix n) = ix (n - 1)      ; subst-var-above
+                    subst c N' (ix n) = ix (n - 1)     ; subst-var-above
+                    ix (n - 1) >> ix (n - 1)
+                    subst c N (ix n) >> ix (n - 1)
+                    subst c N (ix n) >> subst c N' (ix n)
+                    subst c N (ix n) >> subst c N' M'
+                subst c N (ix n) >> subst c N' M'
+        ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ ix n >> M' ∧ N >> N'  ⇒  subst c N (ix n) >> subst c N' M')
+    let P
+        assume ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ P >> M' ∧ N >> N'  ⇒  subst c N P >> subst c N' M')
+            let M', c, N, N'
+                assume c ∈ Nat ∧ lam P >> M' ∧ N >> N'
+                    c + 1 ∈ Nat                        ; nat-succ
+                    shift 0 N >> shift 0 N'            ; par-shift-0
+                    ∃ P' (P >> P' ∧ M' = lam P')       ; par-lam
+                    pick B with P >> B ∧ M' = lam B
+                        c + 1 ∈ Nat ∧ P >> B ∧ shift 0 N >> shift 0 N'
+                        subst (c + 1) (shift 0 N) P >> subst (c + 1) (shift 0 N') B    ; the induction hypothesis
+                        lam (subst (c + 1) (shift 0 N) P) >> lam (subst (c + 1) (shift 0 N') B)   ; par-lam-intro
+                        subst c N (lam P) = lam (subst (c + 1) (shift 0 N) P)          ; subst-lam
+                        subst c N' (lam B) = lam (subst (c + 1) (shift 0 N') B)        ; subst-lam
+                        subst c N (lam P) >> lam (subst (c + 1) (shift 0 N') B)
+                        subst c N (lam P) >> subst c N' (lam B)
+                        subst c N (lam P) >> subst c N' M'
+                    subst c N (lam P) >> subst c N' M'
+            ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ lam P >> M' ∧ N >> N'  ⇒  subst c N (lam P) >> subst c N' M')
+    let F, P
+        assume (∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ F >> M' ∧ N >> N'  ⇒  subst c N F >> subst c N' M')) ∧ (∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ P >> M' ∧ N >> N'  ⇒  subst c N P >> subst c N' M'))
+            ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ F >> M' ∧ N >> N'  ⇒  subst c N F >> subst c N' M')
+            ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ P >> M' ∧ N >> N'  ⇒  subst c N P >> subst c N' M')
+            let M', c, N, N'
+                assume c ∈ Nat ∧ app F P >> M' ∧ N >> N'
+                    subst c N (app F P) = app (subst c N F) (subst c N P)      ; subst-app
+                    (∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')) ∨ (∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'))   ; par-app
+                    case ∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                        pick F' with ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                            pick Q' with F >> F' ∧ P >> Q' ∧ M' = app F' Q'
+                                c ∈ Nat ∧ F >> F' ∧ N >> N'
+                                subst c N F >> subst c N' F'          ; the induction hypothesis
+                                c ∈ Nat ∧ P >> Q' ∧ N >> N'
+                                subst c N P >> subst c N' Q'          ; the induction hypothesis
+                                app (subst c N F) (subst c N P) >> app (subst c N' F') (subst c N' Q')   ; par-app-intro
+                                subst c N' (app F' Q') = app (subst c N' F') (subst c N' Q')         ; subst-app
+                                subst c N (app F P) >> app (subst c N' F') (subst c N' Q')
+                                subst c N (app F P) >> subst c N' (app F' Q')
+                                subst c N (app F P) >> subst c N' M'
+                            subst c N (app F P) >> subst c N' M'
+                        subst c N (app F P) >> subst c N' M'
+                    case ∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                        pick B with ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                            pick B' with ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                pick Q' with F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'
+                                    lam B >> lam B'                  ; par-lam-intro
+                                    F >> lam B'
+                                    c ∈ Nat ∧ F >> lam B' ∧ N >> N'
+                                    subst c N F >> subst c N' (lam B')     ; the induction hypothesis
+                                    subst c N F = subst c N (lam B)
+                                                = lam (subst (c + 1) (shift 0 N) B)    ; subst-lam
+                                    subst c N' (lam B') = lam (subst (c + 1) (shift 0 N') B')    ; subst-lam
+                                    lam (subst (c + 1) (shift 0 N) B) >> subst c N' (lam B')
+                                    lam (subst (c + 1) (shift 0 N) B) >> lam (subst (c + 1) (shift 0 N') B')
+                                    subst (c + 1) (shift 0 N) B >> subst (c + 1) (shift 0 N') B'   ; par-lam-inv
+                                    c ∈ Nat ∧ P >> Q' ∧ N >> N'
+                                    subst c N P >> subst c N' Q'     ; the induction hypothesis
+                                    subst (c + 1) (shift 0 N) B >> subst (c + 1) (shift 0 N') B' ∧ subst c N P >> subst c N' Q'
+                                    app (lam (subst (c + 1) (shift 0 N) B)) (subst c N P) >> subst 0 (subst c N' Q') (subst (c + 1) (shift 0 N') B')   ; par-beta-intro
+                                    subst c N' (subst 0 Q' B') = subst 0 (subst c N' Q') (subst (c + 1) (shift 0 N') B')     ; subst-subst-0
+                                    subst c N (app F P) = app (lam (subst (c + 1) (shift 0 N) B)) (subst c N P)
+                                    subst c N (app F P) >> subst 0 (subst c N' Q') (subst (c + 1) (shift 0 N') B')
+                                    subst c N (app F P) >> subst c N' (subst 0 Q' B')
+                                    subst c N (app F P) >> subst c N' M'
+                                subst c N (app F P) >> subst c N' M'
+                            subst c N (app F P) >> subst c N' M'
+                        subst c N (app F P) >> subst c N' M'
+                    subst c N (app F P) >> subst c N' M'
+            ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ app F P >> M' ∧ N >> N'  ⇒  subst c N (app F P) >> subst c N' M')
+    ∀ Q ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ Q >> M' ∧ N >> N'  ⇒  subst c N Q >> subst c N' M')   ; term-induction
+qed
+
+show P >> P' ∧ N >> N'  ⇒  subst 0 N P >> subst 0 N' P'                "par-subst-0"
+proof
+    assume P >> P' ∧ N >> N'
+        0 ∈ Nat                                        ; nat-zero
+        0 ∈ Nat ∧ P >> P' ∧ N >> N'
+        ∀ Q ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ Q >> M' ∧ N >> N'  ⇒  subst c N Q >> subst c N' M')   ; par-subst
+        ∀ M' ∀ c ∀ N ∀ N' (c ∈ Nat ∧ P >> M' ∧ N >> N'  ⇒  subst c N P >> subst c N' M')
+        subst 0 N P >> subst 0 N' P'
+qed
+
+;; the complete development `dev M`: every redex of M contracted at once, by recursion on M
+use dev (ix n) = ix n                                                   "dev-var"
+use dev (lam P) = lam (dev P)                                           "dev-lam"
+use dev (app (lam P) N) = subst 0 (dev N) (dev P)                       "dev-beta"
+use (∀ B (F ≠ lam B))  ⇒  dev (app F N) = app (dev F) (dev N)          "dev-app"
+
+; Takahashi's lemma: every parallel step from M ends in a term that steps in parallel to dev M
+show ∀ Q ∀ M' (Q >> M'  ⇒  M' >> dev Q)                                 "par-dev"
+proof
+    let n ∈ Nat
+        let M'
+            assume ix n >> M'
+                M' = ix n                              ; par-var
+                ix n = ix n
+                ix n >> ix n                           ; par-var
+                dev (ix n) = ix n                      ; dev-var
+                ix n >> dev (ix n)
+                M' >> dev (ix n)
+        ∀ M' (ix n >> M'  ⇒  M' >> dev (ix n))
+    let P
+        assume ∀ M' (P >> M'  ⇒  M' >> dev P)
+            let M'
+                assume lam P >> M'
+                    ∃ P' (P >> P' ∧ M' = lam P')       ; par-lam
+                    pick B with P >> B ∧ M' = lam B
+                        B >> dev P                     ; the induction hypothesis
+                        lam B >> lam (dev P)           ; par-lam-intro
+                        dev (lam P) = lam (dev P)      ; dev-lam
+                        lam B >> dev (lam P)
+                        M' >> dev (lam P)
+                    M' >> dev (lam P)
+            ∀ M' (lam P >> M'  ⇒  M' >> dev (lam P))
+    let F, P
+        assume (∀ M' (F >> M'  ⇒  M' >> dev F)) ∧ (∀ M' (P >> M'  ⇒  M' >> dev P))
+            ∀ M' (F >> M'  ⇒  M' >> dev F)
+            ∀ M' (P >> M'  ⇒  M' >> dev P)
+            let M'
+                assume app F P >> M'
+                    (∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')) ∨ (∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'))   ; par-app
+                    (∃ R (F = lam R)) ∨ ¬(∃ R (F = lam R))     ; excluded-middle
+                    case ∃ R (F = lam R)
+                        pick R with F = lam R
+                            dev (app (lam R) P) = subst 0 (dev P) (dev R)   ; dev-beta
+                            dev (app F P) = subst 0 (dev P) (dev R)
+                            dev (lam R) = lam (dev R)                       ; dev-lam
+                            dev F = lam (dev R)
+                            ; a step of F (an abstraction) and of P: contract the redex now
+                            case ∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                                pick F' with ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                                    pick Q' with F >> F' ∧ P >> Q' ∧ M' = app F' Q'
+                                        lam R >> F'
+                                        ∃ P' (R >> P' ∧ F' = lam P')       ; par-lam
+                                        pick B with R >> B ∧ F' = lam B
+                                            F' >> dev F                    ; the induction hypothesis
+                                            lam B >> dev F
+                                            lam B >> lam (dev R)
+                                            B >> dev R                     ; par-lam-inv
+                                            Q' >> dev P                    ; the induction hypothesis
+                                            B >> dev R ∧ Q' >> dev P
+                                            app (lam B) Q' >> subst 0 (dev P) (dev R)   ; par-beta-intro
+                                            M' = app (lam B) Q'
+                                            M' >> subst 0 (dev P) (dev R)
+                                            M' >> dev (app F P)
+                                        M' >> dev (app F P)
+                                    M' >> dev (app F P)
+                                M' >> dev (app F P)
+                            ; the redex contracted: the substitution lemma
+                            case ∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                pick B with ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                    pick B' with ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                        pick Q' with F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'
+                                            lam B >> lam B'                ; par-lam-intro
+                                            F >> lam B'
+                                            lam B' >> dev F                ; the induction hypothesis
+                                            lam B' >> lam (dev R)
+                                            B' >> dev R                    ; par-lam-inv
+                                            Q' >> dev P                    ; the induction hypothesis
+                                            B' >> dev R ∧ Q' >> dev P
+                                            subst 0 Q' B' >> subst 0 (dev P) (dev R)    ; par-subst-0
+                                            M' >> subst 0 (dev P) (dev R)
+                                            M' >> dev (app F P)
+                                        M' >> dev (app F P)
+                                    M' >> dev (app F P)
+                                M' >> dev (app F P)
+                            M' >> dev (app F P)
+                        M' >> dev (app F P)
+                    case ¬(∃ R (F = lam R))
+                        let B
+                            assume F = lam B
+                                ∃ R (F = lam R)
+                                false
+                            F ≠ lam B
+                        ∀ B (F ≠ lam B)
+                        dev (app F P) = app (dev F) (dev P)         ; dev-app
+                        case ∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                            pick F' with ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                                pick Q' with F >> F' ∧ P >> Q' ∧ M' = app F' Q'
+                                    F' >> dev F                    ; the induction hypothesis
+                                    Q' >> dev P                    ; the induction hypothesis
+                                    app F' Q' >> app (dev F) (dev P)    ; par-app-intro
+                                    M' >> dev (app F P)
+                                M' >> dev (app F P)
+                            M' >> dev (app F P)
+                        case ∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                            pick B with ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                pick B' with ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                    pick Q' with F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'
+                                        ∃ R (F = lam R)
+                                        false
+                                        M' >> dev (app F P)
+                                    M' >> dev (app F P)
+                                M' >> dev (app F P)
+                            M' >> dev (app F P)
+                        M' >> dev (app F P)
+                    M' >> dev (app F P)
+            ∀ M' (app F P >> M'  ⇒  M' >> dev (app F P))
+    ∀ Q ∀ M' (Q >> M'  ⇒  M' >> dev Q)                                 ; term-induction
+qed
+
+; the diamond property of parallel reduction
+show M >> N ∧ M >> M'  ⇒  ∃ Q' (N >> Q' ∧ M' >> Q')                     "par-diamond"
+proof
+    assume M >> N ∧ M >> M'
+        ∀ Q ∀ M' (Q >> M'  ⇒  M' >> dev Q)            ; par-dev
+        ∀ M' (M >> M'  ⇒  M' >> dev M)
+        N >> dev M
+        M' >> dev M
+        N >> dev M ∧ M' >> dev M
+        ∃ Q' (N >> Q' ∧ M' >> Q')
+qed
+
+;; the reflexive-transitive closure of parallel reduction, an inductive relation: the least relation
+;; with these two rules, hence its induction principle -- for a fixed end P, a property that holds
+;; of P and goes back along a parallel step holds of every M with M >>* P
+use ∀ x (x >>* x)                                                       "pars-refl"
+use M >> N ∧ N >>* P  ⇒  M >>* P                                        "pars-step"
+use (sub M P %A) ∧ (∀ N ∀ R (N >> R ∧ R >>* P ∧ sub M R %A  ⇒  sub M N %A))  ⇒  ∀ Q (Q >>* P  ⇒  sub M Q %A)   "pars-induction"
+
+; the strip lemma: a parallel step and a sequence of them from one term meet again
+show ∀ Q (Q >>* P  ⇒  ∀ N' (Q >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q')))    "strip"
+proof
+    let N'
+        assume P >> N'
+            N' >>* N'                                  ; pars-refl
+            N' >>* N' ∧ P >> N'
+            ∃ Q' (N' >>* Q' ∧ P >> Q')
+    ∀ N' (P >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q'))
+    let N, R
+        assume N >> R ∧ R >>* P ∧ ∀ N' (R >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q'))
+            ∀ N' (R >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q'))
+            let N'
+                assume N >> N'
+                    N >> R ∧ N >> N'
+                    ∃ Q' (R >> Q' ∧ N' >> Q')          ; par-diamond
+                    pick F with R >> F ∧ N' >> F
+                        ∃ Q' (F >>* Q' ∧ P >> Q')      ; the induction hypothesis
+                        pick B with F >>* B ∧ P >> B
+                            N' >> F ∧ F >>* B
+                            N' >>* B                   ; pars-step
+                            N' >>* B ∧ P >> B
+                            ∃ Q' (N' >>* Q' ∧ P >> Q')
+                        ∃ Q' (N' >>* Q' ∧ P >> Q')
+                    ∃ Q' (N' >>* Q' ∧ P >> Q')
+            ∀ N' (N >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q'))
+    ∀ N ∀ R (N >> R ∧ R >>* P ∧ ∀ N' (R >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q'))  ⇒  ∀ N' (N >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q')))
+    ∀ Q (Q >>* P  ⇒  ∀ N' (Q >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ P >> Q')))    ; pars-induction
+qed
+
+; confluence of parallel reduction: two sequences of parallel steps from one term meet again
+show ∀ Q (Q >>* P  ⇒  ∀ M' (Q >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q')))  "pars-confluence"
+proof
+    let M'
+        assume P >>* M'
+            M' >>* M'                                  ; pars-refl
+            P >>* M' ∧ M' >>* M'
+            ∃ Q' (P >>* Q' ∧ M' >>* Q')
+    ∀ M' (P >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q'))
+    let N, R
+        assume N >> R ∧ R >>* P ∧ ∀ M' (R >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q'))
+            ∀ M' (R >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q'))
+            let M'
+                assume N >>* M'
+                    ∀ Q (Q >>* M'  ⇒  ∀ N' (Q >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ M' >> Q')))     ; strip
+                    ∀ N' (N >> N'  ⇒  ∃ Q' (N' >>* Q' ∧ M' >> Q'))
+                    ∃ Q' (R >>* Q' ∧ M' >> Q')
+                    pick F with R >>* F ∧ M' >> F
+                        ∃ Q' (P >>* Q' ∧ F >>* Q')     ; the induction hypothesis
+                        pick B with P >>* B ∧ F >>* B
+                            M' >> F ∧ F >>* B
+                            M' >>* B                   ; pars-step
+                            P >>* B ∧ M' >>* B
+                            ∃ Q' (P >>* Q' ∧ M' >>* Q')
+                        ∃ Q' (P >>* Q' ∧ M' >>* Q')
+                    ∃ Q' (P >>* Q' ∧ M' >>* Q')
+            ∀ M' (N >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q'))
+    ∀ N ∀ R (N >> R ∧ R >>* P ∧ ∀ M' (R >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q'))  ⇒  ∀ M' (N >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q')))
+    ∀ Q (Q >>* P  ⇒  ∀ M' (Q >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q')))  ; pars-induction
+qed
+
+show M >>* P ∧ M >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q')                 "church-rosser-par"
+proof
+    assume M >>* P ∧ M >>* M'
+        ∀ Q (Q >>* P  ⇒  ∀ M' (Q >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q')))  ; pars-confluence
+        ∀ M' (M >>* M'  ⇒  ∃ Q' (P >>* Q' ∧ M' >>* Q'))
+        ∃ Q' (P >>* Q' ∧ M' >>* Q')
+qed
+
+;; one beta step anywhere in a term (full beta reduction), by recursion on the left side, and its
+;; reflexive-transitive closure, an inductive relation like `>>*`
+infix -> 20 20
+infix ->* 20 20
+prop -> 0, ->* 0
+tm -> 1 2, ->* 1 2
+use ¬(ix n -> M)                                                        "beta-var"
+use lam P -> M  ⇔  ∃ P' (P -> P' ∧ M = lam P')                          "beta-lam"
+use app F N -> M  ⇔  (∃ F' (F -> F' ∧ M = app F' N)) ∨ (∃ N' (N -> N' ∧ M = app F N')) ∨ (∃ P (F = lam P ∧ M = subst 0 N P))   "beta-app"
+use ∀ x (x ->* x)                                                       "betas-refl"
+use M -> N ∧ N ->* P  ⇒  M ->* P                                        "betas-step"
+use (sub M P %A) ∧ (∀ N ∀ R (N -> R ∧ R ->* P ∧ sub M R %A  ⇒  sub M N %A))  ⇒  ∀ Q (Q ->* P  ⇒  sub M Q %A)   "betas-induction"
+
+; a beta step is a parallel step
+show ∀ Q ∀ M' (Q -> M'  ⇒  Q >> M')                                     "beta-par"
+proof
+    let n ∈ Nat
+        let M'
+            assume ix n -> M'
+                ¬(ix n -> M')                          ; beta-var
+                false
+                ix n >> M'
+        ∀ M' (ix n -> M'  ⇒  ix n >> M')
+    let P
+        assume ∀ M' (P -> M'  ⇒  P >> M')
+            let M'
+                assume lam P -> M'
+                    ∃ P' (P -> P' ∧ M' = lam P')       ; beta-lam
+                    pick B with P -> B ∧ M' = lam B
+                        P >> B                         ; the induction hypothesis
+                        lam P >> lam B                 ; par-lam-intro
+                        lam P >> M'
+                    lam P >> M'
+            ∀ M' (lam P -> M'  ⇒  lam P >> M')
+    let F, P
+        assume (∀ M' (F -> M'  ⇒  F >> M')) ∧ (∀ M' (P -> M'  ⇒  P >> M'))
+            ∀ M' (F -> M'  ⇒  F >> M')
+            ∀ M' (P -> M'  ⇒  P >> M')
+            let M'
+                assume app F P -> M'
+                    ∀ Q (Q >> Q)                       ; par-refl
+                    F >> F
+                    P >> P
+                    (∃ F' (F -> F' ∧ M' = app F' P)) ∨ (∃ N' (P -> N' ∧ M' = app F N')) ∨ (∃ B (F = lam B ∧ M' = subst 0 P B))   ; beta-app
+                    case ∃ F' (F -> F' ∧ M' = app F' P)
+                        pick F' with F -> F' ∧ M' = app F' P
+                            F >> F'                    ; the induction hypothesis
+                            app F P >> app F' P        ; par-app-intro
+                            app F P >> M'
+                        app F P >> M'
+                    case ∃ N' (P -> N' ∧ M' = app F N')
+                        pick N' with P -> N' ∧ M' = app F N'
+                            P >> N'                    ; the induction hypothesis
+                            app F P >> app F N'        ; par-app-intro
+                            app F P >> M'
+                        app F P >> M'
+                    case ∃ B (F = lam B ∧ M' = subst 0 P B)
+                        pick B with F = lam B ∧ M' = subst 0 P B
+                            B >> B
+                            B >> B ∧ P >> P
+                            app (lam B) P >> subst 0 P B    ; par-beta-intro
+                            app F P >> M'
+                        app F P >> M'
+                    app F P >> M'
+            ∀ M' (app F P -> M'  ⇒  app F P >> M')
+    ∀ Q ∀ M' (Q -> M'  ⇒  Q >> M')                                     ; term-induction
+qed
+
+; beta reduction: a sequence of steps followed by another sequence is one
+show ∀ Q (Q ->* P  ⇒  ∀ M' (P ->* M'  ⇒  Q ->* M'))                      "betas-trans"
+proof
+    ∀ M' (P ->* M'  ⇒  P ->* M')
+    let N, R
+        assume N -> R ∧ R ->* P ∧ ∀ M' (P ->* M'  ⇒  R ->* M')
+            ∀ M' (P ->* M'  ⇒  R ->* M')
+            let M'
+                assume P ->* M'
+                    R ->* M'                           ; the induction hypothesis
+                    N -> R ∧ R ->* M'
+                    N ->* M'                           ; betas-step
+            ∀ M' (P ->* M'  ⇒  N ->* M')
+    ∀ N ∀ R (N -> R ∧ R ->* P ∧ ∀ M' (P ->* M'  ⇒  R ->* M')  ⇒  ∀ M' (P ->* M'  ⇒  N ->* M'))
+    ∀ Q (Q ->* P  ⇒  ∀ M' (P ->* M'  ⇒  Q ->* M'))                      ; betas-induction
+qed
+
+show M ->* N ∧ N ->* P  ⇒  M ->* P                                      "betas-trans-2"
+proof
+    assume M ->* N ∧ N ->* P
+        ∀ Q (Q ->* N  ⇒  ∀ M' (N ->* M'  ⇒  Q ->* M'))   ; betas-trans
+        ∀ M' (N ->* M'  ⇒  M ->* M')
+        M ->* P
+qed
+
+show M -> N  ⇒  M ->* N                                                 "betas-one"
+proof
+    assume M -> N
+        ∀ Q (Q ->* Q)                                  ; betas-refl
+        N ->* N
+        M -> N ∧ N ->* N
+        M ->* N                                        ; betas-step
+qed
+
+; the congruences of ->*: under an abstraction, in the function and in the argument
+show ∀ Q (Q ->* P  ⇒  lam Q ->* lam P)                                  "betas-lam"
+proof
+    ∀ Q (Q ->* Q)                                      ; betas-refl
+    lam P ->* lam P
+    let N, R
+        assume N -> R ∧ R ->* P ∧ lam R ->* lam P
+            lam R = lam R
+            N -> R ∧ lam R = lam R
+            ∃ P' (N -> P' ∧ lam R = lam P')
+            lam N -> lam R                             ; beta-lam
+            lam N -> lam R ∧ lam R ->* lam P
+            lam N ->* lam P                            ; betas-step
+    ∀ N ∀ R (N -> R ∧ R ->* P ∧ lam R ->* lam P  ⇒  lam N ->* lam P)
+    ∀ Q (Q ->* P  ⇒  lam Q ->* lam P)                                  ; betas-induction
+qed
+
+show ∀ Q (Q ->* P  ⇒  app Q N ->* app P N)                              "betas-app-left"
+proof
+    ∀ Q (Q ->* Q)                                      ; betas-refl
+    app P N ->* app P N
+    let F, R
+        assume F -> R ∧ R ->* P ∧ app R N ->* app P N
+            app R N = app R N
+            F -> R ∧ app R N = app R N
+            ∃ F' (F -> F' ∧ app R N = app F' N)
+            (∃ F' (F -> F' ∧ app R N = app F' N)) ∨ (∃ N' (N -> N' ∧ app R N = app F N')) ∨ (∃ B (F = lam B ∧ app R N = subst 0 N B))
+            app F N -> app R N                         ; beta-app
+            app F N -> app R N ∧ app R N ->* app P N
+            app F N ->* app P N                        ; betas-step
+    ∀ F ∀ R (F -> R ∧ R ->* P ∧ app R N ->* app P N  ⇒  app F N ->* app P N)
+    ∀ Q (Q ->* P  ⇒  app Q N ->* app P N)                              ; betas-induction
+qed
+
+show ∀ Q (Q ->* P  ⇒  app F Q ->* app F P)                              "betas-app-right"
+proof
+    ∀ Q (Q ->* Q)                                      ; betas-refl
+    app F P ->* app F P
+    let N, R
+        assume N -> R ∧ R ->* P ∧ app F R ->* app F P
+            app F R = app F R
+            N -> R ∧ app F R = app F R
+            ∃ N' (N -> N' ∧ app F R = app F N')
+            (∃ F' (F -> F' ∧ app F R = app F' N)) ∨ (∃ N' (N -> N' ∧ app F R = app F N')) ∨ (∃ B (F = lam B ∧ app F R = subst 0 N B))
+            app F N -> app F R                         ; beta-app
+            app F N -> app F R ∧ app F R ->* app F P
+            app F N ->* app F P                        ; betas-step
+    ∀ N ∀ R (N -> R ∧ R ->* P ∧ app F R ->* app F P  ⇒  app F N ->* app F P)
+    ∀ Q (Q ->* P  ⇒  app F Q ->* app F P)                              ; betas-induction
+qed
+
+; a parallel step is a sequence of beta steps
+show ∀ Q ∀ M' (Q >> M'  ⇒  Q ->* M')                                    "par-betas"
+proof
+    let n ∈ Nat
+        let M'
+            assume ix n >> M'
+                M' = ix n                              ; par-var
+                ∀ Q (Q ->* Q)                          ; betas-refl
+                ix n ->* ix n
+                ix n ->* M'
+        ∀ M' (ix n >> M'  ⇒  ix n ->* M')
+    let P
+        assume ∀ M' (P >> M'  ⇒  P ->* M')
+            let M'
+                assume lam P >> M'
+                    ∃ P' (P >> P' ∧ M' = lam P')       ; par-lam
+                    pick B with P >> B ∧ M' = lam B
+                        P ->* B                        ; the induction hypothesis
+                        ∀ Q (Q ->* B  ⇒  lam Q ->* lam B)     ; betas-lam
+                        lam P ->* lam B
+                        lam P ->* M'
+                    lam P ->* M'
+            ∀ M' (lam P >> M'  ⇒  lam P ->* M')
+    let F, P
+        assume (∀ M' (F >> M'  ⇒  F ->* M')) ∧ (∀ M' (P >> M'  ⇒  P ->* M'))
+            ∀ M' (F >> M'  ⇒  F ->* M')
+            ∀ M' (P >> M'  ⇒  P ->* M')
+            let M'
+                assume app F P >> M'
+                    (∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')) ∨ (∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'))   ; par-app
+                    case ∃ F' ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                        pick F' with ∃ Q' (F >> F' ∧ P >> Q' ∧ M' = app F' Q')
+                            pick Q' with F >> F' ∧ P >> Q' ∧ M' = app F' Q'
+                                F ->* F'                   ; the induction hypothesis
+                                P ->* Q'                   ; the induction hypothesis
+                                ∀ Q (Q ->* F'  ⇒  app Q P ->* app F' P)     ; betas-app-left
+                                app F P ->* app F' P
+                                ∀ Q (Q ->* Q'  ⇒  app F' Q ->* app F' Q')   ; betas-app-right
+                                app F' P ->* app F' Q'
+                                app F P ->* app F' P ∧ app F' P ->* app F' Q'
+                                app F P ->* app F' Q'      ; betas-trans-2
+                                app F P ->* M'
+                            app F P ->* M'
+                        app F P ->* M'
+                    case ∃ B ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                        pick B with ∃ B' ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                            pick B' with ∃ Q' (F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B')
+                                pick Q' with F = lam B ∧ B >> B' ∧ P >> Q' ∧ M' = subst 0 Q' B'
+                                    lam B >> lam B'            ; par-lam-intro
+                                    F >> lam B'
+                                    F ->* lam B'               ; the induction hypothesis
+                                    P ->* Q'                   ; the induction hypothesis
+                                    ∀ Q (Q ->* lam B'  ⇒  app Q P ->* app (lam B') P)     ; betas-app-left
+                                    app F P ->* app (lam B') P
+                                    ∀ Q (Q ->* Q'  ⇒  app (lam B') Q ->* app (lam B') Q')   ; betas-app-right
+                                    app (lam B') P ->* app (lam B') Q'
+                                    app F P ->* app (lam B') P ∧ app (lam B') P ->* app (lam B') Q'
+                                    app F P ->* app (lam B') Q'          ; betas-trans-2
+                                    lam B' = lam B' ∧ subst 0 Q' B' = subst 0 Q' B'
+                                    ∃ R (lam B' = lam R ∧ subst 0 Q' B' = subst 0 Q' R)
+                                    (∃ F' (lam B' -> F' ∧ subst 0 Q' B' = app F' Q')) ∨ (∃ N' (Q' -> N' ∧ subst 0 Q' B' = app (lam B') N')) ∨ (∃ R (lam B' = lam R ∧ subst 0 Q' B' = subst 0 Q' R))
+                                    app (lam B') Q' -> subst 0 Q' B'     ; beta-app
+                                    app (lam B') Q' ->* subst 0 Q' B'    ; betas-one
+                                    app F P ->* app (lam B') Q' ∧ app (lam B') Q' ->* subst 0 Q' B'
+                                    app F P ->* subst 0 Q' B'            ; betas-trans-2
+                                    app F P ->* M'
+                                app F P ->* M'
+                            app F P ->* M'
+                        app F P ->* M'
+                    app F P ->* M'
+            ∀ M' (app F P >> M'  ⇒  app F P ->* M')
+    ∀ Q ∀ M' (Q >> M'  ⇒  Q ->* M')                                    ; term-induction
+qed
+
+; so ->* and >>* are the same relation
+show ∀ Q (Q >>* P  ⇒  Q ->* P)                                          "pars-betas"
+proof
+    ∀ Q (Q ->* Q)                                      ; betas-refl
+    P ->* P
+    let N, R
+        assume N >> R ∧ R >>* P ∧ R ->* P
+            ∀ Q ∀ M' (Q >> M'  ⇒  Q ->* M')            ; par-betas
+            ∀ M' (N >> M'  ⇒  N ->* M')
+            N ->* R
+            N ->* R ∧ R ->* P
+            N ->* P                                    ; betas-trans-2
+    ∀ N ∀ R (N >> R ∧ R >>* P ∧ R ->* P  ⇒  N ->* P)
+    ∀ Q (Q >>* P  ⇒  Q ->* P)                                          ; pars-induction
+qed
+
+show ∀ Q (Q ->* P  ⇒  Q >>* P)                                          "betas-pars"
+proof
+    ∀ Q (Q >>* Q)                                      ; pars-refl
+    P >>* P
+    let N, R
+        assume N -> R ∧ R ->* P ∧ R >>* P
+            ∀ Q ∀ M' (Q -> M'  ⇒  Q >> M')             ; beta-par
+            ∀ M' (N -> M'  ⇒  N >> M')
+            N >> R
+            N >> R ∧ R >>* P
+            N >>* P                                    ; pars-step
+    ∀ N ∀ R (N -> R ∧ R ->* P ∧ R >>* P  ⇒  N >>* P)
+    ∀ Q (Q ->* P  ⇒  Q >>* P)                                          ; betas-induction
+qed
+
+; the Church-Rosser theorem: two sequences of beta steps from one term meet again
+show M ->* P ∧ M ->* M'  ⇒  ∃ Q' (P ->* Q' ∧ M' ->* Q')                 "church-rosser"
+proof
+    assume M ->* P ∧ M ->* M'
+        ∀ Q (Q ->* P  ⇒  Q >>* P)                      ; betas-pars
+        M >>* P
+        ∀ Q (Q ->* M'  ⇒  Q >>* M')                    ; betas-pars
+        M >>* M'
+        M >>* P ∧ M >>* M'
+        ∃ Q' (P >>* Q' ∧ M' >>* Q')                    ; church-rosser-par
+        pick R with P >>* R ∧ M' >>* R
+            ∀ Q (Q >>* R  ⇒  Q ->* R)                  ; pars-betas
+            P ->* R
+            M' ->* R
+            P ->* R ∧ M' ->* R
+            ∃ Q' (P ->* Q' ∧ M' ->* Q')
+        ∃ Q' (P ->* Q' ∧ M' ->* Q')
+qed

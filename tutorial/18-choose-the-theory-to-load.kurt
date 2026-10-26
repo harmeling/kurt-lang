@@ -32,7 +32,7 @@
 ; it) is about numbers -- its laws hold for everything written with `+`, `*`, ... For linear
 ; algebra, use a structure that declares its own operators, like `field` or
 ; `vectorspace`, not together with `numbers`: a symbol is declared by one file only, and
-; loading two files that both declare `+` is an error (doc/kurt-doc.md, `load`). `group` takes
+; loading two files that both declare `+` is an error (doc/kurt-ref.md, `load`). `group` takes
 ; its operation as an argument, so it goes with either. (`numbers` used to be called `arith`.)
 ;
 ; Dependencies are loaded transitively. For example, `load natural` brings in `set`, `logic`,

@@ -30,7 +30,7 @@ proof
     q ∨ ¬ q
 qed
 
-; variant 3: prove for a boolean variable
+; variant 3: prove for a statement variable
 show %p ∨ ¬%p  "excluded-middle"
 proof
     assume ¬ (%p ∨ ¬ %p)

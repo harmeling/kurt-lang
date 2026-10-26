@@ -23,7 +23,7 @@ class TestApi(unittest.TestCase):
         failed = kurt.check_text('load propositional\nprop A, B\nB\n', name='mine.kurt')
         self.assertFalse(failed.ok)
         self.assertEqual(failed.error_kind, 'ProofError')
-        self.assertIn('mine.kurt', failed.error)
+        self.assertIn('mine.kurt', failed.error or '')
         with_todo = kurt.check_text('load propositional\nprop A\ntodo A\n')
         self.assertTrue(with_todo.ok)
         self.assertFalse(with_todo.complete)
@@ -65,9 +65,9 @@ class TestApi(unittest.TestCase):
 
     def test_a_text_is_never_trusted_by_its_name(self):
         # trust comes from where a file was read: under `strict`, a text named like a theory of
-        # Kurt or like a file in a `-p` directory may still not `use` (dev/astra-suggestions.md, 2)
+        # Kurt or like a file in a `-p` directory may still not `use` (dev/astra-suggestions.md, in git history, 2)
         with tempfile.TemporaryDirectory() as teacher:
-            session = kurt.new_session(kurt.RunConfig(strict=True, paths=[teacher]))
+            session = kurt.new_session(kurt.RunConfig(strict=True, paths=(teacher,)))
             names = ['<embedded>/student.kurt', '<embedded>/propositional.kurt', '<chain transitivity for [<]>',
                      os.path.join(teacher, 'student.kurt'), str(kurt.packaged_theory_file('propositional.kurt'))]
             for name in names:
@@ -124,7 +124,7 @@ class TestApi(unittest.TestCase):
         # the error at the end of the file (a proof that isn't finished) keeps the todos before it
         result = kurt.check_text('load propositional\nprop A, B, C\nuse A\ntodo A and C\nshow B or C\nproof\n    A\n')
         self.assertEqual((result.error_kind, result.error_line), ('ProofError', 5))
-        self.assertIn("isn't finished at the end of the file", result.error)
+        self.assertIn("isn't finished at the end of the file", result.error or '')
         self.assertEqual(len(result.todos), 1)
 
     def test_events(self):

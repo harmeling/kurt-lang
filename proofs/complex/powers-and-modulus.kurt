@@ -1,0 +1,65 @@
+; complex numbers in use (complex.kurt, todo 48): arithmetic by `calc`, powers with a natural-number
+; exponent, and the modulus squared, `|z|^2 = z · conj(z)` -- a real equal to a complex number
+load complex
+calc on
+complex z, w
+real x
+
+; computed exactly (Gaussian rationals): powers too
+i ^ 2 = -1
+i ^ 4 = 1
+(1 + i) ^ 2 = 2 * i
+(1 + 2 * i) * (3 - i) = 5 + 5 * i
+(2 + i) / (1 - i) = 1 / 2 + 3 / 2 * i
+i ^ 2 + 1 = 0
+
+; a square is a product, from the laws of the powers (the calculator only adds `1 + 1`)
+show z ^ 2 = z * z "square"
+proof
+    z ^ 2 = z ^ (1 + 1)
+    1 ∈ Nat
+    z ^ (1 + 1) = z ^ 1 * z   "complex-pow-succ"
+    z ^ 1 = z                 "complex-pow-identity"
+    z ^ 2 = z * z
+qed
+
+; the same laws for a real: a real is a complex number
+show x ^ 2 = x * x
+proof
+    x ^ 2 = x ^ (1 + 1)
+    1 ∈ Nat
+    x ^ (1 + 1) = x ^ 1 * x   "complex-pow-succ"
+    x ^ 1 = x                 "complex-pow-identity"
+    x ^ 2 = x * x
+qed
+
+; the modulus squared is `z · conj(z)`: a real (`|z|^2`) equal to a complex number
+show cabs(z) ^ 2 = z * conj(z) "modulus-squared"
+proof
+    cabs(z) ^ 2 = cabs(z) ^ (1 + 1)
+    1 ∈ Nat
+    cabs(z) ^ (1 + 1) = cabs(z) ^ 1 * cabs(z)            "complex-pow-succ"
+    cabs(z) ^ 1 = cabs(z)                                "complex-pow-identity"
+    cabs(z) ^ 2 = cabs(z) * cabs(z)
+    cabs(z) * cabs(z) = re(z) * re(z) + im(z) * im(z)    "cabs-sq"
+    z * conj(z) = re(z) * re(z) + im(z) * im(z)          "conj-mul-self"
+    cabs(z) ^ 2 = z * conj(z)
+qed
+
+; a law of the complex numbers for reals: `x / x = 1` from "complex-div-self"
+show x ≠ 0 ⇒ x / x = 1
+proof
+    assume x ≠ 0
+        x / x = 1   "complex-div-self"
+qed
+
+; the conjugate of a product: `|zw|^2 = |z|^2 |w|^2` written with it (`*` is `flat` and `sym`)
+show z * w * conj(z * w) = z * conj(z) * (w * conj(w))
+proof
+    conj(z * w) = conj(z) * conj(w)   "conj-mul"
+    z * w * conj(z * w) = z * conj(z) * (w * conj(w))
+qed
+
+; `^` on complex numbers has no order: `z ^ 2 < 1` is a type error
+expect "TypeError" "must have sort `real`"
+    use z ^ 2 < 1

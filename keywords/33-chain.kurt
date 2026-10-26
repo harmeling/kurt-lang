@@ -6,7 +6,7 @@
 ; which order; the loaded theories already declare the usual ones (`=`,
 ; `<=`, `<`, and `iff`/`implies` for one-directional reasoning).
 ; It generates transitivity rules, so every member becomes a constant relation
-; with boolean output (`prop OP 0`) if those declarations were not present.
+; with a statement as its result (`prop OP 0`) if those declarations were not present.
 
 load equality
 infix < 20 20

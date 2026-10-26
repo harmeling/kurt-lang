@@ -3,7 +3,7 @@
 ; Type and reduce simply typed lambda terms
 ;
 ; The lambda theory uses optional sorts to distinguish object terms, object types,
-; contexts, and the Boolean judgments Kurt proves.
+; contexts, and the judgments Kurt proves (statements).
 
 load lambda
 

@@ -2,7 +2,7 @@
 ;
 ; `term`, `type`, `index`, `ctx`, and `typing` are optional Kurt sorts. They make malformed
 ; typing judgments fail during checking. The paper notation `Γ ⊢ M : A`, compatible beta
-; reduction `M ↦ N`, and call-by-value evaluation `M ⇝ N` are Boolean judgments Kurt can prove.
+; reduction `M ↦ N`, and call-by-value evaluation `M ⇝ N` are judgments Kurt can prove (statements).
 ; The older prefix spelling `has Γ M A` remains as a compatibility notation with the same rules.
 ;
 ; The fully general typing rules use de Bruijn terms: `at zero`, `at (succ zero)`, and
@@ -15,26 +15,28 @@
 
 sort type, term, index, ctx, typing
 
-arity fun 2, app 2, has 3, value 1, λ 2, succ 1, at 1, abs 2, extend 2
-infix ↦ 15 15
-infix ⇝ 15 15
+arity fun 2, app 2, has 3, value 1, lambda 2, succ 1, at 1, abs 2, extend 2
+infix reduces 15 15
+infix steps 15 15
 infix : 25 24
-infix ⊢ 10 9
-bindop λ
+infix proves 10 9
+bindop lambda
 
-const fun, app, has, value, ↦, ⇝, :, ⊢, succ, at, abs, extend, zero, empty, base, unit
+const fun, app, has, value, reduces, steps, :, proves, succ, at, abs, extend, zero, empty, base, unit
+; the words are the standard names, the symbols their aliases (doc/kurt-ref.md, `alias`)
+alias λ lambda, ↦ reduces, ⇝ steps, ⊢ proves
 
 type fun 0 1 2, has 3, base
 type abs 1, extend 2
 type : 2
-term app 0 1 2, λ 0 1 2, at 0, abs 0 2, has 2, value 1, ↦ 1 2, ⇝ 1 2, unit
+term app 0 1 2, lambda 0 1 2, at 0, abs 0 2, has 2, value 1, reduces 1 2, steps 1 2, unit
 term : 1
 index zero, succ 0 1, at 1
 ctx empty, extend 0 1, has 1
-ctx ⊢ 1
+ctx proves 1
 typing : 0
-typing ⊢ 2
-prop has 0, value 0, ↦ 0, ⇝ 0, ⊢ 0
+typing proves 2
+prop has 0, value 0, reduces 0, steps 0, proves 0
 
 var Γ, M, N, F, x, n, A, B, C
 ctx Γ

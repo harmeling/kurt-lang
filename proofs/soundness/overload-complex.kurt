@@ -1,0 +1,40 @@
+; overloading, stage 1 (decision 19 of dev/todo-sorts.md): `+ - * /` of numbers.kurt have a signature on `real`
+; and one on `complex` (`real ⊂ complex`, complex.kurt). The sort of a term is its least sort, from the syntax:
+; `x + y` of reals is a `real` (so `<` takes it), `z + x` with a complex `z` is a `complex`
+load complex
+complex z, w
+real x, y
+use (1 + 2) < 4
+use x + y < x + y + 1
+use z + x = x + z
+use z * (x + y) = z * x + z * y
+use x + y = z + 1              ; `=` takes both: no sort of its own
+expect "TypeError" "must have sort `real`"
+    use z < 3                  ; `<` is on `real` only
+expect "TypeError" "must have sort `real`"
+    use z + 1 < 3              ; the sum of a complex is a complex
+expect "TypeError" "must have sort `real`"
+    use (x + z) < 3
+const c
+use c + 1 < 3                  ; a new constant at `+` is a `real` (the smallest signature), as before the overload
+use c + z = z + c
+expect "TypeError" "must have sort `real`"
+    use c * z < c + 3          ; `c` is a `real` (final), so `c * z` is a complex
+
+; a law of the reals is not a law of the complex numbers: its `$a` needs a `real`, and `z + 1` is a `complex`
+; (the law "add-sub" of numbers.kurt; the search and the kernel both read the sort of `z + 1` from its syntax)
+expect "ProofError" "has sort `complex`"      ; (todo 54: the explanation names the sort)
+    show (z + 1) - 2 = z - (2 - 1)
+    proof
+        (z + 1) - 2 = z - (2 - 1)   "add-sub"
+    qed
+; and the same law for a real is fine
+show (x + 1) - 2 = x - (2 - 1)
+proof
+    (x + 1) - 2 = x - (2 - 1)   "add-sub"
+qed
+; the laws of complex.kurt hold for a complex number, and for a real as well (it is a `complex`)
+show z * (x + 1) = z * x + z * 1
+proof
+    z * (x + 1) = z * x + z * 1   "complex-distrib-add"
+qed

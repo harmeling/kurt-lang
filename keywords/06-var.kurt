@@ -16,7 +16,7 @@ var x, y
 ;
 ; - `$x`, `$a`, ... stand for terms (objects), e.g. `equality.kurt` contains
 ;   `use $a = $a "equal-intro"` -- every object is equal to itself;
-; - `%A`, `%B`, ... stand for boolean formulas, e.g. `propositional.kurt` contains
+; - `%A`, `%B`, ... stand for statements (formulas), e.g. `propositional.kurt` contains
 ;   `use %A and %B implies %A "and-elim"` -- for any formulas `%A`, `%B`.
 ;
 ; Mixing them up is a type error: `$A implies $A` is rejected, since

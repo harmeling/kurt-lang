@@ -1,5 +1,97 @@
 # Changelog
 
+## 0.11.0 (2026-10-26)
+
+- Two false rejections of the search, fixed (todo 50). A number or a string was taken for a clash with a
+  `sub` term, so a rule whose conclusion keeps its `sub` was skipped: `(sum i (1, 1) i) = 1` after `load
+  analysis` was rejected, though "sum-one" fits. And the search put the hole of `sub $x $a $T` into a `$T`
+  that depends on no binder, which the kernel rightly refused (`P($a) ⇒ Q(sub $x $a $T)`, `use P(c)`, then
+  `Q(c)`: a KernelError); now the hole is blocked as a range too.
+
+- Speed (todo 50): a false goal after an n-way disjunction is refuted at once where the premises' parts
+  cannot take their values together (`shared_case(8)` 7.4 s → 0.05 s), and a binder at the top of a premise
+  is rigid there; the unifier is cheaper (`scripts/bench.py` 35 s → 29.5 s over the last rounds). What
+  remains: a disjunction with one alternative twice (`A0 ∨ ... ∨ A7 ∨ A7`, 5.8 s at n = 8).
+
+- Known limit (todo 76): with `load logic`, `use A or C or (forall z P(z))`, `use A implies G`, `use (C or (forall
+  y %X)) implies G` and the goal `G` give a KernelError ("or-elim" binds `%X` in terms of the disjunction's
+  bound variable); it is safe, only a rejection of a correct step.
+
+- `kurt --latex` and `--markdown` no longer print the line a first use infers (`prop P 0`, "added statement
+  places") as a row of the document (since 0.10.0 the reason was named differently than the filter expected).
+
+- The messages and the documentation say "statement" (a statement place, a statement variable, an operator
+  with a statement as its result) where they said "boolean": a statement is what is proved, no object of a
+  sort (decision 17 of dev/todo-sorts.md). A second `prop` for a symbol says `already declared prop` (was
+  `already declared bool`); e.g. `must be a statement` (was `must evaluate to boolean`), `a term as its result`
+  (was `a non-boolean result`), `` `let` takes new constants or statements``.
+
+- What a fact rests on, the leftovers (todo 64): the editors' hover of a theorem at the top level says it in
+  one line ("rests on: 2 axioms of mine.kurt, 1 axiom of propositional.kurt, no todo"); `kurt --foundation
+  LABEL FILE` shows one fact (by its label or line; `--foundation FILE` as before); an unlabelled top-level
+  `use`, `def` or `todo` is an entry too, named by its line; a `calc` step names the file that bound its
+  symbols (`` `+` add of numbers.kurt``, `bound_in` in the JSON).
+
+- The symbols of Kurt's theories have ASCII names, words, and the Unicode symbol is their alias (todo 61):
+  `union`/`∪`, `intersect`/`∩`, `emptyset`/`∅`, `subset`/`⊂`, `superset`/`⊃`, `notin`/`∉`, `cross`/`×`,
+  `to`/`→` (set.kurt), `neq`/`≠`, `divides`/`∣`, `times`/`·` (field.kurt, matrix.kurt), `compose`/`∘`, and the
+  connectives of lambda.kurt and modal.kurt (`lambda`, `reduces`, `steps`, `proves`; `imp`, `equiv`, `wedge`,
+  `vee`, `neg`, `bot`, `box`, `diamond`) -- the table is in doc/kurt-ref.md §4.7. A file may write either; a line
+  is printed with the symbols it was written with (`{}` now as `{}`, not as `∅`). **Breaking:** the words are
+  symbols of the theories now, so a file that loads set.kurt and declares its own `union` (`subset`, `to`, ...)
+  clashes with set.kurt's; the listings, the messages and the sort signatures name the words; the order of the
+  arguments of a symmetric operator follows the words (`$a ∣ $b ∧ $a ∈ Nat`); `kurt --lean` names a symbol by
+  its word (`subset`, `divides`, `times_d2`; was `k_u2282`, ...). A declaration written with an alias is about
+  its symbol (`tex ∪ \sqcup` declares the LaTeX of `union`, `chain ⊂` is rejected as `chain subset`).
+
+- CI tests Python 3.14 too (3.10, 3.12, 3.13, 3.14); the suite passed under 3.14.7 (todo 56).
+
+- The reference is `doc/kurt-ref.md` (was `doc/kurt-doc.md`), also as a website generated from it
+  (MkDocs: `scripts/build_reference_site.py`; at harmeling.github.io/kurt-web/reference/ with the
+  playground). The README points to both at the top.
+
+- A warning at the end of a file that declares a sort and names no object of it: all sorts are
+  inhabited, so the file assumes one (`the sort `vec` ... has no constant in this file`).
+
+- Overloading, stage 1: `+ - * /` have a signature on `real` and one on `complex` (`real ⊂ complex`), a term has
+  the least sort of its arguments (`(1 + 2) < 3` is as well-sorted as before, `z + 1` is a `complex`); the kernel
+  recomputes it (doc/kurt-kernel.md §8.5). New theories: complex.kurt (the sort `complex`, `i`, `Complex`/`ℂ`,
+  the laws of a field, `re`, `im`, `conj`, `cabs`; `calc on` computes exactly with Gaussian rationals) and
+  real.kurt (the number tower in one `load`).
+- Complex numbers (todo 48): `^` overloaded on `complex` too, with the laws for a natural-number exponent
+  ("complex-pow-succ"; `calc on` computes `(1 + i) ^ 2`); `kurt --lean` of complex.kurt and of a proof with complex
+  numbers (Mathlib's `ℂ`, a real cast into it, an overloaded operator by the least sort of each occurrence,
+  `lean complex ^ k_cpow $1 $2` for one profile; every rule of complex.kurt a theorem of Mathlib); `kurt --latex`
+  writes `ℝ`, `ℂ`, ... as `\mathbb{R}`, ... (not Kurt's shortcuts `\R`, `\C`, which are no LaTeX), symbols in a
+  reason in math, and `a + (-a)`, `a · (-1)` with brackets; `i` is `\mathrm{i}`. `abs` stays on `real`, the modulus
+  is `cabs` (a result of another sort than the argument is stage 2 of overloading).
+- Language server: `$/cancelRequest` stops the check of the request, and an edit during a check stops the check
+  of the old text (a reader thread takes them while a check runs).
+- Diagnostics: the sort-mismatch explanation names the sort of the value; a premise a rule needs over every
+  object, that a fact states only over the numbers, is explained (`restriction_hint`).
+- Speed: `operator_parameters` reads only new facts, `assume A ∧ B` tries "and-elim" first, `write_kurtc`
+  serialises once -- mafi1/28-self-adjoint 17.0 -> 11.9 s, rational.kurt 10.7 -> 5.8 s.
+
+- `qed` cites its proof: the proof's last line is tried first, before the rules of the loaded
+  theories -- the reason follows the proof as written, and its lines no longer count as "not used"
+  (propositional.kurt's "iff-true-elim" closed by a chain of two other rules before).
+- Induction over a property that is itself a `∀` (todo 52): a goal `∀ s ∀ y R(s, y)` is matched also as a
+  whole against the conclusion of an induction rule, so the property is `∀ y R(s, y)` and the induction
+  hypothesis holds for every `y` (before, the property lost its inner `∀`s; the workaround was a `def`). The
+  same makes a rule concluding `∀ $t %P` usable, not only `∀ $s (sub $t $s %P)`.
+- Conditional rewriting in a chain about free variables (todo 52): the line before, which has its own names for
+  the free variables, is compared with the next one under the same names -- `get (ins 0 B (ins c A Γ)) n = get
+  (ins c A Γ) n` continued by `= get Γ n` with a conditional rule is found, without its instance as a line first.
+- `let w with $a <= w ∧ ...` inside a block that fixes `$a` (todo 52): the fixed `$a` is no candidate for the
+  new name (before: "expected exactly one new symbol or existing").
+- proofs/classics/lambda-preservation.kurt without its three `def`s and four instance lines, the intermediate
+  value theorem with `let ... with`.
+- Speed (todo 50): a false goal after an n-way disjunction with its cases is no longer exponential in n (a split
+  of the alternatives is tried only if the premises' groups can cover them exactly; n = 8: 14.6 -> 0.15 s, n = 32
+  0.24 s); `cannot_unify` knows a `flat` operator with rigid arguments; the operator parameters from each
+  fact's heads, the tops of the arguments before `cannot_unify` -- scripts/bench.py 44.1 -> 34.9 s
+  (mafi1/28-self-adjoint 15.2 -> 10.9 s).
+
 ## 0.10.0 (2026-10-20)
 
 **Breaking changes** -- a file written for 0.9 needs these edits:
@@ -668,7 +760,7 @@ A change of the language (dev/design-sets-and-brackets.md, §10):
 - `verbose` is gone (the keyword `verbose on/off` and the option `-v`/`--verbose`): what it showed
   is in the reason of each line and, in full, in `cert N`; the normal form of a term in `parse`
   (and `theory`). The keyword lessons 44-46 are now 43-45.
-- Fixes from an external review (dev/astra-suggestions.md):
+- Fixes from an external review (dev/astra-suggestions.md, in git history):
   - `def` with the new symbol as an argument of an operator (`$f is injective`) was first
     restricted after an operator bound to the calculator could prove `false`; the 2026-10-07
     follow-up found the form itself unsound and removed it (doc/kurt-soundness.md §§8.22–8.23).

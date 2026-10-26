@@ -25,7 +25,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://www.kurt-lang.org"
 Repository = "https://github.com/harmeling/kurt-lang"
-Documentation = "https://github.com/harmeling/kurt-lang/blob/main/doc/kurt-doc.md"
+Documentation = "https://github.com/harmeling/kurt-lang/blob/main/doc/kurt-ref.md"
 Issues = "https://github.com/harmeling/kurt-lang/issues"
 
 [project.optional-dependencies]
@@ -33,6 +33,14 @@ dev = ["coverage"]
 
 [project.scripts]
 kurt = "kurt.kurt:main"
+
+[tool.pyright]
+include = ["src", "tests", "scripts"]
+exclude = ["dist", "**/__pycache__"]       # dist/kurt.py is generated (scripts/build_standalone.py)
+extraPaths = ["src", "scripts"]            # the tests import `grade_exercise` etc. from scripts/
+pythonVersion = "3.10"
+reportUnnecessaryTypeIgnoreComment = "error"      # a suppression that suppresses nothing (any more) is an error
+enableTypeIgnoreComments = false                  # a bare `# type: ignore` does nothing: a suppression is `# pyright: ignore[rule]`, with its rule
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -45,3 +53,11 @@ version = {attr = "kurt.kurt.version"}
 
 [tool.setuptools.package-data]
 kurt = ["theories/*.kurt", "theories/*.kurtc"]   # the certificates: scripts/build_certificates.py
+
+[tool.ruff]
+extend-exclude = ["scripts/lean", "trash", "dist"]
+
+[tool.ruff.lint]
+# the checks for bugs, not for style (the CI job `ruff`): undefined and unused names, a redefinition,
+# `== None`, an exception raised in an `except` without its cause
+select = ["F", "B904", "E711"]

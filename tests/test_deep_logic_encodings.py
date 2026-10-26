@@ -48,10 +48,11 @@ class TestDeepLogicEncodings(unittest.TestCase):
 
     def test_modal_turnstile_is_prefix_and_infix(self):
         kb = kurt.load_file('modal.kurt', copy.deepcopy(kurt.initial_kb), main=False)
-        self.assertTrue(kb.is_prefix('⊢'))
-        self.assertTrue(kb.is_infix('⊢'))
-        self.assertTrue(kb.is_const('⊢'))
-        self.assertEqual(kb.bool_sig('⊢'), [0])
+        self.assertEqual(kb.get_alias('⊢'), 'proves')     # the word is the standard name (todo 61)
+        self.assertTrue(kb.is_prefix('proves'))
+        self.assertTrue(kb.is_infix('proves'))
+        self.assertTrue(kb.is_const('proves'))
+        self.assertEqual(kb.bool_sig('proves'), [0])
 
     def test_necessitation_and_empty_context_bridge(self):
         result = kurt.check_text(

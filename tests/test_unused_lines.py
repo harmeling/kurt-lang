@@ -97,7 +97,9 @@ class TestUnusedLines(unittest.TestCase):
             hints = [d for d in published[-1] if d['severity'] == 4]
             self.assertEqual([(d['range']['start']['line'], d['tags']) for d in hints], [(8, [1])])   # (0-based)
             def hover(line):
-                return server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})['contents']['value']
+                found = server.hover({'textDocument': {'uri': uri}, 'position': {'line': line, 'character': 0}})
+                assert found is not None, f'no hover at line {line}'
+                return found['contents']['value']
             self.assertIn('**not used:**', hover(8))
             self.assertIn('**restates**', hover(10))
             self.assertNotIn('not used', hover(9))

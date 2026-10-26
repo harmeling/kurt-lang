@@ -1,0 +1,29 @@
+; matching a term against `sub $x $a $T` puts the hole `$x` into `$T` only if `$T` may depend on
+; `$x` (the whole body of a binder over `$x`, doc/kurt-spec.md §3.7, `find_dependent_vars`):
+; anywhere else `$T` is one fixed term, and `sub $x $a $T` is `$T` itself. Before 2026-10-25 the
+; search let any `$T` take the hole, and the kernel rejected the step (a `KernelError`, "a bug in
+; Kurt") -- found with proofs/debug/number-against-sub.kurt (todo 50)
+load logic
+const c
+const d
+prop P
+arity P 1
+prop Q
+arity Q 1
+use P($a) ⇒ Q(sub $x $a $T)   "r"
+use P(2)
+Q(2)                    ; `$T := 2` (`$a := 2`), not `$T := $x`
+use P(c)
+Q(c)
+Q(d)                    ; `$T` is fixed: any `Q` follows from a `P`
+
+; ... and with `$T` in the premise, `sub $x $a $T` is `$T`: `Q(c)` needs `P'(c)`
+prop P'
+arity P' 1
+prop Q'
+arity Q' 1
+use P'($T) ⇒ Q'(sub $x $a $T)   "r'"
+use P'(d)
+Q'(d)
+expect "ProofError"
+    Q'(c)

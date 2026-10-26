@@ -7,7 +7,7 @@ import unittest
 
 import kurt.kurt as kurt
 
-# what crosses the boundary of a loaded file (`ExportBundle`, dev/codex-suggestions.md): the
+# what crosses the boundary of a loaded file (`ExportBundle`, dev/codex-suggestions.md, in git history): the
 # declarations a labelled, non-`local` fact needs -- and nothing else, not even a new field of
 # `KnowledgeBase` that nobody thought of
 
@@ -59,7 +59,7 @@ class TestExportBundle(unittest.TestCase):
     def test_a_new_field_stays_in_the_file(self):
         parent = copy.deepcopy(kurt.initial_kb)
         child = parent.push_level('sandbox', [])
-        child.some_new_bookkeeping = ['private']
+        setattr(child, 'some_new_bookkeeping', ['private'])        # (a field the class doesn't declare, on purpose)
         child.mode_args.append(kurt.Token('SYMBOL', 'private'))
         child.merge_and_pop()
         self.assertFalse(hasattr(parent, 'some_new_bookkeeping'))

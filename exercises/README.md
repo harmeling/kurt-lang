@@ -63,7 +63,7 @@ loads (directly or through the scene): a file that states an answer is no proof.
 `COMPLETE` (exit code 0) needs a check without errors, every statement proved and nothing else
 loaded; otherwise `NOT COMPLETE` (exit code 1). Use the teacher's copy of the exercise, not the
 student's. From Python, the same questions are `CheckResult.proves(statement, label)`,
-`proof_of` and `loaded` (doc/kurt-doc.md §1).
+`proof_of` and `loaded` (doc/kurt-ref.md §1).
 
 ## Topics
 

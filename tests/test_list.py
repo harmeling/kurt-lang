@@ -17,13 +17,13 @@ class TestList(unittest.TestCase):
         self.assertIn('; retained content from natural.kurt', result.output)
         self.assertIn('const Nat', result.output)
         self.assertRegex(result.output, r'const Nat +; level 1, natural.kurt:\d+')   # (its line, wherever the header ends)
-        self.assertIn('infix ∣ 20 20', result.output)
+        self.assertIn('infix divides 20 20', result.output)
         self.assertIn('use ', result.output)
 
     def test_list_source_shows_all_retained_kinds(self):
         result = kurt.check_text('load group\nlist group\n')
         self.assertTrue(result.ok, result.error)
-        self.assertIn('infix ∘ 70 70', result.output)
+        self.assertIn('infix compose 70 70', result.output)
         self.assertIn('const group', result.output)
         self.assertIn('group.kurt:', result.output)
         self.assertIn('def ', result.output)
@@ -36,7 +36,7 @@ class TestList(unittest.TestCase):
             'list var group\n'
         )
         self.assertTrue(result.ok, result.error)
-        self.assertIn('infix ∘ 70 70', result.output)
+        self.assertIn('infix compose 70 70', result.output)
         self.assertNotIn('const ∘', result.output)
         self.assertNotIn('var ∘', result.output)
 

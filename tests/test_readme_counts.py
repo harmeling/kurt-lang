@@ -3,7 +3,7 @@ import unittest
 
 from tests.utils import PROJECT_ROOT
 
-# the README says how many lessons there are: it must be right (dev/astra-suggestions.md)
+# the README says how many lessons there are: it must be right (dev/astra-suggestions.md, in git history)
 
 
 class TestReadmeCounts(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestReadmeCounts(unittest.TestCase):
             with self.subTest(directory=directory):
                 lessons = sorted(p.name for p in (PROJECT_ROOT / directory).glob('[0-9][0-9]-*.kurt'))
                 found = re.search(phrase, readme)
-                self.assertIsNotNone(found, phrase)
+                assert found is not None, phrase
                 self.assertEqual(int(found.group(1)), len(lessons))
                 self.assertEqual(found.group(2), lessons[-1][:2])
 

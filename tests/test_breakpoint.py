@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 import kurt.kurt as kurt
-from tests.utils import PROJECT_ROOT, numbered
+from tests.utils import PROJECT_ROOT
 
 PROOF = 'load propositional\nprop A, B\nuse A\nuse A implies B\nshow A and B\nproof\n    B\n    breakpoint\n    A and B\nqed\n'
 

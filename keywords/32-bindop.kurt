@@ -26,7 +26,7 @@ parse myforall x (P x)   ; (myforall x (P x)) -- `x` is bound in `(P x)`
 ; written, that is new or a variable -- constants, predicates and the variables
 ; of enclosing binders are skipped. Kurt decides it when it reads the line and
 ; keeps it: the binder binds the same variable for the rest of the file (also
-; when a block closes and its constants are free again; doc/kurt-doc.md §4.4).
+; when a block closes and its constants are free again; doc/kurt-ref.md §4.4).
 
 const c
 load numbers

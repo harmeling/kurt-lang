@@ -12,7 +12,7 @@ class TestVersionsAgree(unittest.TestCase):
     def test_citation_names_the_version(self):
         citation = (PROJECT_ROOT / 'CITATION.cff').read_text(encoding='utf-8')
         found = re.search(r'^version:\s*(\S+)', citation, re.MULTILINE)
-        self.assertIsNotNone(found, 'no version in CITATION.cff')
+        assert found is not None, 'no version in CITATION.cff'
         self.assertEqual(found.group(1), kurt.version)
 
     def test_changelog_has_the_version(self):

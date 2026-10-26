@@ -163,7 +163,7 @@ qed
 ;; `kurt --lean`: `invimplies` is Lean's `→` backwards (what "invimplies-def" says)
 lean invimplies ($2 → $1)
 
-;; the rules as theorems of Lean's logic (`kurt --lean`, doc/kurt-doc.md): each fact's proof in
+;; the rules as theorems of Lean's logic (`kurt --lean`, doc/kurt-ref.md): each fact's proof in
 ;; Lean, `lean "label" TACTIC` -- the export writes the rule as a `theorem` with it, which Lean
 ;; checks (never trusted by Kurt). `grind` (Lean's own, classical) proves each of them; Kurt's
 ;; theorems above too, for the export of a proof that cites one

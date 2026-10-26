@@ -14,7 +14,7 @@
 ; relies on, applied here to a quantifier ranging over sets rather than over numbers.
 load set
 
-; the checker sort for individuals, distinct from (unsorted) sets -- see doc/kurt-doc.md §5.2 on
+; the checker sort for individuals, distinct from (unsorted) sets -- see doc/kurt-ref.md §5.2 on
 ; "a checker sort versus an object-level carrier": `sort obj` constrains where `x`/`y` below may
 ; occur, but is not itself a term; `Obj` (declared next) is the object-level set that bridges to
 ; it, by the explicit convention that its elements are exactly the objects declared `obj`.

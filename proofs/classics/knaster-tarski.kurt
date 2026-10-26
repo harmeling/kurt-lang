@@ -7,7 +7,7 @@
 load set
 
 const A, f
-set f           ; a mapping is a set (a fact gives no sort, doc/kurt-doc.md §5.3)
+set f           ; a mapping is a set (a fact gives no sort, doc/kurt-ref.md §5.3)
 use f ∈ (Pow(A) → Pow(A))                                              "f-mapping"
 use ∀ S ∈ Pow(A) ∀ T ∈ Pow(A) (S ⊂ T  ⇒  f S ⊂ f T)                    "f-monotone"
 

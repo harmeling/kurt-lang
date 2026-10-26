@@ -16,7 +16,7 @@ Run a lesson with:
 BASICS -- your first checked proofs
 ------------------------------------
     00-true      the only thing provable from nothing
-    01-prop      declaring symbols as booleans (propositions)
+    01-prop      declaring the statement places of symbols
     02-use       adding axioms to the theory
     03-implies   built-in implication, modus ponens ("impl-elim")
     04-and       built-in conjunction, "and-intro" (and one "and-elim" example)

@@ -37,7 +37,7 @@ class TestAllErrors(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual([(e['kind'], e['line']) for e in result.errors], [('ProofError', 6), ('ProofError', 7)])
         self.assertEqual((result.error_kind, result.error_line), ('ProofError', 6))    # the first
-        self.assertIn('can not derive `C`', result.error)
+        self.assertIn('can not derive `C`', result.error or '')
         # the lines after them are checked: `C` is admitted, so line 8 follows from it
         self.assertTrue(numbered(result.output, 8, 'by and-intro(5, 6 (todo))'), result.output)
         self.assertIn('Proof not checked: 2 errors.', result.output)
@@ -70,15 +70,15 @@ class TestAllErrors(unittest.TestCase):
         text = 'load propositional\nprop A, C\nuse A\nshow A and C\nproof\n    A\nqed\nA and C\n'
         result = check(text)
         self.assertEqual([e['line'] for e in result.errors], [4])         # at the claim
-        self.assertIn('ends at line 7 without reaching its goal', result.error)
+        self.assertIn('ends at line 7 without reaching its goal', result.error or '')
         self.assertTrue(numbered(result.output, 8, 'by 4'), result.output)
 
     def test_an_unreached_goal_is_the_claims_error(self):
         # also without all errors: at the `show` (the editors mark that line), with what is missing
         result = check('load propositional\nprop A, C\nuse A\nshow A and C\nproof\n    A\nA\n', kurt.RunConfig())
         self.assertEqual((result.error_kind, result.error_line), ('ProofError', 4))
-        self.assertIn('show A and C', result.error)
-        self.assertIn('the proof of `A and C` (line 4) ends at line 7 without reaching its goal -- can not derive `C`', result.error)
+        self.assertIn('show A and C', result.error or '')
+        self.assertIn('the proof of `A and C` (line 4) ends at line 7 without reaching its goal -- can not derive `C`', result.error or '')
         self.assertIsNotNone(result.failure)             # (why, as data: for the editors)
         # an `expect` still sees it as a `ProofError` that can't derive the goal
         expected = check('load propositional\nprop A, C\nuse A\nexpect "ProofError" "can not derive `C`"\n    show A and C\n    proof\n        A\nA\n', kurt.RunConfig())
@@ -113,7 +113,7 @@ D
         # a proof not finished, and a claim without proof: both errors, at their claims
         unfinished = check('load propositional\nprop A, C\nuse A\nshow C\nproof\n    A\n')
         self.assertEqual([e['line'] for e in unfinished.errors], [4])
-        self.assertIn("isn't finished at the end of the file", unfinished.error)
+        self.assertIn("isn't finished at the end of the file", unfinished.error or '')
         both = check('load propositional\nprop A, B, C\nuse A\nB\nshow C\n')
         self.assertEqual([e['line'] for e in both.errors], [4, 5])
         self.assertIn('Proof not checked: 2 errors.', both.output)
@@ -124,7 +124,7 @@ D
         # an `expect` whose error doesn't come stops, as without all errors
         missed = check('load propositional\nprop A, B\nuse A\nexpect "ProofError"\n    A\nB\n')
         self.assertEqual([e['line'] for e in missed.errors], [6])
-        self.assertIn('ExpectationError', missed.error)
+        self.assertIn('ExpectationError', missed.error or '')
 
     def test_an_error_in_a_loaded_file_stops(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -133,7 +133,7 @@ D
             text = 'load broken\nprop A\nA\nA\n'
             result = kurt.Session(kurt.RunConfig(all_errors=True, untrusted_paths=(tmp,))).check_text(text, name=os.path.join(tmp, 'main.kurt'))
             self.assertEqual(len(result.errors), 1)
-            self.assertIn('broken.kurt', result.error)
+            self.assertIn('broken.kurt', result.error or '')
 
     def test_strict_mode_reports_each_use(self):
         text = 'load propositional\nprop A, B\nuse A implies B\nuse A\nB\n'

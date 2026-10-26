@@ -16,7 +16,7 @@ prop p, q
 
 ; Step 2: state the goal with `show`, then think about a *strategy* before writing any
 ; proof steps. Kurt can't search for a proof for you (see §11 "known gaps" in
-; doc/kurt-doc.md: derivation is single-hop, one `impl_elim` application at a time) -- you
+; doc/kurt-ref.md: derivation is single-hop, one `impl_elim` application at a time) -- you
 ; supply the outline, kurt only checks each step is a real, valid inference.
 ;
 ; Strategy for ¬(p ∧ q) ⇒ ¬p ∨ ¬q: assume the antecedent, then case-split on `p ∨ ¬p`

@@ -44,7 +44,7 @@ class TestAliasAcrossLoad(unittest.TestCase):
         result = check({'lib.kurt': 'load equality\nconst bar, d\nalias foo bar\nuse bar = d "bd"\n',
                         'main.kurt': 'load equality\nconst foo, d\nuse foo ≠ d "fd"\nload lib\nfoo = d\n'}, 'main.kurt')
         self.assertFalse(result.ok)
-        self.assertIn('`foo` is a symbol of its own here, but an alias of `bar` in `lib.kurt`', result.error)
+        self.assertIn('`foo` is a symbol of its own here, but an alias of `bar` in `lib.kurt`', result.error or '')
 
     def test_the_same_alias_on_both_sides_is_fine(self):
         # (a theory loaded twice brings its aliases twice)
@@ -58,7 +58,7 @@ class TestLocalDeclarations(unittest.TestCase):
         # `const q local`, `use q "pq"`: the fact took `q` along, and the `local` meant nothing
         result = check({'lib.kurt': 'load propositional\nconst q local\nprop q\nuse q "pq"\n', 'main.kurt': 'load lib\nq\n'}, 'main.kurt')
         self.assertFalse(result.ok)
-        self.assertIn("symbol(s) ['q'] are declared `local` but required by an exported fact", result.error)
+        self.assertIn("symbol(s) ['q'] are declared `local` but required by an exported fact", result.error or '')
 
     def test_a_local_constant_in_a_local_fact_stays_in_the_file(self):
         result = check({'lib.kurt': 'load propositional\nconst q local\nprop q\nuse q local "pq"\nprop P\nuse P "p"\n',
@@ -71,10 +71,10 @@ class TestTermsAndStatementsAcrossLoad(unittest.TestCase):
         # `prop Nat`, then `load natural` was accepted (the other declarations before a `load` are refused)
         result = kurt.check_text('load set\nprop Nat\nload natural\n')
         self.assertFalse(result.ok)
-        self.assertIn('`Nat` is a statement here (`prop Nat`), but a term in `natural.kurt`', result.error)
+        self.assertIn('`Nat` is a statement here (`prop Nat`), but a term in `natural.kurt`', result.error or '')
         result = check({'lib.kurt': 'load propositional\nprop P\nuse P "p"\n', 'main.kurt': 'load equality\nconst P\nuse P = P\nload lib\n'}, 'main.kurt')
         self.assertFalse(result.ok)
-        self.assertIn('`P` is a term here, but a statement (`prop P`) in `lib.kurt`', result.error)
+        self.assertIn('`P` is a term here, but a statement (`prop P`) in `lib.kurt`', result.error or '')
 
 
 class TestOneFileOneName(unittest.TestCase):

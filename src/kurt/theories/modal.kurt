@@ -8,23 +8,26 @@
 ; propositional.kurt and set.kurt use some of these symbols for something else, so they can't be loaded
 ; together with modal.kurt.
 
-infix → 30 29
-infix ⇔ 20 20
-infix ∧ 50 50
-infix ∨ 40 40
-prefix ¬ 60
-prefix □ 80
-prefix ◇ 80
-prefix ⊢ 90
-infix ⊢ 10 10
+infix imp 30 29
+infix equiv 20 20
+infix wedge 50 50
+infix vee 40 40
+prefix neg 60
+prefix box 80
+prefix diamond 80
+prefix proves 90
+infix proves 10 10
 
-const →, ⇔, ∧, ∨, ¬, □, ◇, ⊢, ⊥, empty
-prop ⊢ 0
+const imp, equiv, wedge, vee, neg, box, diamond, proves, bot, empty
+prop proves 0
+; the words are the standard names, the symbols their aliases (doc/kurt-ref.md, `alias`) -- not
+; `implies`, `and`, ... of the core and propositional.kurt: these are the connectives of the formulas
+alias → imp, ⇔ equiv, ∧ wedge, ∨ vee, ¬ neg, □ box, ◇ diamond, ⊢ proves, ⊥ bot
 
 ; the formulas of modal logic -- a formula is no claim by itself, `⊢ A` is
 sort formula
-formula → 0 1 2, ⇔ 0 1 2, ∧ 0 1 2, ∨ 0 1 2
-formula ¬ 0 1, □ 0 1, ◇ 0 1, ⊥
+formula imp 0 1 2, equiv 0 1 2, wedge 0 1 2, vee 0 1 2
+formula neg 0 1, box 0 1, diamond 0 1, bot
 
 var A, B, C
 formula A, B, C
@@ -88,17 +91,17 @@ use ⊢ (A → ◇A) "T-dual"
 ; above true in this model -- so the theory has a model, and its rules are sound for reflexive
 ; frames.
 lean Obj ((Nat → Nat → Prop) → Nat → Prop)
-lean → (fun R w => $1 R w → $2 R w)
-lean ⇔ (fun R w => ($1 R w ↔ $2 R w))
-lean ∧ (fun R w => $1 R w ∧ $2 R w)
-lean ∨ (fun R w => $1 R w ∨ $2 R w)
-lean ¬ (fun R w => ¬ $1 R w)
-lean □ (fun R w => ∀ v, R w v → $1 R v)
-lean ◇ (fun R w => ∃ v, R w v ∧ $1 R v)
-lean ⊥ (fun (_ : Nat → Nat → Prop) (_ : Nat) => False)
+lean imp (fun R w => $1 R w → $2 R w)
+lean equiv (fun R w => ($1 R w ↔ $2 R w))
+lean wedge (fun R w => $1 R w ∧ $2 R w)
+lean vee (fun R w => $1 R w ∨ $2 R w)
+lean neg (fun R w => ¬ $1 R w)
+lean box (fun R w => ∀ v, R w v → $1 R v)
+lean diamond (fun R w => ∃ v, R w v ∧ $1 R v)
+lean bot (fun (_ : Nat → Nat → Prop) (_ : Nat) => False)
 lean empty (fun (_ : Nat → Nat → Prop) (_ : Nat) => True)
-lean ⊢ (∀ R : Nat → Nat → Prop, (∀ w, R w w) → ∀ w, $1 R w)
-lean ⊢ (∀ R : Nat → Nat → Prop, (∀ w, R w w) → ∀ w, $1 R w → $2 R w)
+lean proves (∀ R : Nat → Nat → Prop, (∀ w, R w w) → ∀ w, $1 R w)
+lean proves (∀ R : Nat → Nat → Prop, (∀ w, R w w) → ∀ w, $1 R w → $2 R w)
 lean "Peirce" intros; first | grind | (simp_all; done) | aesop | tauto
 lean "T" intros; first | grind | (simp_all; done) | aesop | tauto
 lean "T-dual" intros; first | grind | (simp_all; done) | aesop | tauto

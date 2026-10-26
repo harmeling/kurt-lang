@@ -14,10 +14,9 @@
 ; Indices are numbers (numbers.kurt) -- also the non-natural ones, which are junk terms; the lemmas
 ; hold for them too, so no `n ∈ Nat` is needed anywhere.
 ;
-; Each induction is over a property named by a `def` (`weakens`, `substs`, `preserves`): a goal
-; `∀ Q ∀ Γ ...` itself is read with all its outer `∀`s stripped, and the induction rule would then
-; get the property without the inner `∀ Γ ...`, too weak an induction hypothesis
-; (doc/kurt-current-limits.md §5).
+; Each induction is over a property that is itself a `∀`: the goal `∀ Q ∀ Γ ∀ T ...` gives the rule
+; "term-induction" the property `∀ Γ ∀ T ...` of Q, so the induction hypothesis holds for every
+; context (until 2026-10-23 the property had to be named by a `def`, doc/kurt-current-limits.md §5).
 load numbers, logic
 load analysis          ; for "sub-add-cancel": (n - 1) + 1 = n
 
@@ -96,8 +95,6 @@ proof
             case n < 0
                 n < c
                 n < c + 1
-                get (ins c A Γ) n = get Γ n                             ; get-ins-below
-                get (ins 0 B Γ) n = get Γ n                             ; get-ins-below
                 get (ins 0 B (ins c A Γ)) n = get (ins c A Γ) n         ; get-ins-below
                                             = get Γ n
                 get (ins (c + 1) A (ins 0 B Γ)) n = get (ins 0 B Γ) n   ; get-ins-below
@@ -118,7 +115,6 @@ proof
                     (n - 1) + 1 = n                                     ; sub-add-cancel
                     n < c + 1
                     get (ins c A Γ) (n - 1) = get Γ (n - 1)             ; get-ins-below
-                    get (ins 0 B Γ) n = get Γ (n - 1)                   ; get-ins-above
                     get (ins (c + 1) A (ins 0 B Γ)) n = get (ins 0 B Γ) n   ; get-ins-below
                                                       = get Γ (n - 1)
                     get (ins 0 B (ins c A Γ)) n = get Γ (n - 1)
@@ -138,7 +134,6 @@ proof
                     n > c + 1
                     n - 1 > 0
                     get (ins c A Γ) (n - 1) = get Γ ((n - 1) - 1)       ; get-ins-above
-                    get (ins 0 B Γ) (n - 1) = get Γ ((n - 1) - 1)       ; get-ins-above
                     get (ins (c + 1) A (ins 0 B Γ)) n = get (ins 0 B Γ) (n - 1)   ; get-ins-above
                                                       = get Γ ((n - 1) - 1)
                     get (ins 0 B (ins c A Γ)) n = get Γ ((n - 1) - 1)
@@ -162,11 +157,8 @@ proof
 qed
 
 ; weakening: shifting the indices from c on types a term in the context with a type D inserted at c
-prop weakens
-arity weakens 1
-def weakens(M)  ⇔  ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ M T  ⇒  has (ins c D Γ) (shift c M) T)   "weakens"
 
-show ∀ Q weakens(Q)   "weakening"
+show ∀ Q ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ Q T  ⇒  has (ins c D Γ) (shift c Q) T)   "weakening"
 proof
     ; a variable: below c it stays, from c on it moves up by one
     let n
@@ -203,14 +195,9 @@ proof
                     c <= n
                     has (ins c D Γ) (shift c (ix n)) T
                 has (ins c D Γ) (shift c (ix n)) T
-    ∀ n (∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ (ix n) T  ⇒  has (ins c D Γ) (shift c (ix n)) T))
-    let n
-        weakens(ix n)
-    ∀ n weakens(ix n)
     ; an abstraction: its body is weakened at c + 1, in the context extended by its type
     let A, N
-        assume weakens(N)
-            ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T)
+        assume ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T)
             let Γ, T, c, D
                 assume c >= 0 ∧ has Γ (lam A N) T
                     ∃ B (T = arr A B ∧ has (ins 0 A Γ) N B)            ; has-lam
@@ -227,11 +214,9 @@ proof
                         has (ins c D Γ) (shift c (lam A N)) T
                     has (ins c D Γ) (shift c (lam A N)) T
             ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ (lam A N) T  ⇒  has (ins c D Γ) (shift c (lam A N)) T)
-            weakens(lam A N)
-    ∀ A ∀ N (weakens(N)  ⇒  weakens(lam A N))
     ; an application: both parts are weakened
     let F, N
-        assume weakens(F) ∧ weakens(N)
+        assume (∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ F T  ⇒  has (ins c D Γ) (shift c F) T)) ∧ (∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T))
             ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ F T  ⇒  has (ins c D Γ) (shift c F) T)
             ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T)
             let Γ, T, c, D
@@ -249,8 +234,6 @@ proof
                         has (ins c D Γ) (shift c (app F N)) T
                     has (ins c D Γ) (shift c (app F N)) T
             ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ (app F N) T  ⇒  has (ins c D Γ) (shift c (app F N)) T)
-            weakens(app F N)
-    ∀ F ∀ N (weakens(F) ∧ weakens(N)  ⇒  weakens(app F N))
     ; unit
     let Γ, T, c, D
         assume c >= 0 ∧ has Γ unit T
@@ -259,15 +242,13 @@ proof
             shift c unit = unit                                        ; shift-unit
             has (ins c D Γ) (shift c unit) T
     ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ unit T  ⇒  has (ins c D Γ) (shift c unit) T)
-    weakens(unit)
-    ∀ Q weakens(Q)                                                     ; term-induction
+    ∀ Q ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ Q T  ⇒  has (ins c D Γ) (shift c Q) T)   ; term-induction
 qed
 
 ; weakening at 0, for a term under one more abstraction
 show has Γ N D  ⇒  has (ins 0 A Γ) (shift 0 N) D                       "weakening-0"
 proof
-    ∀ Q weakens(Q)                                                     ; weakening
-    weakens(N)
+    ∀ Q ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ Q T  ⇒  has (ins c D Γ) (shift c Q) T)   ; weakening
     ∀ Γ ∀ T ∀ c ∀ D (c >= 0 ∧ has Γ N T  ⇒  has (ins c D Γ) (shift c N) T)
     assume has Γ N D
         calc on
@@ -278,11 +259,8 @@ proof
 qed
 
 ; the substitution lemma: substituting a term of type D for the index c of type D keeps the type
-prop substs
-arity substs 1
-def substs(M)  ⇔  ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) M T ∧ has Γ N D  ⇒  has Γ (subst c N M) T)   "substs"
 
-show ∀ Q substs(Q)   "substitution"
+show ∀ Q ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) Q T ∧ has Γ N D  ⇒  has Γ (subst c N Q) T)   "substitution"
 proof
     ; a variable: below c it stays, c itself becomes N, above c it moves down by one
     let n
@@ -312,12 +290,9 @@ proof
                     has Γ (subst c N (ix n)) T
                 has Γ (subst c N (ix n)) T
         ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) (ix n) T ∧ has Γ N D  ⇒  has Γ (subst c N (ix n)) T)
-        substs(ix n)
-    ∀ n substs(ix n)
     ; an abstraction: substitute the shifted N for c + 1 in the body
     let A, P
-        assume substs(P)
-            ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) P T ∧ has Γ N D  ⇒  has Γ (subst c N P) T)
+        assume ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) P T ∧ has Γ N D  ⇒  has Γ (subst c N P) T)
             let Γ, T, c, D, N
                 assume c >= 0 ∧ has (ins c D Γ) (lam A P) T ∧ has Γ N D
                     ∃ B (T = arr A B ∧ has (ins 0 A (ins c D Γ)) P B)  ; has-lam
@@ -335,11 +310,9 @@ proof
                         has Γ (subst c N (lam A P)) T
                     has Γ (subst c N (lam A P)) T
             ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) (lam A P) T ∧ has Γ N D  ⇒  has Γ (subst c N (lam A P)) T)
-            substs(lam A P)
-    ∀ A ∀ P (substs(P)  ⇒  substs(lam A P))
     ; an application: substitute in both parts
     let F, P
-        assume substs(F) ∧ substs(P)
+        assume (∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) F T ∧ has Γ N D  ⇒  has Γ (subst c N F) T)) ∧ (∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) P T ∧ has Γ N D  ⇒  has Γ (subst c N P) T))
             ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) F T ∧ has Γ N D  ⇒  has Γ (subst c N F) T)
             ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) P T ∧ has Γ N D  ⇒  has Γ (subst c N P) T)
             let Γ, T, c, D, N
@@ -357,8 +330,6 @@ proof
                         has Γ (subst c N (app F P)) T
                     has Γ (subst c N (app F P)) T
             ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) (app F P) T ∧ has Γ N D  ⇒  has Γ (subst c N (app F P)) T)
-            substs(app F P)
-    ∀ F ∀ P (substs(F) ∧ substs(P)  ⇒  substs(app F P))
     ; unit
     let Γ, T, c, D, N
         assume c >= 0 ∧ has (ins c D Γ) unit T ∧ has Γ N D
@@ -367,15 +338,13 @@ proof
             subst c N unit = unit                                      ; subst-unit
             has Γ (subst c N unit) T
     ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) unit T ∧ has Γ N D  ⇒  has Γ (subst c N unit) T)
-    substs(unit)
-    ∀ Q substs(Q)                                                      ; term-induction
+    ∀ Q ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) Q T ∧ has Γ N D  ⇒  has Γ (subst c N Q) T)   ; term-induction
 qed
 
 ; substitution for the index 0, as a beta step does it
 show has (ins 0 A Γ) M T ∧ has Γ N A  ⇒  has Γ (subst 0 N M) T          "substitution-0"
 proof
-    ∀ Q substs(Q)                                                      ; substitution
-    substs(M)
+    ∀ Q ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) Q T ∧ has Γ N D  ⇒  has Γ (subst c N Q) T)   ; substitution
     ∀ Γ ∀ T ∀ c ∀ D ∀ N (c >= 0 ∧ has (ins c D Γ) M T ∧ has Γ N D  ⇒  has Γ (subst c N M) T)
     assume has (ins 0 A Γ) M T ∧ has Γ N A
         calc on
@@ -386,11 +355,8 @@ proof
 qed
 
 ; preservation: a step keeps the type
-prop preserves
-arity preserves 1
-def preserves(M)  ⇔  ∀ Γ ∀ T ∀ N (has Γ M T ∧ M ⇝ N  ⇒  has Γ N T)   "preserves"
 
-show ∀ Q preserves(Q)   "preservation"
+show ∀ Q ∀ Γ ∀ T ∀ N (has Γ Q T ∧ Q ⇝ N  ⇒  has Γ N T)   "preservation"
 proof
     ; variables, abstractions and unit don't step
     let n
@@ -400,28 +366,23 @@ proof
                 false
                 has Γ N T
         ∀ Γ ∀ T ∀ N (has Γ (ix n) T ∧ ix n ⇝ N  ⇒  has Γ N T)
-        preserves(ix n)
-    ∀ n preserves(ix n)
     let A, P
-        assume preserves(P)
+        assume ∀ Γ ∀ T ∀ N (has Γ P T ∧ P ⇝ N  ⇒  has Γ N T)
             let Γ, T, N
                 assume has Γ (lam A P) T ∧ lam A P ⇝ N
                     ¬(lam A P ⇝ N)                                     ; step-lam
                     false
                     has Γ N T
             ∀ Γ ∀ T ∀ N (has Γ (lam A P) T ∧ lam A P ⇝ N  ⇒  has Γ N T)
-            preserves(lam A P)
-    ∀ A ∀ P (preserves(P)  ⇒  preserves(lam A P))
     let Γ, T, N
         assume has Γ unit T ∧ unit ⇝ N
             ¬(unit ⇝ N)                                                ; step-unit
             false
             has Γ N T
     ∀ Γ ∀ T ∀ N (has Γ unit T ∧ unit ⇝ N  ⇒  has Γ N T)
-    preserves(unit)
     ; an application: the function steps, the argument steps, or it is a beta step
     let F, P
-        assume preserves(F) ∧ preserves(P)
+        assume (∀ Γ ∀ T ∀ N (has Γ F T ∧ F ⇝ N  ⇒  has Γ N T)) ∧ (∀ Γ ∀ T ∀ N (has Γ P T ∧ P ⇝ N  ⇒  has Γ N T))
             ∀ Γ ∀ T ∀ N (has Γ F T ∧ F ⇝ N  ⇒  has Γ N T)
             ∀ Γ ∀ T ∀ N (has Γ P T ∧ P ⇝ N  ⇒  has Γ N T)
             let Γ, T, N
@@ -467,7 +428,5 @@ proof
                         has Γ N T
                     has Γ N T
             ∀ Γ ∀ T ∀ N (has Γ (app F P) T ∧ app F P ⇝ N  ⇒  has Γ N T)
-            preserves(app F P)
-    ∀ F ∀ P (preserves(F) ∧ preserves(P)  ⇒  preserves(app F P))
-    ∀ Q preserves(Q)                                                   ; term-induction
+    ∀ Q ∀ Γ ∀ T ∀ N (has Γ Q T ∧ Q ⇝ N  ⇒  has Γ N T)   ; term-induction
 qed

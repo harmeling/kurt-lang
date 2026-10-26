@@ -10,7 +10,7 @@ assignments of its free `$`-variables, and all tables for its schema variables (
 independent evaluator: it reads only the expression trees and never calls the search or
 `kernel_verify`, so a rule that is wrong in the same way in both would still fail here.
 
-The reading of a schema variable (doc/kurt-doc.md §4.4, "A schema variable in the body of a
+The reading of a schema variable (doc/kurt-ref.md §4.4, "A schema variable in the body of a
 binder"): `%A` stands for a formula, in a model a table over the variables it may depend on.
 Those are the hole of every `sub $x _ %A` applied to it (`sub $x $a %A` is `%A` at `$a`), and
 the variable of every binder in whose scope `%A` occurs directly -- but not a binder's variable
@@ -41,8 +41,10 @@ import io
 import itertools
 import os
 import unittest
+from typing import Iterable
 
 import kurt.kurt as kurt
+from tests.utils import as_list, as_token
 
 
 class Undefined(Exception):
@@ -288,14 +290,14 @@ UNIVERSE_21 = transitive_closure(V3 | powerset(PAIRS_V2))
 class SetModel:
     """Hereditarily finite sets: membership, pairs, products, power sets and mappings computed."""
 
-    def __init__(self, universe):
-        def rank(s):
+    def __init__(self, universe: Iterable[frozenset]):
+        def rank(s: frozenset) -> int:
             return max((rank(t) for t in s), default=-1) + 1
         self.domain = tuple(sorted(universe, key=lambda s: (rank(s), len(s), sorted(map(repr, s)))))
         self.name = f'{len(self.domain)} sets'
 
     def constant(self, token):
-        if token.value == '∅':
+        if token.value == 'emptyset':
             return EMPTY
         raise Unsupported(f'constant `{token.value}`')
 
@@ -312,11 +314,11 @@ class SetModel:
             return frozenset(x if isinstance(x, tuple) else {x})
         if op == 'in':
             return values[0] in values[1]
-        if op == '∪':
+        if op == 'union':
             return values[0] | values[1]
-        if op == '∩':
+        if op == 'intersect':
             return values[0] & values[1]
-        if op == '⊂':
+        if op == 'subset':
             return values[0] <= values[1]
         if op == 'Pow':
             return powerset(values[0])
@@ -324,9 +326,9 @@ class SetModel:
             return unpair(values[0])[0]
         if op == 'snd':
             return unpair(values[0])[1]
-        if op == '×':
+        if op == 'cross':
             return frozenset(pair(a, b) for a in values[0] for b in values[1])
-        if op == '→':
+        if op == 'to':
             a_list, b_list = list(values[0]), list(values[1])
             return frozenset(frozenset(pair(a, b) for a, b in zip(a_list, image))
                              for image in itertools.product(b_list, repeat=len(a_list)))
@@ -507,32 +509,39 @@ class TestFirstOrderSemantics(unittest.TestCase):
         by_label = {f.label: f for f in statements}
         # `(∃ $x %A) ⇒ (∀ $x %A)`
         f = by_label['existsunique-exists']
-        exists = f.expr[2]
+        parts = as_list(f.expr)
+        exists = as_list(parts[2])
         wrong = self.wrong_rule(f, kb, 'exists-implies-forall',
-                                [f.expr[0], exists, [exists[0].clone('forall'), *exists[1:]]])
+                                [parts[0], exists, [as_token(exists[0]).clone('forall'), *exists[1:]]])
         with self.assertRaisesRegex(AssertionError, 'exists-implies-forall.*2 elements'):
             check_statement(wrong, self.PURE_MODELS, kb)
         # the converse of "forall-elim", `(sub $x $a %A) ⇒ (∀ $x %A)`: a substitution in a wrong place
         f = by_label['forall-elim']
-        wrong = self.wrong_rule(f, kb, 'forall-intro-from-instance', [f.expr[0], f.expr[2], f.expr[1]])
+        parts = as_list(f.expr)
+        wrong = self.wrong_rule(f, kb, 'forall-intro-from-instance', [parts[0], parts[2], parts[1]])
         with self.assertRaisesRegex(AssertionError, 'forall-intro-from-instance'):
             check_statement(wrong, self.PURE_MODELS, kb)
         # "existsunique-unique" without the uniqueness: `(∃ $x %A) ∧ (sub $x $a %A) ∧ (sub $x $b %A) ⇒ $a = $b`
         f = by_label['existsunique-unique']
-        premise = f.expr[1]
-        weak = [premise[0], [premise[1][0].clone('exists'), *premise[1][1:]], *premise[2:]]
-        wrong = self.wrong_rule(f, kb, 'exists-unique', [f.expr[0], weak, f.expr[2]])
+        parts = as_list(f.expr)
+        premise = as_list(parts[1])
+        quantified = as_list(premise[1])
+        weak = [premise[0], [as_token(quantified[0]).clone('exists'), *quantified[1:]], *premise[2:]]
+        wrong = self.wrong_rule(f, kb, 'exists-unique', [parts[0], weak, parts[2]])
         with self.assertRaisesRegex(AssertionError, 'exists-unique'):
             check_statement(wrong, self.PURE_MODELS, kb)
         # and in the set universes: `$c ∈ $a ∪ $b ≡ $c ∈ $a ∧ $c ∈ $b`
         kb, statements = load_theory('set')
         f = next(f for f in statements if f.label == 'union')
-        wrong = self.wrong_rule(f, kb, 'union-as-and', [f.expr[0], f.expr[1], [f.expr[2][0].clone('and'), *f.expr[2][1:]]])
+        parts = as_list(f.expr)
+        right = as_list(parts[2])
+        wrong = self.wrong_rule(f, kb, 'union-as-and', [parts[0], parts[1], [as_token(right[0]).clone('and'), *right[1:]]])
         with self.assertRaisesRegex(AssertionError, 'union-as-and'):
             check_statement(wrong, self.SET_MODELS, kb)
         # `fst ($a, $b) = $b`
         f = next(f for f in statements if f.label == 'fst')
-        wrong = self.wrong_rule(f, kb, 'fst-is-snd', [f.expr[0], f.expr[1], f.expr[1][1][1][2]])
+        parts = as_list(f.expr)
+        wrong = self.wrong_rule(f, kb, 'fst-is-snd', [parts[0], parts[1], as_list(as_list(as_list(parts[1])[1])[1])[2]])
         with self.assertRaisesRegex(AssertionError, 'fst-is-snd'):
             check_statement(wrong, self.SET_MODELS, kb)
 

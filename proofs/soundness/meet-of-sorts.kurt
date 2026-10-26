@@ -1,4 +1,4 @@
-; the meet of two sorts (dev/todo-order-sorted.md item 7): a symbol used at two sorts in one line
+; the meet of two sorts (doc/kurt-soundness.md §10.2, condition 8): a symbol used at two sorts in one line
 ; (its first sorted use; that is final) gets the greatest sort that fits both -- one of them if it fits the other, else their one greatest common
 ; subsort (`sort_meet`); without one, or with two, it is a type error
 load equality

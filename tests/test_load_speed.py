@@ -44,6 +44,7 @@ class TestSharedFormulas(unittest.TestCase):
             (cached_bundle, _, _), = [v for k, v in session._state._checked_exports.items() if k[0].endswith('propositional.kurt')]
             self.assertTrue(session.check_file(os.path.join(tmp, 'two.kurt')).ok)
             kb = session.last_kb
+            assert kb is not None
             cached = {id(f) for f in cached_bundle.theory}
             shared = [f for f in kb.all_theory() if id(f) in cached]
             self.assertEqual(len(shared), len(cached_bundle.theory))      # (every exported fact of propositional.kurt, also the generated chain rules)
@@ -53,7 +54,7 @@ class TestSharedFormulas(unittest.TestCase):
     def test_the_bundle_in_the_cache_is_not_the_files(self):
         # (the file's level is discarded; the cache keeps its own lists and tables)
         bundle = internals.compute_exports(internals.core_kb.push_level('sandbox', []))
-        bundle.theory.append(None)      # type: ignore[arg-type]
+        bundle.theory.append(internals.Formula(internals.core_kb, internals.Token('SYMBOL', 'x'), '', '1', 'f.kurt', '', 'reason', 'use'))
         copy = internals.copy_bundle(bundle)
         copy.theory.clear()
         copy.symbols.add('x')

@@ -1,4 +1,4 @@
-; a non-boolean schema variable of an axiom may depend on a bound variable only if it is used like
+; a term schema variable of an axiom may depend on a bound variable only if it is used like
 ; that: as the whole body of a binder over the same variable, and otherwise only inside binders
 ; over it or `sub`s for it (see `find_dependent_vars`) -- like `$T` in the sum axioms below;
 ; anywhere else it stays a fixed term

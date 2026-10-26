@@ -1,5 +1,5 @@
 ; `let` fixes a term -- it is the introduction of `∀`, and binders range over terms (decided
-; 2026-10-20, doc/kurt-doc.md §5.1). A statement variable needs no `let`: in a proof it stays the
+; 2026-10-20, doc/kurt-ref.md §5.1). A statement variable needs no `let`: in a proof it stays the
 ; same statement, and an `assume` holds it fixed in its block. Before, `let %A` was accepted and
 ; closed to the schema (labelled "forall-intro", though no `∀` was made).
 load logic, equality

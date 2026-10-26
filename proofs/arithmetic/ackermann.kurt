@@ -1,4 +1,4 @@
-; The Ackermann function: a recursive function nobody would want to `calc` (doc/kurt-doc.md
+; The Ackermann function: a recursive function nobody would want to `calc` (doc/kurt-ref.md
 ; §11.1, "Not implemented, maybe never") -- it is not primitive recursive and its values grow
 ; far too fast to unfold automatically. Its axioms are accepted on faith, like
 ; proofs/arithmetic/factorial-recursion.kurt's "factorial-step", with no termination check from

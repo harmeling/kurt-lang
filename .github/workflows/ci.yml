@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false     # report each Python version on its own
       matrix:
-        python-version: ["3.10", "3.12", "3.13"]
+        python-version: ["3.10", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +28,39 @@ jobs:
         run: |
           python scripts/build_standalone.py
           python dist/kurt.py modus-ponens.kurt
+
+  pyright:
+    # the type check: 0 errors and 0 warnings, and no `# type: ignore` (pyproject.toml; the plan that got there: git history of dev/todo-pyright.md).
+    # The version is pinned: a newer pyright can add checks, so it is raised on purpose, fixing what it finds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install kurt (editable, with dev extras) and pyright
+        run: pip install -e .[dev] pyright==1.1.407
+
+      - name: Type check
+        run: pyright
+        env:
+          PYRIGHT_PYTHON_IGNORE_WARNINGS: "1"     # (the note that a newer pyright exists)
+
+  ruff:
+    # the checks for bugs, not for style (pyproject.toml: undefined and unused names, `== None`, a
+    # raise in an `except` without its cause); pinned like pyright, raised on purpose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lint
+        run: pip install ruff==0.17.2 && ruff check
 
   macos:
     # macOS's Python has libedit instead of GNU readline: the shell must work there too (Tab,

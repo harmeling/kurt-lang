@@ -1,4 +1,4 @@
-; the errors of sorts with subsorts, defaults and inferred sorts (todo 34, doc/kurt-doc.md §5.2)
+; the errors of sorts with subsorts, defaults and inferred sorts (todo 34, doc/kurt-ref.md §5.2)
 load propositional, equality
 
 ; subsorts: `sort set real int` is `int ⊂ real ⊂ set`, read like `chain`

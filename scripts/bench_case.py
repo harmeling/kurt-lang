@@ -10,7 +10,6 @@
 #     python3 scripts/bench_case.py --sizes 2 4 8 --runs 3
 import argparse
 import contextlib
-import io
 import re
 import subprocess
 import sys

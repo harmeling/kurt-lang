@@ -3,7 +3,7 @@ import random
 import unittest
 
 import kurt.kurt as kurt
-from tests.utils import with_quantifiers
+from tests.utils import with_quantifiers, as_list
 
 # Matching a formula `G` against the pattern `sub $x $a %A` means finding `$a` and `%A` with
 # `G == %A[$x := $a]` (up to flattening/sorting and alpha-equivalence) -- second-order matching,
@@ -105,34 +105,35 @@ class Generator:
         return self.term(2, [], holes=False)
 
 
+def check_sound(test: unittest.TestCase, G, pattern_parts, sols, kb):
+    # every solution must give `G` back
+    x, p_a, p_A = pattern_parts
+    for s in sols:
+        a = value(p_a, s, kb)
+        A = value(p_A, s, kb)
+        if unbound(a, kb):
+            a = kurt.Token('SYMBOL', 'zzz')     # unconstrained: `A` must not mention `$x`
+        test.assertTrue(kurt.equal_expr(substitute(A, x, a, kb), G, kb),
+                        f'unsound: {show(G, kb)} is not {show(A, kb)} with {x} := {show(a, kb)}')
+
+
 class TestSubMatchingRoundTrip(unittest.TestCase):
     TRIALS = 60
 
     def setUp(self):
         self.kb = make_kb()
 
-    def check_sound(self, G, pattern_parts, sols, kb):
-        # every solution must give `G` back
-        x, p_a, p_A = pattern_parts
-        for s in sols:
-            a = value(p_a, s, kb)
-            A = value(p_A, s, kb)
-            if unbound(a, kb):
-                a = kurt.Token('SYMBOL', 'zzz')     # unconstrained: `A` must not mention `$x`
-            self.assertTrue(kurt.equal_expr(substitute(A, x, a, kb), G, kb),
-                            f'unsound: {show(G, kb)} is not {show(A, kb)} with {x} := {show(a, kb)}')
-
     def test_round_trip(self):
         kb = self.kb
         gen = Generator(seed=1)
-        pattern = parse('sub $x $a %A', kb)
+        pattern = as_list(parse('sub $x $a %A', kb))
         for trial in range(self.TRIALS):
             A = parse(gen.formula(3, []), kb)
             a = parse(gen.value(), kb)
             G = goal(A, '$x', a, kb)
             with self.subTest(trial=trial, G=show(G, kb), A=show(A, kb), a=show(a, kb)):
                 sols = solutions(G, pattern, kb)
-                self.check_sound(G, ('$x', pattern[2], pattern[3]), sols, kb)
+                check_sound(self, G, ('$x', pattern[2], pattern[3]), sols, kb)
                 if kurt.contains_symbol(A, '$x'):
                     found = [s for s in sols if kurt.equal_expr(value(pattern[2], s, kb), a, kb)]
                     self.assertTrue(len(found) > 0, f'no solution with $a = {show(a, kb)}')
@@ -141,7 +142,7 @@ class TestSubMatchingRoundTrip(unittest.TestCase):
         # `$a` already bound, e.g. by the equation in "equal-elim"
         kb = self.kb
         gen = Generator(seed=2)
-        pattern = parse('sub $x $a %A', kb)
+        pattern = as_list(parse('sub $x $a %A', kb))
         for trial in range(self.TRIALS):
             A = parse(gen.formula(3, []), kb)
             a = parse(gen.value(), kb)
@@ -149,14 +150,14 @@ class TestSubMatchingRoundTrip(unittest.TestCase):
             with self.subTest(trial=trial, G=show(G, kb), a=show(a, kb)):
                 s0 = kurt.State.empty().bind('$a', a)
                 sols = solutions(G, pattern, kb, s0)
-                self.check_sound(G, ('$x', pattern[2], pattern[3]), sols, kb)
+                check_sound(self, G, ('$x', pattern[2], pattern[3]), sols, kb)
                 self.assertTrue(len(sols) > 0, 'no solution')
 
     def test_round_trip_with_known_body(self):
         # `%A` already bound, e.g. by the conclusion of "forall-elim"
         kb = self.kb
         gen = Generator(seed=3)
-        pattern = parse('sub $x $a %A', kb)
+        pattern = as_list(parse('sub $x $a %A', kb))
         for trial in range(self.TRIALS):
             A = parse(gen.formula(3, []), kb)
             a = parse(gen.value(), kb)
@@ -164,7 +165,7 @@ class TestSubMatchingRoundTrip(unittest.TestCase):
             with self.subTest(trial=trial, G=show(G, kb), A=show(A, kb), a=show(a, kb)):
                 s0 = kurt.State.empty().bind('%A', A)
                 sols = solutions(G, pattern, kb, s0)
-                self.check_sound(G, ('$x', pattern[2], pattern[3]), sols, kb)
+                check_sound(self, G, ('$x', pattern[2], pattern[3]), sols, kb)
                 self.assertTrue(len(sols) > 0, 'no solution')
                 if kurt.contains_symbol(A, '$x'):
                     self.assertTrue(any(kurt.equal_expr(value(pattern[2], s, kb), a, kb) for s in sols),
@@ -195,14 +196,14 @@ class TestSubMatchingCases(unittest.TestCase):
         kb = make_kb()
         for G_text, pattern_text, expected in self.CASES:
             G = parse(G_text, kb)
-            pattern = parse(pattern_text, kb)
+            pattern = as_list(parse(pattern_text, kb))
             with self.subTest(G=G_text, pattern=pattern_text):
                 got = set()
                 for s in solutions(G, pattern, kb):
                     a = value(pattern[2], s, kb)
                     A = value(pattern[3], s, kb)
                     got.add(('None' if unbound(a, kb) else show(a, kb), show(A, kb)))
-                    TestSubMatchingRoundTrip.check_sound(self, G, ('$x', pattern[2], pattern[3]), [s], kb)
+                    check_sound(self, G, ('$x', pattern[2], pattern[3]), [s], kb)
                 expected_norm = {(a if a == 'None' else show(parse(a, kb), kb), show(parse(A, kb), kb)) for a, A in expected}
                 # every expected solution must be there, and every solution must be sound
                 self.assertTrue(expected_norm <= got, f'missing {expected_norm - got}, got {got}')

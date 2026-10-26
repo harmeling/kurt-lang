@@ -1,4 +1,4 @@
-# A lake project for checking `kurt --lean` exports with Mathlib (doc/kurt-doc.md, `--lean`).
+# A lake project for checking `kurt --lean` exports with Mathlib (doc/kurt-ref.md, `--lean`).
 # Not part of the package: Kurt itself, `pip install kurt-lang` and the playground never need
 # Lean or Mathlib. Set up once (Mathlib's prebuilt oleans, about 5-6 GB, into .lake/, git-ignored):
 #   cd scripts/lean && lake exe cache get

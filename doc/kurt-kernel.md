@@ -110,10 +110,10 @@ flowchart TD
 5. **The eigen condition.** A premise `∀ y P y` must hold for *every* `y`: its name is fresh (one
    that only the search makes, `$$07`, named once, not fixed by a block, in neither the goal nor a
    cited fact -- not a constant `c`, which would make "for all" out of "for `c`"), it gets no
-   value, and no non-boolean variable of the rule may depend on it. This is the condition whose
+   value, and no term variable of the rule may depend on it. This is the condition whose
    absence was the worst bug ever found (`doc/kurt-soundness.md` §0).
 6. **Filling in.** The values are put in *without renaming* (`k_instantiate`): a value may contain
-   a variable bound at its place only where that is meant -- a boolean `%A` may, a term `$T` only
+   a variable bound at its place only where that is meant -- a statement variable `%A` may, a term `$T` only
    its own bound variable (`k_dependencies`). Then each `sub $x $a T` is evaluated by the kernel's
    own capture-avoiding substitution (`k_replace`).
 7. **The conclusion is the goal**, up to renaming bound variables (`k_equal`).
@@ -228,7 +228,7 @@ use P(c)
 ```
 
 The conclusion `exists $x (P $x)` is the goal up to the name of the bound variable. The premise
-`sub $x c (P $x)` is evaluated by the kernel to `P c`, the fact of line 3. The boolean `%A` may
+`sub $x c (P $x)` is evaluated by the kernel to `P c`, the fact of line 3. The statement variable `%A` may
 contain the bound `$x`; a term variable `$T` couldn't (§3, step 6).
 
 ## 4. The other kinds of steps
@@ -264,6 +264,12 @@ line 6: x = 5
 `top` is accepted only for the goal `true`. `calc` only if the comparison of numbers holds after
 computing (`numeric_comparison_holds`); `calc-fact` only if a known fact computes to the same term
 as the goal.
+
+With complex.kurt (`builtin i imaginary`) the computation includes exact complex numbers: an expression of numbers,
+`i` and the operations of the calculator has a value `re + im * i` with rational parts (`gaussian_value`), which `calculate`
+writes in one form (`gaussian_expr`: `5 + 5 * i`, `i * i` is `-1`), and `numeric_comparison_holds` compares them for `=` and
+`≠`. It is the same code in the search and the kernel (like the rest of the normalization, §7), and every operation of it
+is exact arithmetic on fractions; a power only with an exponent from 0 to 64, a division only by a non-zero number.
 
 ### 4.2 `case`: n alternatives
 
@@ -483,7 +489,9 @@ A model `M` has:
 - for each constant an object of its sort's set;
 - for each operator a total function. Its result lies in the set of its result sort, *for every
   argument*: a value outside the intended domain gives some object of the result sort, never
-  "undefined".
+  "undefined". An overloaded operator (8.5) is one such function with several result sorts: for
+  its greatest signature this holds for every argument, for a smaller one when the arguments lie
+  in that sort.
 - `prop` operators are relations, `=` is identity, and the calculator's operations are the real
   ones on `D_num ⊇ ℝ`.
 
@@ -499,7 +507,8 @@ Two lemmas carry most of the weight:
   assignment.
   - A variable or constant of sort `T ⊆ S` denotes an object of `D_T ⊆ D_S`.
   - An application denotes an object of its result sort, by the totality above. That is why the
-    kernel needn't check the arguments.
+    kernel needn't check the arguments. (For an overloaded operator the result sort is the least
+    sort of the application, 8.5.)
   - A number denotes an object of `D_num`.
   - Without a sort, only `S = any` holds.
 - **Substitution.** `φ[x := t]` under `ρ` is `φ` under `ρ[x ↦ value of t]`, provided that the
@@ -558,7 +567,9 @@ the same each time it is read (soundness §8.43, §8.45):
   its first use, and a sort declaration after a symbol occurs in a fact is refused
   (`add_sort_signature`, `occurs_in_theory`; before 2026-10-19 only an implicitly declared symbol
   counted, so a late `real P 1` for a `const P` was accepted). A stored formula over it reads the
-  same later (`proofs/soundness/stable-reading.kurt`).
+  same later (`proofs/soundness/stable-reading.kurt`). The one exception is an overload above all
+  the signatures the symbol has (`complex +` after `real +`): the terms of the stored facts keep
+  their least sorts (8.5).
 - **A constant's sort is final after its first sorted use.** Before it, the constant is any object;
   the first sorted use gives it its sort, and no later line changes it (doc/kurt-soundness.md
   §8.46). A step accepted before, for every object, holds for the objects of that sort too. (A
@@ -566,7 +577,51 @@ the same each time it is read (soundness §8.43, §8.45):
 - **"No sort" has one meaning, `any`**, for a binder, a variable, a block's constant and a
   constant (§8.43, §8.45).
 
-### 8.5 What this argument assumes
+### 8.5 Overloaded operators: the least sort
+
+An operator may have several signatures (decision 19 of dev/todo-sorts.md, stage 1): `real + 0 1 2`
+and `complex + 0 1 2` with `real ⊂ complex`. In the model it is still *one* total function `f` on
+`D`; a signature `s` is the claim that `f` maps arguments of `D_s` (at the places of the signature)
+into `D_s`, so `D_real` is closed under `+` in a model of `complex.kurt`. A model that violates
+a claim is not a model of the theory, as with a `use`.
+
+What is checked when a signature is added (`add_sort_signature`, `overload_problem`; across a `load`
+`validate_against_loader`, on the union of both sides):
+
+- **One chain, the same places.** The signatures of a symbol on overlapping places have the same
+  places and sorts that fit each other (`s ⊆ s'` or `s' ⊆ s`). In stage 1 a signature is all places of
+  one sort, so the signatures of an operator are totally ordered by `⊂`.
+- **Only a theory of Kurt adds one to a symbol it didn't declare** (`check_not_frozen`).
+- **After the symbol occurs in a fact, only above all the signatures it has.**
+
+The sort of an application `f(t_1 … t_n)` is the *least sort*, computed from the syntax: the smallest
+signature `s` such that each `t_i` at a sorted place has a sort that fits `s` (`overload_result_sort`;
+in the kernel `k_overload_result`); if none fits, the greatest signature.
+
+- **Regularity** (a least sort exists): the applicable signatures are an up-set of a chain, so they
+  have a minimum.
+- **Monotonicity** (smaller arguments, no larger result): the signatures are monotone by their
+  definition, `s` is both the domain and the result of its places.
+- **The sort of a value (8.1).** If every argument lies in the carrier of its sort, and `s` is the
+  least sort, every argument lies in `D_s` (it fits `s`), so `f` gives an object of `D_s`: the
+  signature claim. For the greatest signature, with no argument information (the fallback), the result
+  is in its carrier for every argument by the totality above, so the claim is true and weaker.
+- **Substitution** (8.1) stays valid: a variable of sort `T` takes values that fit `T`; replacing a
+  subterm by one of a smaller sort makes the least sort of the application the same or smaller, so a
+  position that fitted the old term fits the new. A fact with schematic variables of a sort `real`
+  gets no instance with a complex value: the kernel's check that each value fits its variable's
+  sort (3.1) compares the least sort of the value, which for `z + 1` is `complex` and doesn't fit
+  (`proofs/soundness/overload-complex.kurt`).
+- **Stability** (8.4): adding a signature above all the old ones doesn't change the least sort of
+  a term that was well-sorted before (its arguments fit the old signature already, which is the
+  smaller), so a stored fact is read as it was. A signature below an old one is added before the
+  symbol occurs in a fact only.
+
+The kernel reads the signatures with `pos_sorts` (the sorts at a place) and recomputes the least
+sort of an application; the search computes it with its own copy of the rule. A disagreement is a
+kernel error.
+
+### 8.6 What this argument assumes
 
 - **The models exist.** Each sort is non-empty, the declared `flat`/`sym` hold, the theories'
   axioms hold, and the operators can be extended totally into their result sorts. The theories of

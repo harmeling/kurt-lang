@@ -1,4 +1,4 @@
-; A binder with a condition binds the first symbol of the condition *as written* (doc/kurt-doc.md
+; A binder with a condition binds the first symbol of the condition *as written* (doc/kurt-ref.md
 ; §4.4): `x` in `∀ x > y (P x)`. An `inline` operator in the condition (`>`, `>=`, `⊃`) is rewritten
 ; while the line is read (`x > y` is `y < x`); before 2026-10-20 the bound variable was chosen after
 ; that rewrite, so `∀ x >= y (P x)` with a new `y` bound `y` and made `x` a constant -- silently a

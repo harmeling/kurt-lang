@@ -3,7 +3,7 @@
 1. Write the proof as a `.kurt`-file and store it inside `proofs/`.
 2. That's it — the test suite checks that `kurt` runs the file to completion without raising.
 3. If the file's point is an error, wrap the line (or the block) that raises it in
-   `expect "KIND" "TEXT"` (see `doc/kurt-doc.md` §9.6): the error must be of that kind, and its
+   `expect "KIND" "TEXT"` (see `doc/kurt-ref.md` §9.6): the error must be of that kind, and its
    message must contain the text (which is optional), e.g.
 
        expect "ProofError" "can not derive `q`"

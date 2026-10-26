@@ -15,15 +15,16 @@
 ; exercises/06-groups/theory/groups-scene.kurt for the same proof done as a standalone exercise).
 ;
 ; `∘` and the inverse `ι` are *variables* here (`var ∘`, `var ι`): operators that stand for any
-; operation -- an operator is no object, so they are operator parameters, not terms (doc/kurt-doc.md
+; operation -- an operator is no object, so they are operator parameters, not terms (doc/kurt-ref.md
 ; §5.3). `∘` is an operator that stands for any operation: the rules and
 ; theorems hold for every group -- the numbers with `(+)`, `0`, `(-)` just as well as an abstract
 ; group `G` with its own `∘` (which a file loading this one can use as an operation, since only
 ; the `infix ∘` is exported, not the `var`). See tutorial/24-use-a-structure-groups.kurt.
 load propositional, equality, logic, set
-var ∘
-infix ∘ 70 70
-var ι                   ; the inverse, an operator variable like `∘` (an operator is no object, doc/kurt-doc.md §5.3)
+infix compose 70 70
+alias ∘ compose         ; the word is the standard name, the symbol its alias (doc/kurt-ref.md, `alias`)
+var compose             ; (after the alias: an alias names a symbol, not a variable)
+var ι                   ; the inverse, an operator variable like `∘` (an operator is no object, doc/kurt-ref.md §5.3)
 arity ι 1           ; like `*`: `a ∘ b ∈ G` is `(a ∘ b) ∈ G`
 arity group (_, _, _, _)
 arity closed (_, _)

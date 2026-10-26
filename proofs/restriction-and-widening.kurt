@@ -1,4 +1,4 @@
-; restriction and widening of a quantifier over subsorts (dev/todo-order-sorted.md item 8, todo 35):
+; restriction and widening of a quantifier over subsorts (doc/kurt-soundness.md §10.3, todo 35):
 ; no rule of their own, they are derived -- restriction `∀ x:S P ⊢ ∀ y:T P` (T ⊂ S) by `let` and
 ; "forall-elim", widening `∃ x:T P ⊢ ∃ y:S P` by `pick` and "exists-intro". The other two
 ; directions are not valid and are refused.

@@ -1,4 +1,4 @@
-; a boolean operator is a statement only applied to its arguments: on its own it is neither a
+; an operator with a statement as its result is a statement only applied to its arguments: on its own it is neither a
 ; statement nor a term, so it is a type error where a statement is required (2026-10-16, todo 32;
 ; before, `¬ P` with `arity P 2` was accepted, soundness §8.40)
 load propositional, equality, logic
@@ -26,6 +26,11 @@ use ∀ x (Q x ⇔ Q x)
 use ¬ (P a b)
 use A ⇒ Q a
 use A ∧ (a = b)
-; a statement of arity 0 stands on its own, and so does a boolean variable
+; a statement of arity 0 stands on its own, and so does a statement variable
 use ¬ A
 use %B ⇒ %B
+
+; `f(a, b)` is `f` applied to the one argument `(a, b)`, a tuple, not to two (todo 71 e)
+arity g 2
+expect "EvalError" "`g(a, b)` is `g` applied to the one argument `(a, b)`, a tuple; write `g a b`"
+    show g(a, b) = g(a, b)

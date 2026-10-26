@@ -8,7 +8,7 @@
 prop A
 prop B, C     ; a comma-separated list declares several symbols at once
 
-; Declaring a symbol boolean does not make it true, or tell Kurt anything
+; Declaring a symbol a statement does not make it true, or tell Kurt anything
 ; about when it holds -- it only says "this is the kind of thing that can be
 ; proved", so that later formulas built from it, e.g. `A implies B`, make
 ; sense to the type checker.
@@ -17,7 +17,7 @@ prop B, C     ; a comma-separated list declares several symbols at once
 true
 
 ; Try uncommenting the next line: Kurt will complain that it cannot derive
-; `A`, because we declared A a boolean symbol but never said anything else
+; `A`, because we declared A a statement but never said anything else
 ; about it.  Lesson 02 ("use") shows how to fix that.
 ;
 ;     A

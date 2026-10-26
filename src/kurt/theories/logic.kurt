@@ -8,7 +8,7 @@
 ;; syntax
 load propositional      ; syntax and rules for propositional logic
 load equality  ; `=`, for unique existence
-; the quantifiers: binders with a boolean body, and the roles the engine gives them -- `let`
+; the quantifiers: binders whose body is a statement, and the roles the engine gives them -- `let`
 ; closes with the universal ("forall-intro"), `pick` opens from the existential ("exists-elim"),
 ; and the outer `∀`s of facts are left out (their variables stand for anything); the other two
 ; rules are the axioms below. Without `load logic`, a file has no quantifiers (a deep object
@@ -16,13 +16,13 @@ load equality  ; `=`, for unique existence
 arity   forall 2, exists 2
 bindop  forall, exists          ; with a condition, `∀ x > 0 ...` binds the first symbol of the
                                 ; condition that is new or a variable (decided when it is read)
-prop    forall 0 2, exists 0 2  ; the body is boolean, and so is the whole
+prop    forall 0 2, exists 0 2  ; the body is a statement, and so is the whole
 builtin forall universal, exists existential
 alias   ∀ forall
 alias   ∃ exists
 arity  existsunique 2     ; unique existence: `existsunique x P(x)`, `∃! x P(x)`
 bindop existsunique       ; binds its variable, also with a condition: `∃! x ∈ M P(x)`
-prop   existsunique 0 2   ; the body is boolean, and so is the whole
+prop   existsunique 0 2   ; the body is a statement, and so is the whole
 alias  ∃! existsunique
 
 ;; inference rules

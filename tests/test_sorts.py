@@ -204,23 +204,24 @@ class TestSubsorts(unittest.TestCase):
         self.assertTrue(check('sort set real\nsort set real\n').ok)          # (known already)
         twice = check('sort set\nsort set\n')
         self.assertFalse(twice.ok)                                            # (one name alone: a new sort)
-        self.assertIn('already declared', twice.error)
+        self.assertIn('already declared', twice.error or '')
 
     def test_cycles_are_refused(self):
         result = check('sort set real int\nsort int set\n')
         self.assertFalse(result.ok)
-        self.assertIn('would be a cycle', result.error)
-        self.assertIn('not a subsort of itself', check('sort a a\n').error)
+        self.assertIn('would be a cycle', result.error or '')
+        self.assertIn('not a subsort of itself', check('sort a a\n').error or '')
 
     def test_a_sort_name_as_a_symbol_gets_the_hint(self):
         result = check('sort set, real\nset real\n')
         self.assertFalse(result.ok)
-        self.assertIn('a subsort is declared with `sort set real`', result.error)
+        self.assertIn('a subsort is declared with `sort set real`', result.error or '')
 
     def test_transitive_fitting(self):
         session = core.Session()
         self.assertTrue(session.check_text('sort set real int\n').ok)
         last = session.last_kb
+        assert last is not None
         self.assertTrue(last.sort_fits('int', 'set'))
         self.assertTrue(last.sort_fits('int', 'real'))
         self.assertFalse(last.sort_fits('set', 'int'))
@@ -238,7 +239,7 @@ class TestSubsorts(unittest.TestCase):
             self.assertIn('real ⊂ set', crossed.output)
             cycle = session.check_text('load sorts\nsort real set\n')
             self.assertFalse(cycle.ok)
-            self.assertIn('cycle', cycle.error)
+            self.assertIn('cycle', cycle.error or '')
 
 
 class TestFitting(unittest.TestCase):
@@ -250,7 +251,7 @@ class TestFitting(unittest.TestCase):
     def test_a_value_of_a_bigger_sort_does_not_fit(self):
         result = check(HEAD + 'sort set real\ninfix + 60 60\nreal + 0 1 2\nset s\nuse s + s = s\n')
         self.assertFalse(result.ok)
-        self.assertIn('must have sort `real`', result.error)
+        self.assertIn('must have sort `real`', result.error or '')
 
     def test_a_sorted_rule_is_strict(self):
         # a rule over the numbers doesn't apply to a set, a rule over the sets applies to a number
@@ -259,13 +260,13 @@ class TestFitting(unittest.TestCase):
         self.assertTrue(fine.ok, fine.error)
         refused = check(text + 'set c\nP c\n')
         self.assertFalse(refused.ok)
-        self.assertIn('can not derive', refused.error)
+        self.assertIn('can not derive', refused.error or '')
 
     def test_set_rules_apply_to_numbers_and_junk_is_refused(self):
         self.assertTrue(check('load natural\n3 ∈ {3}\n').ok)
         junk = check('load natural\n{1, 2} + 0 = {1, 2}\n')
         self.assertFalse(junk.ok)
-        self.assertIn('TypeError', junk.error)
+        self.assertIn('TypeError', junk.error or '')
         self.assertFalse(check('load natural\nNat + 1 ∈ Nat\n').ok)
 
 
@@ -273,8 +274,8 @@ class TestDefault(unittest.TestCase):
     def test_default_needs_a_sort(self):
         result = check('default real\n')
         self.assertFalse(result.ok)
-        self.assertIn('`real` is not a sort', result.error)
-        self.assertIn('can not be the default', check('default prop\n').error)
+        self.assertIn('`real` is not a sort', result.error or '')
+        self.assertIn('can not be the default', check('default prop\n').error or '')
 
     def test_default_gives_new_constants_variables_and_positions_their_sort(self):
         result = check(HEAD + 'sort real\ndefault real\ninfix ** 70 70\nconst c\nuse c ** $x = $x\ninfo c\ninfo **\n')
@@ -315,13 +316,13 @@ class TestInference(unittest.TestCase):
         # (the first sorted use is final, decided 2026-10-19: no narrowing)
         result = check(HEAD + NUMBERS + 'const x, A\nuse x ∈ A\nuse x + x = x\ninfo x\n')
         if not result.ok:
-            self.assertIn('declare `real x` before that use', result.error)
+            self.assertIn('declare `real x` before that use', result.error or '')
 
     def test_a_conflicting_later_use_names_both_places(self):
         result = check(HEAD + 'sort real, vec\ninfix + 60 60\ninfix · 70 70\nreal + 0 1 2\nvec · 0 1 2\n'
                        'const x\nuse x + x = x\nuse x · x = x\n')
         self.assertFalse(result.ok)
-        self.assertIn('`x` has the sort `real` (inferred at line 8), but here it is used as `vec`', result.error)
+        self.assertIn('`x` has the sort `real` (inferred at line 8), but here it is used as `vec`', result.error or '')
 
     def test_the_default_decides_at_an_element_not_at_a_set(self):
         # (the left of `∈`, the membership of the calculator, `builtin ∈ element`, is an element)
@@ -361,7 +362,7 @@ class TestCoreSorts(unittest.TestCase):
     def test_a_value_of_sort_any_fits_no_other_sort(self):
         result = check('load natural\nany x\nuse x + 0 = x\n')
         self.assertFalse(result.ok)
-        self.assertIn('must have sort `real`', result.error)
+        self.assertIn('must have sort `real`', result.error or '')
 
     def test_a_constant_without_a_sort_is_any_object_until_a_use_narrows_it(self):
         # (a fact about a sort of its own doesn't apply to it, and a use makes it a number)
@@ -382,8 +383,8 @@ class TestFirstUseFinal(unittest.TestCase):
     def test_a_later_use_at_a_smaller_sort_is_a_type_error(self):
         result = check('load natural\nconst x, A\nuse x ⊂ A\ninfo x\nuse x + 0 = x\n')
         self.assertFalse(result.ok)
-        self.assertIn('`x` has the sort `set` (inferred at line 3), but here it is used as `real`', result.error)
-        self.assertIn('declare `real x` before that use', result.error)
+        self.assertIn('`x` has the sort `set` (inferred at line 3), but here it is used as `real`', result.error or '')
+        self.assertIn('declare `real x` before that use', result.error or '')
 
     def test_a_declaration_first_makes_it_smaller(self):
         result = check('load natural\nconst A\nreal x\nuse x ⊂ A\nuse x + 0 = x\nx ⊂ A\n')
@@ -398,7 +399,7 @@ class TestFirstUseFinal(unittest.TestCase):
     def test_a_fact_gives_no_sort_the_hint_says_so(self):
         result = check('load natural\nset b\nuse b ∈ Nat\nuse b + 1 = 1 + b\n')
         self.assertFalse(result.ok)
-        self.assertIn('a fact `b ∈ Nat` gives no sort; declare `real b`', result.error)
+        self.assertIn('a fact `b ∈ Nat` gives no sort; declare `real b`', result.error or '')
 
     def test_not_a_sort_of_a_loaded_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -407,19 +408,19 @@ class TestFirstUseFinal(unittest.TestCase):
             session = kurt.Session(kurt.RunConfig(paths=(tmp,)))
             result = session.check_text('load lib\nuse g + 0 = g\n')
         self.assertFalse(result.ok)
-        self.assertIn('`g` has the sort `set` (inferred at', result.error)
-        self.assertIn('but here it is used as `real`', result.error)
+        self.assertIn('`g` has the sort `set` (inferred at', result.error or '')
+        self.assertIn('but here it is used as `real`', result.error or '')
 
     def test_not_a_declared_sort(self):
         result = check('load natural\nconst A\nset s\nuse s ⊂ A\nuse s + 0 = s\n')
         self.assertFalse(result.ok)
-        self.assertIn('must have sort `real`', result.error)
+        self.assertIn('must have sort `real`', result.error or '')
 
     def test_not_a_witness(self):
         # (`pick w` from `∃ x (x ∈ A)`: a use as a number would be a claim about `w` that the existential doesn't make)
         result = check('load natural\nconst A\nuse ∃ y (y ∈ A)\npick w with w ∈ A\n    use w + 0 = w\n')
         self.assertFalse(result.ok)
-        self.assertIn('sort', result.error)
+        self.assertIn('sort', result.error or '')
 
     def test_a_polymorphic_rule_gives_no_sort(self):
         # (logic.kurt's rules are over `$$x`: using one for a constant doesn't give the constant a sort)
@@ -444,12 +445,12 @@ class TestBlocksKeepTheirSorts(unittest.TestCase):
         with mock.patch.object(core, 'block_result_sorts', lambda block: {}):
             result = check(self.TEXT)
         self.assertFalse(result.ok)
-        self.assertIn('the result is about everything', result.error)
+        self.assertIn('the result is about everything', result.error or '')
 
     def test_a_witness_has_the_sort_of_the_bound_variable(self):
         result = check('load natural\nconst A\nuse ∃ x (x ∈ A)\npick w with w ∈ A\n    w + 0 = w\n')
         self.assertFalse(result.ok)
-        self.assertIn('must have sort `real`', result.error)
+        self.assertIn('must have sort `real`', result.error or '')
 
 
 class TestKernelSorts(unittest.TestCase):
@@ -461,6 +462,7 @@ class TestKernelSorts(unittest.TestCase):
     def test_the_kernel_reads_subsorts_itself(self):
         session = self.kb()
         kb = session.last_kb
+        assert kb is not None
         three = core.Token('INT', 3)
         self.assertTrue(core.k_has_sort(three, 'real', kb))
         self.assertTrue(core.k_has_sort(three, 'set', kb))
@@ -472,6 +474,7 @@ class TestKernelSorts(unittest.TestCase):
         # the kernel refuses such an instance by itself
         session = self.kb()
         kb = session.last_kb
+        assert kb is not None
         with session._active():
             rule = next(f for f in kb.all_theory() if f.label == 'extensionality')
             expr = rule.simplified_expr
@@ -503,6 +506,39 @@ class TestElements(unittest.TestCase):
         result = check(HEAD + NUMBERS + 'builtin ∈ element\nconst Odd\nconst x\nuse x ∈ Odd\ninfo x\n')
         self.assertTrue(result.ok, result.error)
         self.assertNotIn('real x 0', result.output)
+
+
+class TestInhabitedSorts(unittest.TestCase):
+    # all sorts are inhabited (spec §2.2): a file that declares a sort and names no object of it
+    # assumes one -- a warning at its end (todo 67, 2026-10-23)
+    def warnings(self, text):
+        import contextlib, io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            result = kurt.check_text(text, name='inhabited.kurt')
+        self.assertTrue(result.ok, result.error)
+        return [line for line in err.getvalue().splitlines() if line.startswith('Warning: the sort')]
+
+    def test_a_sort_without_a_constant_is_warned_about(self):
+        found = self.warnings('load logic, equality\nsort vec, nat\nnat zero\nvar v\nvec v\nuse ∀ v (v = v)\n')
+        self.assertEqual(len(found), 1)
+        self.assertIn('the sort `vec` (declared at inhabited.kurt:2) has no constant', found[0])
+
+    def test_a_constant_of_a_subsort_inhabits_the_sort(self):
+        self.assertEqual(self.warnings('load natural\nsort big small\nsmall s\n'), [])
+
+    def test_a_theory_of_kurt_checked_on_its_own_is_not_warned_about(self):
+        # objects.kurt declares `real`, numbers.kurt names its objects: no warning when objects.kurt
+        # itself is the file checked (it came in every run of the theories as main files)
+        import contextlib, io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            result = kurt.check_file(str(core.packaged_theory_file('objects.kurt')))
+        self.assertTrue(result.ok, result.error)
+        self.assertNotIn('Warning: the sort', err.getvalue())
+
+    def test_the_sorts_of_a_loaded_theory_are_not_the_files(self):
+        self.assertEqual(self.warnings('load natural\nconst a\nuse a = a\n'), [])
 
 
 if __name__ == '__main__':

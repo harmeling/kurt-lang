@@ -1,6 +1,6 @@
 ; `default real` makes a new constant a number at its first appearance -- unless the line says
 ; otherwise: in `A = {n ∈ Nat | n > 2}` the other side of `=` is a set, so `A` is a set (one sort
-; per use of `=`), not a number equal to a set of numbers (decided 2026-10-20; doc/kurt-doc.md §5.2).
+; per use of `=`), not a number equal to a set of numbers (decided 2026-10-20; doc/kurt-ref.md §5.2).
 ; Before, `A` became a number here, and `A + 1` was a well-formed term.
 load natural
 default real

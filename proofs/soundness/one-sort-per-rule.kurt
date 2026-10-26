@@ -1,4 +1,4 @@
-; one sort per use, rule by rule (dev/todo-order-sorted.md item 1, doc/kurt-soundness.md §8.42):
+; one sort per use, rule by rule (doc/kurt-soundness.md §10.2 condition 4, §8.42):
 ; every rule of logic.kurt with more than one polymorphic binder, used once over one sort (it
 ; works) and once over two (`x` over `any`, `n` over `real`: refused). Some of the refused uses are
 ; valid (restriction, widening) -- they take a `let` or `pick` (restriction-and-widening.kurt); the

@@ -1,4 +1,4 @@
-; well-sorted substitution (dev/todo-order-sorted.md items 2 and 10): every value put in for a
+; well-sorted substitution (doc/kurt-soundness.md §10.2, condition 2): every value put in for a
 ; variable fits its sort -- in an instance of a fact, in a rule used backwards (a premise with a
 ; sorted variable), through `=` and in a `pick`. A fact about the numbers says nothing about a set
 ; `b` -- unless `b` is equal to a number, and then it is about that number

@@ -7,7 +7,7 @@
 ; With `calc on`, `+`, `-`, `·` (`\cdot`: a number times a matrix, or a matrix times a matrix),
 ; `transpose` and `det` compute literals of numbers exactly (fractions), and `=`, `≠` compare
 ; them -- shapes that don't fit give no value. The entries are numbers; the calculator is trusted
-; code that comes with Kurt (doc/kurt-doc.md, `calc`).
+; code that comes with Kurt (doc/kurt-ref.md, `calc`).
 ;
 ; A structure with its own operators: not together with numbers.kurt (a symbol is declared by one
 ; file only). This theory computes with literals and has no laws for matrices written with
@@ -17,12 +17,13 @@ brackets [ ]
 infix + 60 60
 infix - 60 60
 prefix - 72
-infix · 70 70
+infix times 70 70
+alias · times
 infix / 70 70
 arity transpose 1, det 1
-flat +, ·
+flat +, times
 sym +
 
 builtin [ ] matrixbrackets
-builtin + add, - subtract, - negate, · multiply, / divide, transpose transpose, det determinant
+builtin + add, - subtract, - negate, times multiply, / divide, transpose transpose, det determinant
 builtin = eq

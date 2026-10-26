@@ -33,7 +33,7 @@ class TestKurtcText(unittest.TestCase):
             self.assertEqual(missing.returncode, 1)
 
     def test_the_options_hold_for_a_kurtc_too(self):
-        # `kurt --strict p.kurtc` checks p.kurt as `kurt --strict p.kurt` does (dev/astra-suggestions.md, 3)
+        # `kurt --strict p.kurtc` checks p.kurt as `kurt --strict p.kurt` does (dev/astra-suggestions.md, in git history, 3)
         env = dict(os.environ, PYTHONPATH=str(PROJECT_ROOT / 'src'))
         def run(*args):
             return subprocess.run([sys.executable, '-m', 'kurt', *args], env=env, capture_output=True, text=True)

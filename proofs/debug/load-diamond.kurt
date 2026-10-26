@@ -1,4 +1,4 @@
-; regression test for a diamond `load` dependency (dev/todo-claude.md's "check ... that
+; regression test for a diamond `load` dependency (dev/todo-claude.md's (in git history) "check ... that
 ; double-loading (`A` loads `B` loads `A`) is actually cycle-safe" -- the diamond variant of
 ; that concern): `equality.kurt` and `logic.kurt` both `load propositional.kurt`, so loading both in
 ; the same file loads `propositional` via two different paths. This must not be treated as a cycle

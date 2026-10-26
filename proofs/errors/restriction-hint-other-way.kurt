@@ -1,0 +1,20 @@
+; todo 54: a step fails because a fact says something only over the numbers and the rule needs it over every
+; object (extensionality): the message says so, `restriction_hint` for the direction that is not valid
+load set
+sort set real
+const A, B
+set A, B
+real n
+use ∀ n (n ∈ A ⇔ n ∈ B)
+expect "ProofError" "over every object"
+    show A = B
+    proof
+        A = B
+    qed
+; and with the variable over all objects it goes through
+any x
+use ∀ x (x ∈ A ⇔ x ∈ B)
+show A = B
+proof
+    A = B
+qed

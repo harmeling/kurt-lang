@@ -2,7 +2,7 @@
 ; variable, never a statement. A statement variable is schematic: free in a `use` or `show`, `%A`
 ; says "for every statement" -- `use %A ∨ ¬%A`. Before, `∀ p (p ∨ ¬p)` with `var p; prop p` was
 ; accepted (sound, over the two truth values, but used by no file); now statements are neither
-; objects nor the range of a quantifier (doc/kurt-doc.md §5.1).
+; objects nor the range of a quantifier (doc/kurt-ref.md §5.1).
 load logic, equality
 var p
 prop p

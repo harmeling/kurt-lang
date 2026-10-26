@@ -7,7 +7,6 @@ import tempfile
 import time
 import unittest
 
-import kurt.kurt as kurt
 
 # at a terminal, the shell fills in the indentation of the current block (one level deeper after
 # a line that opens a block), and a backspace dedents -- tested with a pseudo-terminal
@@ -21,9 +20,12 @@ def run_shell(keys: list[str], timeout: float = 20.0, home: 'str | None' = None)
     # is written at the exit (it was /tmp/.kurt_history, shared by everyone on the machine) --
     # pass `home` to inspect it afterwards (e.g. whether it was written at all, todo 33(a))
     main, sub = pty.openpty()
-    own_home = tempfile.TemporaryDirectory() if home is None else None
+    own_home = None
+    if home is None:
+        own_home = tempfile.TemporaryDirectory()
+        home = own_home.name
     env = dict(os.environ, PYTHONPATH=os.path.join(os.path.dirname(__file__), '..', 'src'), TERM='dumb',
-               HOME=home if home is not None else own_home.name)
+               HOME=home)
     proc = subprocess.Popen([sys.executable, '-m', 'kurt'], stdin=sub, stdout=sub, stderr=sub, env=env, close_fds=True)
     os.close(sub)
     out = b''

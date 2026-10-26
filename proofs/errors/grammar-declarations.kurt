@@ -1,6 +1,6 @@
 ; each misuse of a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`,
 ; `bindop`, `flat`, `sym`, `chain`, `alias`, `var`, `const`, `prop`) is rejected with an error,
-; and the declaration isn't half-done -- see doc/kurt-doc.md §4
+; and the declaration isn't half-done -- see doc/kurt-ref.md §4
 infix   plus 60 60
 prefix  neg 80
 postfix fac 82
@@ -73,7 +73,7 @@ expect "EvalError"
 
 ; `prop` once per symbol, and not after its first use
 prop P
-expect "EvalError"
+expect "EvalError" "symbol `P` is already declared prop"
     prop P
 use c = c plus c
 expect "EvalError"

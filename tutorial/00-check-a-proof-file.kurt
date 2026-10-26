@@ -6,7 +6,7 @@
 ; implication?", "How do I introduce a universal quantifier?", or "Why did this step fail?" Every
 ; lesson is a Kurt file: run it (`kurt 01-apply-an-implication-modus-ponens.kurt`), change it, run
 ; it again. The lessons of `keywords/` explain Kurt's keywords and ideas one by one, and
-; `doc/kurt-doc.md` is the complete language reference.
+; `doc/kurt-ref.md` is the complete language reference.
 ;
 ; Save a proof as `proof.kurt`, then run:
 

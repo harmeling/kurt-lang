@@ -1,4 +1,4 @@
-; functions as values: mappings (doc/kurt-doc.md §5.3, "operators are no objects"). An operator
+; functions as values: mappings (doc/kurt-ref.md §5.3, "operators are no objects"). An operator
 ; (`arity f 1`, `+`) is no object: `f = g` of two function symbols is a type error. A function that
 ; is a value -- compared, quantified over, an element of a set -- is a mapping of set.kurt: a set of
 ; pairs, `f ∈ A → B`, applied by juxtaposition, `f a`. Two mappings from `A` that agree on `A` are

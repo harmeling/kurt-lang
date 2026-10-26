@@ -18,7 +18,7 @@ forall $n ($n in Nat implies P($n))
 
 ; For a real proof, derive the base and step in preceding proof blocks instead of introducing
 ; them with `use`; both must be facts before the line that invokes induction. For example: lesson
-; 06's `fact` can't be *calculated* for an arbitrary `$n` (doc/kurt-doc.md §11.1), but induction
+; 06's `fact` can't be *calculated* for an arbitrary `$n` (doc/kurt-ref.md §11.1), but induction
 ; still proves a fact about all of it at once -- here, that it always produces a natural number.
 
 const fact

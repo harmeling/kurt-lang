@@ -3,7 +3,7 @@
 
     python3 scripts/lean_check.py proof.lean [more.lean ...]
 
-A file with `import Mathlib` (an export of a proof that loads a number theory, see doc/kurt-doc.md,
+A file with `import Mathlib` (an export of a proof that loads a number theory, see doc/kurt-ref.md,
 `--lean`) is checked by `lake env lean` in the lake project scripts/lean (or $KURT_MATHLIB_PROJECT),
 which must be set up once:
 
@@ -42,7 +42,7 @@ def lean_command(path: Path, project: Path = PROJECT) -> tuple[list[str], Path]:
         lake = elan_tool('lake')
         if lake is None or not mathlib_ready(project):
             raise SystemExit(f'{path}: imports Mathlib, but the lake project {project} is not set up '
-                             f'(cd {project} && lake exe cache get; see doc/kurt-doc.md, `--lean`)')
+                             f'(cd {project} && lake exe cache get; see doc/kurt-ref.md, `--lean`)')
         return [lake, 'env', 'lean', str(path.resolve())], project
     lean = elan_tool('lean')
     if lean is None:

@@ -1,5 +1,5 @@
 ; wrong uses of the proof keywords and blocks, of `def`, and wrongly typed formulas are
-; rejected -- each with its own error (see doc/kurt-doc.md §6, §7, §9)
+; rejected -- each with its own error (see doc/kurt-ref.md §6, §7, §9)
 load logic, numbers
 const c, d
 prop P, Q
@@ -43,7 +43,7 @@ expect "EvalError"
     expect "ProofError" "can not derive" "c"
         c > 0
 
-; claims, `use` and `assume` must be boolean
+; claims, `use` and `assume` must be statements
 expect "EvalError"
     c + 1
 expect "EvalError"

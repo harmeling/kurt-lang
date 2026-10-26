@@ -8,6 +8,12 @@
 # process don't influence each other. The internals are in `kurt.kurt` (not a stable API) -- imported
 # when first used, so that `python -m kurt.kurt FILE` runs it once (no "found in sys.modules" warning).
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:       # for type checkers only: the real import stays lazy (see `__getattr__`)
+    from .kurt import (version, RunConfig, CheckResult, Session, Shell, new_session, check_text, check_file,
+                       KurtException, main)
+
 __all__ = ['version', 'RunConfig', 'CheckResult', 'Session', 'Shell', 'new_session', 'check_text', 'check_file',
            'KurtException', 'main']
 

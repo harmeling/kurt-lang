@@ -1,0 +1,175 @@
+; complex -- the complex numbers, `real ⊂ complex ⊂ set`, the laws of a field with the unit `i`
+;
+; Stage 1 of overloading (decision 19 of dev/todo-sorts.md): the operators `+ - * / ^` of numbers.kurt get a
+; second signature, on `complex`. A term has the least sort the syntax gives it -- `1 + 2` and `x + y` for
+; reals are `real`, `z + 1` for a complex `z` is `complex` -- so everything proved about the reals still
+; reads as before (`(1 + 2) < 3`, `x + 1 < 3` for a new constant `x`: a `real`, the smallest signature),
+; and `<` stays on `real`: `i < 1` is a type error. The laws of numbers.kurt are about reals; the ones
+; here are the same laws for every complex number (the laws of an ordered field, `<`, `!`, don't
+; carry over). A complex constant is declared: `complex z`.
+;
+; `^` on `complex`: a profile of stage 1 has one sort at all its places, so the exponent of `z ^ w` is a
+; complex number too; the laws below are for a natural-number exponent only (`z ^ 2 = z * z` follows,
+; `calc on` computes `(1 + i) ^ 2`), nothing is said of `i ^ (1 / 2)`. Being one function `^`, the power
+; of two reals is the real power of numbers.kurt (in Lean `k_cpow`: `Real.rpow` on reals, `cpow` else).
+;
+; also: the set `Complex` (`ℂ`, `Real ⊂ Complex`), the real and imaginary part `re`, `im`, the conjugate `conj`
+; and the modulus `cabs`. Why not `abs`: `abs` of analysis.kurt is `real -> real`, and the modulus is
+; `complex -> real` -- a profile whose result has another sort than its argument. That is monotone and
+; regular (a smaller argument, `real`, gives a result no larger, `real`), but stage 1 has only profiles
+; with one sort at all places, `complex -> complex` for `abs` would make `|z|` a complex number, and
+; `|z| >= 0` a type error; one name for both is for stage 2. Every law holds in ℂ, with `x / 0 = 0` as
+; in the reals of numbers.kurt.
+load propositional, equality, set, numbers, real
+sort set complex real
+complex + 0 1 2
+complex - 0 1 2
+complex * 0 1 2
+complex / 0 1 2
+complex ^ 0 1 2
+
+complex i
+builtin i imaginary                  ; `calc on` computes with it exactly: `i * i` is `-1`, `(1 + 2 * i) * (3 - i)` is `5 + 5 * i`
+tex i \mathrm{i}
+complex $a, $b, $c, $d
+real $x, $n
+
+set Complex
+const Complex
+alias ℂ Complex
+tex Complex \mathbb{C}
+use $a ∈ Complex          "complex-all"
+use Real ⊂ Complex        "real-sub-complex"
+
+;; the unit
+use i * i = -1   "i-squared"
+
+;; rules: the laws of numbers.kurt, for every complex number
+use $a = $b  ⇒  $a + $c = $b + $c   "complex-add-eq"
+use $a = $b  ⇒  $a - $c = $b - $c   "complex-sub-eq"
+use $a = $b  ⇒  $a * $c = $b * $c   "complex-mul-eq"
+use $a = $b  ⇒  $a / $c = $b / $c   "complex-div-eq"
+use ($a + $b) * $c = $a * $c + $b * $c   "complex-distrib-add"
+use ($a - $b) * $c = $a * $c - $b * $c   "complex-distrib-sub"
+use $a + (-$a) = 0       "complex-add-inverse"
+use $a - $a = 0          "complex-sub-inverse"
+use $a * 1 = $a          "complex-mul-identity"
+use $a / 1 = $a          "complex-div-identity"
+use $a + 0 = $a          "complex-add-identity"
+use $a - 0 = $a          "complex-sub-identity"
+use $a * 0 = 0           "complex-mul-zero"
+use $a * (-1) = -$a      "complex-mul-neg-one"
+use -(-$a) = $a          "complex-double-negation"
+use $a ≠ 0 ⇒ $a / $a = 1 "complex-div-self"
+use $c ≠ 0 ⇒ ($a * $c) / $c = $a             "complex-mul-div"
+use $c ≠ 0 ⇒ ($a / $c) * $c = $a             "complex-div-mul"
+use $a ≠ 0 ∧ $b ≠ 0 ⇒ $a * $b ≠ 0             "complex-mul-ne-zero"
+
+;; powers with a natural-number exponent (`0 ^ 0` left open, as in numbers.kurt)
+use $a ^ 1 = $a                              "complex-pow-identity"
+use $a ≠ 0 ⇒ $a ^ 0 = 1                      "complex-pow-zero"
+use $n ∈ Nat ⇒ $a ^ ($n + 1) = $a ^ $n * $a  "complex-pow-succ"
+
+;; real part, imaginary part: a real-valued function of a complex number
+const re, im
+arity re 1
+arity im 1
+real re 0
+complex re 1
+real im 0
+complex im 1
+tex re \operatorname{Re}($1)
+tex im \operatorname{Im}($1)
+use re($a) + i * im($a) = $a                 "complex-decomp"
+use re($a) = re($b) ∧ im($a) = im($b) ⇒ $a = $b   "complex-ext"
+use re($a + $b) = re($a) + re($b)            "re-add"
+use im($a + $b) = im($a) + im($b)            "im-add"
+use re($a * $b) = re($a) * re($b) - im($a) * im($b)   "re-mul"
+use im($a * $b) = re($a) * im($b) + im($a) * re($b)   "im-mul"
+use re($x) = $x                              "re-real"
+use im($x) = 0                               "im-real"
+use re(i) = 0                                "re-i"
+use im(i) = 1                                "im-i"
+
+;; the conjugate
+const conj
+arity conj 1
+complex conj 0 1
+tex conj \overline{$1}
+use conj(conj($a)) = $a                      "conj-conj"
+use conj($a + $b) = conj($a) + conj($b)      "conj-add"
+use conj($a * $b) = conj($a) * conj($b)      "conj-mul"
+use re(conj($a)) = re($a)                    "conj-re"
+use im(conj($a)) = -im($a)                   "conj-im"
+use conj($x) = $x                            "conj-real"
+
+;; the modulus: a non-negative real, `|z|² = Re² + Im²`
+const cabs
+arity cabs 1
+real cabs 0
+complex cabs 1
+tex cabs \left|$1\right|
+use cabs($a) * cabs($a) = re($a) * re($a) + im($a) * im($a)   "cabs-sq"
+use cabs($a) >= 0                                             "cabs-ge-zero"
+use $a * conj($a) = re($a) * re($a) + im($a) * im($a)         "conj-mul-self"
+
+; how `kurt --lean` writes them with Mathlib (doc/kurt-ref.md, `--lean`): a complex number is one of
+; Mathlib's (`ℂ`), a real where a complex number is required its cast `((x : ℝ) : ℂ)`, and an
+; overloaded operator by the least sort of each occurrence -- `+` of `ℝ` or of `ℂ` (Lean's `+` either
+; way), `^` of two complex numbers `k_cpow` (the real power on reals, Mathlib's `cpow` otherwise)
+lean complex ℂ
+lean complex ^ k_cpow $1 $2
+lean i Complex.I
+lean Complex (ZFSet.range k_embC)
+lean re Complex.re $1
+lean im Complex.im $1
+lean conj (starRingEnd ℂ) $1
+lean cabs ‖$1‖
+
+;; the rules as theorems of Mathlib (`lean "label" TACTIC`, as in numbers.kurt)
+lean "complex-all" intro a; exact ZFSet.mem_range.mpr ⟨a, rfl⟩
+lean "real-sub-complex" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact ZFSet.mem_range.mpr ⟨(x : ℂ), k_embC_ofReal x⟩
+lean "i-squared" simp
+lean "complex-add-eq" intros; subst_vars; rfl
+lean "complex-sub-eq" intros; subst_vars; rfl
+lean "complex-mul-eq" intros; subst_vars; rfl
+lean "complex-div-eq" intros; subst_vars; rfl
+lean "complex-distrib-add" intros; ring
+lean "complex-distrib-sub" intros; ring
+lean "complex-add-inverse" intros; push_cast; ring
+lean "complex-sub-inverse" intros; push_cast; ring
+lean "complex-mul-identity" intros; push_cast; ring
+lean "complex-div-identity" intros; push_cast; ring
+lean "complex-add-identity" intros; push_cast; ring
+lean "complex-sub-identity" intros; push_cast; ring
+lean "complex-mul-zero" intros; push_cast; ring
+lean "complex-mul-neg-one" intros; push_cast; ring
+lean "complex-double-negation" intros; ring
+lean "complex-div-self" intros; push_cast at *; field_simp
+lean "complex-mul-div" intros; push_cast at *; field_simp
+lean "complex-div-mul" intros; push_cast at *; field_simp
+lean "complex-mul-ne-zero" intros; push_cast at *; simp_all
+lean "complex-pow-identity" intros; push_cast; simp
+lean "complex-pow-zero" intros; push_cast; simp
+lean "complex-pow-succ" intro n a hn; obtain ⟨k, rfl⟩ := (k_mem_Nat n).mp hn
+lean "complex-pow-succ" have h := k_cpow_natCast a (k + 1); have h0 := k_cpow_natCast a k; push_cast at h h0 ⊢
+lean "complex-pow-succ" rw [show (1 : ℂ) + k = k + 1 by ring, h, h0, pow_succ, mul_comm]
+lean "complex-decomp" intro a; apply Complex.ext <;> simp
+lean "complex-ext" intro a b h; apply Complex.ext <;> tauto
+lean "re-add" intros; simp
+lean "im-add" intros; simp
+lean "re-mul" intros; simp
+lean "im-mul" intros; simp; ring
+lean "re-real" intros; simp
+lean "im-real" intros; simp
+lean "re-i" simp
+lean "im-i" simp
+lean "conj-conj" intros; simp
+lean "conj-add" intros; simp
+lean "conj-mul" intros; simp
+lean "conj-re" intros; simp
+lean "conj-im" intros; simp
+lean "conj-real" intros; simp
+lean "cabs-sq" intro a; rw [← sq, ← Complex.normSq_eq_norm_sq, Complex.normSq_apply]; try ring
+lean "cabs-ge-zero" intros; positivity
+lean "conj-mul-self" intro a; rw [Complex.mul_conj, Complex.normSq_apply]; push_cast; ring

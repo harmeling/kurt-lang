@@ -1,0 +1,46 @@
+; the rule of indentation (doc/kurt-ref.md §2.1): a block is indented by any number of spaces, a
+; tab moves to the next multiple of four, blank and comment lines never close a block, and the
+; continuation lines of a statement have any indentation (the errors: proofs/errors/layout.kurt)
+prop A, B, C
+use A implies B   ; a comment at the end of a line
+use B implies C   "bc"
+
+; a block indented by 2, the inner one by 7 more
+show A implies C
+proof
+  assume A
+         B
+
+; a comment at column 0 inside the block closes nothing
+            ; nor does a deeper one
+         C
+qed
+
+; a tab stop every four columns: "      <tab>" is 8, like "        " (not 6 + 4 = 10)
+show A implies C
+proof
+	assume A    ; a tab: 4
+        B
+      	C
+qed   ; done
+
+; two spaces and a tab are 4, like one tab
+show A implies C
+proof
+  	assume A
+		B
+        C
+qed
+
+; a statement continued over lines: the indentation of its continuation lines doesn't matter
+show A implies C
+proof
+    assume A
+        (A implies
+; a comment inside the statement
+
+  B)
+        C
+qed
+use A implies
+B "ab"

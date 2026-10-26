@@ -1,7 +1,23 @@
 # utils.py
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from kurt.kurt import Expr, Token
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def as_list(e: 'Expr') -> 'list[Expr]':
+    # `e` is a compound expression: what a test that indexes into one assumes (and the type checker follows)
+    assert isinstance(e, list), f'a list expected, got {e!r}'
+    return e
+
+
+def as_token(e: 'Expr') -> 'Token':
+    from kurt.kurt import Token
+    assert isinstance(e, Token), f'a token expected, got {e!r}'
+    return e
 
 
 

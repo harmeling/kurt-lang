@@ -31,6 +31,12 @@ class TestExportDocument(unittest.TestCase):
         self.assertIn(r'\underset{{n} \to \infty}{\longrightarrow}', doc)
         self.assertIn('| 3 |', doc)                                  # Kurt's line numbers, in a table
 
+    def test_an_inferred_declaration_is_no_line_of_the_document(self):
+        # `P` gets its statement places from its first use: Kurt prints `prop P 0`, the document doesn't
+        doc = export('load logic\nuse P(a)\nP(a)\n', 'markdown')
+        self.assertNotIn('prop P', doc)
+        self.assertNotIn('added statement places', doc)
+
     def test_variables_and_a_declaration_of_ones_own(self):
         doc = export('load equality\nconst x, f\ntex f \\varphi($1)\nuse f($y) = $y\nuse $x = x\n', 'markdown')
         self.assertIn(r'{\varphi({y})} = y', doc)                    # `$y` as on paper: `y`
@@ -48,6 +54,24 @@ class TestExportDocument(unittest.TestCase):
         result = kurt.check_text('tex\n')
         self.assertTrue(result.ok, result.error)
         self.assertIn('no tex declarations', result.output)
+
+
+class TestComplexNumbers(unittest.TestCase):
+    def test_the_notation_of_complex_numbers(self):
+        # complex.kurt (todo 48): `i` upright, `\overline{z}`, `\operatorname{Re}`, `|z|`, `\mathbb{C}` -- and
+        # (until 2026-10-23) `\C`, `\R` of a text line (Kurt's shortcuts, no LaTeX), `z + - z` without brackets
+        doc = export('load complex\ncomplex z\nconst c\nlean c ℂ\nuse z + (-z) = 0\nuse z * (-1) = -z\n'
+                     'use conj(z) = re(z) - i * im(z)\nuse cabs(z) >= 0\nuse z ∈ ℂ\nuse i ^ 2 = -1\n', 'latex')
+        self.assertIn(r'z + \left(- z\right) = 0', doc)
+        self.assertIn(r'z \cdot \left(- 1\right) = - z', doc)            # (after `=`: no brackets)
+        self.assertIn(r'{\overline{{z}}}', doc)
+        self.assertIn(r'{\operatorname{Re}({z})}', doc)
+        self.assertIn(r'\mathrm{i}', doc)
+        self.assertIn(r'{\left|{z}\right|}', doc)
+        self.assertIn(r'z \in \mathbb{C}', doc)
+        self.assertIn(r'\text{lean c $\mathbb{C}$}', doc)
+        self.assertNotIn(r'\C$', doc)
+        self.assertFalse([c for c in doc if ord(c) > 127])              # all symbols as LaTeX (pdflatex)
 
 
 class TestTuples(unittest.TestCase):

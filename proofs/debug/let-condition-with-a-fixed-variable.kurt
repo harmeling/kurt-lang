@@ -1,0 +1,17 @@
+; todo 52: a `let` whose condition mentions a variable fixed by an enclosing `assume` binds its new
+; name, not the fixed variable -- `$a` and `$b` are one object each in the block, so `w` is the only
+; candidate (before, "expected exactly one new symbol or existing, got ['$a', 'w', '$b']"). The closed
+; block stores the bound name with its condition, so it binds `w` also where `$a` is free again.
+load analysis
+default real
+
+; (in the claim, `w` is written first: a binder binds the first new symbol or variable of its condition)
+show $a < $b  ⇒  ∀ (w <= $b ∧ $a <= w) ($a <= w)                      "let-fixed"
+proof
+    assume $a < $b
+        let w with $a <= w ∧ w <= $b
+            $a <= w
+qed
+
+; the result is a fact about `w`, for every `$a`, `$b`
+∀ (w <= 2 ∧ 1 <= w) (1 <= w)                                          ; let-fixed

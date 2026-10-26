@@ -1,0 +1,26 @@
+; overloading (decision 19 of dev/todo-sorts.md, stage 1): a second signature of an operator on the same places,
+; for a sort that fits the first one. The errors of `add_sort_signature` and `overload_problem`
+load equality
+sort big small
+sort other
+infix ++ 60 60
+big ++ 0 1 2
+small ++ 0 1 2                     ; an overload: `small ⊂ big`
+expect "EvalError" "already has a `big` signature"
+    big ++ 0 1 2
+expect "EvalError" "not in one chain"
+    other ++ 0 1 2                 ; `other` and `big` don't fit each other
+sort big small
+expect "EvalError" "the same positions"
+    sort third
+    sort big third
+    third ++ 0 1                   ; the places of the first signature are 0, 1, 2
+
+; a signature below the others after the symbol occurs in a fact: its facts would read differently
+const c
+big c
+use c ++ c = c
+sort tiny
+sort small tiny
+expect "EvalError" "been already used"
+    tiny ++ 0 1 2

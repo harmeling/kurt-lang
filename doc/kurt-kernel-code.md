@@ -160,84 +160,249 @@ read-only view that allows only the lookups the kernel needs, and remembers each
 whole check, so that the environment can't change under the kernel's feet, and so that nothing
 can be changed through it.
 
+The lookups are listed in a `Protocol`, `KbReader`, as read-only views: a sequence where the
+environment hands out a copy of a list, a set that can't be changed where it hands out a frozen
+set. The functions of the kernel, and the trusted functions of the rest of Kurt that it calls
+(`normalize_expr`, `expr_str`, ...), take a `KbReader` and never a `KnowledgeBase`. What such a
+function does with its `kb` is checked against the list by the type checker (`pyright`): a kernel
+function that reached for another member, or tried to change what it read, is rejected before it
+could fail at run time. A `KnowledgeBase` has every member, so the search can pass one too; so has
+the `KernelEnv`, which is what the kernel gets -- the type checker verifies that, too.
+
+<!-- cite: class KbReader -->
+```python
+class KbReader(Protocol):
+    # what the kernel may read of a knowledge base: the members of `KernelEnv` (and no others:
+    # `tests/test_kernel_env.py` compares them), as read-only views -- `KernelEnv` hands out a copy
+    # of a list, a frozen set for a set, a snapshot for a generator. A `KnowledgeBase` has all of
+    # them, so the search can pass one as well. A function of the kernel, and every trusted function
+    # it calls, takes a `KbReader` and never a `KnowledgeBase`: what it does with it is then checked
+    # against this list (soundness §9: the kernel can read the knowledge base, never change it)
+    # the symbols
+    def is_var(self, s: str) -> bool: ...
+    def is_bool(self, s: str) -> bool: ...
+    def bool_sig(self, s: str) -> Sequence[int]: ...
+    def variable_sorts(self, symbol: str) -> AbstractSet[str]: ...
+    def pos_sort(self, symbol: str, position: int) -> Optional[str]: ...
+    def pos_sorts(self, symbol: str, position: int) -> frozenset[str]: ...
+    def all_subsorts(self) -> frozenset[tuple[str, str]]: ...
+    def generalized_sorts(self, symbol: str) -> frozenset[str]: ...
+    def binder_sorts(self, node: Expr) -> frozenset[str]: ...
+    def is_bindop(self, s: str) -> bool: ...
+    def is_const(self, s: str) -> bool: ...
+    def is_known(self, s: str) -> bool: ...
+    def is_used(self, s: str) -> bool: ...
+    def is_fixed_var(self, s: str) -> bool: ...
+    def is_vocabulary_symbol(self, s: str) -> bool: ...
+    def get_arity(self, fun: str) -> int: ...
+    def is_flat(self, s: str) -> bool: ...
+    def is_sym(self, s: str) -> bool: ...
+    def all_flat(self) -> Iterator[str]: ...
+    def get_builtins(self, symbol: str) -> Sequence[str]: ...
+    def has_role(self, symbol: object, role: str) -> bool: ...
+    def role_symbol(self, role: str) -> Optional[str]: ...
+    def calculate(self, e: Expr) -> Expr: ...
+    def is_operator(self, s: str) -> bool: ...
+    def is_infix(self, s: str) -> bool: ...
+    def is_prefix(self, s: str) -> bool: ...
+    def is_postfix(self, s: str) -> bool: ...
+    def is_bracket_placeholder(self, s: str) -> bool: ...
+    # the facts, and how the block was opened
+    def all_theory(self) -> Iterator[Formula]: ...
+    @property
+    def theory(self) -> Sequence[Formula]: ...
+    @property
+    def const(self) -> AbstractSet[str]: ...
+    @property
+    def mode_str(self) -> str: ...
+    @property
+    def mode_args(self) -> Sequence[Expr]: ...
+    @property
+    def let_names(self) -> Sequence[str]: ...
+    @property
+    def fixed_vars(self) -> AbstractSet[str]: ...
+    @property
+    def pick_source(self) -> Optional[Formula]: ...
+    @property
+    def pick_fact(self) -> Optional[Formula]: ...
+    # how expressions are printed (in a message)
+    @property
+    def format(self) -> Format: ...
+    @property
+    def calc(self) -> bool: ...
+```
+
 <!-- cite: class KernelEnv -->
 ```python
 class KernelEnv:
-    # what the kernel sees of a `KnowledgeBase` during one check: only the lookups it needs (and the
-    # trusted normalization and printing it calls), each answer remembered for the whole check -- so
-    # the environment is immutable while the kernel checks a step, and nothing can be changed through
-    # it (doc/kurt-soundness.md §9)
-    READS = frozenset({
-        # the symbols
-        'is_var', 'is_bool', 'bool_sig', 'variable_sorts', 'all_sort_names', 'sort_sig', 'pos_sort', 'all_subsorts',
-        'generalized_sorts', 'binder_sorts', 'sorts_in_use',
-        'is_bindop', 'is_const', 'is_known', 'is_used', 'is_fixed_var',
-        'is_vocabulary_symbol', 'is_arity_set', 'get_arity', 'is_flat', 'is_sym', 'all_flat', 'get_builtins',
-        'has_role', 'role_symbol',
-        'calculate', 'is_operator', 'is_infix', 'is_prefix', 'is_postfix', 'is_bracket_placeholder',
-        'get_infix', 'get_prefix', 'get_postfix', 'get_lbracket', 'is_lbracket', 'is_rbracket', 'get_alias',
-        'is_alias', 'lookup', 'levels',
-        # the facts, and how the block was opened
-        'all_theory', 'theory', 'const', 'mode_str', 'mode_args', 'let_names', 'fixed_vars', 'pick_source', 'pick_fact', 'level',
-        # how expressions are printed (in a message)
-        'format', 'calc',
-    })
+    # what the kernel sees of a `KnowledgeBase` during one check: the members of `KbReader` and no others --
+    # only the lookups it needs (and the trusted normalization and printing it calls), each answer remembered
+    # for the whole check, so the environment is immutable while the kernel checks a step, and nothing can be
+    # changed through it (doc/kurt-soundness.md section 9). Each member below gives the answer of the same member
+    # of the knowledge base, by `_call` (a method) or `_list`, `_frozen`, `_value` (a value): the one place that remembers; a
+    # name that is no member is an `AttributeError`, and `tests/test_kernel_env.py` compares every member
+    _kb: KbReader
+    _memo: dict
 
-    def __init__(self, kb: 'KnowledgeBase') -> None:
+    def __init__(self, kb: KbReader) -> None:
         object.__setattr__(self, '_kb', kb)
         object.__setattr__(self, '_memo', {})
 
-    def __getattr__(self, name: str):
-        if name not in KernelEnv.READS:
-            if name.startswith('__'):
-                raise AttributeError(name)      # e.g. `__deepcopy__`, which `copy` looks for
-            raise RuntimeError(f'BUG: the kernel can not use `{name}` of the knowledge base')
+    def _call(self, key: str, method: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R:
         memo = self._memo
-        value = getattr(self._kb, name)
-        if not callable(value):
-            if name not in memo:
-                memo[name] = frozenset(value) if isinstance(value, set) else tuple(value) if isinstance(value, list) else value
-            return list(memo[name]) if isinstance(value, list) else memo[name]
-        def read(*args):
-            try:
-                key = (name, *args)
-                hash(key)
-            except TypeError:
-                return value(*args)          # an expression as argument: computed, not remembered
-            if key not in memo:
-                result = value(*args)
-                # a snapshot: a list is handed out as a new list each time, a generator as a new
-                # iterator over what it gave, a set as a frozen set
-                if isinstance(result, list):
-                    memo[key] = (list, tuple(result))
-                elif isinstance(result, (set, frozenset)):
-                    memo[key] = (frozenset, frozenset(result))
-                elif hasattr(result, '__next__'):
-                    memo[key] = (iter, tuple(result))
-                else:
-                    memo[key] = (None, result)
-            kind, result = memo[key]
-            return result if kind is None or kind is frozenset else kind(result)
-        return read
+        if kwargs:
+            return method(*args, **kwargs)       # (the kernel gives none: computed, not remembered)
+        entry = (key, *args)
+        try:
+            hash(entry)
+        except TypeError:
+            return method(*args, **kwargs)       # an expression as argument: computed, not remembered
+        if entry not in memo:
+            result = method(*args, **kwargs)
+            # a snapshot: a list is handed out as a new list each time, a generator as a new
+            # iterator over what it gave, a set as a frozen set
+            if isinstance(result, list):
+                memo[entry] = (list, tuple(result))
+            elif isinstance(result, (set, frozenset)):
+                memo[entry] = (frozenset, frozenset(result))
+            elif isinstance(result, Iterator):
+                memo[entry] = (iter, tuple(result))
+            else:
+                memo[entry] = (None, result)
+        kind, result = memo[entry]
+        return result if kind is None or kind is frozenset else kind(result)
+
+    def _list(self, name: str, value: Sequence[T]) -> list[T]:
+        memo = self._memo
+        if name not in memo:
+            memo[name] = tuple(value)
+        return list(memo[name])                  # (a copy: the list of the knowledge base can't be changed through it)
+
+    def _frozen(self, name: str, value: AbstractSet[T]) -> frozenset[T]:
+        memo = self._memo
+        if name not in memo:
+            memo[name] = frozenset(value)
+        return memo[name]
+
+    def _value(self, name: str, value: T) -> T:
+        memo = self._memo
+        if name not in memo:
+            memo[name] = value
+        return memo[name]
 
     def __setattr__(self, name: str, value) -> None:
         raise AttributeError(f'BUG: the kernel can not change `{name}` of the knowledge base')
+
+    # the symbols
+    def is_var(self, s: str) -> bool:
+        return self._call('is_var', self._kb.is_var, s)
+    def is_bool(self, s: str) -> bool:
+        return self._call('is_bool', self._kb.is_bool, s)
+    def bool_sig(self, s: str) -> Sequence[int]:
+        return self._call('bool_sig', self._kb.bool_sig, s)
+    def variable_sorts(self, symbol: str) -> AbstractSet[str]:
+        return self._call('variable_sorts', self._kb.variable_sorts, symbol)
+    def pos_sort(self, symbol: str, position: int) -> Optional[str]:
+        return self._call('pos_sort', self._kb.pos_sort, symbol, position)
+    def pos_sorts(self, symbol: str, position: int) -> frozenset[str]:
+        return self._call('pos_sorts', self._kb.pos_sorts, symbol, position)
+    def all_subsorts(self) -> frozenset[tuple[str, str]]:
+        return self._call('all_subsorts', self._kb.all_subsorts)
+    def generalized_sorts(self, symbol: str) -> frozenset[str]:
+        return self._call('generalized_sorts', self._kb.generalized_sorts, symbol)
+    def binder_sorts(self, node: Expr) -> frozenset[str]:
+        return self._call('binder_sorts', self._kb.binder_sorts, node)
+    def is_bindop(self, s: str) -> bool:
+        return self._call('is_bindop', self._kb.is_bindop, s)
+    def is_const(self, s: str) -> bool:
+        return self._call('is_const', self._kb.is_const, s)
+    def is_known(self, s: str) -> bool:
+        return self._call('is_known', self._kb.is_known, s)
+    def is_used(self, s: str) -> bool:
+        return self._call('is_used', self._kb.is_used, s)
+    def is_fixed_var(self, s: str) -> bool:
+        return self._call('is_fixed_var', self._kb.is_fixed_var, s)
+    def is_vocabulary_symbol(self, s: str) -> bool:
+        return self._call('is_vocabulary_symbol', self._kb.is_vocabulary_symbol, s)
+    def get_arity(self, fun: str) -> int:
+        return self._call('get_arity', self._kb.get_arity, fun)
+    def is_flat(self, s: str) -> bool:
+        return self._call('is_flat', self._kb.is_flat, s)
+    def is_sym(self, s: str) -> bool:
+        return self._call('is_sym', self._kb.is_sym, s)
+    def all_flat(self) -> Iterator[str]:
+        return self._call('all_flat', self._kb.all_flat)
+    def get_builtins(self, symbol: str) -> Sequence[str]:
+        return self._call('get_builtins', self._kb.get_builtins, symbol)
+    def has_role(self, symbol: object, role: str) -> bool:
+        return self._call('has_role', self._kb.has_role, symbol, role)
+    def role_symbol(self, role: str) -> Optional[str]:
+        return self._call('role_symbol', self._kb.role_symbol, role)
+    def calculate(self, e: Expr) -> Expr:
+        return self._call('calculate', self._kb.calculate, e)
+    def is_operator(self, s: str) -> bool:
+        return self._call('is_operator', self._kb.is_operator, s)
+    def is_infix(self, s: str) -> bool:
+        return self._call('is_infix', self._kb.is_infix, s)
+    def is_prefix(self, s: str) -> bool:
+        return self._call('is_prefix', self._kb.is_prefix, s)
+    def is_postfix(self, s: str) -> bool:
+        return self._call('is_postfix', self._kb.is_postfix, s)
+    def is_bracket_placeholder(self, s: str) -> bool:
+        return self._call('is_bracket_placeholder', self._kb.is_bracket_placeholder, s)
+    # the facts, and how the block was opened
+    def all_theory(self) -> Iterator[Formula]:
+        return self._call('all_theory', self._kb.all_theory)
+    @property
+    def theory(self) -> Sequence[Formula]:
+        return self._list('theory', self._kb.theory)
+    @property
+    def const(self) -> AbstractSet[str]:
+        return self._frozen('const', self._kb.const)
+    @property
+    def mode_str(self) -> str:
+        return self._value('mode_str', self._kb.mode_str)
+    @property
+    def mode_args(self) -> Sequence[Expr]:
+        return self._list('mode_args', self._kb.mode_args)
+    @property
+    def let_names(self) -> Sequence[str]:
+        return self._list('let_names', self._kb.let_names)
+    @property
+    def fixed_vars(self) -> AbstractSet[str]:
+        return self._frozen('fixed_vars', self._kb.fixed_vars)
+    @property
+    def pick_source(self) -> Optional[Formula]:
+        return self._value('pick_source', self._kb.pick_source)
+    @property
+    def pick_fact(self) -> Optional[Formula]:
+        return self._value('pick_fact', self._kb.pick_fact)
+    # how expressions are printed (in a message)
+    @property
+    def format(self) -> Format:
+        return self._value('format', self._kb.format)
+    @property
+    def calc(self) -> bool:
+        return self._value('calc', self._kb.calc)
 ```
 
-`READS` is the whole interface between the kernel and the state of Kurt: which symbols are
-variables, booleans, binders, constants; their arities, `flat` and `sym`; the roles of symbols
+`KbReader` is the whole interface between the kernel and the state of Kurt: which symbols are
+variables, statement places, binders, constants; their arities, `flat` and `sym`; the roles of symbols
 (which symbol is the universal quantifier, the negation); the calculator; the facts
 (`all_theory`, `theory`), the block's constants and how it was opened (`mode_str`, `mode_args`,
-`let_names`, `pick_source`, `pick_fact`); and how expressions are printed, for messages. Any other
-attribute raises `BUG: the kernel can not use ...` -- `tests/test_kernel_boundary.py` checks that
-the kernel calls no search code, `tests/test_kernel_env.py` that the view is read-only and its
-answers stay fixed. A list is handed out as a new list each time, a set as a frozen set, a
-generator as a new iterator over what it gave: the kernel can't change the knowledge base by
-changing an answer.
+`let_names`, `pick_source`, `pick_fact`); and how expressions are printed, for messages. The
+`KernelEnv` has exactly these members, and each one only gives the answer of the same member of
+the knowledge base, through the one place that remembers it (`_call` for a method, `_list`,
+`_frozen`, `_value` for a value). A list is handed out as a new list each time, a set as a frozen
+set, a generator as a new iterator over what it gave: the kernel can't change the knowledge base by
+changing an answer. A name that is no member is an `AttributeError`.
+`tests/test_kernel_boundary.py` checks that the kernel calls no search code;
+`tests/test_kernel_env.py` that the view is read-only, that its answers stay fixed, that every
+member answers as the knowledge base does, and that each forwards to its own.
 
 <!-- cite: def k_env -->
 ```python
-def k_env(kb) -> 'KernelEnv':
+def k_env(kb: KbReader) -> KbReader:
     return kb if isinstance(kb, KernelEnv) else KernelEnv(kb)
 ```
 
@@ -259,7 +424,7 @@ and the calculator, the same `normalize_expr` that every line goes through (§9)
 
 <!-- cite: kernel_verify :: def kernel_verify ... match cert.kind: -->
 ```python
-def kernel_verify(cert: Certificate, kb: KnowledgeBase) -> Optional[str]:
+def kernel_verify(cert: Certificate, kb: KbReader) -> Optional[str]:
     # `None` if the certificate proves its goal, otherwise what is wrong
     kb = k_env(kb)          # read-only, for this check
     try:
@@ -378,7 +543,7 @@ if bad_sorts:
 bad_kinds = sorted(v for v, value in cert.values.items() if not k_has_kind(v, value, kb))
 if bad_kinds:
     v = bad_kinds[0]
-    kind = ('an operator with a boolean result' if kb.is_bool(v) else 'an operator with a non-boolean result') if k_is_operator_variable(v, kb) else ('a formula' if kb.is_bool(v) else 'a term')
+    kind = ('an operator with a statement as its result' if kb.is_bool(v) else 'an operator with a term as its result') if k_is_operator_variable(v, kb) else ('a formula' if kb.is_bool(v) else 'a term')
     return f'the value `{expr_str(cert.values[v], kb)}` of `{v}` is not {kind}'
 ```
 
@@ -389,7 +554,7 @@ instance of the rule under the values (`k_instance`: fill in, evaluate `sub`, no
 must be the goal, up to the names of bound variables and the order of `sym` arguments (`k_equal`).
 
 `deps` says which schema variables of the rule may take a value that contains a bound variable:
-for a postulated rule (`use`, `def`, `todo`), a non-boolean `$T` that stands as the whole body of
+for a postulated rule (`use`, `def`, `todo`), a term variable `$T` that stands as the whole body of
 a binder over `x` may be instantiated with a term in `x` -- the body of `∀ x $T` is "a formula
 about x" (`k_dependencies`, §5.4). A derived theorem has no such variables.
 
@@ -421,7 +586,7 @@ The fresh variables are the eigenvariables of the step, and four checks keep the
 name is used once. The names are ones that only the search makes (`$$07`, `%%07`) and not a
 variable fixed by a block (`x` of `assume R(x)`): a fixed variable is "this one", and reading it
 as "any one" would make a universal out of an instance. They occur neither in the goal nor in a
-cited fact. They got no value, and no non-boolean variable of the rule got a value that depends
+cited fact. They got no value, and no term variable of the rule got a value that depends
 on them: `∀ y P(y) ⇒ Q($a)` may not conclude `Q(y)` for the particular `y` of some fact.
 
 <!-- cite: kernel_verify :: if cert.form != 'impl' ... return f'the value of `{v}` depends on the fresh variables -->
@@ -433,7 +598,7 @@ premise, conclusion = k_strip(cert.expr[1], cert.premise_fresh, kb, cert.expr[2]
 assert conclusion is not None
 conclusion, _ = k_strip(conclusion, cert.conclusion_fresh, kb)
 # the fresh variables of the premise's `∀`s stand for anything: no value, and no variable
-# of the rule (except a boolean one, see `k_instantiate`) may depend on them
+# of the rule (except a statement variable, see `k_instantiate`) may depend on them
 eigen = set(cert.premise_fresh).union(*cert.fact_fresh)
 # ... and they are fresh: names that only the search makes (`new_var_name`: `$$07`, `%%07`),
 # each once, in neither the goal nor a cited fact -- not a constant, not a variable fixed
@@ -451,9 +616,14 @@ valued = sorted(eigen & set(cert.values))
 # ... except a polymorphic one (`$$x`, todo 35) that stands for the fresh variable of a binder over a sort: the
 # rule's own binder `∀ $$x`, matched with the goal's binder over `real`, is that binder (`binder_target`) -- a
 # variable that only the search makes, in no fact and not fixed, never a term of the goal
-not_renamed = [v for v in valued if not (k_is_poly_variable(v) and isinstance(cert.values[v], Token) and cert.values[v].label == 'SYMBOL'
-                                         and isinstance(cert.values[v].value, str) and cert.values[v].value.startswith('$$')
-                                         and not kb.is_fixed_var(cert.values[v].value) and cert.values[v].value not in seen)]
+def made_by_the_search(v: str) -> bool:
+    if not k_is_poly_variable(v):
+        return False
+    value = cert.values[v]
+    return (isinstance(value, Token) and value.label == 'SYMBOL'
+            and isinstance(value.value, str) and value.value.startswith('$$')
+            and not kb.is_fixed_var(value.value) and value.value not in seen)
+not_renamed = [v for v in valued if not made_by_the_search(v)]
 if not_renamed:
     return f'the fresh variables {not_renamed} of a `∀` premise got a value'
 rule_vars = {t.value for t in get_token_set(cert.expr) if isinstance(t.value, str) and kb.is_var(t.value) and not kb.is_bool(t.value)}
@@ -557,7 +727,7 @@ that names the bound variable (`x`, `x ∈ A`, or a `sub`), the middle arguments
 
 <!-- cite: def k_bound -->
 ```python
-def k_bound(cond: Expr, kb: KnowledgeBase) -> str:
+def k_bound(cond: Expr, kb: KbReader) -> str:
     # the kernel's own reading of a binder's condition (not the search's `unpack_condition`): which
     # variable it binds -- the one variable of the condition (a renamed bound variable, or a name
     # unknown on this level, like the constant of a closed `let x ∈ A`), or with several, in a
@@ -565,7 +735,7 @@ def k_bound(cond: Expr, kb: KnowledgeBase) -> str:
     match cond:
         case Token(label='SYMBOL', value=v) if isinstance(v, str):
             return v
-        case [Token(label='SYMBOL', value=op), x, Token(label='SYMBOL', value=v), _] if op == SUB_SYMBOL and isinstance(v, str):
+        case [Token(label='SYMBOL', value=op), _, Token(label='SYMBOL', value=v), _] if op == SUB_SYMBOL and isinstance(v, str):
             return v
         case [Token(label='SYMBOL', value=b), Token(label='SYMBOL', value=v), _] if b == BOUND_SYMBOL and isinstance(v, str):
             return v                       # stored with the condition, as written
@@ -586,7 +756,7 @@ def k_bound(cond: Expr, kb: KnowledgeBase) -> str:
     if len(seen) == 1:
         return seen[0]
     match cond:
-        case [Token(label='SYMBOL', value=rel), Token(label='SYMBOL', value=v), _] if is_relation(rel, kb) and v in seen:
+        case [Token(label='SYMBOL', value=rel), Token(label='SYMBOL', value=v), _] if isinstance(rel, str) and isinstance(v, str) and is_relation(rel, kb) and v in seen:
             return v
     raise KernelReject(f'the condition `{expr_str(cond, kb)}` of a binder has no variable it clearly binds')
 ```
@@ -601,7 +771,7 @@ else is a rejection: a binder the kernel can't read is a step the kernel won't a
 
 <!-- cite: def k_equal -->
 ```python
-def k_equal(t1: Expr, t2: Expr, kb: KnowledgeBase, bmap1: Optional[dict] = None, bmap2: Optional[dict] = None) -> bool:
+def k_equal(t1: Expr, t2: Expr, kb: KbReader, bmap1: Optional[dict] = None, bmap2: Optional[dict] = None) -> bool:
     # the kernel's own alpha-equivalence (not the search's `equal_expr`): equal up to the names of
     # bound variables; the arguments of a `sym` operator, and of `=` and `iff`, in any order
     bmap1, bmap2 = bmap1 or {}, bmap2 or {}
@@ -625,7 +795,7 @@ def k_equal(t1: Expr, t2: Expr, kb: KnowledgeBase, bmap1: Optional[dict] = None,
             # the middle arguments (a `sum`'s range) are outside the scope, only the last one inside
             return (all(k_equal(a, b, kb, bmap1, bmap2) for a, b in zip(body1[:-1], body2[:-1]))
                     and all(k_equal(a, b, kb, m1, m2) for a, b in zip(body1[-1:], body2[-1:])))
-        case ([Token(label='SYMBOL', value=op1) as h1, *args1], [Token(label='SYMBOL', value=op2), *args2]) \
+        case ([Token(label='SYMBOL', value=op1), *args1], [Token(label='SYMBOL', value=op2), *args2]) \
                 if isinstance(op1, str) and op1 == op2 and len(args1) == len(args2) and len(args1) > 1 and kb.is_sym(op1):
             unused = list(args2)
             for a in args1:
@@ -652,7 +822,7 @@ element by element. Two binders are equal only if their variables range over the
 
 <!-- cite: def k_free -->
 ```python
-def k_free(e: Expr, kb: KnowledgeBase, bound: frozenset[str] = frozenset()) -> set[str]:
+def k_free(e: Expr, kb: KbReader, bound: frozenset[str] = frozenset()) -> set[str]:
     # the free variables of `e`
     match e:
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and kb.is_var(v):
@@ -683,7 +853,7 @@ captured by it.
 
 <!-- cite: def k_strip -->
 ```python
-def k_strip(e: Expr, names: tuple[str, ...], kb: KnowledgeBase, also: Optional[Expr] = None) -> tuple[Expr, Optional[Expr]]:
+def k_strip(e: Expr, names: tuple[str, ...], kb: KbReader, also: Optional[Expr] = None) -> tuple[Expr, Optional[Expr]]:
     # remove outer `∀`s (without condition) of `e`, one per name, renaming the bound variable to
     # the name -- also in `also` (the conclusion, for the `∀`s of a premise)
     for name in names:
@@ -705,8 +875,8 @@ names is a rejection: the search claims to have stripped what isn't there.
 
 <!-- cite: def k_dependencies -->
 ```python
-def k_dependencies(e: Expr, kb: KnowledgeBase) -> dict[str, str]:
-    # which non-boolean schema variables may contain which bound variable: those that occur as
+def k_dependencies(e: Expr, kb: KbReader) -> dict[str, str]:
+    # which term schema variables may contain which bound variable: those that occur as
     # the whole body of a binder over the variable, and otherwise only inside binders over it or
     # `sub`s for it (the same criterion as `find_dependent_vars`, written again for the kernel)
     contexts: dict[str, list[tuple[frozenset[str], Optional[str]]]] = {}
@@ -746,7 +916,7 @@ def k_dependencies(e: Expr, kb: KnowledgeBase) -> dict[str, str]:
 
 <!-- cite: def k_rule_dependencies -->
 ```python
-def k_rule_dependencies(e: Expr, f: Formula, kb: KnowledgeBase) -> dict[str, str]:
+def k_rule_dependencies(e: Expr, f: Formula, kb: KbReader) -> dict[str, str]:
     # the dependent variables of a rule: only of a postulated one, and not those of its outer `∀`s
     # (see `POSTULATED`; `e` is `f`'s `simplified_expr`, or one direction of it, an `iff`)
     if f.keyword not in ('use', 'def', 'todo'):
@@ -754,7 +924,7 @@ def k_rule_dependencies(e: Expr, f: Formula, kb: KnowledgeBase) -> dict[str, str
     return {v: b for v, b in k_dependencies(e, kb).items() if v not in f.first_order}
 ```
 
-The criterion of `find_dependent_vars`, written again: a non-boolean schema variable `$T` may
+The criterion of `find_dependent_vars`, written again: a term schema variable `$T` may
 contain a bound variable `x` when it occurs as the whole body of a binder over `x` (`∀ x $T`), and
 everywhere else only inside binders over `x` or `sub`s for `x`. That makes `$T` "a formula about
 x", which its value may be. Only postulated rules (`use`, `def`, `todo`) have such variables, and
@@ -766,10 +936,10 @@ them may depend on anything.
 
 <!-- cite: def k_instantiate -->
 ```python
-def k_instantiate(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: KnowledgeBase, bound: frozenset[str] = frozenset()) -> Expr:
+def k_instantiate(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: KbReader, bound: frozenset[str] = frozenset()) -> Expr:
     # fill in the values of the variables -- without renaming, so a value may contain a variable
-    # that is bound where the variable occurs only if that is meant: a boolean `%A` may (as in
-    # "forall-elim"), a non-boolean `$T` only its own bound variable (see `k_dependencies`)
+    # that is bound where the variable occurs only if that is meant: a statement variable `%A` may (as in
+    # "forall-elim"), a term variable `$T` only its own bound variable (see `k_dependencies`)
     match e:
         case Token(label='SYMBOL', value=v) if isinstance(v, str) and v not in bound and v in values:
             value = values[v]
@@ -791,14 +961,14 @@ def k_instantiate(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: Kn
 ```
 
 The values are filled in *without* renaming. So a value that contains a variable bound at the
-place of the occurrence would be captured -- and that is allowed only when it is meant: a boolean
-`%A` may take any value (as in "forall-elim", `∀ x %A ⇒ sub x $t %A`, where `%A` is a formula about
-`x`), a non-boolean `$T` only its own bound variable from `deps`. Everything else is a rejection,
+place of the occurrence would be captured -- and that is allowed only when it is meant: a statement
+variable `%A` may take any value (as in "forall-elim", `∀ x %A ⇒ sub x $t %A`, where `%A` is a formula about
+`x`), a term variable `$T` only its own bound variable from `deps`. Everything else is a rejection,
 the capture check that the search's `may_capture` makes as well.
 
 <!-- cite: def k_replace -->
 ```python
-def k_replace(A: Expr, x: str, t: Expr, kb: KnowledgeBase) -> Expr:
+def k_replace(A: Expr, x: str, t: Expr, kb: KbReader) -> Expr:
     # `A` with `t` for the free occurrences of `x`, renaming a binder that would capture `t`
     match A:
         case Token(label='SYMBOL', value=v) if v == x:
@@ -827,7 +997,7 @@ binder whose variable occurs free in `t` is renamed to a fresh name first.
 
 <!-- cite: def k_evaluate -->
 ```python
-def k_evaluate(e: Expr, kb: KnowledgeBase) -> Expr:
+def k_evaluate(e: Expr, kb: KbReader) -> Expr:
     # evaluate the `sub`s, innermost first; a `sub` with a still unknown `%A` stays
     match e:
         case Token():
@@ -841,7 +1011,7 @@ def k_evaluate(e: Expr, kb: KnowledgeBase) -> Expr:
                     if not k_has_sort(t, sort, kb):
                         raise KernelReject(f'`{expr_str(t, kb)}` does not have the sort `{sort}` of `{x}`, which it replaces')
             return k_replace(A, x, t, kb)
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op) and is_sub(cond):
+        case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and kb.is_bindop(op) and is_sub(cond):
             # a binder with any condition, `∀ (sub $x $v C)`: `C` must not contain `$v` itself
             assert isinstance(cond, list)
             v = cond[2]
@@ -858,7 +1028,7 @@ def k_evaluate(e: Expr, kb: KnowledgeBase) -> Expr:
 ```
 
 `k_evaluate` evaluates the `sub`s of an instantiated rule, innermost first. A `sub` whose body is
-still a boolean variable without a value stays as it is (the search may have left `%A` open). A
+still a statement variable without a value stays as it is (the search may have left `%A` open). A
 binder with a condition that is a `sub` (`∀ (sub $x $v C)`, the general form of a conditioned
 quantifier) must not have its own bound variable in `C`; after evaluating, the condition is stored
 with its variable (`bound_condition`), so that `k_bound` reads it unambiguously later. The value
@@ -867,7 +1037,7 @@ the numbers, "forall-elim" gives nothing about a set (todo 34).
 
 <!-- cite: def k_instance -->
 ```python
-def k_instance(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: KnowledgeBase,
+def k_instance(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: KbReader,
                relativizable: 'set[str] | frozenset[str]' = frozenset()) -> Expr:
     # a bound variable of the rule with a variable as its value: every occurrence of it is that
     # variable. With another sort than its own (todo 34) only one of `relativizable`
@@ -904,7 +1074,7 @@ depend on the new one (`deps`).
 
 <!-- cite: def k_binder_variables -->
 ```python
-def k_binder_variables(e: Expr, kb: KnowledgeBase) -> set[str]:
+def k_binder_variables(e: Expr, kb: KbReader) -> set[str]:
     # the variables that a binder of `e` binds
     match e:
         case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
@@ -930,7 +1100,7 @@ def k_is_poly_variable(v: str) -> bool:
 
 <!-- cite: def k_parametric_binders -->
 ```python
-def k_parametric_binders(rule: Expr, kb: KnowledgeBase) -> set[str]:
+def k_parametric_binders(rule: Expr, kb: KbReader) -> set[str]:
     # the kernel's reading of which bound variables of a rule may range over a smaller sort than
     # their own (todo 34, 35): those the author wrote `$$x` (polymorphic) -- and that occur only
     # where they are bound (the binder, its condition), as the variable of a `sub` and as a side of
@@ -976,11 +1146,11 @@ Two sorts reject the step (§4.5).
 
 <!-- cite: def k_stripped_names -->
 ```python
-def k_stripped_names(cert: Certificate, kb: KnowledgeBase) -> tuple[dict[str, str], dict[str, str]]:
+def k_stripped_names(cert: Certificate, kb: KbReader) -> tuple[dict[str, str], dict[str, str]]:
     # the bound variables of the outer `∀`s of a rule's premise and of its conclusion that the
     # certificate strips, with the fresh name of each (`k_strip`)
     found: list[dict[str, str]] = [{}, {}]
-    if cert.form == 'impl' and is_implication(cert.expr):
+    if cert.form == 'impl' and cert.expr is not None and is_implication(cert.expr):
         assert isinstance(cert.expr, list)
         for names, part, fresh in ((found[0], cert.expr[1], cert.premise_fresh), (found[1], cert.expr[2], cert.conclusion_fresh)):
             for name in fresh:
@@ -995,7 +1165,7 @@ def k_stripped_names(cert: Certificate, kb: KnowledgeBase) -> tuple[dict[str, st
 
 <!-- cite: def k_poly_sorts -->
 ```python
-def k_poly_sorts(rule: Expr, values: dict[str, Expr], kb: KnowledgeBase,
+def k_poly_sorts(rule: Expr, values: dict[str, Expr], kb: KbReader,
                  stripped: tuple[dict[str, str], dict[str, str]] = ({}, {})) -> set[frozenset[str]]:
     # the sorts the polymorphic binders (`$$x`) of a rule range over in one use: a binder's value
     # (the fresh variable of a binder over a sort) or its own (none: `any`); a stripped outer `∀`
@@ -1030,15 +1200,15 @@ def k_poly_sorts(rule: Expr, values: dict[str, Expr], kb: KnowledgeBase,
 
 <!-- cite: def k_known -->
 ```python
-def k_known(f: Formula, kb: KnowledgeBase) -> bool:
+def k_known(f: Formula, kb: KbReader) -> bool:
     # whether `f` is a formula of the theory (or one direction of an `iff` of the theory)
     for g in kb.all_theory():
         if g is f:
             return True
         if f.direction_of is not None and g.id == f.id and g.simplified_expr is f.direction_of and is_iff(f.direction_of, kb):
-            L, R = f.direction_of[1], f.direction_of[2]      # type: ignore[index]
+            L, R = f.direction_of[1], f.direction_of[2]
             e = f.simplified_expr
-            return is_implication(e) and ((e[1] is L and e[2] is R) or (e[1] is R and e[2] is L))  # type: ignore[index]
+            return is_implication(e) and ((e[1] is L and e[2] is R) or (e[1] is R and e[2] is L))
     return False
 ```
 
@@ -1051,7 +1221,7 @@ doesn't accept a rule that merely looks like one of the theory.
 
 <!-- cite: def k_constants -->
 ```python
-def k_constants(e: Expr, kb: KnowledgeBase, bound: frozenset[str] = frozenset()) -> set[str]:
+def k_constants(e: Expr, kb: KbReader, bound: frozenset[str] = frozenset()) -> set[str]:
     # the symbols of `e` that are not variables and not bound
     match e:
         case Token(label='SYMBOL', value=v) if isinstance(v, str):
@@ -1074,7 +1244,7 @@ constant of the block escapes (§6).
 
 <!-- cite: def k_has_sort -->
 ```python
-def k_has_sort(e: Expr, sort: str, kb: KnowledgeBase) -> bool:
+def k_has_sort(e: Expr, sort: str, kb: KbReader) -> bool:
     """Kernel-side check of an optional result sort, independent of the search type checker:
     the value's sort is `sort` or a subsort of it (todo 34). Every value fits `any`, and a value
     without a sort only `any` (todo 35)."""
@@ -1084,7 +1254,7 @@ def k_has_sort(e: Expr, sort: str, kb: KnowledgeBase) -> bool:
     return any(k_sort_fits(f, sort, kb) for f in found)
 ```
 
-A value for a variable of a sort (`sort nat` and `nat a, b`, or one Kurt inferred, doc/kurt-doc.md
+A value for a variable of a sort (`sort nat` and `nat a, b`, or one Kurt inferred, doc/kurt-ref.md
 §5.2; `variable_sorts`, `pos_sort`) must have that sort or a smaller one -- `sort set real` makes
 `real ⊂ set`, a number fits where a set is required; a value without a sort fits none. The value's sort is read by the kernel itself
 (`k_value_sorts`): a symbol by its own sorts, a number by the sort of the number literals, an
@@ -1094,7 +1264,7 @@ the theories declared (`k_sort_fits`), not by the search's remembered closure.
 
 <!-- cite: def k_sort_fits -->
 ```python
-def k_sort_fits(value_sort: str, required: str, kb: KnowledgeBase) -> bool:
+def k_sort_fits(value_sort: str, required: str, kb: KbReader) -> bool:
     # the kernel's own reading of the subsorts: `value_sort` is `required` or below it, by the
     # pairs the theory declared (`sort set real`), followed upwards
     if value_sort == required or (required == 'any' and value_sort != 'prop'):
@@ -1115,7 +1285,7 @@ def k_sort_fits(value_sort: str, required: str, kb: KnowledgeBase) -> bool:
 
 <!-- cite: def k_value_sorts -->
 ```python
-def k_value_sorts(e: Expr, kb: KnowledgeBase) -> set[str]:
+def k_value_sorts(e: Expr, kb: KbReader) -> set[str]:
     # the kernel's reading of the sorts of a value: a symbol's or variable's, the result of its operator
     match e:
         case Token(label='SYMBOL', value=value) if isinstance(value, str):
@@ -1125,12 +1295,35 @@ def k_value_sorts(e: Expr, kb: KnowledgeBase) -> set[str]:
             return {sort} if sort is not None else set()
         case [Token(label='SYMBOL', value=op), _, _, body] if op == SUB_SYMBOL:
             return k_value_sorts(body, kb)
-        case [Token(label='SYMBOL', value=op), *_] if isinstance(op, str):
+        case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str):
             if kb.is_var(op):
                 return set(kb.variable_sorts(op))
+            profiles = kb.pos_sorts(op, 0)
+            if len(profiles) > 1:
+                return {k_overload_result(op, args, profiles, kb)}
             sort = kb.pos_sort(op, 0)
             return {sort} if sort is not None else set()
     return set()
+```
+
+An operator with several signatures (overloading, doc/kurt-kernel.md §8.5) has the sort of its
+*least* signature that every argument at a sorted place fits (`k_overload_result`); with no such
+signature, the greatest. The signatures of a symbol are one chain on the same places (checked where
+they are declared, `overload_problem`), so there is always a smallest of the applicable ones. A larger
+sort claims less, so the fallback can only reject a step, never accept a wrong one.
+
+<!-- cite: def k_overload_result -->
+```python
+def k_overload_result(op: str, args: list[Expr], profiles: frozenset[str], kb: KbReader) -> str:
+    # the kernel's reading of the sort of `op args` for an overloaded `op` (decision 19 of dev/todo-sorts.md,
+    # doc/kurt-kernel.md §8.5): its profiles are one chain, and the sort is the smallest profile that every
+    # argument at a sorted place fits -- else the greatest one (a larger sort only claims less)
+    flat = kb.is_flat(op) or kb.is_bracket_placeholder(op)
+    given = [k_value_sorts(a, kb) for position, a in enumerate(args, 1) if kb.pos_sorts(op, 1 if flat else position)]
+    candidates = [p for p in profiles if all(any(k_sort_fits(found, p, kb) for found in sorts) for sorts in given)]
+    if candidates:
+        return next((p for p in sorted(candidates) if all(k_sort_fits(p, o, kb) for o in candidates)), sorted(candidates)[0])
+    return next((p for p in sorted(profiles) if all(k_sort_fits(o, p, kb) for o in profiles)), sorted(profiles)[0])
 ```
 
 The sort of a binder's variable (`k_binder_sorts`): of a renamed one, as stored; of one as written
@@ -1144,7 +1337,7 @@ was given.
 
 <!-- cite: def k_binder_sorts -->
 ```python
-def k_binder_sorts(node: Expr, kb: KnowledgeBase) -> frozenset[str]:
+def k_binder_sorts(node: Expr, kb: KbReader) -> frozenset[str]:
     # the sorts of the variable of a binder: of a renamed one as stored; of one as written, read from
     # its binder like the line was (`binder_node_sorts`, shared like the normal form)
     assert isinstance(node, list)
@@ -1171,10 +1364,10 @@ def k_binder_sorts(node: Expr, kb: KnowledgeBase) -> frozenset[str]:
 
 <!-- cite: def k_is_statement -->
 ```python
-def k_is_statement(e: Expr, kb: KnowledgeBase, as_operator: bool = False) -> bool:
-    # whether `e` is a formula, not a term, as the kernel reads it: a boolean variable or symbol
+def k_is_statement(e: Expr, kb: KbReader, as_operator: bool = False) -> bool:
+    # whether `e` is a formula, not a term, as the kernel reads it: a statement variable or symbol
     # that takes no arguments (`%A`, `prop A`, `true`, `false`), an application of an operator
-    # with a boolean result, also a compound one (`(¬¬=) c c`; `<` of the calculator), or a
+    # with a statement as its result, also a compound one (`(¬¬=) c c`; `<` of the calculator), or a
     # `sub` whose body is one -- the kind a `%`-variable's value has and a `$`-variable's value
     # has not. A bare operator (`=`, `∧`, `prop P` with `arity P 1`) is no formula: only at an
     # operator position (`as_operator`) does it say what its application is
@@ -1186,7 +1379,7 @@ def k_is_statement(e: Expr, kb: KnowledgeBase, as_operator: bool = False) -> boo
                 return False
             builtins = kb.get_builtins(v)
             if builtins:
-                return all(operation in CALCULATOR_BOOLEAN_RESULTS for operation in builtins)
+                return all(operation in CALCULATOR_STATEMENT_RESULTS for operation in builtins)
             return kb.is_bool(v)
         case [Token(label='SYMBOL', value=op), _, _, body] if op == SUB_SYMBOL:
             return k_is_statement(body, kb, as_operator)
@@ -1202,7 +1395,7 @@ application by its operator -- also an operator that is itself an application, `
 and a `sub` by its body. A symbol that takes arguments (`k_takes_arguments`: an operator, or a
 function symbol with an arity) is a formula only at an operator position (`as_operator`), where
 it says what its application is: on its own, `=`, `∧` or a `prop P` with `arity P 2` is no
-formula, although its signature gives a boolean result -- the hole of a `sub` cut at the `=` of
+formula, although its signature gives a statement as its result -- the hole of a `sub` cut at the `=` of
 `c = c` made a `%b := =`, and "iff-subst" with "not-not" gave `R (c = c)` from `R ((¬¬(=)) c c)`
 (doc/kurt-soundness.md §8.40). It is the kernel's own reading, next to the search's `bool_expr`,
 which the unifier asks before it binds a variable (`compatible` in `unify_exprs_with_patterns`,
@@ -1210,14 +1403,14 @@ with `bare_operator_for`).
 
 <!-- cite: def k_takes_arguments -->
 ```python
-def k_takes_arguments(v: str, kb: KnowledgeBase) -> bool:
+def k_takes_arguments(v: str, kb: KbReader) -> bool:
     # an operator (prefix, infix, postfix, brackets) or a function symbol (`arity f 1`)
     return kb.is_operator(v) or kb.get_arity(v) > 0
 ```
 
 <!-- cite: def k_is_operator_variable -->
 ```python
-def k_is_operator_variable(v: str, kb: KnowledgeBase) -> bool:
+def k_is_operator_variable(v: str, kb: KbReader) -> bool:
     # a variable declared as an operator (`var ∘` with `infix ∘`), also by its fresh internal name
     # (`$$07`, whose origin is `∘`)
     return k_takes_arguments(v, kb) or k_takes_arguments(run_state.origin_names.get(v, v), kb)
@@ -1229,7 +1422,7 @@ made) is the declared one.
 
 <!-- cite: def k_has_kind -->
 ```python
-def k_has_kind(v: str, value: Expr, kb: KnowledgeBase) -> bool:
+def k_has_kind(v: str, value: Expr, kb: KbReader) -> bool:
     # the kind check of a value (doc/kurt-spec.md §3.1): a `%`-variable takes a formula; a
     # `$`-variable a term -- no formula, and no bare operator (`=`, `+`, `f`: an operator is no
     # object, decided 2026-10-20); an operator variable (`var ∘`) an operator with its result
@@ -1246,13 +1439,13 @@ The kind check of a value: a `%`-variable takes a formula (`k_is_statement`, so 
 operator); a `$`-variable a term -- what is no formula, also read as an operator: `(+)`, the
 operation of `group(R, (+), 0, (-))`, is a term, a bare `=` is neither a term nor a formula; an
 operator variable takes an operator, or an expression in its place, whose result has the
-variable's kind (`∘ := +`, a boolean `rel := sim`).
+variable's kind (`∘ := +`, `rel := sim` with a statement as its result).
 
 ### 5.9 The binary rule behind an n-ary `case`: `k_is_binary_or_elim_rule`
 
 <!-- cite: def k_is_binary_or_elim_rule -->
 ```python
-def k_is_binary_or_elim_rule(e: Expr, kb: KnowledgeBase) -> bool:
+def k_is_binary_or_elim_rule(e: Expr, kb: KbReader) -> bool:
     # Independent kernel-side recognition of the general rule that justifies the n-ary shortcut.
     if not is_implication(e) or not isinstance(e, list):
         return False
@@ -1280,15 +1473,15 @@ def k_is_binary_or_elim_rule(e: Expr, kb: KnowledgeBase) -> bool:
 ```
 
 The shape of general disjunction elimination, recognized structurally: a premise that is a
-conjunction of exactly three parts, one of them a binary disjunction of two boolean variables,
-the two others implications from each alternative to the conclusion, with three distinct boolean
+conjunction of exactly three parts, one of them a binary disjunction of two statement variables,
+the two others implications from each alternative to the conclusion, with three distinct statement
 variables in all.
 
 ### 5.10 How a result reads outside the block: `k_reading`, `k_reading_changes`
 
 <!-- cite: def k_reading -->
 ```python
-def k_reading(e: Expr, kb: KnowledgeBase) -> Optional[list[str]]:
+def k_reading(e: Expr, kb: KbReader) -> Optional[list[str]]:
     # the variables bound by the binders of `e`, in order, as the kernel reads them (`k_bound`) --
     # `None` if a condition can't be read
     match e:
@@ -1300,16 +1493,26 @@ def k_reading(e: Expr, kb: KnowledgeBase) -> Optional[list[str]]:
             except KernelReject:
                 return None
             parts = [k_reading(c, kb) for c in [cond, *body]]
-            return None if any(p is None for p in parts) else [bv] + [v for p in parts for v in p]   # type: ignore[union-attr]
+            readings = [bv]
+            for p in parts:
+                if p is None:
+                    return None
+                readings += p
+            return readings
         case [*children]:
             parts = [k_reading(c, kb) for c in children]
-            return None if any(p is None for p in parts) else [v for p in parts for v in p]   # type: ignore[union-attr]
+            flat: list[str] = []
+            for p in parts:
+                if p is None:
+                    return None
+                flat += p
+            return flat
     return None
 ```
 
 <!-- cite: def k_reading_changes -->
 ```python
-def k_reading_changes(block: 'KnowledgeBase', parent: 'KnowledgeBase', result: Expr, last: Expr) -> Optional[str]:
+def k_reading_changes(block: KbReader, parent: KbReader, result: Expr, last: Expr) -> Optional[str]:
     # whether the result of closing `block` reads differently at the parent than its last line did
     # inside the block (the kernel's own version of `binder_reading_changes`)
     inside = k_reading(last, block)
@@ -1318,8 +1521,10 @@ def k_reading_changes(block: 'KnowledgeBase', parent: 'KnowledgeBase', result: E
         return None     # can't be read at all -- the other checks report that
     if block.mode_str == 'let':
         # each name, and the binders inside its condition (a set-builder)
-        prefix = [v for c in block.mode_args if not is_bool_var_token(c, parent)
-                  for v in [k_bound(c, parent)] + (k_reading(c, parent) or [])]
+        # (the name a condition binds is the block's, as the closed `let` stores it, `bound_condition`:
+        # in `let w with $a <= w` inside `assume P $a`, `w`, not the fixed `$a`)
+        prefix = [v for c, name in zip(block.mode_args, block.let_names) if not is_bool_var_token(c, parent)
+                  for v in [k_bound(bound_condition(name, c) if isinstance(c, list) else c, parent)] + (k_reading(c, parent) or [])]
     elif block.mode_str in ('assume', 'case'):
         prefix = k_reading(block.mode_args[0], parent) or []
     else:
@@ -1335,7 +1540,11 @@ its result is read at the parent level, where the block's constants are unknown;
 constant of the block that the parent doesn't know and `A` a variable. `k_reading_changes` compares
 the reading of the result outside with the prefix the block adds (the names of a `let`, the
 condition of an `assume`) followed by the reading of the last line inside; a difference is a
-rejection (`binder_reading_changes` is the search's version).
+rejection (`binder_reading_changes` is the search's version). The prefix of a `let` is read from its
+condition with the block's name stored in it (`bound_condition`), as the closed block gives it --
+not from the condition alone: in `let w with $a <= w` inside `assume P $a`, the condition alone has
+two variables, `$a` and `w` (before 2026-10-23 a rejection), but the block binds `w`; that it was new
+in the block is checked by `forall-intro` (todo 52).
 
 ## 6. Closing a block: `kernel_verify_block`
 
@@ -1455,7 +1664,7 @@ case 'forall-intro':
 
 For each name of the `let`, from the last to the first, the expected result gets one `∀` with
 that name's condition (a bare `let x` has the variable as the condition; a `let x ∈ A` the
-condition stored with its variable). A boolean "name" (`let %A`, refused by `eval_let` since 2026-10-20) adds no quantifier. Each name must
+condition stored with its variable). A statement variable as a "name" (`let %A`, refused by `eval_let` since 2026-10-20) adds no quantifier. Each name must
 have been new in the block.
 
 ### 6.3 `pick`: `exists-elim`
@@ -1513,6 +1722,7 @@ it stripped, `strips`):
 if premise is None:     # the goal is an instance of the formula
     cert = record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'fact', formula_expr, values=resolved_values(s_final)), kb)
 else:
+    assert matched_formulas is not None     # (the loop above only ends with a premise through `success`)
     cert = record_certificate(Certificate('rule', expr, expr_free_vars, proven_formula, 'impl', formula_expr,
                                    premise_fresh_vars, conclusion_fresh_vars, resolved_values(s_final),
                                    list(matched_formulas), strips), kb)
@@ -1527,7 +1737,6 @@ certificate gives the values, not a chain of bindings). `eval_done` closes a blo
 ```python
 # the kernel checks the step, with the block's level (see `kernel_verify_block`)
 block = kb
-assumption = kb.mode_args[0] if kb.mode_args else None
 rule_name = {'assume': 'impl-intro', 'case': 'impl-intro', 'let': 'forall-intro', 'pick': 'exists-elim'}[mode_str]
 # the result is numbered by the lines of the block (the next line has a number of its own)
 lines = block_lines(block, kb.theory[-1])
@@ -1635,7 +1844,7 @@ def replay_step(j: dict, kb: KnowledgeBase, steps: ReplaySteps) -> bool:
         before, added_before = len(kb.theory), len(steps.added)
         names: dict[str, str] = {}
         goal = canonical_to_fresh(expr_from_json(h['goal']), names)
-        cert = rebuild_certificate(h, names, goal, free_bound_vars(goal, kb)[0], kb, steps)
+        cert = rebuild_certificate(h, names, goal, frozenset(free_bound_vars(goal, kb)[0]), kb, steps)
         if cert is None or kernel_verify(cert, kb) is not None:
             del kb.theory[before:], steps.added[added_before:]      # (steps it needed, and it isn't one)
             continue
@@ -1698,7 +1907,7 @@ proof file of the test suite:
   `bound_condition` (storing a condition with its variable), `new_var_name` and
   `new_bool_var_name` (fresh names), `is_ellipsis`, `get_token_set`, `expr_str` (printing, for
   messages only);
-- the `KnowledgeBase` lookups listed in `KernelEnv.READS`, as they are at the moment of the check.
+- the `KnowledgeBase` lookups of `KbReader`, as they are at the moment of the check.
 
 What the kernel does *not* trust is everything the search computed: the unifier's substitution,
 which `∀`s it stripped, which variable a binder binds, whether a value may be captured, whether a

@@ -1,4 +1,4 @@
-; sorts across `load` (dev/todo-order-sorted.md item 14): a `default` doesn't cross `load`, the
+; sorts across `load` (doc/kurt-soundness.md §10.2, condition 10): a `default` doesn't cross `load`, the
 ; sorts it gave do -- a fact of a file with `default real` stays about the numbers in a file without
 ; a default (whose own unsorted binders are over all objects), one with `default any` about all
 ; objects; a constant declared `any` is over `any` in the loading file too
