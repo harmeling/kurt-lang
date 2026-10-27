@@ -8,9 +8,9 @@ immediately, line by line, whether each step follows. It is meant for students l
 things, much like running tests while learning to program. Kurt has been developed by Stefan
 Harmeling (TU Dortmund) since 2016.
 
-**Status: 0.10, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
-proof written for 0.10 may need small changes for 1.0 (for 0.9 to 0.10: the "breaking changes" in
-`CHANGELOG.md`).
+**Status: 0.11, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
+proof written for 0.11 may need small changes for 1.0 (for 0.10 to 0.11: the "breaking changes" in
+`CHANGELOG.md`, e.g. the words `union`, `subset`, `to`, ... are now symbols of Kurt's theories).
 
 **Try it in your browser**, without installing anything:
 [www.kurt-lang.org](https://www.kurt-lang.org), the playground. It runs the same Kurt in the
@@ -163,7 +163,7 @@ Kurt was made for teaching, and so a Kurt proof is meant to be read by a person:
 line, each with the reason Kurt found for it. That may matter beyond teaching too. As language
 models get better at finding proofs, a person still needs to understand what was proven and how;
 a checker says that a proof is correct, a readable proof also lets someone follow it. Kurt could
-be one way to write such proofs. This is an idea, not a result: Kurt is a small checker, far from
+be one way to write such proofs. Kurt is a small checker, far from
 the libraries and the reach of Lean, Isabelle or Coq, and time will tell whether it is useful for
 this.
 
