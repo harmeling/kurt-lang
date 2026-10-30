@@ -11,12 +11,12 @@ import kurt.kurt as kurt
 # in that same file ever mentions it, its syntax is silently dropped when the theory is
 # `load`ed -- even though the file's own source clearly intends the symbol to be usable
 # (declaring `infix ^ 75 75` is not an accident). Found two real casualties this way: `^` in
-# numbers.kurt and `invimplies` in propositional.kurt, both fixed by adding a genuine axiom that
+# number.kurt and `invimplies` in propositional.kurt, both fixed by adding a genuine axiom that
 # mentions the symbol. This test declares every `infix`/`prefix`/`postfix` symbol found in
 # each shipped theory's own source text and asserts each one survived that file's `load`, so
 # a future edit can't reintroduce this silently.
 
-# every shipped theory (a list of ten missed the nine added later: integer, rational, field, ...)
+# every shipped theory (a list of ten missed the nine added later: divisibility, field, ...)
 THEORIES = sorted(p.name[:-len('.kurt')] for p in res.files('kurt.theories').iterdir()
                   if p.name.endswith('.kurt') and p.name != 'minimal.kurt')   # (the core, not loadable)
 

@@ -2,7 +2,7 @@
 ; `{a, b, ..., c}` and `{a, b, ...}` in steps of `b - a`; a list whose pattern would be a guess is
 ; refused. (The arithmetic facts are computed with `calc on`, which keeps a line as written: `7 = 1 + 6`
 ; stays `7 = 1 + 6`, so "exists-cond-intro" sees the instance.)
-load natural
+load natural, interval
 calc on
 
 ; 7 is one of 1, ..., 10: 7 = 1 + 6

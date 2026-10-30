@@ -48,8 +48,8 @@ class TestAliasAcrossLoad(unittest.TestCase):
 
     def test_the_same_alias_on_both_sides_is_fine(self):
         # (a theory loaded twice brings its aliases twice)
-        result = check({'lib.kurt': 'load numbers\nconst c\nuse c >= 1 "c1"\n',
-                        'main.kurt': 'load numbers\nconst d\nuse d >= 2\nload lib\nc >= 1\n'}, 'main.kurt')
+        result = check({'lib.kurt': 'load number\nconst c\nuse c >= 1 "c1"\n',
+                        'main.kurt': 'load number\nconst d\nuse d >= 2\nload lib\nc >= 1\n'}, 'main.kurt')
         self.assertTrue(result.ok, result.error)
 
 

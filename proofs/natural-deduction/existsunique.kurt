@@ -6,7 +6,7 @@ load logic
 ;    proof would need `sub`). Here each of them is derived for a predicate `P` from the
 ;    definition alone -- with a binder `eu` of our own that has only the defining axiom.
 arity  eu 2
-bindop eu
+binder eu
 prop   eu 0 2
 use (eu $x %A)  iff  exists $x (%A and (forall $y ((sub $x $y %A) implies ($y = $x))))  "eu-def"
 

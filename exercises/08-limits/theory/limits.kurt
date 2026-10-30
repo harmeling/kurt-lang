@@ -17,7 +17,7 @@
 ; To use `converges(a, L)`, get the right side, instantiate it at your ε (it needs `ε > 0` as a
 ; fact), and `pick N with ∀ n ∈ Nat (...)`.
 ;
-; Tools (with numbers.kurt, the laws of numbers, and analysis.kurt, the rules of abs):
+; Tools (with number.kurt, the laws of numbers, and analysis.kurt, the rules of abs):
 ;
 ;     "archimedes"   ∃ n ∈ Nat (n > x)                 above every number there is a natural one
 ;     "above-both"   ∃ M (M >= x ∧ M >= y)             a number above two numbers

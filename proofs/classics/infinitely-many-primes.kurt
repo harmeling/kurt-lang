@@ -2,9 +2,9 @@
 ;
 ; The proof: n! + 1 is at least 2, so it has a prime divisor p (the least of its divisors of at
 ; least 2, by the well-ordering of Nat); p <= n would make p a divisor of n! and of n! + 1. Only
-; the theories (natural.kurt: `∣`, well-ordering, induction; numbers.kurt: `!`), no axiom here --
+; the theories (natural.kurt: `∣`, well-ordering, induction; number.kurt: `!`), no axiom here --
 ; `prime` is a `def`.
-load natural
+load natural, divisibility
 default real
 
 prop prime

@@ -5,7 +5,7 @@
 ; conditioned quantifier goal (`forall $x in Nat ...`), now fixed -- see
 ; doc/kurt-soundness.md #7.4. The axiom itself checks out correct, demonstrated here with an
 ; uninterpreted predicate `P` (the standard way to test a quantifier rule generically, same
-; style as `proofs/natural-deduction/forall-elim.kurt` etc.; natural.kurt loads numbers.kurt, so
+; style as `proofs/natural-deduction/forall-elim.kurt` etc.; natural.kurt loads number.kurt, so
 ; concrete properties of numbers can be proved by induction too, see the other files here).
 ;
 ; the base case and step are given here as one conjunction; two separate facts work as well

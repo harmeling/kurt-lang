@@ -1,0 +1,10 @@
+; a declared variable needs no `let` in a proof: the claim holds for all of them
+load number
+var x, y
+show x > y  implies  not x=y
+proof
+    assume x>y
+        assume x=y
+            x>x
+            false
+qed

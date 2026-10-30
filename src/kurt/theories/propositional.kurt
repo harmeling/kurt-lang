@@ -8,7 +8,7 @@
 ; relating them.
 ;
 ; loaded (directly or transitively) by nearly every other theory here -- logic.kurt,
-; equality.kurt, set.kurt, and numbers.kurt all `load propositional` first.
+; equality.kurt, set.kurt, and number.kurt all `load propositional` first.
 
 ;; builtin syntax
 ; infix  implies 13 12  ; logical implies, right associative (since 13>12)

@@ -1,0 +1,22 @@
+; an operator variable `∘`, an operator parameter and its use for an operator of the file (doc/kurt-ref.md §5.4): the example of that section
+load propositional, equality, logic, set
+infix ∘ 70 70
+var ∘
+arity selfinverse (_, _, _)
+def selfinverse($A, (∘), $e) ⇔ $e ∈ $A ∧ ∀ $a ∈ $A ($a ∘ $a = $e)   "selfinverse"
+
+infix mix 60 60                         ; a word as the operation of this file
+const R, e, x
+use selfinverse(R, (mix), e)
+use x ∈ R
+e ∈ R ∧ ∀ a ∈ R (a mix a = e)        ; "selfinverse" unfolded, with `∘ := mix`
+∀ a ∈ R (a mix a = e)
+x mix x = e
+
+expect "ParseError"
+    use selfinverse(R, mix, e)
+expect "TypeError"
+    (mix) = (mix)
+
+expect "TypeError"
+    ∀ ∘ (x ∘ x = x)

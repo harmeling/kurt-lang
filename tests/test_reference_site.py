@@ -55,7 +55,7 @@ class TestSplit(unittest.TestCase):
                          'building-the-theory')
         self.assertEqual(site.page_slug('7', 'Goal-directed proof: `show` / `proof` / `qed`'), 'goal-directed-proof')
         self.assertEqual(site.page_slug('11', "Known gaps (so you don't mistake them)"), 'known-gaps')
-        self.assertEqual(site.page_slug('4', '`bindop`'), 'section-4')
+        self.assertEqual(site.page_slug('4', '`binder`'), 'section-4')
 
 
 class TestPages(unittest.TestCase):

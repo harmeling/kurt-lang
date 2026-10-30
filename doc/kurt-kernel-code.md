@@ -188,7 +188,7 @@ class KbReader(Protocol):
     def all_subsorts(self) -> frozenset[tuple[str, str]]: ...
     def generalized_sorts(self, symbol: str) -> frozenset[str]: ...
     def binder_sorts(self, node: Expr) -> frozenset[str]: ...
-    def is_bindop(self, s: str) -> bool: ...
+    def is_binder(self, s: str) -> bool: ...
     def is_const(self, s: str) -> bool: ...
     def is_known(self, s: str) -> bool: ...
     def is_used(self, s: str) -> bool: ...
@@ -312,8 +312,8 @@ class KernelEnv:
         return self._call('generalized_sorts', self._kb.generalized_sorts, symbol)
     def binder_sorts(self, node: Expr) -> frozenset[str]:
         return self._call('binder_sorts', self._kb.binder_sorts, node)
-    def is_bindop(self, s: str) -> bool:
-        return self._call('is_bindop', self._kb.is_bindop, s)
+    def is_binder(self, s: str) -> bool:
+        return self._call('is_binder', self._kb.is_binder, s)
     def is_const(self, s: str) -> bool:
         return self._call('is_const', self._kb.is_const, s)
     def is_known(self, s: str) -> bool:
@@ -719,7 +719,7 @@ can't be read, a capture, an unexpected expression) into the verdict.
 The kernel reads expressions with functions of its own, written again for the kernel, so that a
 bug in the search's reading (`unpack_condition`, `equal_expr`, `find_dependent_vars`) is not the
 kernel's bug too. They are small and recursive on the shape of an `Expr`: a `Token` (a leaf) or a
-list `[op, arg, ...]`. A binder is `[op, cond, *body]`, with `op` a `bindop`, `cond` the condition
+list `[op, arg, ...]`. A binder is `[op, cond, *body]`, with `op` a `binder`, `cond` the condition
 that names the bound variable (`x`, `x ∈ A`, or a `sub`), the middle arguments outside the scope
 (a `sum`'s range), and only the last one inside.
 
@@ -783,7 +783,7 @@ def k_equal(t1: Expr, t2: Expr, kb: KbReader, bmap1: Optional[dict] = None, bmap
                 return bmap1.get(v1) == v2 and bmap2.get(v2) == v1
             return v1 == v2
         case ([Token(label='SYMBOL', value=op1), cond1, *body1], [Token(label='SYMBOL', value=op2), cond2, *body2]) \
-                if isinstance(op1, str) and op1 == op2 and kb.is_bindop(op1) and len(body1) == len(body2):
+                if isinstance(op1, str) and op1 == op2 and kb.is_binder(op1) and len(body1) == len(body2):
             b1, b2 = k_bound(cond1, kb), k_bound(cond2, kb)
             if k_binder_sorts(t1, kb) != k_binder_sorts(t2, kb):
                 return False    # the bound variables range over the same sort (todo 34)
@@ -829,7 +829,7 @@ def k_free(e: Expr, kb: KbReader, bound: frozenset[str] = frozenset()) -> set[st
             return set() if v in bound else {v}
         case Token():
             return set()
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             return (set().union(*(k_free(c, kb, bound) for c in body[:-1]))          # outside the scope
                     | set().union(*(k_free(c, kb, bound | {bv}) for c in [cond, *body[-1:]])))
@@ -893,7 +893,7 @@ def k_dependencies(e: Expr, kb: KbReader) -> dict[str, str]:
                 walk(a, scopes)
                 if not note(A, scopes | {x}, None):
                     walk(A, scopes | {x})
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 bv = k_bound(cond, kb)
                 walk(cond, scopes)
                 for c in body[:-1]:
@@ -950,7 +950,7 @@ def k_instantiate(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: Kb
             return deepcopy_expr(value)
         case Token():
             return e
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             return [e[0], k_instantiate(cond, values, deps, kb, bound | {bv}),
                     *(k_instantiate(c, values, deps, kb, bound) for c in body[:-1]),          # outside the scope
@@ -975,7 +975,7 @@ def k_replace(A: Expr, x: str, t: Expr, kb: KbReader) -> Expr:
             return deepcopy_expr(t)
         case Token():
             return A
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             middle = [k_replace(c, x, t, kb) for c in body[:-1]]       # outside the scope of `bv`
             if bv == x:
@@ -1011,7 +1011,7 @@ def k_evaluate(e: Expr, kb: KbReader) -> Expr:
                     if not k_has_sort(t, sort, kb):
                         raise KernelReject(f'`{expr_str(t, kb)}` does not have the sort `{sort}` of `{x}`, which it replaces')
             return k_replace(A, x, t, kb)
-        case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and kb.is_bindop(op) and is_sub(cond):
+        case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and kb.is_binder(op) and is_sub(cond):
             # a binder with any condition, `∀ (sub $x $v C)`: `C` must not contain `$v` itself
             assert isinstance(cond, list)
             v = cond[2]
@@ -1077,7 +1077,7 @@ depend on the new one (`deps`).
 def k_binder_variables(e: Expr, kb: KbReader) -> set[str]:
     # the variables that a binder of `e` binds
     match e:
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             return {k_bound(cond, kb)} | set().union(*(k_binder_variables(c, kb) for c in [cond, *body]))
         case [*children]:
             return set().union(*(k_binder_variables(c, kb) for c in children)) if children else set()
@@ -1122,7 +1122,7 @@ def k_parametric_binders(rule: Expr, kb: KbReader) -> set[str]:
                 if not isinstance(a, Token):
                     walk(a, where_ok)     # (a variable as the value: `k_evaluate` checks its sort)
                 walk(A, where_ok)
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 bv = k_bound(cond, kb)
                 bound.add(bv)
                 walk(cond, where_ok | {bv})
@@ -1177,7 +1177,7 @@ def k_poly_sorts(rule: Expr, values: dict[str, Expr], kb: KbReader,
         match e:
             case [Token(label='SYMBOL', value=op), _, _, body] if op == SUB_SYMBOL:
                 return binders(body)
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 return {k_bound(cond, kb)} | set().union(*(binders(c) for c in [cond, *body]))
             case [*children]:
                 return set().union(*(binders(c) for c in children)) if children else set()
@@ -1228,7 +1228,7 @@ def k_constants(e: Expr, kb: KbReader, bound: frozenset[str] = frozenset()) -> s
             return set() if v in bound or kb.is_var(v) else {v}
         case Token():
             return set()
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             return ({op} | set().union(*(k_constants(c, kb, bound) for c in body[:-1]))      # outside the scope
                     | set().union(*(k_constants(c, kb, bound | {bv}) for c in [cond, *body[-1:]])))
@@ -1487,7 +1487,7 @@ def k_reading(e: Expr, kb: KbReader) -> Optional[list[str]]:
     match e:
         case Token():
             return []
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             try:
                 bv = k_bound(cond, kb)
             except KernelReject:
@@ -1571,8 +1571,11 @@ def kernel_verify_block(cert: Certificate) -> Optional[str]:
     def no_escape(e: Expr) -> Optional[str]:
         # an individual constant of the block must not occur in what the block gives -- and the
         # witness of a `pick` never, even if it is also a "vocabulary" symbol (`prop`, `arity`)
-        leaked = {c for c in k_constants(e, parent) if c in block.const and not parent.is_var(c)
-                  and (not block.is_vocabulary_symbol(c) or c == witness)}
+        # -- nor a symbol defined by a `def` of the block (todo 77), whatever it is: its meaning is
+        # a fact of the block only
+        defined = {f.def_symbol for f in block.theory if f.def_symbol is not None}
+        leaked = {c for c in k_constants(e, parent) if (c in block.const and not parent.is_var(c)
+                  and (not block.is_vocabulary_symbol(c) or c == witness)) or c in defined}
         if leaked:
             return f'the constants {sorted(leaked)} of the block occur in `{expr_str(e, parent)}`'
         return k_reading_changes(block, parent, e, last.expr)
@@ -1583,7 +1586,10 @@ doesn't know (`let`/`pick`), or a variable -- but not one fixed by an enclosing 
 (`is_fixed_var`: the `x` of an outer `assume R(x)` is "this x", and generalizing over it would be
 wrong). `no_escape` checks that no constant of the block occurs in the result (a `let x` block
 can't give a fact about `x`), with the witness of a `pick` never, even if it is also a vocabulary
-symbol; and that the result reads the same outside.
+symbol, and never a symbol that a `def` of the block defined (`defined`, the `def_symbol`s of the
+block's facts: a `def` inside a block is local to it, todo 77 -- `let x` / `def k iff P x` must not
+give `∀ x (k iff P x)`, and `k`, a statement, is a vocabulary symbol); and that the result reads the
+same outside.
 
 <!-- cite: kernel_verify_block :: def sorts_kept ... return None -->
 ```python

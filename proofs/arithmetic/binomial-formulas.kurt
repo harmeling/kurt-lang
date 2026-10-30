@@ -1,0 +1,41 @@
+; the three binomial formulas of number.kurt ("binomial-plus", "binomial-minus",
+; "binomial-product", proved there from "pow-two" and the rules), each used in one step
+load number
+real a, b, x, y
+
+; the formulas themselves, for constants: one step each
+(a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2          ; by "binomial-plus"
+(a - b) ^ 2 = a ^ 2 - 2 * a * b + b ^ 2          ; by "binomial-minus"
+(a + b) * (a - b) = a ^ 2 - b ^ 2                ; by "binomial-product"
+(x + y) * (x - y) = x ^ 2 - y ^ 2
+2 * x = x + x                                    ; by "two-times"
+x ^ 2 = x * x                                    ; by "pow-two"
+
+; an instance with a number: `(x + 1) ^ 2`
+show (x + 1) ^ 2 = x ^ 2 + 2 * x + 1
+proof
+    (x + 1) ^ 2 = x ^ 2 + 2 * x * 1 + 1 ^ 2      ; "binomial-plus", b := 1
+    2 * x * 1 = 2 * x                            ; "mul-identity"
+    (x + 1) ^ 2 = x ^ 2 + 2 * x + 1 ^ 2
+    1 ^ 2 = 1                                    ; "pow-two" (1 * 1) and "mul-identity"
+    (x + 1) ^ 2 = x ^ 2 + 2 * x + 1
+qed
+
+; with numbers only: the formula is an instance (no calculator needed for it), then `calc` computes
+show (2 + 3) ^ 2 = 25
+proof
+    (2 + 3) ^ 2 = 2 ^ 2 + 2 * 2 * 3 + 3 ^ 2      ; "binomial-plus"
+    calc on
+    2 ^ 2 + 2 * 2 * 3 + 3 ^ 2 = 25
+    (2 + 3) ^ 2 = 25
+qed
+
+; the formulas inside a larger term, and the other way round: to factor
+show (x + y) ^ 2 + 1 = x ^ 2 + 2 * x * y + y ^ 2 + 1
+proof
+    (x + y) ^ 2 = x ^ 2 + 2 * x * y + y ^ 2
+    (x + y) ^ 2 + 1 = x ^ 2 + 2 * x * y + y ^ 2 + 1      ; "add-eq"
+qed
+
+x ^ 2 - 2 ^ 2 = (x + 2) * (x - 2)                ; "binomial-product", read from right to left
+(2 * x - 1) ^ 2 = (2 * x) ^ 2 - 2 * (2 * x) * 1 + 1 ^ 2   ; "binomial-minus", a := 2 * x, b := 1

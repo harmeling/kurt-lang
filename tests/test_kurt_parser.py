@@ -6,9 +6,9 @@ from .examples import examples
 class Test_Parsing(unittest.TestCase):
     def test_parsing(self):
         kb = copy.deepcopy(kurt.initial_kb)
-        kurt.load_file('numbers.kurt', kb)
+        kurt.load_file('number.kurt', kb)
         kb.format = 'sexpr'
-        # the reading only, not the type check: with the sorts of numbers.kurt (todo 34), `432 422`
+        # the reading only, not the type check: with the sorts of number.kurt (todo 34), `432 422`
         # (a number applied to a number) is no number, and `f 178 + 432 422` a type error
         from unittest import mock
         patch = mock.patch.object(kurt, 'type_check_expression', lambda e, kb, bound_sorts=None: None)

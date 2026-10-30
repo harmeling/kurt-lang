@@ -17,11 +17,11 @@ class TestPrinting(unittest.TestCase):
         self.assertIn('use ⟨a⟩ = b ', out)
 
     def test_negative_numbers(self):
-        out = self.output('load numbers\ncalc on\nconst x\nuse x = 0 - 8\n')
+        out = self.output('load number\ncalc on\nconst x\nuse x = 0 - 8\n')
         self.assertIn('use x = (0 - 8)', out)          # as written (since 2026-10-12, `calc` doesn't change a line)
         # a computed negative number (e.g. Tab after `0 - 8 =`): `(-8)`, not `-8`, which could read as `- 8`
         kb = kurt.copy.deepcopy(kurt.initial_kb)
-        kurt.load_file('numbers.kurt', kb)               # (`=` an infix operator)
+        kurt.load_file('number.kurt', kb)               # (`=` an infix operator)
         equation: kurt.Expr = [kurt.Token('SYMBOL', '='), kurt.Token('SYMBOL', 'x'), kurt.Token('INT', -8)]
         self.assertEqual(kurt.expr_str(equation, kb), 'x = (-8)')
 

@@ -6,7 +6,7 @@
 ; need intermediate lines. When a line fails:
 ;
 ; 1. Check that the required theory is loaded. `not`/`or` need `propositional`, equality needs `equality`,
-;    quantifier rules need `logic`, and arithmetic rules need `numbers`.
+;    quantifier rules need `logic`, and arithmetic rules need `number`.
 ; 2. Check the exact parsed form with `parse EXPRESSION`, especially around precedence, function
 ;    application, and custom operators.
 ; 3. Use `theory` or `theory OPERATOR` to see which facts are currently available.

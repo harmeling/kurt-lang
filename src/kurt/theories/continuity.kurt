@@ -8,13 +8,13 @@
 ;
 ; The definitions are stated as axioms, as in derivative.kurt (see there) -- for Lean they are
 ; theorems about Mathlib's `ContinuousAt`, `DifferentiableAt`, `deriv` (`lean "label" ...` at the end).
-load propositional, equality, logic, set, numbers, natural, analysis
+load propositional, equality, logic, set, number, natural, analysis
 default real              ; every symbol of this file is a number, except where said otherwise
 
 ;; syntax
 const cont, diff, deriv
 arity cont 3, diff 3, deriv 3
-bindop cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
+binder cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
 prop cont 0, diff 0
 tex cont \operatorname{cont}_{$1=$2} $3
 tex diff \operatorname{diff}_{$1=$2} $3
@@ -36,7 +36,7 @@ use (∀ $e > 0 ∃ $d > 0 ∀ $h ((0 < abs($h) ∧ abs($h) < $d)  ⇒  abs(((su
 ; "cont-def" (at `y = a` both hold anyway), stated as an axiom like the definitions
 use (cont $v $a $T)  ⇔  tends $v $a (sub $v $a $T) $T                                "cont-tends"
 
-;; the definitions as theorems of Mathlib (see numbers.kurt): `lean "label" TACTIC` is a proof in Lean
+;; the definitions as theorems of Mathlib (see number.kurt): `lean "label" TACTIC` is a proof in Lean
 lean "cont-def" intros; beta_reduce
 lean "cont-def" rw [Metric.continuousAt_iff]
 lean "cont-def" simp only [Real.dist_eq, gt_iff_lt]

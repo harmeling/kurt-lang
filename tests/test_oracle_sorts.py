@@ -102,6 +102,22 @@ class TestOracleComplex(unittest.TestCase):
         with self.assertRaises(oracle_sorts.Unsupported):
             oracle_sorts.valid_in(formula.expr, m, kb)
 
+    def test_a_complex_variable_is_not_modelled_either(self):
+        # a variable of the sort `complex` took an object of the model, and `1 * z` (the calculator on a number and an
+        # object: some total function) was not `z`: proofs/complex/complex-numbers.kurt:20 was "refuted" (2026-10-28)
+        kb = copy.deepcopy(kurt.initial_kb)
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'oracle-complex-variable.kurt')
+            Path(path).write_text('load complex\ncomplex z\nuse 1 * z + 0 = z  "one-times"\n', encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                kurt.load_file(path, kb)
+        formula = next(f for f in kb.all_theory() if f.label == 'one-times')
+        for seed in range(1, 6):
+            m = oracle_sorts.Model(kb, random.Random(seed), 1, oracle_sorts.arithmetic_of(formula.expr, kb))
+            with self.assertRaises(oracle_sorts.Unsupported):
+                oracle_sorts.valid_in(formula.expr, m, kb)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,10 @@
+; `var real x, y, z` and `const real c, d`: the sort in front of the names (plan step 3)
+load number
+var real x, y, z
+const real c, d
+use x + 0 = x    "plus-zero"
+c + 0 = c
+show x + y = y + x
+proof
+    x + y = y + x
+qed

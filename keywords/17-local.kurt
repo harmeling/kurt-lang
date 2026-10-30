@@ -5,6 +5,24 @@
 ; 12-def.kurt): a labelled fact is *exported*, an unlabelled one -- or one
 ; explicitly labelled `local` -- stays inside the file that wrote it.
 
+; What crosses a `load`, and what stays (doc/kurt-ref.md, §8.2):
+;
+; | A `load` brings                                              | Stays in the file that wrote it                              |
+; |--------------------------------------------------------------|--------------------------------------------------------------|
+; | its facts (`use`, `def`, theorems) with a label that is not  | a fact without a label, or labelled `local`                  |
+; | `local`                                                      |                                                              |
+; | the symbols those facts mention, with everything known about | a symbol that only local facts mention (and that the file    |
+; | them: fixity, arity, `prop` places, sorts, `tex`, `lean`, ...| doesn't declare at its top level)                            |
+; | the symbols the file declares at its top level without       | a declaration with `local` at its end (`const helper local`),|
+; | `local` (`const`, `prop`, `infix`, `arity`, ...): its        | a declaration inside a block                                 |
+; | vocabulary                                                   |                                                              |
+; | the calculator bindings (`builtin`), `inline`, `tex`, `lean` | `var`, the constants Kurt added at a first use,              |
+; | symbols; sorts and subsorts; chains; open `todo`s            | `calc on`, `default`                                         |
+; |                                                              | a `def` written inside a block (it is local to the block)    |
+;
+; A fact that needs a symbol declared `local` can't be exported: the `load` fails, with the advice to
+; drop the `local` or to mark the fact `local` too.
+
 load local-helper
 
 P                      ; fine -- "exported" was labelled, so it travelled here

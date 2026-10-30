@@ -18,13 +18,15 @@ B
 
 load propositional             ; already loaded, skipped
 
+; What a `load` brings from a file, and what stays in it: the table of 17-local.kurt.
+
 ; `load` with no arguments lists every file loaded so far:
 load
 
-; A symbol is declared by one file only: `+` comes from numbers.kurt, or from
+; A symbol is declared by one file only: `+` comes from number.kurt, or from
 ; a structure with its own `+` (a field, a vector space), never from both --
 ; a theory's laws hold for everything written with its operators, and
-; numbers.kurt's `$a * $b = $b * $a` must not reach matrices. Two files that
+; number.kurt's `$a * $b = $b * $a` must not reach matrices. Two files that
 ; declare the same symbol can't be loaded together (in either order); the
 ; same file reached twice is fine. Here, two small theories that both
 ; declare `∘` (written to files first, like your own theories would be):

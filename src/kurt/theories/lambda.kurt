@@ -20,7 +20,7 @@ infix reduces 15 15
 infix steps 15 15
 infix : 25 24
 infix proves 10 9
-bindop lambda
+binder lambda
 
 const fun, app, has, value, reduces, steps, :, proves, succ, at, abs, extend, zero, empty, base, unit
 ; the words are the standard names, the symbols their aliases (doc/kurt-ref.md, `alias`)

@@ -1,6 +1,6 @@
 ; wrong uses of the proof keywords and blocks, of `def`, and wrongly typed formulas are
 ; rejected -- each with its own error (see doc/kurt-ref.md §6, §7, §9)
-load logic, numbers
+load logic, number
 const c, d
 prop P, Q
 arity P 1

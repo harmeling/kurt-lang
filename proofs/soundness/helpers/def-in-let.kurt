@@ -1,4 +1,5 @@
-; `def` inside `let` (see ../def-not-in-proof-blocks.kurt)
+; `def` as the last line of `let`, closed by the end of the file (see ../def-in-a-block-escapes.kurt):
+; the result `∀ x (k iff P x)` would prove `P c ⇒ P d`
 load logic
 prop P
 arity P 1

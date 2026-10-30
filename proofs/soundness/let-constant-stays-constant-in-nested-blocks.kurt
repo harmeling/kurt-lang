@@ -17,6 +17,6 @@ assume %E
 expect "TypeError" "`let` fixes a term"
     let %E
 expect "ProofError"
-    let $x
-        assume $x = $x
-            $x = d
+    let x
+        assume x = x
+            x = d

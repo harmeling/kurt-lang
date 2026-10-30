@@ -8,9 +8,9 @@ import kurt.kurt as kurt
 class TestList(unittest.TestCase):
     def test_lists_a_loaded_theory_by_stem_basename_and_category(self):
         result = kurt.check_text(
-            'load natural\n'
+            'load natural, divisibility\n'
             'list const natural\n'
-            'list infix "natural.kurt"\n'
+            'list infix "divisibility.kurt"\n'
             'list theory natural\n'
         )
         self.assertTrue(result.ok, result.error)

@@ -105,8 +105,8 @@ Getting this right took two attempts:
 - **Second attempt (also wrong, closer): rename the premise's `$x` and
   apply the same substitution to the conclusion via `apply_subst`.**
   `apply_subst` is (correctly, for ordinary substitution) capture-avoiding:
-  it refuses to substitute into a bindop's own binder slot. But `sub` is
-  itself registered as a bindop, and forall-elim's conclusion is
+  it refuses to substitute into a binder's own binder slot. But `sub` is
+  itself registered as a binder, and forall-elim's conclusion is
   `sub $x $a %A` — so `apply_subst` refused to rename `$x` sitting right in
   `sub`'s own binder position, again leaving premise and conclusion
   referring to two different variables for what must be the same one.
@@ -303,7 +303,9 @@ quantifies it (`x` inside `forall x (...)`) — which is what lets `let`
 reuse the same constant name as the resulting `forall`'s bound variable
 without `x` itself tripping the check. `pick` additionally has its own,
 earlier, `pick`-specific version of the same check (`kb.const` filtered the
-same way) before this shared one even runs.
+same way) before this shared one even runs. A symbol that a `def` of the
+block defined is never allowed in the result, vocabulary symbol or not
+(`no_defined_symbol`, since 2026-10-27, §8.51).
 
 Verified with adversarial tests (`proofs/soundness/`):
 - `forall-intro-rejects-leaked-constant.kurt` — a `const helper` declared
@@ -340,7 +342,7 @@ so it's recorded here rather than filed separately.
 
 **Fix:** added `KnowledgeBase.is_vocabulary_symbol(s)` — true if `s` has
 arity > 0, is a declared operator (`infix`/`prefix`/`postfix`/`brackets`),
-is a `bindop`, or is declared `prop` — and excluded vocabulary symbols from
+is a `binder`, or is declared `prop` — and excluded vocabulary symbols from
 `not_allowed` in both the shared check and `pick`'s own earlier one.
 
 **Why this doesn't reopen the hole it's excluding from:** the thing that
@@ -368,19 +370,19 @@ is an ordinary word -- see §8.30. The paragraph describes the state in between.
 **Update, since fixed: `forall`/`exists` are now hard-coded syntax, not just
 `logic.kurt` declarations.** The wrinkle above used to read "`let`'s
 forall-wrapping always uses the literal symbol `forall`, regardless of
-whether the current theory has declared it a `bindop`" — which turned out
+whether the current theory has declared it a `binder`" — which turned out
 to be much worse than a footgun once actually tested. `theory_append`/
 `show_append` (every formula ever stored) and `all_theory()` (every
 derivation search) already unconditionally special-case any expression
 headed by the literal symbol `forall`, via `remove_outer_forall_quantifiers`
 — completely independent of `let`, and independent of whether `forall` is
-declared a `bindop` anywhere. Without that declaration, the bare word
+declared a `binder` anywhere. Without that declaration, the bare word
 `forall` still parses (as an ordinary, flatly space-applied symbol) but
 produces the wrong shape, and the very first formula mentioning it crashed
 with a raw, uncaught `AssertionError` — reachable with nothing more than
 `use forall x A x` and no `load logic`, no `let` involved at all.
 
-**Fixed two ways:** (1) `forall`/`exists`'s syntax (arity, `bindop`, prop
+**Fixed two ways:** (1) `forall`/`exists`'s syntax (arity, `binder`, prop
 signature) is now declared directly in `initial_kb`
 (`kurt.py`) and documented in `minimal.kurt`, exactly like `and`/`implies`'s
 syntax already was. The `∀`/`∃` aliases later moved to `logic.kurt`, together with their
@@ -394,11 +396,11 @@ check no longer `assert` the expected shape — they raise a clean
 invariant is broken some other way in the future.
 
 This surfaced one more thing worth recording. At the time, `sub` (the other hard-coded
-`bindop`) was only added to `.used`, without either a constant or variable role. Copying that
+`binder`) was only added to `.used`, without either a constant or variable role. Copying that
 pattern suppressed `_add_new_symbols`'s normal "first use becomes `const`" fallback and broke
 definitions whose right side contained `forall`. The immediate fix explicitly registered
 `forall`/`exists` as constants. The 2026-10-08 declaration audit made the invariant general:
-every `bindop`, including `sub`, implies `const`, because its fixed scoping behavior cannot
+every `binder`, including `sub`, implies `const`, because its fixed scoping behavior cannot
 belong to a variable operator.
 
 ### 2.2 Bug found and fixed: an explicitly-`forall`-quantified statement variable lost its classification as one
@@ -410,7 +412,7 @@ internal name (`new_var_name()`, `$$NN`) — but it did this unconditionally,
 even when the bound variable was a `%`-prefixed *statement* schema variable,
 which needs a fresh *statement variable* name instead (`new_bool_var_name()`, `%%NN`) to
 stay recognized as one afterwards. `rename_all_vars_rec`'s own
-bindop-handling branch, a few lines below in the same file, already gets
+binder-handling branch, a few lines below in the same file, already gets
 this right (`if kb.is_bool(var): new_var = new_bool_var_name() ...`) — the
 two code paths had simply drifted apart.
 
@@ -490,7 +492,7 @@ directions.
 
 Both fixed together by making `extract_by_condition` bound-variable-aware,
 mirroring the existing `contains` helper (§2 above): it now takes `kb` and
-tracks `bound_vars` through any `is_bindop`-headed subexpression, excluding
+tracks `bound_vars` through any `is_binder`-headed subexpression, excluding
 them from candidacy exactly like `contains` already excludes them from its
 symbol search. Regression tests:
 `proofs/soundness/def-bound-var-not-new-symbol.kurt` (RHS false-rejection
@@ -547,7 +549,7 @@ existential formula that matches the \`pick\`` before the fix.
 Fixed by making `equal_expr` genuinely alpha-equivalence-aware: it now takes
 `kb` and threads a pair of bound-variable correspondence maps through the
 comparison (`equal_expr_alpha`), extending the map whenever both sides are
-headed by the same `is_bindop` symbol. Only bound-variable *name* tokens get
+headed by the same `is_binder` symbol. Only bound-variable *name* tokens get
 this leniency — constants, schema variables (`%A`/`$x` used as free
 placeholders, not as a binder's own name), and operators still require exact
 literal identity, so this can never make two genuinely different formulas
@@ -593,7 +595,7 @@ elsewhere. Already covered by existing regression tests
 (`proofs/debug/const-const.kurt`, `const-var.kurt`, `var-const.kurt`,
 `var-level-const.kurt`) — no new tests needed here.
 
-### 4.1 Bug found and fixed: `arity`/`bindop` didn't check the ancestor chain
+### 4.1 Bug found and fixed: `arity`/`binder` didn't check the ancestor chain
 
 Found while investigating `dev/todo-claude.md`'s (in git history) "file-local variables /
 explicit theory export" gap — specifically, checking whether loading two
@@ -608,7 +610,7 @@ ancestor chain, the same way the corresponding `is_infix`/`is_const`/
 `bool_sig`/etc. lookups already do (confirmed by reading all of them:
 `add_prefix`, `add_infix`, `add_postfix`, `add_var`, `add_const`,
 `add_alias`, `add_bool`, `add_flat`, `add_sym`, `add_chain` all correctly go
-through an ancestor-aware helper). `add_arity` and `add_bindop` didn't —
+through an ancestor-aware helper). `add_arity` and `add_binder` didn't —
 they checked `fun in self.arity` / `self.arity[fun]` directly, which only
 sees the *current* level's own dict. This bit in exactly the case ancestor
 chains exist for: `load` opens a fresh child ("sandbox") level per file,
@@ -623,7 +625,7 @@ behavior depended entirely on how a theory author happened to split
 declarations across files, an inconsistency in its own right regardless of
 the silent-overwrite risk.
 
-The reverse direction also turned up a genuine false rejection: `add_bindop`
+The reverse direction also turned up a genuine false rejection: `add_binder`
 declaring a symbol as a binding operator *inside a nested block*
 (`sandbox`/`assume`/`let`/...) whose arity was declared on an *ancestor*
 level wrongly raised "before declaring symbol as variable binding, you must
@@ -632,11 +634,11 @@ current level's own dict.
 
 Fixed by adding a proper ancestor-aware `is_arity_set` (mirroring
 `is_infix`/`is_const`/etc.) and using it (plus the already-ancestor-aware
-`get_arity`) in both `add_arity` and `add_bindop` instead of raw dict
+`get_arity`) in both `add_arity` and `add_binder` instead of raw dict
 access. Regression tests:
 `proofs/soundness/arity-redeclaration-across-load-rejected.kurt` (the
 silent-overwrite direction, now correctly rejected) and
-`bindop-sees-ancestor-arity.kurt` (the false-rejection direction, now
+`binder-sees-ancestor-arity.kurt` (the false-rejection direction, now
 correctly accepted).
 
 ## 5. Guard against silently losing these checks
@@ -735,7 +737,7 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   completeness, not because it looks dangerous.
 - ~~**`equal-elim`-driven substitution can't replace a multi-argument chunk of
   a `flat` operator's argument list**~~ — **fixed, see §8.2.** Original diagnosis:
-  Found while writing a real test proof for `numbers.kurt`'s factorial
+  Found while writing a real test proof for `number.kurt`'s factorial
   recursion (`proofs/arithmetic/factorial-recursion.kurt`): chaining a
   *second* application of "factorial-step" (to go on from `1! = 1` to prove
   `2! = 2`) reliably failed to substitute `1! = 1 * 1` into `2 * 1!`.
@@ -863,7 +865,7 @@ missing).
 **Retrofitting note:** every shipped theory needed auditing for this
 change, since an unlabelled `use`/`def` (previously always exported)
 silently stops being exported. `propositional.kurt`/`logic.kurt`/`equality.kurt`
-were already fully labelled. `numbers.kurt` (previously all ~50 rules
+were already fully labelled. `number.kurt` (previously all ~50 rules
 unlabelled), `set.kurt` (one unlabelled rule), and `modal.kurt` (5 of 6
 unlabelled) were retrofitted with labels. `natural.kurt` turned out to
 have been silently broken independently of this feature — see the next
@@ -907,13 +909,13 @@ genuinely multi-char operators untouched by this change (`<=`, `>=`, `!=`,
 
 ### 7.0 One file declares a symbol (2026-10-06)
 
-A theory's laws hold for every term written with its operators: numbers.kurt (formerly
+A theory's laws hold for every term written with its operators: number.kurt (formerly
 arith.kurt) has `$a * $b = $b * $a` for all `$a`, `$b`. A structure that declares its own `+`,
 `·` (field.kurt, and through it vectorspace.kurt and proofs/mafi1/matrices.kurt) used to be loadable together with it,
 since two declarations of a symbol only had to not contradict each other (and `flat`, `sym`
 missing on one side was fine) -- then numbers' laws applied to matrices, and `A · B = B · A`
 would have been provable in a file that loaded both. Now each declaration (`infix`, `prefix`,
-`postfix`, `arity`, `brackets`, `bindop`, `flat`, `sym`) records the file it comes from
+`postfix`, `arity`, `brackets`, `binder`, `flat`, `sym`) records the file it comes from
 (`declare_origin`, `KnowledgeBase.declared_in`, exported with the symbol), and
 `validate_against_loader` refuses a symbol declared by two different files; the same file
 reached twice is one declaration. This is a check on what theories are combined, not a proof
@@ -967,10 +969,10 @@ Regression: `proofs/soundness/eof-mid-statement-rejected.kurt`.
 ### 7.3 Bug found and fixed: syntax-only symbols silently dropped by the retrofit itself
 
 Found by a fresh-eyes review pass over the docs, spot-checking `calc`'s
-documented operator coverage against reality: `2 ^ 3` (after `load numbers`)
+documented operator coverage against reality: `2 ^ 3` (after `load number`)
 parsed as bare space-application, `[2, ^, 3]`, not an infix expression —
 `^`'s own `infix ^ 75 75` declaration had silently stopped surviving
-`load numbers`. Root cause: every axiom in `numbers.kurt` that ever mentioned
+`load number`. Root cause: every axiom in `number.kurt` that ever mentioned
 `^` ("laws of exponents") was already commented out before selective
 export existed, so once export was implemented, nothing exported ever
 needed `^` — its syntax fell out of the closure entirely. This is exactly
@@ -1143,7 +1145,7 @@ it holds, (b) a claim is proven from a fact when both compute to the same normal
 (`calculate_normalized`), and (c) substitution results are computed as well (§8.2). Each
 step only replaces literal arithmetic by its value, so it preserves truth under the intended
 meaning of the numerals and `+ - * / ^ < <= …`; like `calc` itself, it presumes these symbols
-carry that meaning (`load numbers`). A false comparison (`2 = 3`) is simply not derivable.
+carry that meaning (`load number`). A false comparison (`2 = 3`) is simply not derivable.
 
 ### 8.5 Bug found and fixed: declarations could change the meaning of packaged operators
 
@@ -1169,7 +1171,7 @@ used to close as `A implies B` "by impl-intro", a seemingly proven fact that res
 unproven axiom. It stays allowed at a file's top level and inside `sandbox`/`expect`, whose
 content is discarded (`block_forbidding_declaration`, shared with `load`/`def`/`chain`/`inline`
 and, since 2026-10-16, every grammar declaration -- `infix`, `prefix`, `postfix`, `brackets`,
-`arity`, `bindop`, `flat`, `sym`, `alias`, `sort`: not a soundness issue by itself, but their
+`arity`, `binder`, `flat`, `sym`, `alias`, `sort`: not a soundness issue by itself, but their
 notation was never actually scoped to the block either, since a surviving formula that needs it
 locks the declaration in for good, doc/kurt-ref.md §11.2; regression:
 `proofs/errors/grammar-declaration-in-a-block.kurt`). With `--strict`, untrusted files may not
@@ -1259,7 +1261,7 @@ renamed from `y` to `$v`, which is blocked like any pattern binder. Three safegu
   since on its own `%C` would mention the rule's `$x` -- e.g. `(∀ (sub $x $v %C) %P) ⇒ %C`
   would give `$x > 0` for any `$x`;
 - an instance whose binder lost its bound variable -- e.g. `%C := 5 ∈ Nat` from a decomposition
-  of `5 ∈ Nat ⇒ P 5` without a hole -- is skipped (`valid_bindop_conditions` after
+  of `5 ∈ Nat ⇒ P 5` without a hole -- is skipped (`valid_binder_conditions` after
   `trigger_sub`, in `impl_elim` and `match_all_theory`), not stored or crashed on;
 - a binder with a condition never matches one without.
 
@@ -1331,7 +1333,7 @@ Regression: `proofs/soundness/assumption-variables-are-fixed.kurt`.
 they meant in the file, with Python floats (`0.1 + 0.2 = 0.3` failed). And for `*` with a
 numeric part `0` it dropped the `0`, as for `+`: `0 * x` became `x`, so `P (0 * a)` followed from
 `P a`. It also crashed on `1 / 0`, and put complex numbers into formulas (`(0 - 8) ^ 0.5`). Now
-a theory binds its symbols to the built-in calculator (numbers.kurt: `calc + add, ...`), which
+a theory binds its symbols to the built-in calculator (number.kurt: `calc + add, ...`), which
 computes exactly (`int`, `Fraction`), and doesn't compute what has no exact value. The calculator
 is part of what the kernel trusts; a binding is like an axiom, so `--strict` rejects it outside
 the trusted theories, and the symbols of a trusted theory can't be bound anew.
@@ -1350,7 +1352,9 @@ packaged theories. What they found, and what was fixed (each with its regression
   symbol applied (possibly curried) to distinct variables -- or the new symbol as an argument of an
   operator no formula mentions yet (`$f is injective`, subsequently removed in §8.23) --, the right-hand side has no other
   variables, and `def` is not allowed in proof blocks. `--strict` also rejects `sym`/`flat`
-  outside the trusted theories. (`def-is-conservative.kurt`, `def-not-in-proof-blocks.kurt`)
+  outside the trusted theories. (`def-is-conservative.kurt`, `def-not-in-proof-blocks.kurt`; since
+  2026-10-27 a `def` is allowed in a block again, local to it and kept out of the block's result,
+  §8.51, `def-in-a-block-escapes.kurt`)
 - set.kurt's "separation" didn't bind its variable: `{ y ∈ Nat | y = y }` gave `(0 + 1) = y`.
   Now `|` is a binder (an infix operator can be one), and separation abstracts every occurrence.
   (`separation-binds-its-variable.kurt`)
@@ -1376,7 +1380,7 @@ packaged theories. What they found, and what was fixed (each with its regression
   the kernel gives values only to variables and reads only an `iff` in one direction, and the
   replay aligns only canonical names and resolves `direction` only on an `iff`.
   (`tests/test_kurtc.py`, `TestForgedCertificates`)
-- Powers: `calc` computed `0 ^ 0` to `1` (numbers.kurt leaves it open), and "pow-add"/"pow-mul"
+- Powers: `calc` computed `0 ^ 0` to `1` (number.kurt leaves it open), and "pow-add"/"pow-mul"
   held for every base (`((-1) ^ 2) ^ (1 / 2) = (-1) ^ 1` gave `1 = -1`); now they need `$a > 0`
   and `0 ^ 0` stays as it is. Big numbers crashed Kurt (Python prints no integer with more than
   4300 digits) or hung it (`(3 ^ 10000) ^ 10000`): `calc` computes no result with more than 1000
@@ -1521,13 +1525,13 @@ both search and the kernel:
 - A symbol could be prefix, infix and `flat`. Flattening `not f (A f B)` erased the unary node
   and produced `not (A f B)`. The two consistent assumptions `not f (A f B)` and `A f B` could
   therefore derive `false`.
-- An infix `bindop` could also be `sym`. Symmetric sorting exchanged its bound-variable operand
+- An infix `binder` could also be `sym`. Symmetric sorting exchanged its bound-variable operand
   and its body, so `x q y` and `y q x` acquired the same normal form. Again, two consistent
   assumptions could derive `false`.
 
 Kurt now rejects prefix/`flat` overlap and every binder combination whose normalization or fixed
 meaning conflicts with scope (`prefix`, `flat`, `sym`, `chain`, `calc`, or `var`). `flat`, `sym`,
-`chain`, `bindop`, and calculator bindings imply `const`; chain members also imply a statement as
+`chain`, `binder`, and calculator bindings imply `const`; chain members also imply a statement as
 their result. Variable operators may still have fixity, arity, and a prop signature, but not fixed
 associativity, commutativity, binding, transitivity, or calculator semantics. This makes the
 distinction visible in ordinary output and keeps `group.kurt` intentional: its local `var ∘`
@@ -1554,7 +1558,7 @@ the same `Shell` after each rejected line and verify that no prefix leaked.
 The audit also added semantic checks independent of Kurt's search and certificate kernel.
 `tests/test_prop_semantics.py` exhaustively truth-table checks all 21 pure propositional
 rules/theorems exported by `propositional.kurt`. `tests/test_numbers_semantics.py` evaluates all 76
-`numbers.kurt` axioms over small exact integer/rational samples, skipping only individual
+`number.kurt` axioms over small exact integer/rational samples, skipping only individual
 samples where an operation is mathematically outside that sampled interpretation. Both pass.
 These finite checks catch incorrect trusted axioms in their covered domains; they are evidence,
 not a consistency proof for the theories or the implementation.
@@ -1841,8 +1845,8 @@ the old kernel).
 ### 8.41 Design: numbers and sets as sorts -- why extensionality has elements of every sort (2026-10-17)
 
 Not a bug found, but the soundness argument of todo 34 (sorts with subsorts, doc/kurt-ref.md
-§5.2). The objects of numbers.kurt and set.kurt are sets (objects.kurt: `sort set real`,
-`everything set`), the numbers among them (`real ⊂ set`); the rules of numbers.kurt are about
+§5.2). The objects of number.kurt and set.kurt are sets (set.kurt: `sort set real`,
+`everything set`), the numbers among them (`real ⊂ set`); the rules of number.kurt are about
 numbers (`default real`), those of set.kurt about all sets (`default set`, and `set` is the sort of
 every object). So a number fits where a set is required -- `3 ∈ {3}` by "singleton", and the
 elements of `{n ∈ Nat | n > 2}` by "separation" -- and a set where a number is required is a type
@@ -1907,7 +1911,7 @@ object, extensionality for the numbers alone refused, a block result keeping its
 not made a number), `proofs/errors/sorts.kurt`, `tests/test_sorts.py` (also the kernel: forging a
 block result without its sorts, an instance of "extensionality" for a binder over the numbers).
 
-*Experiment B1 (design B, 2026-10-18):* objects.kurt has no `everything set` any more; no sort is
+*Experiment B1 (design B, 2026-10-18):* set.kurt has no `everything set` any more; no sort is
 the sort of all objects, `set` and `real` restrictions below it (`real ⊂ set`). set.kurt declares its
 set places and leaves the element places without a sort, so "extensionality"'s `$c` ranges over all
 objects, and the argument above holds for a binder over the sets as for one over the numbers: `∀ x`
@@ -2120,6 +2124,71 @@ Four changes to what the search finds, none to what the kernel accepts as a rule
   checked by binding every value of the proof files with a snapshot of its lists and tokens, and with
   every `deepcopy_expr` left out (12.3 million values, none changed, dev/dev-notes.md), and in
   `test_theory_index.py` `test_no_bound_value_is_changed_in_place`. The kernel keeps its copies.
+
+### 8.51 `def` inside a block: local to it, and never in its result (2026-10-27, todo 77)
+
+Until now `def` was refused inside `proof`, `assume`, `case`, `let` and `pick` (§8.17), for the
+reason of `use`. That reason doesn't apply: a `def` postulates nothing, it is conservative by its
+form (doc/kurt-spec.md §7.2). What went wrong in 2026-09 was the *escape*: `let x` / `def k iff P x`
+as the last line gave `∀ x (k iff P x)`, so `k ⇔ P c` and `k ⇔ P d`, and with them `P c ⇔ P d` for
+any `c`, `d`. Now a `def` is allowed in every block, and:
+
+- **It belongs to its level.** The symbol is added as a constant of the block's level (`theory_append`
+  at that level, `add_const`), the defining fact is a fact of that level. When the block closes
+  (`pop_level`, also `break`, an error, the end of the file) the level is discarded with its symbol
+  tables -- `pop_level` merges nothing, unlike `merge_and_pop` for a `load` -- so after the block the
+  name is unknown again: `t * t = 9` after a block with `def t = 3` is about a new constant `t`, and
+  a later block may `def t = 4`. A block's facts never reach an `ExportBundle` (`compute_exports`
+  reads the file's own level only).
+- **The result of the block doesn't mention it.** The general check of a closing block (§2) lets
+  *vocabulary* symbols through (§2.1: an operator or a statement first used in the block), and a
+  defined `k` (a statement) or `f($y)` (an operator) is one -- that is exactly the hole of 2026-09.
+  So the defined symbols are checked separately (`no_defined_symbol` in `eval_done`, for every kind
+  of block, `pick` included), and the kernel checks it on its own: `kernel_verify_block`'s
+  `no_escape` counts a symbol defined by a `def` of the block (`Formula.def_symbol` of the block's
+  facts) as leaked, whatever it is.
+
+Why that suffices. Inside the block, the block's constants (a `let x`, a `pick` witness, a variable
+fixed by an `assume`) are fixed objects: each model of the block's theory interprets them, and the
+right side `R` denotes one value there. The theory of the block extended by `c := R` is a
+conservative extension of the theory of the block (the argument of §7.2 of the spec, for that
+theory): a formula without `c` that follows with the `def` follows without it. The result of the
+block is its last line `L` (made into `A ⇒ L`, `∀ x L`, or `L` itself for `pick`) -- and only if `L`
+has no `c`. So the block proves nothing that it couldn't prove without the `def`, and the rule that
+closes it is the one of a block without a `def`. A `show` inside the block that is proved there is a
+fact of the block, gone with it too.
+
+What the old escape looks like now: `let x` / `def k iff P x` as the last line, or any last line
+with `k`, is a `ProofError` ("`k` is defined in this block ..."); the same for `assume`, `case` and
+`pick`, for a local function (`def f($y) = $y + x`), and when the end of the file closes the block.
+A `def` of a symbol that a fact already uses -- of the enclosing levels, or of the block itself -- is
+refused as at the top level (it is not new: `operator_meaning`, `add_const`). `use`, `chain`, `load`,
+`inline` and the declarations of syntax stay refused in a block (spec §6.6), `use` also under
+`--strict`; a `def` in a block is allowed under `--strict` and in the theories (it is conservative by
+its form). Tests: `proofs/soundness/def-in-a-block-escapes.kurt` (each escape inside `expect`, and the
+refusals), `proofs/debug/def-in-a-block.kurt`, `proofs/debug/def-in-a-block-logic.kurt`,
+`tests/test_def_in_block.py` (the kernel alone rejects a result with a defined statement; `--strict`;
+a loaded file; the hover, the documents, `--lean`).
+
+What is trusted, as before (doc/kurt-kernel.md §7): the kernel does not check the *form* of a `def`
+again. For the kernel a `def` is a fact of the theory like a `use` (`k_known`: it is in the theory
+of the level), so it trusts `eval_def`'s conditions (new symbol, distinct variables on the left, no
+other variables on the right, no recursion). What the kernel does check of a block's `def` is its
+scope: the defining fact is a fact of the block's level only (`k_known` looks in the levels from the
+step's), and the result of the block doesn't mention the symbol.
+
+### 8.52 Several conditioned quantifiers in one line (2026-10-30, todos 81, 82; plan step 4b)
+
+A fact `∀ x ∈ V ∀ y ∈ V P` takes one "forall-cond-elim" per `∀` (logic.kurt: one rule application per step). When a line does not
+follow in one step, `nested_conditioned_elim` looks for a fact with two or three nested conditioned `∀`s whose body fits the line (the
+variables of the layers as pattern variables, `unify_exprs_with_patterns`), takes the value of the first one, derives the instance of the
+rest (`∀ y ∈ V P[a/x]`) -- an ordinary search, one "forall-cond-elim" from the fact and the condition `a ∈ V`, which must be known --
+adds it as a step of its own (`17a`, as `multi_rewrite` does for a line that rewrites several places), and derives the line again,
+now from it (for three layers the same once more). Nothing is added to the search's power beyond what a user could write line by line:
+each step has its certificate, and the kernel is unchanged and checks them (a missing condition makes the first derivation fail, and the
+steps taken are removed again). Bounded by `NESTED_CONDITIONED` (three layers) and tried after the one-step search and the rules failed.
+The failure message (`nested_conditioned_hint`) names the fact, the number of steps and the conditions that are not known; it is a
+diagnostic only. Tests: `proofs/debug/nested-conditioned-forall.kurt`, `tests/test_nested_conditioned.py`.
 
 ## 9. The kernel: every step is checked again
 

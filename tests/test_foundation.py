@@ -15,7 +15,7 @@ from tests.utils import PROJECT_ROOT
 # fact of a file with its class (`file_foundations`; `kurt --foundation FILE`, `--json`,
 # `CheckResult.foundations`)
 
-PROOF = '''load propositional, numbers
+PROOF = '''load propositional, number
 prop A, B, C
 use A "ax-a"
 use A implies B "ax-ab"
@@ -241,10 +241,10 @@ class TestFoundationLeftovers(unittest.TestCase):
         result = kurt.Session().check_text(PROOF, 'mine.kurt', foundation=True)
         calc = entry_of(result, 'five')['rests_on'][1]
         self.assertEqual(calc['kind'], 'calc')
-        self.assertEqual([os.path.basename(f) for f in calc['bound_in']], ['numbers.kurt'])
-        self.assertIn('(`+` add, `=` eq of numbers.kurt)', calc['text'])
+        self.assertEqual([os.path.basename(f) for f in calc['bound_in']], ['number.kurt'])
+        self.assertIn('(`+` add, `=` eq of number.kurt)', calc['text'])
         # a symbol bound in the file itself: that file
-        own = kurt.Session().check_text('load numbers\ninfix == 40 40\nbuiltin == eq\ncalc on\n1 + 1 == 2 "two"\n', 'own.kurt', foundation=True)
+        own = kurt.Session().check_text('load number\ninfix == 40 40\nbuiltin == eq\ncalc on\n1 + 1 == 2 "two"\n', 'own.kurt', foundation=True)
         self.assertTrue(own.ok, own.error)
         calc = entry_of(own, 'two')['rests_on'][0]
         self.assertEqual(calc['bound_in'], ['own.kurt'])

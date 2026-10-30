@@ -1,17 +1,17 @@
 ; complex -- the complex numbers, `real ⊂ complex ⊂ set`, the laws of a field with the unit `i`
 ;
-; Stage 1 of overloading (decision 19 of dev/todo-sorts.md): the operators `+ - * / ^` of numbers.kurt get a
+; Stage 1 of overloading (decision 19 of dev/todo-sorts.md): the operators `+ - * / ^` of number.kurt get a
 ; second signature, on `complex`. A term has the least sort the syntax gives it -- `1 + 2` and `x + y` for
 ; reals are `real`, `z + 1` for a complex `z` is `complex` -- so everything proved about the reals still
 ; reads as before (`(1 + 2) < 3`, `x + 1 < 3` for a new constant `x`: a `real`, the smallest signature),
-; and `<` stays on `real`: `i < 1` is a type error. The laws of numbers.kurt are about reals; the ones
+; and `<` stays on `real`: `i < 1` is a type error. The laws of number.kurt are about reals; the ones
 ; here are the same laws for every complex number (the laws of an ordered field, `<`, `!`, don't
 ; carry over). A complex constant is declared: `complex z`.
 ;
 ; `^` on `complex`: a profile of stage 1 has one sort at all its places, so the exponent of `z ^ w` is a
 ; complex number too; the laws below are for a natural-number exponent only (`z ^ 2 = z * z` follows,
 ; `calc on` computes `(1 + i) ^ 2`), nothing is said of `i ^ (1 / 2)`. Being one function `^`, the power
-; of two reals is the real power of numbers.kurt (in Lean `k_cpow`: `Real.rpow` on reals, `cpow` else).
+; of two reals is the real power of number.kurt (in Lean `k_cpow`: `Real.rpow` on reals, `cpow` else).
 ;
 ; also: the set `Complex` (`ℂ`, `Real ⊂ Complex`), the real and imaginary part `re`, `im`, the conjugate `conj`
 ; and the modulus `cabs`. Why not `abs`: `abs` of analysis.kurt is `real -> real`, and the modulus is
@@ -19,8 +19,8 @@
 ; regular (a smaller argument, `real`, gives a result no larger, `real`), but stage 1 has only profiles
 ; with one sort at all places, `complex -> complex` for `abs` would make `|z|` a complex number, and
 ; `|z| >= 0` a type error; one name for both is for stage 2. Every law holds in ℂ, with `x / 0 = 0` as
-; in the reals of numbers.kurt.
-load propositional, equality, set, numbers, real
+; in the reals of number.kurt.
+load propositional, equality, set, number, natural
 sort set complex real
 complex + 0 1 2
 complex - 0 1 2
@@ -44,7 +44,7 @@ use Real ⊂ Complex        "real-sub-complex"
 ;; the unit
 use i * i = -1   "i-squared"
 
-;; rules: the laws of numbers.kurt, for every complex number
+;; rules: the laws of number.kurt, for every complex number
 use $a = $b  ⇒  $a + $c = $b + $c   "complex-add-eq"
 use $a = $b  ⇒  $a - $c = $b - $c   "complex-sub-eq"
 use $a = $b  ⇒  $a * $c = $b * $c   "complex-mul-eq"
@@ -65,7 +65,7 @@ use $c ≠ 0 ⇒ ($a * $c) / $c = $a             "complex-mul-div"
 use $c ≠ 0 ⇒ ($a / $c) * $c = $a             "complex-div-mul"
 use $a ≠ 0 ∧ $b ≠ 0 ⇒ $a * $b ≠ 0             "complex-mul-ne-zero"
 
-;; powers with a natural-number exponent (`0 ^ 0` left open, as in numbers.kurt)
+;; powers with a natural-number exponent (`0 ^ 0` left open, as in number.kurt)
 use $a ^ 1 = $a                              "complex-pow-identity"
 use $a ≠ 0 ⇒ $a ^ 0 = 1                      "complex-pow-zero"
 use $n ∈ Nat ⇒ $a ^ ($n + 1) = $a ^ $n * $a  "complex-pow-succ"
@@ -126,7 +126,7 @@ lean im Complex.im $1
 lean conj (starRingEnd ℂ) $1
 lean cabs ‖$1‖
 
-;; the rules as theorems of Mathlib (`lean "label" TACTIC`, as in numbers.kurt)
+;; the rules as theorems of Mathlib (`lean "label" TACTIC`, as in number.kurt)
 lean "complex-all" intro a; exact ZFSet.mem_range.mpr ⟨a, rfl⟩
 lean "real-sub-complex" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact ZFSet.mem_range.mpr ⟨(x : ℂ), k_embC_ofReal x⟩
 lean "i-squared" simp

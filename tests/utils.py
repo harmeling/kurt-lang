@@ -27,7 +27,7 @@ def with_quantifiers(kb):
     import kurt.kurt as kurt
     for q in ('forall', 'exists'):
         kb.add_arity(q, 2)
-        kb.add_bindop(q)
+        kb.add_binder(q)
         kb.add_bool(q, [0, 2])
     kb.bind_engine_role('forall', 'universal')
     kb.bind_engine_role('exists', 'existential')

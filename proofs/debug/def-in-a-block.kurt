@@ -1,0 +1,99 @@
+; `def` inside a block (todo 77): a definition is local to the block it is written in, and gone
+; when the block closes; the result of the block (its last line) must not mention it
+; (doc/kurt-spec.md §6.6, §7.2; doc/kurt-soundness.md §8.51)
+load logic, number
+calc on
+
+; a name for the witness
+show ∃ x (x * x = 9)
+proof
+    def t = 3
+    t * t = 3 * 3
+    t * t = 9
+    ∃ x (x * x = 9)
+qed
+
+; a name for a term about the constant of a `let`
+show ∀ $a ∃ x (x > $a * $a)
+proof
+    let a
+        def w = a * a + 1
+        0 < 1
+        0 + a * a < 1 + a * a
+        a * a < a * a + 1
+        a * a < w
+        ∃ x (x > a * a)
+qed
+
+; a local function (its parameters are variables, as for a `def` at the top level)
+show ∀ $b ∃ x (x > $b * $b + 2)
+proof
+    def sq($y) = $y * $y + 3
+    let b
+        sq(b) = b * b + 3
+        2 < 3
+        2 + b * b < 3 + b * b
+        b * b + 2 < sq(b)
+        ∃ x (x > b * b + 2)
+qed
+
+; the same name again in a later block: the first `t` is gone, this one is 4
+show ∃ x (x * x = 16)
+proof
+    def t = 4
+    t * t = 4 * 4
+    t * t = 16
+    ∃ x (x * x = 16)
+qed
+
+; in `assume` and in `case`
+prop A
+show A ⇒ ∃ x (x * x = 4)
+proof
+    assume A
+        def u = 2
+        u * u = 2 * 2
+        u * u = 4
+        ∃ x (x * x = 4)
+qed
+
+prop B
+use A ∨ B
+show ∃ x (x + x = 2)
+proof
+    case A
+        def v = 1
+        v + v = 1 + 1
+        v + v = 2
+        ∃ x (x + x = 2)
+    case B                           ; (the `v` of the other case is gone)
+        def v = 1
+        v + v = 1 + 1
+        v + v = 2
+        ∃ x (x + x = 2)
+    ∃ x (x + x = 2)
+qed
+
+; a name for a term about the witness of a `pick`
+use ∃ y (y > 5)
+show ∃ z (z > 6)
+proof
+    pick c with c > 5
+        def d = c + 1
+        c + 1 > 5 + 1
+        c + 1 > 6
+        d > 6
+        ∃ z (z > 6)
+qed
+
+; a nested block may use the `def` of an enclosing block, and its result may mention it
+show ∃ x (x * x = 25)
+proof
+    def five = 5
+    assume A
+        five * five = 5 * 5
+    A ⇒ five * five = 5 * 5
+    five * five = 5 * 5
+    five * five = 25
+    ∃ x (x * x = 25)
+qed

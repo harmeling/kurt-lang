@@ -15,7 +15,7 @@ class UndefinedArithmetic(Exception):
 
 
 class TestNumberTheorySemantics(unittest.TestCase):
-    """Search for finite rational counterexamples to every axiom in numbers.kurt."""
+    """Search for finite rational counterexamples to every axiom in number.kurt."""
 
     def evaluate(self, expr, values):
         if isinstance(expr, kurt.Token):
@@ -72,13 +72,15 @@ class TestNumberTheorySemantics(unittest.TestCase):
     def test_all_number_axioms_on_small_exact_values(self):
         kb = copy.deepcopy(kurt.initial_kb)
         with contextlib.redirect_stdout(io.StringIO()):
-            kb = kurt.load_file('numbers', kb)
+            kb = kurt.load_file('number', kb)
 
         domain = tuple(Fraction(n) for n in (-2, -1, 0, 1, 2))
         checked = []
         for formula in kb.all_theory():
-            if os.path.basename(formula.filename) != 'numbers.kurt':
+            if os.path.basename(formula.filename) != 'number.kurt' or formula.is_proven():
                 continue
+            if {token.value for token in kurt.get_token_set(formula.expr)} & {'in', 'subset', 'Real', 'Int', 'Rat'}:
+                continue                     # (about the sets of numbers `Real`, `Int`, `Rat`, not about arithmetic)                     # (a theorem of number.kurt, proved from the axioms: the kernel checked it)
             variables = sorted({token.value for token in kurt.get_token_set(formula.expr)
                                 if isinstance(token.value, str) and token.value.startswith('$')})
             defined_cases = 0
@@ -93,7 +95,8 @@ class TestNumberTheorySemantics(unittest.TestCase):
             self.assertGreater(defined_cases, 0, formula.label)
             checked.append(formula.label)
 
-        self.assertEqual(len(checked), 76)
+        self.assertEqual(len(checked), 77)
+        self.assertIn("pow-two", checked)         # a square, sampled with an integer exponent
 
 
 if __name__ == '__main__':

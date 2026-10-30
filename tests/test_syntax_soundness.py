@@ -35,7 +35,7 @@ false
         contradiction = '''\
 load propositional
 infix q 20 20
-bindop q
+binder q
 sym q
 var x, y
 prop x, y
@@ -44,15 +44,15 @@ use y q x
 false
 '''
         self.assert_rejected(contradiction, 'can not be `sym`')
-        self.assert_rejected('infix q 20 20\nsym q\nbindop q\n', 'can not be a binding operator')
+        self.assert_rejected('infix q 20 20\nsym q\nbinder q\n', 'can not be a binding operator')
 
     def test_binder_rejects_other_incompatible_meanings(self):
         cases = (
-            ('infix q 20 20\nbindop q\nprefix q 90\n', 'can not also be prefix'),
-            ('infix q 20 20\nbindop q\nchain q\n', 'can not be in a chain'),
-            ('infix q 20 20\nchain q\nbindop q\n', 'can not be a binding operator'),
-            ('infix q 20 20\nbuiltin q add\nbindop q\n', 'can not also be a binding operator'),
-            ('infix q 20 20\nbindop q\nbuiltin q add\n', 'can not also be a calculator operation'),
+            ('infix q 20 20\nbinder q\nprefix q 90\n', 'can not also be prefix'),
+            ('infix q 20 20\nbinder q\nchain q\n', 'can not be in a chain'),
+            ('infix q 20 20\nchain q\nbinder q\n', 'can not be a binding operator'),
+            ('infix q 20 20\nbuiltin q add\nbinder q\n', 'can not also be a binding operator'),
+            ('infix q 20 20\nbinder q\nbuiltin q add\n', 'can not also be a calculator operation'),
         )
         for source, message in cases:
             with self.subTest(source=source):
@@ -62,7 +62,7 @@ false
         for declaration in ('flat f', 'sym f', 'chain f'):
             with self.subTest(declaration=declaration):
                 self.assert_rejected(f'var f\ninfix f 20 20\n{declaration}\n', 'variable operator')
-        self.assert_rejected('var f\narity f 2\nbindop f\n', 'fixed binding scope')
+        self.assert_rejected('var f\narity f 2\nbinder f\n', 'fixed binding scope')
         self.assert_rejected('infix f 20 20\nsym f\nvar f\n', 'already used as a constant')
 
     def test_bool_positions_fit_declared_arity(self):
@@ -70,7 +70,7 @@ false
         self.assert_rejected('arity f 1\nprop f 0 2\n', 'between 0 and its arity 1')
         self.assert_rejected('prop f 0 2\narity f 1\n', 'more than 1 arg')
         self.assert_rejected('arity f 2\nprop f 0 1 1\n', 'must be different')
-        self.assert_rejected('prop f 0 1\narity f 2\nbindop f\n', 'first position')
+        self.assert_rejected('prop f 0 1\narity f 2\nbinder f\n', 'first position')
 
     def test_calculator_result_type_is_fixed(self):
         self.assert_rejected('builtin f add\nprop f 0\n', 'a term as its result')
@@ -122,8 +122,8 @@ false
         # the engine, not for a file of one's own; `setbuilder` needs an infix binder and the
         # brackets of sets
         self.assert_rejected('brackets { }\nbuiltin { } setbrackets\n', 'only be given by a theory that comes with Kurt')
-        self.assert_rejected('infix | 10 10\nbindop |\nbuiltin | setbuilder\n', 'only be given by a theory that comes with Kurt')
-        for source, text in (('infix | 10 10\nbindop |\nbuiltin | setbuilder\n', 'brackets of sets first'),
+        self.assert_rejected('infix | 10 10\nbinder |\nbuiltin | setbuilder\n', 'only be given by a theory that comes with Kurt')
+        for source, text in (('infix | 10 10\nbinder |\nbuiltin | setbuilder\n', 'brackets of sets first'),
                              ('brackets { }\nbuiltin { } setbrackets\nconst |\nbuiltin | setbuilder\n', 'infix binder'),
                              ('brackets { }\nbuiltin { } setbrackets\nuse {} = {}\n', 'emptyset')):
             with self.subTest(source=source), tempfile.TemporaryDirectory() as folder:

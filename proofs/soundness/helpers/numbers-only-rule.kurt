@@ -1,6 +1,6 @@
 ; a rule about the numbers only (see ../sorts-of-sets-and-numbers.kurt): `default real` makes its
 ; bound variable a number -- `Q` itself takes any object (its first use is before the `default`)
-load numbers, logic
+load number, logic
 prop Q
 arity Q 1
 use Q 0 ⇒ Q 0

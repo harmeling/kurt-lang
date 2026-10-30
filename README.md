@@ -8,9 +8,9 @@ immediately, line by line, whether each step follows. It is meant for students l
 things, much like running tests while learning to program. Kurt has been developed by Stefan
 Harmeling (TU Dortmund) since 2016.
 
-**Status: 0.11, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
-proof written for 0.11 may need small changes for 1.0 (for 0.10 to 0.11: the "breaking changes" in
-`CHANGELOG.md`, e.g. the words `union`, `subset`, `to`, ... are now symbols of Kurt's theories).
+**Status: 0.12, a public beta.** Kurt is used for teaching, but the language isn't frozen yet: a
+proof written for 0.12 may need small changes for 1.0 (for 0.11 to 0.12: the "breaking changes" in
+`CHANGELOG.md`, e.g. `load numbers` is `load number`, and `bindop` is `binder`).
 
 **Try it in your browser**, without installing anything:
 [www.kurt-lang.org](https://www.kurt-lang.org), the playground. It runs the same Kurt in the
@@ -18,6 +18,9 @@ browser, with the tutorial, the keyword lessons, the exercises, and the proofs o
 (mafi1). A link can open one of these files, e.g. for a course:
 [`www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt`](https://www.kurt-lang.org/#file=exercises/01-knights-and-knaves/2-two-islanders.kurt)
 (`#file=` and the file's path in the playground; see `doc/kurt-ref.md`, §1).
+A whole proof can be a link too (`#proof=` and its text, which the playground's Share button makes):
+`kurt --share proof.kurt` prints the link of a file, and `kurt --unshare LINK > proof.kurt` turns a
+link back into a file (`doc/kurt-ref.md`, §1, also the few lines of Python for it).
 
 **The reference**, the whole language in one place: [`doc/kurt-ref.md`](doc/kurt-ref.md), also as a
 website with a search and a page per section,
@@ -36,7 +39,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.11.0 (made by Stefan Harmeling, 2016-2026), 96086fce2cd1 (SHA-256 of kurt.py)
+    This is Kurt, v0.12.0 (made by Stefan Harmeling, 2016-2026), 5f8589f91871 (SHA-256 of kurt.py)
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -71,7 +74,7 @@ same indentation rules as a file.
 - **Theories written in Kurt itself**: propositional and first-order logic, equality, sets,
   arithmetic, natural numbers with induction, analysis (sums, limits, derivatives, integrals), groups, and modal logic
   T (with `⊢ A` for "A is a theorem", modus ponens and necessitation).
-  Even the grammar is declared there (`infix`, `bindop`, `chain`), so students can read why a
+  Even the grammar is declared there (`infix`, `binder`, `chain`), so students can read why a
   step goes through.
 - **A kernel checks every step again**: the search hands each accepted step to a small checker
   as a certificate. `cert N` shows the certificate of line `N`. The certificates of a checked
@@ -131,7 +134,7 @@ in parallel, use processes.
 - [`tutorial/`](tutorial/): the tutorial, 30 lessons (00 to 29), task by task: prove an implication, argue by
   contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
   derive". Each one is a Kurt file you can run and change.
-- [`keywords/`](keywords/): 48 short lessons (00 to 47), one keyword or idea each
+- [`keywords/`](keywords/): 49 short lessons (00 to 48), one keyword or idea each
   ([plan](keywords/plan.md)).
 - [`exercises/`](exercises/): exercises for students, by topic (logic puzzles, quantifiers, sets,
   functions, relations, groups, induction, limits, calculus): each loads the scene of its topic

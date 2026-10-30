@@ -3,9 +3,9 @@
 ; If sqrt 2 = m / n in lowest terms, then m m = 2 n n; so m m is even, so m is even (the square of
 ; an odd number is odd), m = 2 j, so n n = 2 j j and n is even too -- but m and n are coprime.
 ; From the theories: even and odd numbers, "even-square" and "coprime-not-both-even" (natural.kurt),
-; and "lowest-terms" (rational.kurt, from the well-ordering of the natural numbers). Assumed (as
+; and "lowest-terms" (divisibility.kurt, from the well-ordering of the natural numbers). Assumed (as
 ; `use`): what the proof needs of sqrt 2.
-load rational
+load natural, divisibility
 
 ; the core: if m m = 2 n n, both are even
 show $m ∈ Nat ∧ $n ∈ Nat ∧ $m * $m = 2 * ($n * $n)  ⇒  even $m ∧ even $n   "both-even"

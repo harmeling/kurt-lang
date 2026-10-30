@@ -48,7 +48,7 @@ class TestShellErrors(unittest.TestCase):
         self.assertIn('A implies A', out)                       # the session went on (before `Bye!`)
 
     def test_failed_chain_step_can_be_typed_again(self):
-        out, err = shell(['load numbers', 'const a, b, c', 'use a < b', 'use b = c', 'a < b',
+        out, err = shell(['load number', 'const a, b, c', 'use a < b', 'use b = c', 'a < b',
                           '  = a', '  = c', 'a < c'])
         self.assertEqual(err.count('Error'), 1, err)             # only `= a`
         self.assertIn('by chain', out)
@@ -71,7 +71,7 @@ class TestShellErrors(unittest.TestCase):
     def test_several_picks_on_one_line(self):
         out, err = shell(['load logic, equality', 'const a', 'exists y (y = a)',
                           'pick c with c = a, d with d = a', 'a = a', 'summary'])
-        self.assertIn('one `pick` per line', err)
+        self.assertIn('`pick x, y, z with F`', err)
         self.assertEqual(err.count('Error'), 1, err)
         self.assertTrue(at_the_top(out), out)
 

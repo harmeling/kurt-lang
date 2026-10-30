@@ -6,7 +6,7 @@ load natural
 default real
 const sum
 arity sum 3
-bindop sum
+binder sum
 use (sum $i ($a, $b + 1) $T) = (sub $i ($b + 1) $T) + (sum $i ($a, $b) $T)  "sum-last"
 const n
 (sum x (0, n + 1) (x * x)) = (n + 1) * (n + 1) + (sum x (0, n) (x * x))

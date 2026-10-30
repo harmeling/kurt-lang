@@ -39,7 +39,7 @@ class TestExistsIntroAndBlockedSets(unittest.TestCase):
     def setUp(self):
         # Fresh KB for each test; ensure required symbols are registered
         self.kb = with_quantifiers(copy.deepcopy(initial_kb))
-        # `exists` is declared (arity + bindop) in `initial_kb` itself now, no need to
+        # `exists` is declared (arity + binder) in `initial_kb` itself now, no need to
         # redeclare it here
         if hasattr(self.kb, "add_arity"):
             self.kb.add_arity("prime", 1)

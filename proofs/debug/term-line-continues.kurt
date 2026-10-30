@@ -1,0 +1,24 @@
+; a term on its own line continues on the next line, which starts with a relation (todo 80): the usual way to write an
+; equation in two lines -- `T` and, indented, `= U` are `T = U`; more lines go on as a chain does
+load number
+const a, b, c
+
+show (a + b) * c = a * c + b * c
+proof
+    (a + b) * c
+        = a * c + b * c
+qed
+
+show (a + b) * c = c * a + c * b
+proof
+    (a + b) * c
+        = a * c + b * c
+        = c * a + b * c
+        = c * a + c * b
+qed
+
+; also at the top level, and with `<=`
+(a + b) * c
+    = a * c + b * c
+a * c
+    <= a * c + 0

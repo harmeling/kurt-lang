@@ -161,14 +161,14 @@ class TestOptionalSorts(unittest.TestCase):
 
     def test_binding_operator_propagates_sort_to_bound_variable(self):
         good = kurt.check_text(
-            'sort item\narity λ 2\nbindop λ\nitem λ 0 1 2\n'
+            'sort item\narity λ 2\nbinder λ\nitem λ 0 1 2\n'
             'prop P 0\narity P 1\nuse P (λ x x)\n'
         )
         self.assertTrue(good.ok, good.error)
 
         # (a constant of another sort is refused; one without a sort takes it, todo 34)
         bad = kurt.check_text(
-            'sort item, other\narity λ 2\nbindop λ\nitem λ 0 1 2\n'
+            'sort item, other\narity λ 2\nbinder λ\nitem λ 0 1 2\n'
             'other c\nconst c\nprop P 0\narity P 1\nuse P (λ x c)\n'
         )
         self.assertFalse(bad.ok)
@@ -528,12 +528,12 @@ class TestInhabitedSorts(unittest.TestCase):
         self.assertEqual(self.warnings('load natural\nsort big small\nsmall s\n'), [])
 
     def test_a_theory_of_kurt_checked_on_its_own_is_not_warned_about(self):
-        # objects.kurt declares `real`, numbers.kurt names its objects: no warning when objects.kurt
+        # set.kurt declares `real`, number.kurt names its objects: no warning when set.kurt
         # itself is the file checked (it came in every run of the theories as main files)
         import contextlib, io
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
-            result = kurt.check_file(str(core.packaged_theory_file('objects.kurt')))
+            result = kurt.check_file(str(core.packaged_theory_file('set.kurt')))
         self.assertTrue(result.ok, result.error)
         self.assertNotIn('Warning: the sort', err.getvalue())
 

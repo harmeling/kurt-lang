@@ -16,8 +16,8 @@ from tests.utils import PROJECT_ROOT
 # it may not know an option or a tactic the translation uses. KURT_REQUIRE_LEAN=1 (in CI): no Lean,
 # or an older one, is an error.
 #
-# A proof that loads set.kurt or a number theory (objects.kurt's `lean Obj ZFSet`: the objects are
-# Mathlib's ZF sets, numbers.kurt's `lean real ℝ` the reals embedded into them) is written for Lean with
+# A proof that loads set.kurt or a number theory (set.kurt's `lean Obj ZFSet`: the objects are
+# Mathlib's ZF sets, number.kurt's `lean real ℝ` the reals embedded into them) is written for Lean with
 # Mathlib (`import Mathlib`): these exports are checked where the lake project scripts/lean is set
 # up (`lake exe cache get`, see doc/kurt-ref.md `--lean`), by scripts/lean_check.py -- skipped
 # otherwise; KURT_REQUIRE_MATHLIB=1 (the CI job `lean-mathlib`) makes a missing project an error.
@@ -54,7 +54,8 @@ WHY_NOT = ('Lean is not installed' if not LEAN else
 PROOFS = ['proofs/readme/contrapositive.kurt', 'proofs/natural-deduction/neg-forall.kurt',
           'proofs/natural-deduction/lemma.kurt',
           'proofs/natural-deduction/de-morgan.kurt',          # `case-elim`: the cases of a disjunction
-          'proofs/natural-deduction/existsunique.kurt']       # `∃!` and a user's binder: higher-order constants
+          'proofs/natural-deduction/existsunique.kurt',       # `∃!` and a user's binder: higher-order constants
+          'proofs/debug/def-in-a-block-logic.kurt']           # a `def` in a block (todo 77): an `obtain` in the proof
 # the proofs with sets (set.kurt, so Lean with Mathlib: the sets of `ZFSet`) checked completely, with
 # no `sorry` in the text either
 SET_PROOFS = ['proofs/mafi1/07-groups.kurt',                      # `∃ $b ∈ G`, `pick` from it, a chain, `flat`
@@ -75,20 +76,24 @@ MATHLIB_PROOFS = ['proofs/arithmetic/algebraic-identities.kurt',     # numerals,
                   'proofs/arithmetic/chains.kurt',                   # `calc` by `norm_num`, a link of a chain `5 = 2 + 3 ≤ 7`
                   'proofs/arithmetic/factorial-with-calc.kurt',      # a fact that computes to the goal (`calc-fact`)
                   'proofs/arithmetic/exponent-laws.kurt',            # `^` as `Real.rpow`
+                  'proofs/arithmetic/binomial-formulas.kurt',        # theorems of number.kurt (axioms here), "pow-two" by `Real.rpow_two`
                   'proofs/natural-numbers/gauss.kurt',               # natural.kurt: `Nat ⊂ ℝ`, induction a theorem
                   'proofs/natural-numbers/progressions.kurt',        # `6 ∈ Nat` by the calculator, `{a, b, ...}` a set of embedded numbers
                   'proofs/natural-numbers/sets-of-numbers-are-equal.kurt',  # "ext-real", `Nat ⊂ Real`, a chain of `⇔` (by `grind`)
                   'proofs/complex/complex-numbers.kurt',             # complex.kurt: `ℂ`, `+` of ℝ or of ℂ by the least sort, a real cast
                   'proofs/complex/powers-and-modulus.kurt',          # `k_cpow`, a complex rule for a real (`norm_cast`/`push_cast`), Gaussian `calc`
+                  'proofs/debug/def-in-a-block.kurt',                # a `def` in a block (todo 77): numbers, a local function, a `let`/`pick`
+                  'proofs/debug/pick-several-witnesses.kurt',        # `pick x, y, z with F`: nested blocks (todo 85)
+                  'proofs/natural-numbers/intervals.kurt',           # interval.kurt: `Icc`, `Ioo`, ... by `k_numset`
                   ] + SET_PROOFS
 
-# the theories of numbers (each loads numbers.kurt, `lean Obj ℝ`): their rules are theorems of
+# the theories of numbers (each loads number.kurt, `lean Obj ℝ`): their rules are theorems of
 # Mathlib, each with its `lean "label" TACTIC` -- except these, which stay axioms in the export
 LOGIC_THEORIES = ['propositional', 'logic', 'equality']    # their rules: theorems of Lean's logic, no Mathlib
 
 # Kurt's theorems about `even`, `odd`, `∣`, `coprime`, `⊂`, each cited by a step (and the `def`s of
 # these symbols: Lean `def`s -- `coprime($a, $b)` one over a pair)
-DIVISIBILITY = '''load rational
+DIVISIBILITY = '''load natural, divisibility
 default real
 const a, b, c, m, n, p, q, S
 use n ∈ Nat "n"
@@ -121,7 +126,7 @@ a ∣ c
 DIVISIBILITY_THEOREMS = ['even-or-odd', 'not-even-and-odd', 'odd-square', 'even-square', 'divides-refl', 'one-divides',
                          'divides-trans', 'even-divides', 'coprime-not-both-even', 'well-ordering', 'lowest-terms']
 
-NUMBER_THEORIES = ['numbers', 'natural', 'integer', 'rational', 'analysis', 'continuity', 'sequences', 'derivative', 'integral', 'set']
+NUMBER_THEORIES = ['number', 'natural', 'divisibility', 'interval', 'analysis', 'continuity', 'sequences', 'derivative', 'integral', 'set']
 # the theories with a model in Lean (`lean Obj ...`): every rule proved there -- the numbers and sets in
 # Mathlib's ZF sets, modal logic T in Kripke semantics (reflexive frames), the field axioms in the reals (the
 # axiom audit, dev/todo.md 11)
@@ -141,6 +146,8 @@ EXPECTED_TEXT = {
     'proofs/mafi1/08-linear-span.kurt': ['noncomputable def L (x', ' : Obj) (x', '(L x_v1 x_v2)'],      # a `def` over a pair
     'proofs/natural-numbers/peano.kurt': ['axiom k_num_0 : Obj', 'axiom k_num_2 : Obj'],               # numerals, no number theory
     'proofs/natural-deduction/de-morgan.kurt': ['rcases d with h | h'],
+    # a `def` in a block (todo 77): a local constant with its equation, a statement and a function too
+    'proofs/debug/def-in-a-block-logic.kurt': ['obtain ⟨k, ', ' : ∃ (k : Prop), (k ↔ (P c)) :=', 'obtain ⟨m, ', 'obtain ⟨g_1, '],
     # a mapping applied: the `b` with `(a, b) ∈ f`, a definition; `A → B` the set of the mappings
     'proofs/set-theory/function-space-membership.kurt': ['noncomputable def k_apply (f a : Obj) : Obj', 'axiom f : Obj', '(ZFSet.funs A B)'],
     'proofs/mafi1/matrices.kurt': ['axiom k_GL : Obj'],
@@ -152,7 +159,7 @@ EXPECTED_TEXT = {
 # sets and numbers in one proof: the numbers embedded into the sets (`k_emb`), a part of `Nat` by
 # separation with the property read on the numbers (`k_lift`), `{1, ..., 5}` natural.kurt's set of
 # embedded numbers, a pair of numbers -- and a rule of logic for numbers and sets alike (generic, `α`)
-MIXED = '''load natural
+MIXED = '''load natural, interval
 const A, B, c
 use A = {1, 2} "A"
 use B = { $n ∈ Nat | $n > 2 } "B"
@@ -260,7 +267,7 @@ class TestExportLean(unittest.TestCase):
     def test_the_type_of_the_objects(self):
         # a number theory's `lean Obj`: Mathlib's type for Kurt's objects, numerals of it, the
         # mapped symbols by their templates -- the theory that loads another one decides
-        for theory, carrier in (('numbers', 'ℝ'), ('natural', 'ℝ'), ('integer', 'ℝ'), ('rational', 'ℝ'), ('analysis', 'ℝ')):
+        for theory, carrier in (('number', 'ℝ'), ('natural', 'ℝ'), ('divisibility', 'ℝ'), ('analysis', 'ℝ')):
             with self.subTest(theory=theory):
                 text = export_text(f'load {theory}\nconst a, b\nuse a = b "given"\na + 1 = b + 1\n')
                 self.assertTrue(text.startswith('import Mathlib\n'))
@@ -280,8 +287,8 @@ class TestExportLean(unittest.TestCase):
         # a step by a rule of a number theory: the rule is a `theorem` with its proof in Lean (its
         # `lean "label" ...`), never an `axiom`; `Nat` by its one axiom, what `x ∈ Nat` means, and
         # what the calculator knows of it a theorem; the rules of a `chain` of Mathlib's relations too
-        text = export_text('load numbers\nconst a, b\nuse a = b "given"\na + 1 = b + 1\n')
-        self.assertIn('-- numbers.kurt:', text)
+        text = export_text('load number\nconst a, b\nuse a = b "given"\na + 1 = b + 1\n')
+        self.assertIn('-- number.kurt:', text)
         self.assertRegex(text, r'"add-eq": proved in Lean .*\ntheorem f\d+ : .* := by\n  intros; subst_vars; rfl')
         self.assertNotRegex(text, r'axiom f\d+ : .*"add-eq"')
         text = export_text('load natural\nconst n\nuse n ∈ Nat "given"\nn + 1 ∈ Nat\ncalc on\n6 ∈ Nat\n')
@@ -293,11 +300,11 @@ class TestExportLean(unittest.TestCase):
         self.assertNotRegex(text, r'axiom f\d+ : .*"nat-(succ|add|one)"')
         self.assertIn('theorem k_calc_Nat', text)
         self.assertNotIn('axiom k_calc_Nat', text)
-        text = export_text('load numbers\nconst a, b, c\nuse a < b "ab"\nuse b <= c "bc"\na < c\n')
+        text = export_text('load number\nconst a, b, c\nuse a < b "ab"\nuse b <= c "bc"\na < c\n')
         self.assertRegex(text, r'"chain-trans-\d-\d": proved in Lean\ntheorem')
         self.assertNotRegex(text, r'axiom f\d+ : .*"chain-trans')
         # a `def` of a loaded file, as one of the file's own: a Lean `def`
-        text = export_text('load natural\nconst m\nuse m = 2 * 3 "m"\nuse 3 ∈ Nat "three"\nm = 2 * 3 ∧ 3 ∈ Nat\n3 ∈ Nat ∧ m = 2 * 3\n∃ $k ($k ∈ Nat ∧ m = 2 * $k)\neven m\n')
+        text = export_text('load natural, divisibility\nconst m\nuse m = 2 * 3 "m"\nuse 3 ∈ Nat "three"\nm = 2 * 3 ∧ 3 ∈ Nat\n3 ∈ Nat ∧ m = 2 * 3\n∃ $k ($k ∈ Nat ∧ m = 2 * $k)\neven m\n')
         self.assertIn('noncomputable def even', text)
         self.assertNotRegex(text, r'axiom f\d+ : .*"even-def"')
 
@@ -336,14 +343,17 @@ class TestExportLean(unittest.TestCase):
         self.assertNotIn('not translated', text)
 
     def test_every_rule_of_the_theories_of_numbers_is_proved(self):
-        # each theory's own export (`kurt --lean numbers.kurt`): every `use` of the file a theorem with
+        # each theory's own export (`kurt --lean number.kurt`): every `use` of the file a theorem with
         # its proof in Lean, but those of STAY_AXIOMS -- the text, without Lean
         theories = PROJECT_ROOT / 'src' / 'kurt' / 'theories'
         for theory in THEORIES_WITH_A_MODEL + ['finite']:     # (finite.kurt: its one rule, "nat-number")
             with self.subTest(theory=theory), tempfile.TemporaryDirectory() as tmp:
                 source = (theories / f'{theory}.kurt').read_text(encoding='utf-8')
                 rules = set(re.findall(r'^\s*use .*"([^"]+)"\s*(?:;.*)?$', source, re.MULTILINE))
-                self.assertTrue(rules)
+                if theory == 'divisibility':
+                    rules = set()       # (its theorems are proved by Kurt, no `use`: tested by DIVISIBILITY)
+                else:
+                    self.assertTrue(rules)
                 out = os.path.join(tmp, f'{theory}.lean')
                 result = subprocess.run([sys.executable, str(KURT), '--lean', '--no-kurtc', str(theories / f'{theory}.kurt'), '-o', out],
                                         capture_output=True, text=True, timeout=600)
@@ -383,12 +393,12 @@ class TestExportLean(unittest.TestCase):
         self.assertIn('axiom Obj : Type', text)
 
     def test_a_rule_proved_in_lean_has_the_definitions_it_unfolds(self):
-        # integer.kurt's "int-sub-real", `Int ⊂ Real`, is proved by unfolding set.kurt's `⊂`: its
+        # number.kurt's "int-sub-real", `Int ⊂ Real`, is proved by unfolding set.kurt's `⊂`: its
         # export has the definition of `⊂`, not an axiom `subset` (that `simp only [subset]` can't open)
         theories = PROJECT_ROOT / 'src' / 'kurt' / 'theories'
         with tempfile.TemporaryDirectory() as tmp:
-            out = os.path.join(tmp, 'integer.lean')
-            result = subprocess.run([sys.executable, str(KURT), '--lean', '--no-kurtc', str(theories / 'integer.kurt'), '-o', out],
+            out = os.path.join(tmp, 'number.lean')
+            result = subprocess.run([sys.executable, str(KURT), '--lean', '--no-kurtc', str(theories / 'number.kurt'), '-o', out],
                                     capture_output=True, text=True, timeout=600)
             self.assertEqual(result.returncode, 0, result.stderr)
             text = Path(out).read_text(encoding='utf-8')
@@ -398,13 +408,13 @@ class TestExportLean(unittest.TestCase):
     def test_theorems_about_divisibility(self):
         # a `def` over a pair, `def coprime($a, $b)`: a Lean function of two arguments; the `def`s of
         # the symbols in what a step cites (`even`, `∣`, `coprime`, `⊂`) are Lean `def`s, so Kurt's
-        # theorems about them (natural.kurt, rational.kurt) are theorems with their `lean` proofs
+        # theorems about them (natural.kurt, divisibility.kurt) are theorems with their `lean` proofs
         text = export_text(DIVISIBILITY)
         self.assertRegex(text, r'noncomputable def coprime \(x\d+ : ℝ\) \(x\d+ : ℝ\) : Prop')
         self.assertIn('(coprime a b)', text)
         for label in DIVISIBILITY_THEOREMS:
             self.assertRegex(text, rf'"{label}": proved in Lean', label)
-        self.assertNotRegex(text, r'^axiom f\d+ : .*-- axiom (natural|rational)\.kurt')
+        self.assertNotRegex(text, r'^axiom f\d+ : .*-- axiom (natural|divisibility)\.kurt')
 
     def test_numerals_without_a_theory_of_numbers(self):
         # a numeral where no theory gives `lean Obj` (field.kurt, peano's own `Nat`): a constant of its
@@ -428,15 +438,15 @@ class TestExportLean(unittest.TestCase):
     def test_lean_declarations_of_the_file(self):
         # the file's own `lean` replaces the theory's: another type of the numbers, `- a` opaque (an
         # axiom of its own)
-        text = export_text('load numbers\nlean real ℚ\nlean - opaque $1\nconst a\nuse a = 1 "given"\n-a = -1\n')
+        text = export_text('load number\nlean real ℚ\nlean - opaque $1\nconst a\nuse a = 1 "given"\n-a = -1\n')
         self.assertIn('(1 : ℚ)', text)
         self.assertIn('axiom k_u2d_1 : ℚ → ℚ', text)
         self.assertIn('(k_u2d_1 a)', text)
-        self.assertIn('(a - (1 : ℝ))', export_text('load numbers\nconst a\nuse a - 1 = 0\n'))   # `a - b` still Mathlib's
+        self.assertIn('(a - (1 : ℝ))', export_text('load number\nconst a\nuse a - 1 = 0\n'))   # `a - b` still Mathlib's
 
     def test_calculations_by_norm_num(self):
         # a `calc` step: the tactics in turn, a `sorry` last (Lean says so, it isn't hidden)
-        text = export_text('load numbers\ncalc on\n2 + 3 = 5\n')
+        text = export_text('load number\ncalc on\n2 + 3 = 5\n')
         self.assertIn('first | (norm_num; done)', text)
         self.assertIn('| sorry   -- a calculation', text)
         # without a number theory, a number is not translated
@@ -560,7 +570,7 @@ class TestExportLeanMathlib(unittest.TestCase):
 
     @unittest.skipUnless(MATHLIB, WHY_NOT_MATHLIB)
     def test_lean_with_mathlib_proves_the_theorems_about_divisibility(self):
-        # the proofs in Lean of natural.kurt's and rational.kurt's theorems about `even`, `odd`, `∣`,
+        # the proofs in Lean of divisibility.kurt's theorems about `even`, `odd`, `∣`,
         # `coprime`, `⊂` (`lean "even-square" ...`): Lean checks the export completely
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'proof.kurt')
@@ -579,7 +589,7 @@ class TestExportLeanMathlib(unittest.TestCase):
         # the same tactic) is an error at its theorem, so `lean "label"` is checked, not trusted
         for rule, accepted in (('$a + 0 = $a', True), ('$a + 1 = $a', False)):
             with self.subTest(rule=rule), tempfile.TemporaryDirectory() as tmp:
-                Path(tmp, 'mytheory.kurt').write_text(f'load numbers\nuse {rule} "my-rule"\nlean "my-rule" intros; ring\n', encoding='utf-8')
+                Path(tmp, 'mytheory.kurt').write_text(f'load number\nuse {rule} "my-rule"\nlean "my-rule" intros; ring\n', encoding='utf-8')
                 Path(tmp, 'proof.kurt').write_text('load mytheory\nconst x\nx + 0 = x\n' if accepted else 'load mytheory\nconst x\nx + 1 = x\n', encoding='utf-8')
                 result = subprocess.run([sys.executable, str(KURT), '--lean', '--no-kurtc', 'proof.kurt'], capture_output=True, text=True, timeout=120, cwd=tmp)
                 self.assertEqual(result.returncode, 0, result.stderr)

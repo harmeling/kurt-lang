@@ -1,0 +1,37 @@
+; `∃ x, y, z P` is `∃ x ∃ y ∃ z P` (`∀` too): the binder once for each name (plan step 4);
+; `pick x, y, z with ...` is the proof side (pick-several-witnesses.kurt)
+load logic, number
+use exists x, y (x < y)   "two"
+use exists x, y, z (x < y and y < z)   "three"
+
+show exists a exists b (a < b)
+proof
+    exists a, b (a < b)
+qed
+
+show exists a, b, c (a < b and b < c)
+proof
+    exists a exists b exists c (a < b and b < c)
+qed
+
+show forall x, y (x = y implies y = x)
+proof
+    forall x forall y (x = y implies y = x)
+qed
+
+; each name with its own condition
+use forall x > 0, y > 0 (x + y > 0)   "pos"
+show forall a > 0 forall b > 0 (a + b > 0)
+proof
+    forall a > 0 forall b > 0 (a + b > 0)
+qed
+
+use exists x > 0, y, z (x < y)   "mix"
+show exists a > 0 exists b exists c (a < b)
+proof
+    exists a > 0 exists b exists c (a < b)
+qed
+
+; a condition after a list of plain names belongs to one variable
+expect "ParseError" "belongs to one variable"
+    show exists x, y > 0 (x < y)

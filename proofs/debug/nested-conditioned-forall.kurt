@@ -1,0 +1,20 @@
+; a fact with two or three quantifiers that have conditions is used in one line (todo 81): the instance for the first
+; one is derived and shown as a step of its own (`7a`), each an ordinary "forall-cond-elim" the kernel checks
+load logic, number
+const V, a, b, c
+set V
+use ∀ x ∈ V ∀ y ∈ V (x - y = 2 * x - (x + y))   "V2"
+use a ∈ V
+use b ∈ V
+a - b = 2 * a - (a + b)
+
+; three of them, and a condition that mentions the variable before it
+use ∀ x ∈ V ∀ y > x ∀ z ∈ V (x - y - z = x - (y + z))   "V3"
+use c ∈ V
+use a < b
+a - b - c = a - (b + c)
+
+; without the conditions it is no step: the premise `b ∈ V` is missing for `b`, and `c ∈ V` is not known for `d`
+const d
+expect "ProofError"
+    a - d = 2 * a - (a + d)

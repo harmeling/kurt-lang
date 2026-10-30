@@ -61,7 +61,7 @@ one actual limit found so far.
   explicit freshness side-conditions. The bound variable is ordinary first-order data; no real
   Kurt binder appears in the representation. `lambda.kurt`'s `abs A M` is this: `M` is just a
   subterm, nothing is captured.
-- **Higher-order (HOAS):** use Kurt's *own* `bindop` to stand for the object binder. `lambda.kurt`'s
+- **Higher-order (HOAS):** use Kurt's *own* `binder` to stand for the object binder. `lambda.kurt`'s
   named `λ x M` does this. The payoff is real: alpha-equivalence and capture-avoiding substitution
   come for free from Kurt's own matching and `sub`, with no hand-written de Bruijn machinery.
 
@@ -188,15 +188,15 @@ needs `$x` kept in sync between the *premise*'s binder and the *conclusion*'s us
 and an earlier version of the renaming code got this wrong (`doc/kurt-soundness.md`'s writeup of
 the `impl_elim` bug — the comment at the fix: *"renaming must be applied identically to both sides
 to keep them in sync... silently generated a fresh name for the premise's own copy of `$x` that
-then went unused"*). That fix handles *a bindop's own slot, reused inside a `%`-schema via `sub`,
-between premise and conclusion*. It does not cover *a bindop's slot in the conclusion, reused as an
-ordinary (non-`sub`, non-bindop) argument in the premise* — the exact shape a named hypothetical
+then went unused"*). That fix handles *a binder's own slot, reused inside a `%`-schema via `sub`,
+between premise and conclusion*. It does not cover *a binder's slot in the conclusion, reused as an
+ordinary (non-`sub`, non-binder) argument in the premise* — the exact shape a named hypothetical
 context needs (`extendx Γ x A`, where `x` must be *the same x* as the `λ x M` it licenses).
 
 ### 2.4 The exact code, and why the obvious fix is not obviously safe
 
 Traced to the line. When the conclusion's `λ x2 M2` is matched against a goal's `λ q p`
-(`unify_exprs_with_patterns`, the bindop-matching case):
+(`unify_exprs_with_patterns`, the binder-matching case):
 
     # Rename the expr-side binder body from v_e to v_p (alpha-eq) before unifying -- ...
     args_e = alpha_rename_binder_body(args_e, v_e, v_p, kb)
@@ -236,7 +236,7 @@ derivation, which is exactly the missing piece here.
 
 **The obvious engineering fix was attempted (2026-10-17) and found unsafe, concretely, not just
 in principle.** The change: block `v_p` only while matching the binder's own body (`args_e` vs
-`args_p`), then leave its scope (a new `unblock_bindop_scope`, mirroring `trigger_sub`'s local
+`args_p`), then leave its scope (a new `unblock_binder_scope`, mirroring `trigger_sub`'s local
 `unblock_as_before`) and bind it to `v_e` before continuing into `tail`. Tried against the
 `named-abstraction-general` example from §2.3 step by step:
 
@@ -276,7 +276,7 @@ pattern, already implicit in how `lambda.kurt` is written: state and prove gener
 reader-facing sugar for closed, concrete example terms, where each instance is checked directly
 rather than derived from a general named rule.
 
-**What it would take to lift this properly.** At minimum: (1) the `unblock_bindop_scope` change
+**What it would take to lift this properly.** At minimum: (1) the `unblock_binder_scope` change
 from this attempt, (2) a second change teaching `find_dependent_vars`/`may_capture` to recognize a
 variable that is both "the whole body of a binder" *and* separately free in an ordinary premise
 argument correlated with that same binder (not just the `sum`-style "only inside the binder"
@@ -301,7 +301,7 @@ no-confusion axioms, this checks:
 
     load logic, equality
     arity lam 2
-    bindop lam
+    binder lam
     const leaf
     use (sub $subj leaf %A) ∧ (∀ $x ∀ M ((sub $subj M %A) ⇒ (sub $subj (lam $x M) %A))) ⇒ ∀ $s (sub $subj $s %A)   "ind"
     use ¬(lam x x = lam x $c)            "identity-not-constant"
@@ -467,7 +467,7 @@ declares its own `set $h`.
 ### 5.2 Infinitely many primes
 
 Through without a limit: `prime` is a `def`, the prime divisor of n! + 1 comes from the
-well-ordering of `Nat` (the least divisor ≥ 2), n! from numbers.kurt's `!`. Idioms needed: under
+well-ordering of `Nat` (the least divisor ≥ 2), n! from number.kurt's `!`. Idioms needed: under
 `default real`, `S ⊂ Nat` for a set built with separation needs a block constant of the sort `any`
 (`any c` before `let c`), since "subset" is about all objects; and a bound variable may not reuse a
 name that an enclosing `let`/`pick` made a constant (`∃ q`, not `∃ p`, inside `pick p`).
@@ -520,7 +520,7 @@ lambda.kurt's `term` contains the named `λ` (§2.2), and a theorem about named 
 with their structural induction, contexts as functions from indices to types (`get Γ n`, `ins c A Γ`
 inserts A at c), typing and call-by-value steps by recursion on the term, `shift` and `subst`
 by their recursive equations. Weakening, the substitution lemma and preservation are each proved by
-induction on the term; the index arithmetic uses numbers.kurt (indices are numbers). The limits
+induction on the term; the index arithmetic uses number.kurt (indices are numbers). The limits
 found are of the search, each with a workaround:
 
 - **Induction over a universally quantified property.** A goal `∀ Q ∀ Γ ∀ T (...)` was read with all

@@ -11,13 +11,13 @@
 ; step relation is defined by recursion on its left side); contexts are functions from the indices
 ; to the types (`get Γ n`), and `ins c A Γ` is Γ with A inserted at position c.
 ;
-; Indices are numbers (numbers.kurt) -- also the non-natural ones, which are junk terms; the lemmas
+; Indices are numbers (number.kurt) -- also the non-natural ones, which are junk terms; the lemmas
 ; hold for them too, so no `n ∈ Nat` is needed anywhere.
 ;
 ; Each induction is over a property that is itself a `∀`: the goal `∀ Q ∀ Γ ∀ T ...` gives the rule
 ; "term-induction" the property `∀ Γ ∀ T ...` of Q, so the induction hypothesis holds for every
 ; context (until 2026-10-23 the property had to be named by a `def`, doc/kurt-current-limits.md §5).
-load numbers, logic
+load number, logic
 load analysis          ; for "sub-add-cancel": (n - 1) + 1 = n
 
 sort tm, ty, cx

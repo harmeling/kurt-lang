@@ -1,6 +1,6 @@
 ; let's proof that the Integers form a group
 
-load integer
+load natural
 load group
 
 let $a ∈ Int, $b ∈ Int

@@ -7,11 +7,12 @@
 ; | `propositional`        | `not`, `or`, `iff`, contradiction, propositional introduction/elimination rules                       |
 ; | `logic`       | `forall`, `exists`, conditioned quantifier rules; loads `propositional`                                        |
 ; | `equality`    | `=`, `≠` (`\ne`), reflexivity and substitution; loads `propositional`                                          |
-; | `set`         | membership, subsets, separation, union/intersection, products, tuples, mappings                       |
-; | `numbers`     | exact calculation bindings, algebraic laws, order, powers, factorial                                  |
-; | `natural`     | natural numbers: induction, the predecessor, well-ordering, even and odd, divisibility `∣`, `coprime` |
-; | `integer`     | the integers `Int`                                                                                    |
-; | `rational`    | the rationals `Rat`, every positive rational in lowest terms                                          |
+; | `tuple`       | pairs and tuples `(a, b)`: `fst`, `snd`                                                               |
+; | `set`         | membership, subsets, separation, union/intersection, products, mappings; loads `tuple`               |
+; | `number`      | exact calculation bindings, algebraic laws, order, powers, factorial; the sets `Real`, `Int`, `Rat`  |
+; | `natural`     | natural numbers: induction, the predecessor, well-ordering; how `Nat` sits in `Int`, `Rat`            |
+; | `divisibility`| even and odd, divisibility `∣`, `coprime`, every positive rational in lowest terms                    |
+; | `interval`    | the intervals `Icc a b`, `Ico a b`, ..., and the sets `{a, ..., c}`                                   |
 ; | `analysis`    | absolute value, finite sums, extrema, suprema/infima, limits                                          |
 ; | `continuity`  | continuity, differentiability and the derivative by their definitions; loads `analysis`               |
 ; | `derivative`  | the rules for derivatives; loads `continuity`                                                         |
@@ -28,15 +29,15 @@
 ; every file starts with (`minimal.kurt`, which Kurt reads when it starts; it is never loaded). Their
 ; rules beyond modus ponens and `and-intro` -- `and-elim`, ... -- come with `propositional`.
 ;
-; Numbers or structures: `numbers` (and `natural`, `integer`, `rational`, `analysis`, which load
+; Numbers or structures: `number` (and `natural`, `divisibility`, `interval`, `analysis`, which load
 ; it) is about numbers -- its laws hold for everything written with `+`, `*`, ... For linear
 ; algebra, use a structure that declares its own operators, like `field` or
-; `vectorspace`, not together with `numbers`: a symbol is declared by one file only, and
+; `vectorspace`, not together with `number`: a symbol is declared by one file only, and
 ; loading two files that both declare `+` is an error (doc/kurt-ref.md, `load`). `group` takes
-; its operation as an argument, so it goes with either. (`numbers` used to be called `arith`.)
+; its operation as an argument, so it goes with either. (`number` used to be called `arith`, then `numbers`.)
 ;
 ; Dependencies are loaded transitively. For example, `load natural` brings in `set`, `logic`,
-; `equality`, `propositional`, and `numbers` as required. Use `kurt --deps FILE` to inspect the actual tree.
+; `equality`, `propositional`, and `number` as required. Use `kurt --deps FILE` to inspect the actual tree.
 ;
 ; In `modal`, a line `⊢ A` says that the modal formula A is a theorem, and the rules of modal
 ; logic say which theorems follow, e.g. necessitation: from `⊢ A` follows `⊢ □A` (lesson 28).

@@ -1,4 +1,4 @@
-; overloading, stage 1 (decision 19 of dev/todo-sorts.md): `+ - * /` of numbers.kurt have a signature on `real`
+; overloading, stage 1 (decision 19 of dev/todo-sorts.md): `+ - * /` of number.kurt have a signature on `real`
 ; and one on `complex` (`real ⊂ complex`, complex.kurt). The sort of a term is its least sort, from the syntax:
 ; `x + y` of reals is a `real` (so `<` takes it), `z + x` with a complex `z` is a `complex`
 load complex
@@ -22,7 +22,7 @@ expect "TypeError" "must have sort `real`"
     use c * z < c + 3          ; `c` is a `real` (final), so `c * z` is a complex
 
 ; a law of the reals is not a law of the complex numbers: its `$a` needs a `real`, and `z + 1` is a `complex`
-; (the law "add-sub" of numbers.kurt; the search and the kernel both read the sort of `z + 1` from its syntax)
+; (the law "add-sub" of number.kurt; the search and the kernel both read the sort of `z + 1` from its syntax)
 expect "ProofError" "has sort `complex`"      ; (todo 54: the explanation names the sort)
     show (z + 1) - 2 = z - (2 - 1)
     proof

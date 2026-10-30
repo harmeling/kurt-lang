@@ -10,10 +10,10 @@ default real                   ; the variables of this file are numbers (inducti
 prop P
 const P
 
-use P(0) and (forall $n in Nat (P($n) implies P($n + 1)))  "base-and-step"
+use P(0) and (forall n in Nat (P(n) implies P(n + 1)))  "base-and-step"
 
-forall $n in Nat P($n)
-forall $n ($n in Nat implies P($n))
+forall n in Nat P(n)
+forall n (n in Nat implies P(n))
 5 in Nat implies P(5)
 
 ; For a real proof, derive the base and step in preceding proof blocks instead of introducing
@@ -28,7 +28,7 @@ use $n in Nat implies fact($n + 1) = ($n + 1) * fact($n)  "factorial-step"
 1 in Nat
 fact(0) in Nat                                    ; base case
 
-show forall $n in Nat (fact($n) in Nat implies fact($n + 1) in Nat)   ; induction step
+show forall n in Nat (fact(n) in Nat implies fact(n + 1) in Nat)   ; induction step
 proof
     let n in Nat
         assume fact(n) in Nat
@@ -38,5 +38,5 @@ proof
             fact(n + 1) in Nat
 qed
 
-(fact(0) in Nat) and (forall $n in Nat (fact($n) in Nat implies fact($n + 1) in Nat))
-forall $n in Nat (fact($n) in Nat)
+(fact(0) in Nat) and (forall n in Nat (fact(n) in Nat implies fact(n + 1) in Nat))
+forall n in Nat (fact(n) in Nat)

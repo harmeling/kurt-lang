@@ -15,13 +15,13 @@
 ; As in derivative.kurt, `$T` is any function of the bound variable, and the rules are
 ; theorems of real analysis stated as axioms, each with the conditions it needs -- for Lean they
 ; are proved, from Mathlib's integrals, but "integral-riemann" (`lean "label" ...` at the end).
-load propositional, equality, logic, set, numbers, natural, analysis, continuity, derivative
+load propositional, equality, logic, set, number, natural, analysis, continuity, derivative
 default real              ; every symbol of this file is a number, except where said otherwise
 
 ;; syntax: as `sum`, the range in brackets after the variable
 const integral, integrable
 arity integral _ (_, _) _, integrable _ (_, _) _
-bindop integral, integrable
+binder integral 65, integrable 65
 tex integral \int_{$2}^{$3} $4 \, d$1
 tex integrable \operatorname{integrable}_{$1 \in [$2, $3]} $4
 prop integrable 0
@@ -59,7 +59,7 @@ use ($a < $c) ∧ ($c < $b) ∧ (integrable $v ($a, $b) $T) ∧ (cont $v $c $T) 
 ; 2. the integral of a derivative (an antiderivative `$F` of `$T` on [a, b])
 use ($a <= $b) ∧ (integrable $v ($a, $b) $T) ∧ (∀ $y (($a <= $y ∧ $y <= $b)  ⇒  (diff $v $y $F) ∧ (deriv $v $y $F) = (sub $v $y $T)))  ⇒  (integral $v ($a, $b) $T) = (sub $v $b $F) - (sub $v $a $F)   "ftc"
 
-;; the rules as theorems of Mathlib (see numbers.kurt): `lean "label" TACTIC` is a proof in Lean --
+;; the rules as theorems of Mathlib (see number.kurt): `lean "label" TACTIC` is a proof in Lean --
 ;; all but "integral-riemann" (that the Riemann sums of a continuous function converge to its
 ;; integral is true, but not in Mathlib), which stays an `axiom` in the export
 lean "integrable-cont" intros; casesm* _ ∧ _

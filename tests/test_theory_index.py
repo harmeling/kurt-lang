@@ -166,9 +166,9 @@ class TestTheoryIndex(unittest.TestCase):
         self.assertGreater(clashes[0], 1000)
 
     def test_the_conditions_of_binders_are_checked_as_free_bound_vars_does(self):
-        # `valid_bindop_conditions` walks the binders itself since 2026-10-25 (todo 50; before, it was
+        # `valid_binder_conditions` walks the binders itself since 2026-10-25 (todo 50; before, it was
         # `free_bound_vars`, which raises for a condition of the wrong shape): the same answer on every call
-        original = kurt.valid_bindop_conditions
+        original = kurt.valid_binder_conditions
         answers = {True: 0, False: 0}
 
         def reference(e, kb):
@@ -184,7 +184,7 @@ class TestTheoryIndex(unittest.TestCase):
             answers[answer] += 1
             return answer
 
-        with unittest.mock.patch.object(kurt, 'valid_bindop_conditions', checked):
+        with unittest.mock.patch.object(kurt, 'valid_binder_conditions', checked):
             for name in ['src/kurt/theories/set.kurt', 'proofs/analysis/derivative-rules.kurt',
                          'proofs/soundness/conditioned-quantifier-rules.kurt', 'proofs/debug/quantifier-condition-not-a-subterm.kurt']:
                 kb = copy.deepcopy(kurt.initial_kb)
@@ -194,7 +194,7 @@ class TestTheoryIndex(unittest.TestCase):
         # (and a condition of the wrong shape, below other terms: a number where the variable goes)
         kb = copy.deepcopy(kurt.initial_kb)
         kb.add_arity('all', 2)
-        kb.add_bindop('all')
+        kb.add_binder('all')
         sym, one = (lambda v: kurt.Token('SYMBOL', v)), kurt.Token('INT', '1')
         cases: list[kurt.Expr] = [[sym('all'), one, sym('P')], [sym('f'), sym('a'), [sym('all'), one, sym('P')]],
                                   [sym('all'), sym('y'), [sym('all'), one, sym('y')]], [sym('all'), sym('y'), [sym('f'), sym('y')]]]

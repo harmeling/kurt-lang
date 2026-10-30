@@ -4,17 +4,18 @@
 ; Closing the block (here: by dedenting) triggers "forall-intro": whatever
 ; you proved about the fresh constant, inside the block, now holds for *all*
 ; objects, via a `forall`.  The quantifiers come with `logic.kurt`, so a file
-; with `let` needs `load logic` (the core has no quantifiers).  A fact
-; `forall $x A($x)` is stored as the schema `A($x)`, so it is instantiated
-; directly; the rule "forall-elim" is needed for a `forall` inside a bigger
-; formula, e.g. in `(∀ $x A($x)) implies B`.
+; with `let` needs `load logic` (the core has no quantifiers).  The bound variable
+; of a quantifier is a plain name (`forall x A(x)`): it needs no declaration and
+; no `$`, which is only for the free variables of a rule (`use $a + 0 = $a`).  A
+; fact `forall x A(x)` is instantiated directly; the rule "forall-elim" is needed
+; for a `forall` inside a bigger formula, e.g. in `(∀ x A(x)) implies B`.
 
 ; `A($x)` applies `A` to one argument; Kurt finds out by itself that `A` is a
 ; constant and gives a truth value (`arity`, lesson 31, would also check that `A`
 ; always takes one argument).
 load logic
 
-use forall $x A($x)   ; "for every x, A holds of x"
+use forall x A(x)   ; "for every x, A holds of x"
 
 show forall x A(x)
 proof
@@ -23,7 +24,7 @@ proof
 qed                    ; since `x` was arbitrary, this generalises back to `∀ x A x`
 
 ; `let` can also attach a condition to the new constant, e.g. `let x > 0` --
-; once you have a theory (like `numbers.kurt`) with `>` in it.  Closing the block
+; once you have a theory (like `number.kurt`) with `>` in it.  Closing the block
 ; then gives a quantifier with a condition, `forall x > 0 ...`; the rules of
 ; `logic.kurt` say what it means, e.g. "forall-cond-def" turns it into
 ; `forall x (x > 0 implies ...)`, which is what `let x` followed by `assume x > 0` gives.

@@ -65,7 +65,7 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
     hashlib = None
 
 # config: general information
-version        = '0.11.0'     # the only place of the version (pyproject.toml reads it from here)
+version        = '0.12.0'     # the only place of the version (pyproject.toml reads it from here)
 made_by        = 'made by Stefan Harmeling, 2016-2026'
 
 def file_fingerprint() -> str:
@@ -127,7 +127,7 @@ IFF_SYMBOL    = 'iff'        # equivalence
 SYM_KEEP_ORDER = [EQUAL_SYMBOL, IFF_SYMBOL]
 
 # comparisons of two literal numbers that `calc on` evaluates to `true`/`false`
-# the built-in calculator of `calc`: a theory binds its symbols to these, e.g. numbers.kurt's
+# the built-in calculator of `calc`: a theory binds its symbols to these, e.g. number.kurt's
 # `calc + add, * multiply, ...` -- only bound symbols are computed (see `calculate`)
 # the largest numbers `calc` computes and the lexer reads (in digits): Python turns no bigger integer
 # into a string, and powers of such numbers would take forever
@@ -258,6 +258,7 @@ class RunState:
     calc_written_pass: bool = False        # `derive_expr` with `calc on`: the first, computed pass (fails without an explanation)
     calc_view: bool = False                # the search sees the computed form of the formulas written with `calc on`
     multi_rewrite_depth: int = 0           # `multi_rewrite`: how many places are rewritten already (one step each)
+    nested_cond_depth: int = 0             # `nested_conditioned_elim`: how many conditioned `∀`s of a fact are instantiated already (one step each)
     multi_rewrite_tries: int = 0           # ... and how many partial rewrites of this line were followed by a search (`MULTI_REWRITE_TRIES`)
     comment_indent: int = 42   # how much the reason is indented
     new_symbols: list[str] = field(default_factory=lambda: [])
@@ -326,6 +327,8 @@ class RunState:
     cancel: Optional[Callable[[], bool]] = None
     line_steps: int = 0           # the steps of the search for the line being checked ...
     line_start: Optional[float] = None   # ... and when it started (`time.monotonic()`; None: no line, the next step starts the clock)
+    profile: bool = False         # note the time and the steps of each line (`RunConfig.profile`, `kurt --profile`) in `line_profile`
+    line_profile: dict[tuple[str, int], tuple[float, int]] = field(default_factory=lambda: {})   # (file, line) -> seconds, steps
 
 run_state = RunState()            # the state of the command line, and of calls without a `Session`
 
@@ -422,7 +425,7 @@ def packaged_theory_file(filename: str):
     # be shadowed by a file of the same name elsewhere, since `def` and `--strict` rely on
     # their content (see `load_file`). Remembered: the theories that come with Kurt don't change
     # while it runs, and `is_file` of a packaged path lists the whole directory each time (3 ms,
-    # 280 times for `load rational`, a third of its time; 2026-10-16)
+    # 280 times for `load divisibility`, a third of its time; 2026-10-16)
     if '/' in filename or '\\' in filename:
         return None
     key = (filename, tuple(str(p) for p in packaged_theory_paths))
@@ -626,6 +629,7 @@ class KurtException(Exception):
         self.details:  Optional[dict] = details
         self.kb_after: Optional['KnowledgeBase'] = None     # the level reached, if blocks were closed before the error
         self.closing: bool = False                          # the block `kb` didn't close (set by `read_eval_loop`)
+        self.reread: bool = False                           # the error is of the line before: the line being read is read again after it (a term line without its continuation, todo 80)
         self.todos_so_far: Optional[list[str]] = None       # the todos before the error: they count (`Session._check`)
         self.via_load: Optional[int] = None                 # an error of a loaded file: the line of its `load` in the main file
         self.state: Optional[tuple['KnowledgeBase', 'LexerState', int]] = None   # where it stopped, for `kurt -i` to continue there
@@ -685,9 +689,9 @@ keywords: dict[str, str] = {
     'tokenize':    'tokenize a string and print its tokens',
     'format':      'choose print representation, i.e. one of "sexpr", "normal", "source"',
     'summary':     'print where the proof is: the open blocks, the claims still to prove, the latest facts, what could come next',
-    'load':        'load file(s), e.g. load propositional, numbers or load foo.kurt',
+    'load':        'load file(s), e.g. load propositional, number or load foo.kurt',
     'list':        'list loaded files, or retained content by category and source, e.g. list natural or list const natural',
-    'save':        'save the lines accepted so far (in the shell: without the ones that failed) as a `.kurt` file, e.g. save "session.kurt" (path is relative to the current working directory)',
+    'save':        'save the lines accepted so far (in the shell: without the ones that failed) as a `.kurt` file, e.g. save session.kurt or save "session.kurt" (path is relative to the current working directory)',
 
     'syntax':      'print the current syntax',
     'info':        'print everything known about one symbol: its declarations, its `def` (if any), and the theory facts that mention it, e.g. info four',
@@ -696,8 +700,9 @@ keywords: dict[str, str] = {
     'postfix':     'add postfix operator with left binding power',
     'brackets':    'declare brackets (the delimiter symbols become constants)',
     'arity':       'set arity of a symbol (default is 0)',
-    'bindop':      'declare a constant binding operator',
+    'binder':      'declare a constant binding operator',
     'flat':        'declare a constant infix operator to be flat',
+    'nested':      'declare binders whose variable may be a list, `forall x, y P` is `forall x forall y P`',
     'sym':         'declare a constant infix operator to be symmetric',
     'sort':        'declare optional term sorts, and subsorts as a chain: `sort set real int` (`int ⊂ real ⊂ set`: a `real` fits where a `set` is required); each sort name then declares positional signatures like `prop`; alone: the sorts and subsorts',
     'default':     'the sort of the symbols of this file that get none otherwise, from this line on: `default real` (after `sort real`; not across `load`; alone: the default in force)',
@@ -1455,7 +1460,7 @@ def calculate(e: Expr, kb: 'KnowledgeBase') -> Expr:
                     return number_expr(a / b, kb) or e
                 if 'power' in ops:
                     # only integer exponents, not too big: `2 ^ 0.5` has no exact value, and
-                    # `0 ^ -1` and `0 ^ 0` none at all (numbers.kurt leaves `0 ^ 0` open)
+                    # `0 ^ -1` and `0 ^ 0` none at all (number.kurt leaves `0 ^ 0` open)
                     if b.denominator != 1 or (a == 0 and b <= 0):
                         return e
                     size = max(a.numerator.bit_length(), a.denominator.bit_length())
@@ -1485,7 +1490,9 @@ class ExportBundle:
     inline: dict[str, 'Inline']
     tex: dict[str, str]
     lean: dict[str, dict[int, str]]
-    bindop: set[str]
+    binder: set[str]
+    binder_power: dict[str, int]
+    nested: set[str]
     flat: set[str]
     sym: set[str]
     alias: dict[str, str]
@@ -1517,7 +1524,7 @@ class ExportBundle:
     sort_how: dict[str, tuple[str, str, int]] = field(default_factory=dict)   # how its symbols got their sorts (inferred, default, ...)
 
 # the fields of `ExportBundle` that are symbol-keyed attributes of `KnowledgeBase`, of this level only
-EXPORTED_SYMBOL_ATTRS = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'arity_shape', 'inline', 'tex', 'lean', 'bindop', 'flat', 'sym', 'alias',
+EXPORTED_SYMBOL_ATTRS = ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'arity_shape', 'inline', 'tex', 'lean', 'binder', 'binder_power', 'nested', 'flat', 'sym', 'alias',
                          'used', 'lbp', 'rbp', 'nud', 'led', 'const', 'prop', 'builtins', 'roles', 'frozen', 'declared_in')
 
 def exported_formulas_and_symbols(child: 'KnowledgeBase') -> tuple[list['Formula'], set[str]]:
@@ -1596,7 +1603,7 @@ def compute_exports(child: 'KnowledgeBase') -> ExportBundle:
     sorts = set(child.sorts) | set(sort_sigs) | schema_sorts
     chains = [list(c) for c in child.chain if all(op in symbols for op in c)]
     origin_keys: dict[str, set[str]] = {}
-    for keyword in ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop', 'flat', 'sym',
+    for keyword in ('infix', 'postfix', 'prefix', 'brackets', 'arity', 'binder', 'nested', 'flat', 'sym',
                     'alias', 'const', 'prop', 'builtins'):
         value = selected[keyword]
         origin_keys[keyword] = set(value)
@@ -1674,9 +1681,9 @@ Nud: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Token], Expr]
 Led: TypeAlias = Callable[[PeekableGenerator, "KnowledgeBase", Expr, Token], Expr]
 Mode: TypeAlias = tuple[str, list[Expr]]  # where the str is one of ['root', 'sandbox', 'proof', 'assume', 'case', 'let', 'pick', 'expect']
 
-# `is_var`, `is_const`, `is_bindop`, `is_flat`, `is_sym` are asked millions of times and look up
+# `is_var`, `is_const`, `is_binder`, `is_flat`, `is_sym` are asked millions of times and look up
 # the levels each time; each level remembers its answers until anything changes what they depend
-# on (`var`, `const`, `bindop`, `flat`, `sym`, the fixed variables of any level, a `load`) -- each
+# on (`var`, `const`, `binder`, `flat`, `sym`, the fixed variables of any level, a `load`) -- each
 # such change counts up this version, which empties the memory
 symbol_version: list[int] = [0]
 
@@ -1727,7 +1734,9 @@ class KnowledgeBase:
         self.vocabulary: set[str]                = set()  # the symbols a top-level declaration of the file names (`const pi`, `infix ++ 50 50`): exported (todo 28)
         self.local_vocabulary: set[str]          = set()  # ... declared with `local` at the end (`const helper local`): not exported, so no exported fact may need them
         self.chain:    list[list[str]]           = []     # for chaining operators, i.e., 18 = 1+17 <= 20 < 21
-        self.bindop:   set[str]                  = set()  # set for variable binding operators
+        self.binder:   set[str]                  = set()  # set for variable binding operators
+        self.nested:   set[str]                  = set()  # `nested forall, exists`: the binders whose variable may be a list (`forall x, y P`)
+        self.binder_power: dict[str, int]        = {}      # `binder forall 17`: the binding power of the body of a binder (none: one tight argument, as `f x`)
         self.flat:     set[str]                  = set()  # set for declaring a flat operator, i.e., ($a + $b) + $c = $a + $b + $c
         self.sym:      set[str]                  = set()  # set for declaring a symmetric operator, i.e., $a + $b = $b + $a
         self.frozen:   set[str]                  = set()  # symbols declared by a trusted theory, see `is_trusted_file`
@@ -1798,7 +1807,7 @@ class KnowledgeBase:
     def bind_builtin(self, symbol: str, operation: str) -> None:
         if operation in ENGINE_ROLES:
             return self.bind_engine_role(symbol, operation)
-        if self.is_bindop(symbol):
+        if self.is_binder(symbol):
             raise KurtException(f'EvalError: binding operator `{symbol}` can not also be a calculator operation')
         if self.is_var(symbol):
             raise KurtException(f'EvalError: variable `{symbol}` can not have a fixed calculator meaning')
@@ -1828,10 +1837,10 @@ class KnowledgeBase:
         if self.is_var(symbol):
             raise KurtException(f'EvalError: variable `{symbol}` can not have a role of the engine')
         needed = ENGINE_ROLES[role]
-        if role in BINDER_ROLES and not (self.is_bindop(symbol) and self.get_arity(symbol) == 2):
-            raise KurtException(f'EvalError: the role `{role}` needs a binder with two arguments (`arity {symbol} 2`, `bindop {symbol}`)')
-        if role == 'setbuilder' and not (self.is_infix(symbol) and self.is_bindop(symbol)):
-            raise KurtException(f'EvalError: the role `setbuilder` needs an infix binder (`infix {symbol} ...`, `bindop {symbol}`)')
+        if role in BINDER_ROLES and not (self.is_binder(symbol) and self.get_arity(symbol) == 2):
+            raise KurtException(f'EvalError: the role `{role}` needs a binder with two arguments (`arity {symbol} 2`, `binder {symbol}`)')
+        if role == 'setbuilder' and not (self.is_infix(symbol) and self.is_binder(symbol)):
+            raise KurtException(f'EvalError: the role `setbuilder` needs an infix binder (`infix {symbol} ...`, `binder {symbol}`)')
         if role == 'setbuilder' and self.role_symbol('setbrackets') is None:
             raise KurtException('EvalError: the role `setbuilder` needs the brackets of sets first (`builtin { } setbrackets`)')
         if self.bool_sig(symbol) != needed:
@@ -1922,8 +1931,9 @@ class KnowledgeBase:
         elif keyword == 'chain':    return f'chain {" ".join(key)}'
         elif keyword == 'arity':    return f'arity {key} {shape_str(self.arity_shape[key]) if key in self.arity_shape else value}'
         elif keyword == 'flat':     return f'flat {key}'
+        elif keyword == 'nested':   return f'nested {key}'
         elif keyword == 'sym':      return f'sym {key}'
-        elif keyword == 'bindop':   return f'bindop {key}'
+        elif keyword == 'binder':   return f'binder {key}'
         elif keyword == 'sort':     return f'sort {key}'
         elif keyword == 'prop':
             assert isinstance(value, list), f'BUG!  Unexpected value for `prop`, got {value}'
@@ -2060,8 +2070,8 @@ class KnowledgeBase:
         sections = []
         for node in reversed(list(self.levels())):
             all_syntax = [node.dict_or_set_str(keyword, key, ambiguous, source) for keyword in
-                          ('prefix', 'infix', 'postfix', 'arity', 'chain', 'bindop', 'brackets',
-                           'flat', 'sym', 'alias', 'var', 'const', 'prop')]
+                          ('prefix', 'infix', 'postfix', 'arity', 'chain', 'binder', 'brackets',
+                           'nested', 'flat', 'sym', 'alias', 'var', 'const', 'prop')]
             if key is None:
                 sort_lines = []
                 for sort in sorted(node.sorts):
@@ -2121,12 +2131,12 @@ class KnowledgeBase:
     def is_postfix(self, s: str) -> bool:
         return s in self.postfix or (self.parent is not None and self.parent.is_postfix(s))
 
-    def is_bindop(self, s: str) -> bool:
+    def is_binder(self, s: str) -> bool:
         memory = self._symbol_memory
         memory = (memory if memory[0] == symbol_version[0] else self._memory())[3]
         answer = memory.get(s)
         if answer is None:
-            answer = memory[s] = s in self.bindop or (self.parent is not None and self.parent.is_bindop(s))
+            answer = memory[s] = s in self.binder or (self.parent is not None and self.parent.is_binder(s))
         return answer
 
     def is_flat(self, s: str) -> bool:
@@ -2150,7 +2160,7 @@ class KnowledgeBase:
         return s in self.all_fixed_vars
 
     def _memory(self) -> tuple:
-        # the answers of `is_var`, `is_const`, `is_bindop`, `is_flat`, `is_sym` (see `symbol_version`), at
+        # the answers of `is_var`, `is_const`, `is_binder`, `is_flat`, `is_sym` (see `symbol_version`), at
         # 1 to 5 (the whole tuple, not a slice of it: these are asked millions of times, todo 50) -- each
         # of them reads `_symbol_memory` itself and calls this only when `symbol_version` has changed
         # (2.4 million calls of `is_var` in 28-self-adjoint.kurt, 2026-10-25)
@@ -2253,7 +2263,7 @@ class KnowledgeBase:
 
     def declared_symbols(self) -> set[str]:
         # every symbol declared on this level (not the parents)
-        symbols = set(self.infix) | set(self.prefix) | set(self.postfix) | set(self.bindop) | set(self.const)
+        symbols = set(self.infix) | set(self.prefix) | set(self.postfix) | set(self.binder) | set(self.const)
         symbols |= set(self.prop) | set(self.arity) | self.flat | self.sym | set(self.alias)
         for signatures in self.sort_sigs.values():
             symbols |= set(signatures)
@@ -2437,7 +2447,7 @@ class KnowledgeBase:
     def is_declared(self, s: str) -> bool:
         # declared in some way before its first use, e.g. by `prop A`, `arity f 1`, `infix + 60 60`
         return (self.is_var(s) or self.is_const(s) or any(self.sort_sig(sort, s) for sort in self.all_sort_names()) or self.is_arity_set(s)
-                or self.is_operator(s) or self.is_bindop(s) or self.is_alias(s))
+                or self.is_operator(s) or self.is_binder(s) or self.is_alias(s))
 
     def is_operator(self, s: str) -> bool:
         return self.is_prefix(s) or self.is_infix(s) or self.is_postfix(s) or self.is_bracket(s)
@@ -2451,7 +2461,7 @@ class KnowledgeBase:
         # happens to be *first used* inside the block (fine, it's not scoped to it)
         # from a genuinely fresh individual like a `let`/`pick`/`const`-introduced
         # constant (not fine, it must not survive past the block it came from)
-        return self.get_arity(s) > 0 or self.is_operator(s) or self.is_bindop(s) or self.is_bool(s)
+        return self.get_arity(s) > 0 or self.is_operator(s) or self.is_binder(s) or self.is_bool(s)
 
     def levels(self) -> Iterator['KnowledgeBase']:
         # this level and the ones above it
@@ -2561,7 +2571,7 @@ class KnowledgeBase:
         elif self.is_infix(op):   return 'infix'
         elif self.is_postfix(op): return 'postfix'
         elif self.is_bracket(op): return 'bracket'
-        elif self.is_bindop(op):  return 'bindop'
+        elif self.is_binder(op):  return 'binder'
         elif self.is_var(op):     return 'var'
         elif self.is_const(op):   return 'const'
         else: assert False, 'BUG: call "_find_symbol" only for existing symbols'
@@ -2579,7 +2589,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{op}` already has explicit arity {self.get_arity(op)} and can not also be prefix')
         if self.is_operator(op) and not self.is_infix(op):    # infix and prefix at the same time is allowed
             raise KurtException(f'EvalError: symbol `{op}` already exist as {self._find_symbol(op)}')
-        if self.is_bindop(op):
+        if self.is_binder(op):
             raise KurtException(f'EvalError: binding operator `{op}` can not also be prefix')
         if self.is_flat(op):
             # A prefix and infix occurrence have the same AST head. Flattening would erase a
@@ -2602,7 +2612,10 @@ class KnowledgeBase:
         self.infix[op] = (lbp, rbp)                           # to nicely list all operators
         self.record_property_origin('infix', op)
         self.declare_origin(op)
-        self.led[op] = lambda ts, kb, left, op_token: chain_relations(kb, left, op_token, parse_expression(ts, kb, rbp))
+        if op == SPACE_SYMBOL:      # (the body of a binder with its own power is read with it, `binder_body_power`)
+            self.led[op] = space_led
+        else:
+            self.led[op] = lambda ts, kb, left, op_token: chain_relations(kb, left, op_token, parse_expression(ts, kb, rbp))
         self.lbp[op] = lbp                                    # for lbp lookup during parsing
 
     def add_postfix(self, op: str, lbp: int) -> None:
@@ -2633,7 +2646,7 @@ class KnowledgeBase:
             self.property_origins.setdefault(keyword, {})[self._property_key(key)] = location
 
     def declare_origin(self, s: str) -> None:
-        # one file declares a symbol (its grammar, `flat`, `sym`, `arity`, ...): numbers.kurt's `+`
+        # one file declares a symbol (its grammar, `flat`, `sym`, `arity`, ...): number.kurt's `+`
         # and the `+` of a structure (field.kurt) are two different things, and loading both would
         # make the laws of one apply to the other -- a second file declaring `+` is an error, here
         # or when the two meet by `load` (`validate_against_loader`)
@@ -2654,7 +2667,7 @@ class KnowledgeBase:
                 raise KurtException(f'EvalError: all operators of a chain must be infix, operator `{op}` is not')
             if self.is_var(op):
                 raise KurtException(f'EvalError: variable operator `{op}` can not be in a chain with fixed transitivity rules')
-            if self.is_bindop(op):
+            if self.is_binder(op):
                 raise KurtException(f'EvalError: binding operator `{op}` can not be in a chain')
         self.check_with_other_chains(c)
         if len(c) < 1:
@@ -2670,7 +2683,18 @@ class KnowledgeBase:
         self.chain.append(c)
         self.record_property_origin('chain', c)
 
-    def add_bindop(self, fun: str) -> None:
+    def get_binder_power(self, fun: str) -> Optional[int]:
+        if fun in self.binder_power:
+            return self.binder_power[fun]
+        return self.parent.get_binder_power(fun) if self.parent is not None else None
+
+    def add_binder(self, fun: str, power: Optional[int] = None) -> None:
+        if power is not None:
+            if not 1 <= power < space_rbp:
+                raise KurtException(f'EvalError: the binding power of the body of `{fun}` is a number from 1 to {space_rbp - 1} (`{space_rbp}` is a tight argument, as `f x`; the default), not {power}')
+            if self.is_infix(fun):
+                raise KurtException(f'EvalError: `{fun}` is an infix binder: its body is the right operand, `infix {fun} ...` gives its power')
+            self.binder_power[fun] = power
         if self.is_flat(fun) or self.is_sym(fun) or self.is_chainable(fun):
             # Flattening/sorting a binder changes which token is bound and what its scope is;
             # chain rules treat the two operands as ordinary relation arguments.
@@ -2688,9 +2712,9 @@ class KnowledgeBase:
             # the condition with the bound variable, its right operand the body
             if not self.is_const(fun):
                 self.add_const(fun)
-            self.bindop.add(fun)
+            self.binder.add(fun)
             symbols_changed()
-            self.record_property_origin('bindop', fun)
+            self.record_property_origin('binder', fun)
             self.declare_origin(fun)
             return
         if self.is_operator(fun):
@@ -2701,11 +2725,11 @@ class KnowledgeBase:
             raise KurtException('EvalError: arity of binding operators must be at least 2')
         if not self.is_const(fun):
             self.add_const(fun)
-        self.bindop.add(fun)
+        self.binder.add(fun)
         symbols_changed()
-        self.record_property_origin('bindop', fun)
+        self.record_property_origin('binder', fun)
         self.declare_origin(fun)
-        self.nud[fun] = lambda ts, kb, t: bindop_nud(ts, kb, t)   # (defined further below)
+        self.nud[fun] = lambda ts, kb, t: binder_nud(ts, kb, t)   # (defined further below)
 
     def check_bool_sig_sym_flat(self, op: str) -> None:    # might raise exceptions, though
         # A flat/symmetric infix applies one argument declaration to every operand. Therefore
@@ -2718,12 +2742,25 @@ class KnowledgeBase:
                 if max(signature) > 2:
                     raise KurtException(f'EvalError: existing `{sort}` signature contains info for more than two args')
 
+    def is_nested(self, s: str) -> bool:
+        return s in self.nested or (self.parent is not None and self.parent.is_nested(s))
+
+    def add_nested(self, op: str) -> None:
+        if not self.is_binder(op) or self.is_infix(op):
+            raise KurtException(f'EvalError: `{op}` is not a binding operator with a prefix form: only `binder` operators can be `nested`')
+        if self.get_arity(op) != 2:
+            raise KurtException(f'EvalError: `{op}` has {self.get_arity(op)} arguments: only a binder of two (the variable and its body) can be `nested`')
+        self.nested.add(op)
+        self.record_property_origin('nested', op)
+        self.declare_origin(op)
+        symbols_changed()
+
     def add_flat(self, op: str) -> None:
         if not self.is_infix(op):
             raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare flatness')
         if self.is_prefix(op):
             raise KurtException(f'EvalError: prefix/infix operator `{op}` can not be `flat` -- flattening would confuse its unary and binary forms')
-        if self.is_bindop(op):
+        if self.is_binder(op):
             raise KurtException(f'EvalError: binding operator `{op}` can not be `flat`')
         if self.is_var(op):
             raise KurtException(f'EvalError: variable operator `{op}` can not be declared `flat`; flatness belongs to the concrete operator it matches')
@@ -2742,7 +2779,7 @@ class KnowledgeBase:
     def add_sym(self, op) -> None:
         if not self.is_infix(op):
             raise KurtException(f'EvalError: operator `{op}` must be infix operator to declare symmetry')
-        if self.is_bindop(op):
+        if self.is_binder(op):
             raise KurtException(f'EvalError: binding operator `{op}` can not be `sym` -- swapping its arguments changes the bound variable and scope')
         if self.is_var(op):
             raise KurtException(f'EvalError: variable operator `{op}` can not be declared `sym`; symmetry belongs to the concrete operator it matches')
@@ -2761,7 +2798,7 @@ class KnowledgeBase:
     def get_infix_rbp(self, op: str) -> int:
         # `self.infix[op]` is written once by `add_infix` and never read back during ordinary
         # parsing (the right binding power is baked directly into the `led` closure it
-        # creates) -- `bindop_nud` needs it back for a condition's right-hand side, searching
+        # creates) -- `binder_nud` needs it back for a condition's right-hand side, searching
         # the parent levels the same way `get_led`/`get_lbp` do
         if op in self.infix:
             return self.infix[op][1]
@@ -2827,7 +2864,7 @@ class KnowledgeBase:
             raise KurtException(f'EvalError: symbol `{s}` is already used as a constant')
         if self.get_builtins(s):
             raise KurtException(f'EvalError: calculator symbol `{s}` has a fixed meaning and can not be a variable')
-        if self.is_flat(s) or self.is_sym(s) or self.is_chainable(s) or self.is_bindop(s):
+        if self.is_flat(s) or self.is_sym(s) or self.is_chainable(s) or self.is_binder(s):
             raise KurtException(f'EvalError: symbol `{s}` has a fixed semantic property and can not be a variable')
         self.var.add(s)
         self.record_property_origin('var', s)
@@ -2901,7 +2938,7 @@ class KnowledgeBase:
             max_args = None
         if max_args is not None and any(position < 0 or position > max_args for position in v):
             raise KurtException(f'EvalError: `prop` position of `{s}` must be between 0 and its arity {max_args}')
-        if self.is_bindop(s) and 1 in v:
+        if self.is_binder(s) and 1 in v:
             raise KurtException(f'EvalError: first position of binding operator `{s}` can not be a statement place')
         self.prop[s] = v          # add a key and set the value to the list of statement places
         self.record_property_origin('prop', s)
@@ -2929,7 +2966,7 @@ class KnowledgeBase:
             match e:
                 case Token(label='SYMBOL', value=v):
                     return v == symbol and v not in bound
-                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and self.is_bindop(op):
+                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and self.is_binder(op):
                     try:
                         bv, _ = unpack_condition(cond, self)
                     except KurtException:
@@ -3076,7 +3113,7 @@ class KnowledgeBase:
             return end_lbp           # this is to finish the while loop in 'expression'
         # the default value
         if run_state.space_suspended[0]:
-            return 0                 # inside a quantifier's condition, see `bindop_nud`
+            return 0                 # inside a quantifier's condition, see `binder_nud`
         return space_lbp             # this is used for 'f x y'
 
     def all_flat(self) -> Iterator[str]:
@@ -3187,7 +3224,7 @@ class KnowledgeBase:
                         self.used.add(s)      # 2. add it to the used symbols
             case [*children]:
                 match children:
-                    case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and self.is_bindop(op):
+                    case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and self.is_binder(op):
                         bound_v, _ = unpack_condition(cond, self)
                         middle, body = binder_scope(tail)
                         for child in middle:                    # outside the scope of `bound_v`
@@ -3258,7 +3295,7 @@ class KnowledgeBase:
                             else:
                                 # just a normal operator
                                 for i in range(len(args)):
-                                    if i == 0 and self.is_bindop(op):
+                                    if i == 0 and self.is_binder(op):
                                         bool_sigs |= _get_new_bool_sigs(args[i], False)   # a binder's variable, or its condition
                                     elif op != COMMA_SYMBOL and bool_expr(args[i], self):
                                         # (not the comma of a tuple: its places are terms -- `reflexive((R), $A)`
@@ -3599,7 +3636,7 @@ def equal_expr_alpha(t1: Expr, t2: Expr, kb: 'KnowledgeBase', bmap1: dict, bmap2
             return v1 == v2
         case ([Token(label='SYMBOL', value=op1), cond1, *tail1], [Token(label='SYMBOL', value=op2), cond2, *tail2]) \
                 if isinstance(op1, str) and isinstance(op2, str) and op1 == op2 \
-                and kb.is_bindop(op1) and len(tail1) == len(tail2):
+                and kb.is_binder(op1) and len(tail1) == len(tail2):
             bv1, c1 = unpack_condition(cond1, kb)
             bv2, c2 = unpack_condition(cond2, kb)
             if (c1 is None) != (c2 is None):
@@ -3652,6 +3689,7 @@ GREEK_VARIABLE_LETTERS = ''.join(c for c in SPECIAL_SYMBOLS if c.isalpha() and n
 # note that the ordering of the expressions here is important
 scanner: re.Pattern = re.compile(fr'''
   (?P<LOAD>(?i:load)\s+(?P<LOAD_BODY>[^\n;]*))    | # captures everything after `load` up to ';' or EOL
+  (?P<SAVE>(?i:save)\s+(?P<SAVE_BODY>[^\n;]*))    | # `save` takes one file name, with or without quotes (like `load`)
   (?P<LIST>(?i:list)\s+(?P<LIST_BODY>[^\n;]*))    | # `list` arguments are categories/file names, not expressions
   (?P<TEX>tex\s+(?P<TEX_SYMBOL>\S+)\s+(?P<TEX_BODY>[^\n;]*[^\s;])) | # `tex sum \sum_{{$1=$2}}^{{$3}} $4`: the LaTeX of a symbol, raw
   (?P<LEANPROOF>lean\s+"(?P<LEANPROOF_LABEL>[^"\n]+)"[^\S\n](?P<LEANPROOF_BODY>[^\n]*[^\s])) | # `lean "add-eq" intro a b c h; rw [h]`: a line of a fact's proof in Lean, raw to the end of the line (`;` too; more spaces: indented)
@@ -3767,7 +3805,7 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
             names = split_filenames(body)
             covered = re.sub(r'\s', '', ''.join(m.group(0) for m in filenames_pattern.finditer(body)))
             if covered != re.sub(r'\s', '', body):
-                # `load propositional numbers` read `numbers` only, `propositional` was lost silently (2026-10-15)
+                # `load propositional number` read `number` only, `propositional` was lost silently (2026-10-15)
                 words = [w for w in re.split(r'[\s,]+', body.strip()) if w]
                 raise KurtException(f'ScanError: `load {body.strip()}` -- the files are separated by commas: `load {", ".join(words)}` (a name with spaces in quotes)', column)
             for i, name in enumerate(names):
@@ -3786,6 +3824,15 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
             yield Token('SYMBOL', 'lean', column)
             yield Token('STRING', match.group('LEAN_SYMBOL'), column + 5)
             yield Token('STRING', match.group('LEAN_BODY'), match.start('LEAN_BODY'))
+        elif label == 'SAVE':
+            body = match.group('SAVE_BODY').strip()
+            yield Token('SYMBOL', 'save', column)
+            if body.startswith('"') or not body:
+                for part in re.findall(r'"[^"]*"|[^\s"]+', body):     # (quoted names, and what is wrong with `save a b`, as before)
+                    yield Token('STRING', part[1:-1] if part.startswith('"') else part, column + 5)
+            else:
+                for part in body.split():
+                    yield Token('STRING', part, column + 5)
         elif label == 'LIST':
             body = match.group('LIST_BODY')
             yield Token('SYMBOL', 'list', column)
@@ -3822,13 +3869,13 @@ def is_led_token(token: Token, kb: KnowledgeBase) -> bool:
     else:
         return False
 
-# starting tokens: prefix, opening brackets, bindop, numbers, strings (labels), etc
+# starting tokens: prefix, opening brackets, binder, numbers, strings (labels), etc
 def is_nud_token(token: Token, kb: KnowledgeBase) -> bool:
     if token.label == 'SYMBOL':
         op = token.value
         assert isinstance(op, str)
         # these checks are necessary, since, e.g., `-` can be both prefix and infix
-        if kb.is_prefix(op) or kb.is_lbracket(op) or kb.is_bindop(op):
+        if kb.is_prefix(op) or kb.is_lbracket(op) or kb.is_binder(op):
             return True
         else:
             return not is_led_token(token, kb)  # if not infix/postfix, then it is a number or string
@@ -3861,7 +3908,7 @@ def undeclared_symbols(expr: Expr, kb: KnowledgeBase, bound_vars: frozenset[str]
                 if (v not in bound and v[0] not in '$%' and '$$$' not in v and v not in found
                         and not kb.is_used(v) and not kb.is_declared(v)):
                     found.append(v)
-            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
                 bv, _ = unpack_condition(cond, kb)
                 middle, body = binder_scope(tail)
                 for child in middle:
@@ -3874,9 +3921,9 @@ def undeclared_symbols(expr: Expr, kb: KnowledgeBase, bound_vars: frozenset[str]
     walk(expr, bound_vars)
     return found
 
-# whether function application is switched off while parsing, see `bindop_nud`
+# whether function application is switched off while parsing, see `binder_nud`
 
-def bindop_nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
+def binder_nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
     # a binding operator with a condition, e.g. `∀ $n ∈ Nat P $n` or `∃ $d > 0 ...`: since
     # function application binds most tightly, the condition `$n ∈ Nat` is read here, with the
     # right-hand side extending over infix operators but not over an application -- so the body
@@ -3885,6 +3932,22 @@ def bindop_nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
     if not (isinstance(v, Token) and v.label == 'SYMBOL' and isinstance(v.value, str) and not kb.is_operator(v.value)):
         return t
     next(ts)
+    if kb.is_nested(str(t.value)):
+        # `∃ x, y, z P`: the binder once for each name, `∃ x ∃ y ∃ z P`
+        names = [v]
+        while isinstance(ts.peek, Token) and ts.peek.label == 'SYMBOL' and ts.peek.value == COMMA_SYMBOL:
+            next(ts)
+            n = ts.peek
+            if not (isinstance(n, Token) and n.label == 'SYMBOL' and isinstance(n.value, str) and not kb.is_operator(n.value)):
+                raise KurtException(f'ParseError: `{t.value} {", ".join(str(x.value) for x in names)},` is followed by another name', n.column if isinstance(n, Token) else t.column)
+            next(ts)
+            names.append(n)
+        cond = ts.peek
+        if len(names) > 1 and isinstance(cond, Token) and cond.label == 'SYMBOL' and isinstance(cond.value, str) and is_relation(cond.value, kb):
+            raise KurtException(f'ParseError: a condition (`{cond.value} ...`) belongs to one variable: give each name its own, `{t.value} x > 0, y > 0 ...`', cond.column)
+        for name in reversed(names[1:]):
+            ts.prepend(name)
+            ts.prepend(Token(t.label, t.value, t.column, t.origin))
     op = ts.peek
     if not (isinstance(op, Token) and op.label == 'SYMBOL' and isinstance(op.value, str) and is_relation(op.value, kb)):
         ts.prepend(v)
@@ -3896,7 +3959,38 @@ def bindop_nud(ts: PeekableGenerator, kb: KnowledgeBase, t: Token) -> Expr:
         rhs = parse_expression(ts, kb, kb.get_infix_rbp(op.value))
     finally:
         run_state.space_suspended[0] = suspended
+    if kb.is_nested(str(t.value)) \
+            and isinstance(ts.peek, Token) and ts.peek.label == 'SYMBOL' and ts.peek.value == COMMA_SYMBOL:
+        # `∀ x > 0, y > 0 P`: the next variable (with its condition) is a binder of its own, the body of this one
+        next(ts)
+        ts.prepend(Token(t.label, t.value, t.column, t.origin))
     return [space_token, t, [op, v, rhs]]
+
+def space_led(ts: PeekableGenerator, kb: KnowledgeBase, left: Expr, op_token: Token) -> Expr:
+    # application, `f x`: the operand binds with `space_rbp` -- except the body of a binder with a power (`binder_body_power`),
+    # which is the operand as the brackets of the user would have made it (the flattening of applications would take it apart)
+    power = binder_body_power(left, kb)
+    if power is None:
+        return chain_relations(kb, left, op_token, parse_expression(ts, kb, space_rbp))
+    body = parse_expression(ts, kb, power)
+    if isinstance(body, list):
+        body = [Token('SYMBOL', '($$$)', column=op_token.column), body]
+    return [op_token, left, body]
+
+def binder_body_power(left: Expr, kb: KnowledgeBase) -> Optional[int]:
+    # `∀ x ...`: when the next operand of an application is the body of a binder that has a power (`binder forall 17`),
+    # it is read with that power, so the operators that bind tighter are inside it -- `∀ x x > 0 and x < 5` is
+    # `(∀ x. x > 0) and x < 5` -- and not as one tight argument. `left` is the binder with the arguments before the body
+    # (its variable, or its condition; the middle ones of `sum i (1, n) ...`)
+    arguments, node = 0, left
+    while isinstance(node, list) and len(node) == 3 and isinstance(node[0], Token) and node[0].value == SPACE_SYMBOL:
+        arguments += 1
+        node = node[1]
+    if isinstance(node, Token) and node.label == 'SYMBOL' and isinstance(node.value, str) and kb.is_binder(node.value):
+        power = kb.get_binder_power(node.value)
+        if power is not None and arguments == kb.get_arity(node.value) - 1:
+            return power
+    return None
 
 def chain_relations(kb: KnowledgeBase, left: Expr, op_token: Token, right: Expr) -> Expr:
     # mathematicians write `a = b <= c` for `a = b and b <= c`: an infix relation whose (not
@@ -4208,7 +4302,7 @@ def merge_applications(expr: Expr, kb: KnowledgeBase) -> Expr:
     if (len(e) >= 2 and isinstance(head, list) and len(head) >= 2 and isinstance(head[0], Token)
             and head[0].label == 'SYMBOL' and isinstance(head[0].value, str) and kb.get_arity(head[0].value) == 0
             and not kb.is_operator(head[0].value) and not kb.is_bracket_placeholder(head[0].value)
-            and not kb.is_bindop(head[0].value) and head[0].value not in (SPACE_SYMBOL, SUB_SYMBOL)):
+            and not kb.is_binder(head[0].value) and head[0].value not in (SPACE_SYMBOL, SUB_SYMBOL)):
         return head + e[1:]
     return e
 
@@ -4275,7 +4369,7 @@ def mark_bound_variables(expr: Expr, kb: KnowledgeBase, outer: frozenset[str] = 
     match expr:
         case Token():
             return expr
-        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op) and op != SUB_SYMBOL:
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op) and op != SUB_SYMBOL:
             if isinstance(cond, Token) or is_sub(cond):
                 v_name = cond.value if isinstance(cond, Token) else None
                 inner = outer | {v_name} if isinstance(v_name, str) else outer
@@ -4510,7 +4604,7 @@ def bare_bool_schema_axiom_warning(expr: Expr, kb: KnowledgeBase, filename: Opti
     # of Kurt (modal.kurt's `⊢ (A → ◇ A)` with `var A, B, C` is a schema over formulas, as meant)
     if isinstance(expr, list) and len(expr) == 3 and isinstance(expr[0], Token) and is_relation(expr[0].value, kb) \
             and not (filename is not None and is_trusted_file(filename)):
-        leaves = [t for t in get_token_set(expr) if not (t.label == 'SYMBOL' and isinstance(t.value, str) and (kb.is_infix(t.value) or kb.is_prefix(t.value) or kb.is_postfix(t.value) or kb.is_bindop(t.value) or '$$$' in t.value or t.value == BOUND_SYMBOL))]
+        leaves = [t for t in get_token_set(expr) if not (t.label == 'SYMBOL' and isinstance(t.value, str) and (kb.is_infix(t.value) or kb.is_prefix(t.value) or kb.is_postfix(t.value) or kb.is_binder(t.value) or '$$$' in t.value or t.value == BOUND_SYMBOL))]
         if leaves and all(t.label == 'SYMBOL' and isinstance(t.value, str) and kb.is_var(t.value) and not kb.is_bool(t.value)
                           and t.value[0] not in '$%' for t in leaves):
             names = sorted({str(t.value) for t in leaves})
@@ -4666,7 +4760,7 @@ def operator_meaning(op: str, kb: KnowledgeBase) -> Optional[str]:
     # a `sym`/`flat` operator is caught earlier, by the "got none" error with its own hint)
     if kb.is_chainable(op):
         return 'is in a `chain`'
-    if kb.is_bindop(op):
+    if kb.is_binder(op):
         return 'is a binder'
     if op in core_kb.declared_symbols():
         return 'belongs to the core'
@@ -4686,7 +4780,7 @@ def contains(expr: Expr, symbols: set[str], kb: KnowledgeBase) -> bool:
             assert isinstance(s, str)
             return s in symbols
         # binding operator
-        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
             bound_v, condition = unpack_condition(cond, kb)
             symbols_wo_bound_v = symbols - {bound_v}  # set difference creating a new set
             cond_check = False if condition is None else contains(condition, symbols_wo_bound_v, kb)
@@ -4708,7 +4802,7 @@ def free_symbols(expr: Expr, kb: KnowledgeBase, bound_vars: frozenset[str] = fro
             return {s}
         case Token():
             return set()
-        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
             bound_v, condition = unpack_condition(cond, kb)
             new_bound_vars = bound_vars | {bound_v}
             found = set() if op in bound_vars else {op}
@@ -4793,6 +4887,7 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int) -> KnowledgeBase:
             # level (the witness itself, or any bystander `const` declared alongside it) --
             # vocabulary symbols first used here are fine, see `is_vocabulary_symbol`
             witness = kb.mode_args[0].value if isinstance(kb.mode_args[0], Token) else None
+            no_defined_symbol(kb, expr)
             pick_not_allowed = set(filter(lambda s: not kb.is_vocabulary_symbol(s), kb.const)) | ({witness} if isinstance(witness, str) else set())
             if contains(expr, pick_not_allowed, kb):
                 raise KurtException(f'ProofError: the line (its conclusion) of the `pick` block may not contain constant symbols from the current level, got `{expr_str(expr, kb)}`')
@@ -4816,6 +4911,7 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int) -> KnowledgeBase:
     # wrongly treated as if it were as scoped as a `let`/`pick`/`const`-introduced individual.
     assert kb.parent is not None, 'BUG: we should be one-level up in `eval_done`'
     kb_parent = kb.parent
+    no_defined_symbol(kb, expr)
     not_allowed = set(filter(lambda s: not kb_parent.is_var(s) and not kb.is_vocabulary_symbol(s), kb.const))
     if contains(expr, not_allowed, kb_parent):
         raise KurtException(f'ProofError: there are constant symbols on the current level appearing in the conclusion of the previous one, got `{expr_str(expr, kb_parent)}`, not allowed are {not_allowed}')
@@ -4834,6 +4930,15 @@ def eval_done(kb: KnowledgeBase, filename: str, line: int) -> KnowledgeBase:
         return close_block_with(kb, mode_str, expr, last_expr, filename)
     finally:
         run_state.generalized_sorts = saved_sorts
+
+def no_defined_symbol(block: KnowledgeBase, expr: Expr) -> None:
+    # the result of a closing block must not mention a symbol that a `def` of the block defined --
+    # whatever it is, also an operator or a statement (todo 77): it and its defining fact are gone
+    # when the block closes, so `let x` / `def k iff P x` must not give `∀ x (k iff P x)`
+    for f in block.theory:
+        if f.def_symbol is not None and contains(expr, {f.def_symbol}, block):
+            raise KurtException(f'ProofError: `{written_name(f.def_symbol, f.expr)}` is defined in this block (line {f.line}), so the '
+                                f'result of the block can\'t mention it -- its definition is gone when the block closes: got `{expr_str(expr, block)}`')
 
 def block_result_sorts(block: KnowledgeBase) -> dict[str, frozenset[str]]:
     # the sort of each constant of `block` that becomes a variable of its result: the names of a
@@ -4887,7 +4992,7 @@ def binder_reading(e: Expr, kb: KnowledgeBase) -> Optional[list[str]]:
     match e:
         case Token():
             return []
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             try:
                 bv, _ = unpack_condition(cond, kb)
             except KurtException:
@@ -4995,7 +5100,7 @@ def eval_qed(kb: KnowledgeBase, filename: str, line: 'int | str', implicit: bool
 def is_new_symbol_or_existing_variable(s: str, kb: KnowledgeBase) -> bool:
     # a variable, or a symbol without any declaration (a predicate declared with `prop`/`arity`
     # but not used yet is not a new symbol)
-    return kb.is_var(s) or not (kb.is_const(s) or kb.is_operator(s) or kb.is_arity_set(s) or len(kb.bool_sig(s)) > 0 or kb.is_bindop(s))
+    return kb.is_var(s) or not (kb.is_const(s) or kb.is_operator(s) or kb.is_arity_set(s) or len(kb.bool_sig(s)) > 0 or kb.is_binder(s))
 
 def extract_by_condition(e: Expr, c: Callable[[str], bool], kb: KnowledgeBase, bound_vars: frozenset[str] = frozenset()) -> list[str]:
     # bound-variable-aware: a symbol only bound by an enclosing binder (e.g. the `x` in
@@ -5005,7 +5110,7 @@ def extract_by_condition(e: Expr, c: Callable[[str], bool], kb: KnowledgeBase, b
     match e:
         case Token(label='SYMBOL', value=s) if isinstance(s, str) and s not in bound_vars and c(s):
             return [s]        # new string fulfilling the condition
-        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
             bound_v, condition = unpack_condition(cond, kb)
             new_bound_vars = bound_vars | {bound_v}
             found = [] if condition is None else extract_by_condition(condition, c, kb, new_bound_vars)
@@ -5060,7 +5165,7 @@ def unpack_condition(expr: Expr, kb: KnowledgeBase) -> tuple[str, Optional[Expr]
             new_consts = [s for s in new_consts if not kb.is_fixed_var(s)] or new_consts
         if len(new_consts) > 1:
             # several, e.g. `$a ∈ $G` in a rule: the one on the left of the relation is bound, as
-            # in the unbracketed `∀ $a ∈ $G ...` (see `bindop_nud`)
+            # in the unbracketed `∀ $a ∈ $G ...` (see `binder_nud`)
             match expr:
                 case [Token(label='SYMBOL', value=rel), Token(label='SYMBOL', value=v), _] if isinstance(rel, str) and isinstance(v, str) and is_relation(rel, kb) and v in new_consts:
                     new_consts = [v]
@@ -5081,6 +5186,10 @@ def eval_let(kb: KnowledgeBase, expr: Expr, input_line: str, filename: str, line
     new_const, condition = unpack_condition(expr, kb)
     if new_const.startswith('%') or kb.is_bool(new_const):
         raise KurtException(LET_STATEMENT_MESSAGE.format(new_const))
+    if new_const.startswith('$'):
+        # a `$` name is a variable by its name (`const $x` is refused too), `let` makes a constant
+        raise KurtException(f'TypeError: `let` fixes a constant, but `{new_const}` starts with `$`, so it is always a variable -- '
+                            f'a claim with free `$`-variables needs no `let`, or use a plain name: `let {new_const[1:]}`')
     if kb.is_fixed_var(new_const):
         # `assume P $x` / `let $x` would turn the fixed `$x` of the assumption into "for all x"
         raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `let` needs a new name')
@@ -5109,6 +5218,39 @@ def pick_instance(existential: Expr, witness: Expr, kb: KnowledgeBase) -> Option
             assert condition is not None
             return normalize_expr([Token('SYMBOL', AND_SYMBOL), k_replace(condition, x, witness, kb), k_replace(body, x, witness, kb)], kb)
     return None
+
+def multi_pick_steps(args: list[Expr], kb: KnowledgeBase) -> list[Expr]:
+    # `pick x, y, z with F` as the `pick`s it stands for: `x with ∃ y ∃ z F`, `y with ∃ z F`, `z with F`
+    names: list[Token] = []
+    for a in args[:-1]:
+        if not (isinstance(a, list) and len(a) == 1 and isinstance(a[0], Token) and a[0].label == 'SYMBOL'):
+            raise KurtException('EvalError: several witnesses are picked as `pick x, y, z with F` (one `with`, at the end), e.g. `pick x, y with R x y`')
+        names.append(a[0])
+    last = args[-1]
+    if not (isinstance(last, list) and len(last) > 2 and isinstance(last[0], Token) and last[0].label == 'SYMBOL' and is_helper_keyword(last[1])):
+        raise KurtException('EvalError: several witnesses are picked as `pick x, y, z with F`, e.g. `pick x, y with R x y`')
+    names.append(last[0])
+    if len({t.value for t in names}) < len(names):
+        raise KurtException('EvalError: `pick` takes distinct names for its witnesses', get_column(names[-1]))
+    exists = kb.role_symbol('existential')
+    assert exists is not None
+    steps: list[Expr] = []
+    for i, name in enumerate(names):
+        fact: list[Expr] = list(last[2:])
+        for later in reversed(names[i + 1:]):
+            fact = [later.clone(exists), later, later.clone('('), *fact, later.clone(')')]
+        steps.append([name, last[1], *fact])
+    return steps
+
+def pick_input_line(step: Expr) -> str:
+    # the text `eval_pick` keeps of the line: of a step of `pick x, y with F` the `pick` it stands for
+    assert isinstance(step, list)
+    return 'pick ' + ' '.join(str(t.value) if isinstance(t, Token) else '' for t in step)
+
+def log_pick(kb: KnowledgeBase, new_const: str, fact: Expr, line: int) -> None:
+    if printing():
+        reason = Reason(str(line), f'open local scope with new constant `{new_const}`', 'open')
+        log(kb, f'pick {new_const} with {expr_str(fact, kb)}', reason, kb.level-1)  # log the new constants
 
 def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, input_line, filename: str, line: int) -> tuple[KnowledgeBase, Expr]:
     assert isinstance(new_const_expr, Token) and new_const_expr.label=='SYMBOL'
@@ -5250,8 +5392,8 @@ def generate_chain_transitivity(kb: KnowledgeBase, chain: list[str]) -> Knowledg
     # the operator with the larger index" rule `get_chain_op` already uses to combine
     # operators within one manually-*written* chain expression (`a = b <= c` concludes
     # `a <= c`), now applied as a real inference rule spanning two separately-proven facts,
-    # rather than leaving every theory to hand-write its own (as numbers.kurt used to for its
-    # `<`/`<=`/`=` chain -- see doc/kurt-soundness.md for the writeup and numbers.kurt's own
+    # rather than leaving every theory to hand-write its own (as number.kurt used to for its
+    # `<`/`<=`/`=` chain -- see doc/kurt-soundness.md for the writeup and number.kurt's own
     # trimmed-down transitivity section for the before/after).
     # a chain's operators relate either two statements (e.g. `iff`/`implies`, where
     # `prop iff 0 1 2` makes positions 1 and 2 statement places too, not just the result) or two
@@ -5387,13 +5529,15 @@ def inside_sandbox_or_expect(kb: KnowledgeBase) -> bool:
     return False
 
 def block_forbidding_declaration(kb: KnowledgeBase) -> Optional[str]:
-    # `use`/`load`/`def`/`chain`/`inline`, and a grammar declaration (`infix`, `prefix`, `postfix`,
-    # `brackets`, `arity`, `bindop`, `flat`, `sym`, `alias`, `sort`) inside a proof-like block would
-    # either leak an unproven axiom into a seemingly proven result (e.g. `assume A` + `use B` gives
-    # `A implies B`) or make the block's notation permanently stick once a surviving formula uses it
-    # (doc/kurt-ref.md §11.2) -- the kind of the innermost such block, or `None` if it's fine here:
-    # at the top level of a file, or anywhere inside a `sandbox` or `expect`, whose content is
-    # discarded
+    # what is refused inside a proof-like block (doc/kurt-spec.md §6.6): `use` and `chain` postulate
+    # facts, which would leak into a seemingly proven result (`assume A` + `use B` gives `A implies
+    # B`); `load` and a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`,
+    # `binder`, `flat`, `sym`, `alias`, `sort`, `default`) change what the file contains and how it
+    # is read, and a notation would stick once a surviving formula uses it (doc/kurt-ref.md §11.2);
+    # `inline` stays refused for now (a notation read away while parsing, todo 18). Not `def`: it
+    # postulates nothing, and inside a block it is local to it (todo 77, `no_defined_symbol`) --
+    # the kind of the innermost such block, or `None` if it's fine here: at the top level of a
+    # file, or anywhere inside a `sandbox` or `expect`, whose content is discarded
     innermost: Optional[str] = None
     node: Optional[KnowledgeBase] = kb
     while node is not None:
@@ -5409,20 +5553,20 @@ def block_forbidding_declaration(kb: KnowledgeBase) -> Optional[str]:
 # the input lines of each file or shell session that were accepted, for `save` (see `read_eval_loop`)
 
 # the declarations that make a file's vocabulary (exported, todo 28; `const helper local` not)
-VOCABULARY_KEYWORDS = ('infix', 'prefix', 'postfix', 'brackets', 'arity', 'bindop', 'flat', 'sym', 'prop', 'chain', 'const',
+VOCABULARY_KEYWORDS = ('infix', 'prefix', 'postfix', 'brackets', 'arity', 'binder', 'nested', 'flat', 'sym', 'prop', 'chain', 'const',
                        'alias', 'tex', 'lean')
 
 # the statements that declare how symbols are read (`sub` may appear in them, e.g. `arity sub 3`)
-DECLARATION_KEYWORDS = ('infix', 'prefix', 'postfix', 'brackets', 'arity', 'bindop', 'flat', 'sym', 'prop',
+DECLARATION_KEYWORDS = ('infix', 'prefix', 'postfix', 'brackets', 'arity', 'binder', 'nested', 'flat', 'sym', 'prop',
                         'chain', 'var', 'const', 'alias', 'sort')
 
 # statements that only show something: not saved
 SHOWING_KEYWORDS = {'save', 'cert', 'help', 'hint', 'theory', 'syntax', 'info', 'list', 'summary',
                     'tokenize', 'parse', 'breakpoint', 'format'}
 # ... and those that only list something when they come without arguments
-LISTING_KEYWORDS = {'load', 'use', 'def', 'show', 'prefix', 'infix', 'postfix', 'brackets', 'arity', 'bindop',
-                    'flat', 'sym', 'sort', 'default', 'prop', 'chain', 'var', 'const', 'alias', 'builtin'}
-LIST_PROPERTY_KEYWORDS = ('prefix', 'infix', 'postfix', 'brackets', 'arity', 'bindop', 'flat',
+LISTING_KEYWORDS = {'load', 'use', 'def', 'show', 'prefix', 'infix', 'postfix', 'brackets', 'arity', 'binder',
+                    'nested', 'flat', 'sym', 'sort', 'default', 'prop', 'chain', 'var', 'const', 'alias', 'builtin'}
+LIST_PROPERTY_KEYWORDS = ('prefix', 'infix', 'postfix', 'brackets', 'arity', 'binder', 'nested', 'flat',
                           'sym', 'sort', 'prop', 'chain', 'var', 'const', 'alias')
 LIST_CATEGORIES = {'files', 'theory', 'use', 'def', 'syntax', 'symbols', 'declarations',
                    *LIST_PROPERTY_KEYWORDS}
@@ -5473,7 +5617,7 @@ def apply_declaration_batch(kb: KnowledgeBase, apply: Callable[[KnowledgeBase], 
 # the declarations about a symbol: one written with an alias is about its symbol (`tex ∪ \sqcup` is
 # `tex union \sqcup`, `chain ≠` is `chain neq`, todo 61) -- the scanner reads a formula's `∪` as
 # `union` anyway, so a declaration of `∪` itself would never apply
-ALIAS_RESOLVING_KEYWORDS = ('infix', 'prefix', 'postfix', 'prop', 'arity', 'bindop', 'flat', 'sym', 'chain',
+ALIAS_RESOLVING_KEYWORDS = ('infix', 'prefix', 'postfix', 'prop', 'arity', 'binder', 'nested', 'flat', 'sym', 'chain',
                             'var', 'const', 'builtin', 'tex', 'lean')
 
 def written_name(symbol: str, expr: Expr) -> str:
@@ -5493,7 +5637,7 @@ def written_symbol(token: Expr, shown: str) -> str:
 def declared_symbols_unaliased(keyword: str, args: list[Expr], kb: KnowledgeBase) -> list[Expr]:
     if not (keyword in ALIAS_RESOLVING_KEYWORDS or (kb.is_sort_name(keyword) and keyword != 'prop')):
         return args
-    every = keyword in ('flat', 'sym', 'chain')      # (a list of symbols; the others: the symbol, then its details)
+    every = keyword in ('nested', 'flat', 'sym', 'chain')      # (a list of symbols; the others: the symbol, then its details)
     def unaliased(t: Expr) -> Expr:
         if isinstance(t, Token) and t.label in ('STRING', 'SYMBOL') and isinstance(t.value, str):
             target = kb.get_alias(t.value)
@@ -5512,7 +5656,14 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
     assert isinstance(args, list)
     args = declared_symbols_unaliased(keyword, args, kb)
 
-    if keyword in ('infix', 'prefix', 'postfix', 'prop', 'arity', 'bindop', 'brackets', 'alias') or (
+    if keyword in ('var', 'const') and args and isinstance(args[0], list) and len(args[0]) == 2 and isinstance(args[0][0], Token) \
+            and isinstance(args[0][0].value, str) and kb.is_sort_name(args[0][0].value) and args[0][0].value != 'prop':
+        # `var real x, y, z` is `var x, y, z` and `real x, y, z` (`const` too): the sort in front of the names, once
+        sort_token, plain = args[0][0], [[args[0][1]]] + list(args[1:])
+        kb = eval_keyword_expression(keyword_token, plain, input_line, label, kb, line, filename, local)
+        return eval_keyword_expression(sort_token, plain, input_line, label, kb, line, filename, local)
+
+    if keyword in ('infix', 'prefix', 'postfix', 'prop', 'arity', 'binder', 'brackets', 'alias') or (
             kb.is_sort_name(keyword) and keyword != 'prop'):
         # a declaration changes how a symbol is read: not for the symbols of a theory of Kurt
         # (`infix Nat 50 50`, `prop Nat`, found in the soundness review of 2026-09-29)
@@ -5533,7 +5684,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
     # a variable), not with `local` at its end (`const helper local`)
     if keyword in VOCABULARY_KEYWORDS or (kb.is_sort_name(keyword) and keyword != 'prop'):
         if kb.is_load_boundary or kb.mode_str == 'root':
-            count = 2 if keyword == 'brackets' else (None if keyword in ('chain', 'flat', 'sym') else 1)
+            count = 2 if keyword == 'brackets' else (None if keyword in ('chain', 'nested', 'flat', 'sym') else 1)
             names = {t.value for a in args for t in (a if isinstance(a, list) else [a])[:count]
                      if isinstance(t, Token) and isinstance(t.value, str) and t.label in ('SYMBOL', 'STRING')
                      and t.value[:1] not in ('$', '%')
@@ -5700,7 +5851,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             raise KurtException('EvalError: `save` expects exactly one filename, e.g. `save "state.kurt"`', keyword_token.column)
         arg = args[0]
         if not (isinstance(arg, list) and len(arg) == 1 and isinstance(arg[0], Token) and arg[0].label == 'STRING'):
-            raise KurtException('EvalError: `save` expects a file name in quotes, e.g. `save "state.kurt"`', keyword_token.column)
+            raise KurtException('EvalError: `save` expects a file name, e.g. `save state.kurt`', keyword_token.column)
         match arg[0]:
             case Token(label='STRING', value=fname):
                 assert isinstance(fname, str)
@@ -5886,21 +6037,24 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     raise KurtException(f'EvalError: wrong arguments (their number or kind), possible is:\n{msg}', keyword_token.column)
         bracket_symbols = tuple(symbol for pair in new_stuff for symbol in pair)
         apply_declaration_batch(kb, lambda target: [target.add_brackets(left, right) for left, right in new_stuff], bracket_symbols)
-    elif keyword == 'bindop':
+    elif keyword == 'binder':
         if len(args) == 0:
             log(kb, kb.dict_or_set_str_all_levels(keyword))
         proof_block = block_forbidding_declaration(kb) if args else None
         if proof_block is not None:
-            raise KurtException(f'EvalError: `bindop` is not allowed inside `{proof_block}` -- declare it before the proof', keyword_token.column)
-        new_stuff = []
+            raise KurtException(f'EvalError: `binder` is not allowed inside `{proof_block}` -- declare it before the proof', keyword_token.column)
+        new_binders: list[tuple[str, Optional[int]]] = []
         for arg in args:
             match arg:
                 case [Token(label='STRING'|'SYMBOL', value=op)]:
                     assert isinstance(op, str)
-                    new_stuff.append(op)    # first collect
+                    new_binders.append((op, None))    # first collect
+                case [Token(label='STRING'|'SYMBOL', value=op), Token(label='INT', value=power)]:
+                    assert isinstance(op, str) and isinstance(power, int)
+                    new_binders.append((op, power))
                 case _:
                     raise_declaration_usage(keyword, arg, keyword_token)
-        apply_declaration_batch(kb, lambda target: [target.add_bindop(op) for op in new_stuff], tuple(new_stuff))
+        apply_declaration_batch(kb, lambda target: [target.add_binder(op, power) for op, power in new_binders], tuple(op for op, _ in new_binders))
     elif keyword == 'chain':
         if len(args) == 0:
             log(kb, kb.dict_or_set_str_all_levels(keyword))
@@ -5955,6 +6109,22 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         run_state.implicit_constants[:] = chain_implicit_constants
         run_state.implicit_bool_signatures[:] = chain_implicit_bool_signatures
 
+    elif keyword == 'nested':
+        if len(args) == 0:
+            log(kb, kb.dict_or_set_str_all_levels(keyword))
+        proof_block = block_forbidding_declaration(kb) if args else None
+        if proof_block is not None:
+            raise KurtException(f'EvalError: `nested` is not allowed inside `{proof_block}` -- declare it before the proof', keyword_token.column)
+        new_stuff = []
+        for arg in args:
+            match arg:
+                case [Token(label='STRING'|'SYMBOL', value=op)]:
+                    assert isinstance(op, str)
+                    new_stuff.append(op)    # first collect
+                case _:
+                    raise_declaration_usage(keyword, arg, keyword_token)
+        check_not_frozen(new_stuff, keyword, filename, kb)
+        apply_declaration_batch(kb, lambda target: [target.add_nested(op) for op in new_stuff], tuple(new_stuff))
     elif keyword == 'flat':
         if len(args) == 0:
             log(kb, kb.dict_or_set_str_all_levels(keyword))
@@ -6368,7 +6538,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             extra = sorted(free_bound_vars(rhs, kb)[0] - set(names))
             if extra:
                 raise KurtException(f'EvalError: the variables {", ".join(f"`{v}`" for v in extra)} of the right-hand side of `inline` must occur on the left-hand side too', keyword_token.column)
-            if any(isinstance(t, Token) and (t.value == BOUND_SYMBOL or (isinstance(t.value, str) and kb.is_bindop(t.value))) for t in get_token_set(rhs)):
+            if any(isinstance(t, Token) and (t.value == BOUND_SYMBOL or (isinstance(t.value, str) and kb.is_binder(t.value))) for t in get_token_set(rhs)):
                 raise KurtException('EvalError: the right-hand side of `inline` may not contain a binder (`∀`, `∃`, ...) -- an argument could be captured by it; use `def`', keyword_token.column)
             # its symbols are used now (no `infix plus` after `inline g $x = $x plus 1`; 2026-10-15)
             kb.add_new_symbols(rhs, formula=kb.has_role(expr[0].value, 'equivalence'))
@@ -6382,11 +6552,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
         if len(args) == 0:
             log(kb, kb.theory_str(keyword=keyword).strip())
         else:
-            proof_block = block_forbidding_declaration(kb)
-            if proof_block is not None:
-                # like `use`: a symbol defined inside a block would leave it with a meaning that
-                # depends on the block's constants (`let x` / `def k iff P x` gives `∀ x (k iff P x)`)
-                raise KurtException(f'EvalError: `def` is not allowed inside `{proof_block}` -- define it before the proof (or use `let` with a condition)', keyword_token.column)
+            # (inside a block, too, todo 77: the symbol and its fact belong to the level of the
+            # block and are gone when it closes -- `pop_level` doesn't merge symbol tables -- and
+            # the block's result must not mention it, `no_defined_symbol`; so `let x` / `def k iff
+            # P x` can't give `∀ x (k iff P x)`, doc/kurt-soundness.md §8.51)
             # Validate left to right in a disposable declaration scope. Later entries see all
             # earlier names (including names on their RHS), so duplicates and forward cycles
             # cannot masquerade as fresh definitions. No facts or declarations escape a failure.
@@ -6420,7 +6589,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                                                 if declaration[0] != lc]
                 if printing():
                     reason = Reason(str(line), f'defining `{written_name(lc, f.expr)}`')
-                    log(kb, f'def {expr_str(f.expr, kb)}', reason, kb.level-1)  # log the new constant
+                    log(kb, f'def {expr_str(f.expr, kb)}', reason, kb.level if kb.level > 0 else -1)  # (in a block: indented as its lines)
 
     elif keyword == 'todo':
         check_strict(keyword, filename)
@@ -6549,10 +6718,10 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             raise KurtException(msg)
         if kb.role_symbol('existential') is None:
             raise KurtException('EvalError: `pick` takes its witness from an existential quantifier, and there is none -- `load logic` first')
-        if len(args) > 1:
-            # each `pick` opens a block of its own, but the next line can only indent once
-            raise KurtException('EvalError: one `pick` per line -- write the next `pick` inside the block of the first')
-        expr = args[0]        # (exactly one: the checks above)
+        # `pick x, y, z with F` is `pick x with ∃ y ∃ z F`, `pick y with ∃ z F`, `pick z with F`: the blocks
+        # are nested, but the next line indents once (`LexerState.extra_blocks`)
+        picks = multi_pick_steps(args, kb) if len(args) > 1 else [args[0]]
+        original_input_line = input_line
         # unlike `let`/`assume`/`case`, `eval_pick` pushes its own level *internally*,
         # only after checking that a matching existential exists -- so it can raise
         # (e.g. "can not find an existential formula that matches the `pick`") before
@@ -6566,59 +6735,63 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
             # `keywords_with_parsing`, see `parse_tokenstream`) -- `expr` here is still a
             # flat list of raw tokens, split only on top-level commas, not a parsed
             # expression tree; `with` is where the new constant ends and the fact begins.
-            match expr:
-                case [*tail] if sum(1 for t in tail if is_helper_keyword(t)) == 1:
-                    with_index = next(i for i, t in enumerate(tail) if is_helper_keyword(t))
-                    pre_with, fact_expr = tail[:with_index], tail[with_index+1:]
-                    if not fact_expr:
-                        raise KurtException(msg)                  # `pick x with` without a fact
-                    if len(pre_with) != 1:
-                        raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{" ".join(str(t) for t in pre_with)}`' if len(pre_with) > 1 else msg)
-                    new_const_expr = pre_with[0]
-                    # reuse `let`'s own "extract the one new-or-existing symbol" parsing
-                    # (`unpack_condition`) for consistency -- but unlike `let x>0`, which
-                    # quantifies its condition away as an assumption when the block closes
-                    # (§9.2), a `pick`ed witness is existential, so it can never carry an
-                    # inline condition of its own: an extra condition here would be an
-                    # unproven fact asserted about a specific value with no justification --
-                    # a soundness hole, not a convenience. The witness's only property comes
-                    # from matching the existential's own body (below). In practice this
-                    # branch of `unpack_condition` is unreachable today: `pre_with` is
-                    # always exactly one raw token (nothing upstream parses it into a
-                    # compound expression), so `condition` is always `None` here already --
-                    # the check stays as a clear, deliberate guard, not dead code, in case
-                    # that ever changes.
-                    new_const, condition = unpack_condition(new_const_expr, kb)
-                    if condition is not None:
-                        raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{expr_str(new_const_expr, kb)}`', get_column(new_const_expr))
-                    if kb.is_const(new_const):
-                        raise KurtException(f'EvalError: `pick` requires a new constant or existing variable, got already-declared constant `{new_const}`')
-                    if kb.is_fixed_var(new_const):
-                        raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `pick` needs a new name')
-                    kb, fact = eval_pick(kb, new_const_expr, fact_expr, input_line, filename, line)
-                case [*tail] if tail and not any(is_helper_keyword(t) for t in tail):
-                    # `pick C`, like `let C`: the new constant is the one `C` is about
-                    # (`unpack_condition`), and then it is `pick x with C`
-                    # (a copy: parsing changes tokens, e.g. the `)` of `P(c)`, and `eval_pick`
-                    # parses the tokens again)
-                    ts = PeekableGenerator(t for t in copy.deepcopy(tail) + [end_token])
-                    condition, _, _ = post_process(kb, parse_expression(ts, kb, begin_rbp))
-                    new_const, _ = unpack_condition(condition, kb)
-                    if kb.is_const(new_const):
-                        raise KurtException(f'EvalError: `pick` requires a new constant or existing variable, got already-declared constant `{new_const}`')
-                    if kb.is_fixed_var(new_const):
-                        raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `pick` needs a new name')
-                    new_const_expr = next(t for t in tail if isinstance(t, Token) and t.value == new_const)
-                    kb, fact = eval_pick(kb, new_const_expr, tail, input_line, filename, line)
-                case _:
-                    raise KurtException(msg)
+            for expr in picks:
+                match expr:
+                    case [*tail] if sum(1 for t in tail if is_helper_keyword(t)) == 1:
+                        with_index = next(i for i, t in enumerate(tail) if is_helper_keyword(t))
+                        pre_with, fact_expr = tail[:with_index], tail[with_index+1:]
+                        if not fact_expr:
+                            raise KurtException(msg)                  # `pick x with` without a fact
+                        if len(pre_with) != 1:
+                            raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{" ".join(str(t) for t in pre_with)}`' if len(pre_with) > 1 else msg)
+                        new_const_expr = pre_with[0]
+                        # reuse `let`'s own "extract the one new-or-existing symbol" parsing
+                        # (`unpack_condition`) for consistency -- but unlike `let x>0`, which
+                        # quantifies its condition away as an assumption when the block closes
+                        # (§9.2), a `pick`ed witness is existential, so it can never carry an
+                        # inline condition of its own: an extra condition here would be an
+                        # unproven fact asserted about a specific value with no justification --
+                        # a soundness hole, not a convenience. The witness's only property comes
+                        # from matching the existential's own body (below). In practice this
+                        # branch of `unpack_condition` is unreachable today: `pre_with` is
+                        # always exactly one raw token (nothing upstream parses it into a
+                        # compound expression), so `condition` is always `None` here already --
+                        # the check stays as a clear, deliberate guard, not dead code, in case
+                        # that ever changes.
+                        new_const, condition = unpack_condition(new_const_expr, kb)
+                        if condition is not None:
+                            raise KurtException(f'EvalError: `pick` does not support an extra condition on the new constant (only `pick x with FACT`), got `{expr_str(new_const_expr, kb)}`', get_column(new_const_expr))
+                        if kb.is_const(new_const):
+                            raise KurtException(f'EvalError: `pick` requires a new constant or existing variable, got already-declared constant `{new_const}`')
+                        if new_const.startswith(('$', '%')):
+                            raise KurtException(f'TypeError: `pick` fixes a constant, but `{new_const}` starts with `{new_const[0]}`, so it is always a variable -- use a plain name: `pick {new_const[1:]}`')
+                        if kb.is_fixed_var(new_const):
+                            raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `pick` needs a new name')
+                        kb, fact = eval_pick(kb, new_const_expr, fact_expr, (pick_input_line(expr) if len(picks) > 1 else original_input_line), filename, line)
+                        log_pick(kb, new_const, fact, line)
+                    case [*tail] if tail and not any(is_helper_keyword(t) for t in tail):
+                        # `pick C`, like `let C`: the new constant is the one `C` is about
+                        # (`unpack_condition`), and then it is `pick x with C`
+                        # (a copy: parsing changes tokens, e.g. the `)` of `P(c)`, and `eval_pick`
+                        # parses the tokens again)
+                        ts = PeekableGenerator(t for t in copy.deepcopy(tail) + [end_token])
+                        condition, _, _ = post_process(kb, parse_expression(ts, kb, begin_rbp))
+                        new_const, _ = unpack_condition(condition, kb)
+                        if kb.is_const(new_const):
+                            raise KurtException(f'EvalError: `pick` requires a new constant or existing variable, got already-declared constant `{new_const}`')
+                        if new_const.startswith(('$', '%')):
+                            raise KurtException(f'TypeError: `pick` fixes a constant, but `{new_const}` starts with `{new_const[0]}`, so it is always a variable -- use a plain name: `pick {new_const[1:]}`')
+                        if kb.is_fixed_var(new_const):
+                            raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `pick` needs a new name')
+                        new_const_expr = next(t for t in tail if isinstance(t, Token) and t.value == new_const)
+                        kb, fact = eval_pick(kb, new_const_expr, tail, (pick_input_line(expr) if len(picks) > 1 else original_input_line), filename, line)
+                        log_pick(kb, new_const, fact, line)
+                    case _:
+                        raise KurtException(msg)
         except KurtException:
-            if kb.level > level_before:
+            while kb.level > level_before:
                 kb = kb.pop_level()
             raise
-        if printing():
-            reason = Reason(str(line), f'open local scope with new constant `{new_const}`', 'open')
-            log(kb, f'{keyword} {new_const} with {expr_str(fact, kb)}', reason, kb.level-1)  # log the new constants
         if kb.theory:
             add_assumption_parts(kb, kb.theory[-1], input_line, filename, line)
     elif keyword == LOCAL_SYMBOL:
@@ -6998,7 +7171,7 @@ def statement_variable_bound(name: str, expr: Expr, kb: KnowledgeBase) -> bool:
         if isinstance(head, Token) and isinstance(head.value, str):
             signature = kb.bool_sig(head.value)
             for i, arg in enumerate(e[1:], 1):
-                if isinstance(arg, Token) and arg.value == name and i in signature and not (kb.is_bindop(head.value) and i == 1):
+                if isinstance(arg, Token) and arg.value == name and i in signature and not (kb.is_binder(head.value) and i == 1):
                     return True
         return any(at_statement_place(c) for c in e)
     assert isinstance(expr, list)                   # (a binder)
@@ -7094,7 +7267,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase,
                         raise KurtException(f'TypeError: first arg of `sub` has sort `{sort}`, but its replacement does not', column=expr_column(a))
             type_check_expression(A, kb, bound_sorts)
 
-        # most expressions: prefix, postfix, infix, bindop (but not `sub`, see above), ...
+        # most expressions: prefix, postfix, infix, binder (but not `sub`, see above), ...
         case [Token(label='SYMBOL', value=op), *tail]:
             assert isinstance(op, str)
             if kb.is_sort_name(op):
@@ -7102,7 +7275,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase,
             # (1) do the args fit the declared sparse sort signatures?
             inner_bound_sorts = {name: set(sorts) for name, sorts in (bound_sorts or {}).items()}
             binder_name: Optional[str] = None
-            if kb.is_bindop(op) and tail:
+            if kb.is_binder(op) and tail:
                 try:
                     binder_name, _ = unpack_condition(tail[0], kb)
                 except KurtException:
@@ -7122,13 +7295,13 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase,
                 ei = expr[idx]
                 position = 1 if flat else idx
                 if bare_operator_as_value(ei, kb) and id(ei) not in run_state.allowed_bare_operators \
-                        and op != SUB_SYMBOL and not (kb.is_bindop(op) and idx == 1) and position not in bool_signature:
+                        and op != SUB_SYMBOL and not (kb.is_binder(op) and idx == 1) and position not in bool_signature:
                     # (an operator is no object, decided 2026-10-20: only an operator variable of a defined
                     # predicate takes one, `group(R, (+), 0, (-))`; a function as a value is a mapping)
                     raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(ei, kb)}` is an operator without its arguments '
                                         f'-- an operator is no object; a function as a value is a mapping of set.kurt (`f ∈ A → B`, applied `f a`)',
                                         column=expr_column(ei))
-                if position not in bool_signature and op not in (SUB_SYMBOL, BOUND_SYMBOL) and not kb.is_bindop(op) \
+                if position not in bool_signature and op not in (SUB_SYMBOL, BOUND_SYMBOL) and not kb.is_binder(op) \
                         and ei != LHS_token and id(ei) not in run_state.allowed_bare_operators \
                         and not (isinstance(ei, Token) and ei.value in run_state.applied_variables) \
                         and places_settled(op, kb) and bool_expr(ei, kb, strict=True):
@@ -7142,10 +7315,10 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase,
                                  ([user] if (user := kb.pos_sort(op, position)) is not None else [])
                 for sort in required_sorts:
                     required = True
-                    binds_this_position = kb.is_bindop(op) and idx == 1 and binder_name is not None \
+                    binds_this_position = kb.is_binder(op) and idx == 1 and binder_name is not None \
                                           and isinstance(ei, Token) and ei.value == binder_name
-                    sort_environment = inner_bound_sorts if kb.is_bindop(op) and idx in (1, len(expr) - 1) else bound_sorts
-                    if required and (binds_this_position or (kb.is_bindop(op) and idx == 1 and sort != 'prop')):
+                    sort_environment = inner_bound_sorts if kb.is_binder(op) and idx in (1, len(expr) - 1) else bound_sorts
+                    if required and (binds_this_position or (kb.is_binder(op) and idx == 1 and sort != 'prop')):
                         # (the sort of a binder's variable -- also with a condition, `max ($v ∈ A) ...`)
                         inner_bound_sorts.setdefault(binder_name, set()).add(sort) if binder_name is not None else None
                     elif required and sort == 'prop' and isinstance(ei, Token) and isinstance(ei.value, str) \
@@ -7168,7 +7341,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase,
                             hint = membership_hint(ei.value, sort, kb)
                         raise KurtException(f'TypeError: arg number {idx} of `{op}`, i.e., `{expr_str(ei, kb)}` must have sort `{sort}`{hint}', column=expr_column(ei))
             # (2) additional checks for binding operators
-            if kb.is_bindop(op):
+            if kb.is_binder(op):
                 # check that the first argument is either a variable or a statement
                 match tail[0]:
                     case Token(label='SYMBOL', value=v):
@@ -7191,7 +7364,7 @@ def type_check_expression(expr: Expr, kb: KnowledgeBase,
                     case _:     # e.g. a number, `∀ 1 (P 1)`
                         raise KurtException(f'TypeError: first arg of binding operator must be a variable or a condition, got `{expr_str(tail[0], kb)}`', column=expr_column(tail[0]))
             # (3) recursively go deep and check
-            if kb.is_bindop(op) and tail:
+            if kb.is_binder(op) and tail:
                 middle, body = binder_scope(tail[1:])
                 type_check_expression(tail[0], kb, inner_bound_sorts)
                 for e in middle:
@@ -7415,7 +7588,7 @@ def analyse_sorts(e: Expr, kb: KnowledgeBase, statement: bool) -> SortUses:
                     return
                 if len(kb.pos_sorts(op, 0)) <= 1:
                     walk(head, required, bound, element)   # the sort of its result is the operator's (of an overloaded one the arguments', see `overload_result_sort`)
-                if kb.is_bindop(op) and args:
+                if kb.is_binder(op) and args:
                     try:
                         bv, condition = unpack_condition(args[0], kb)
                     except KurtException:
@@ -7582,7 +7755,7 @@ def sort_reading(e: Expr, kb: KnowledgeBase) -> tuple:
             if isinstance(x.value, str) and x.value in free and x.value not in order:
                 order.append(x.value)
             return
-        if x and isinstance(x[0], Token) and isinstance(x[0].value, str) and kb.is_bindop(x[0].value) and x[0].value != SUB_SYMBOL and len(x) > 1:
+        if x and isinstance(x[0], Token) and isinstance(x[0].value, str) and kb.is_binder(x[0].value) and x[0].value != SUB_SYMBOL and len(x) > 1:
             try:
                 binders.append(bounded_sorts(x, binder_node_sorts(x, kb), kb))
             except KurtException:
@@ -7595,7 +7768,7 @@ def sort_reading(e: Expr, kb: KnowledgeBase) -> tuple:
 def has_raw_variables(e: Expr, kb: KnowledgeBase) -> bool:
     # whether `e` has a variable that is not a renamed one (`$$07`): only then is there a sort to infer
     if isinstance(e, Token):
-        return e.label == 'SYMBOL' and isinstance(e.value, str) and not is_internal_name(e.value) and (kb.is_var(e.value) or kb.is_bindop(e.value))
+        return e.label == 'SYMBOL' and isinstance(e.value, str) and not is_internal_name(e.value) and (kb.is_var(e.value) or kb.is_binder(e.value))
     return any(has_raw_variables(c, kb) for c in e)
 
 def infer_line_sorts(expr_list: list[Expr], keyword: str, kb: KnowledgeBase) -> None:
@@ -7630,7 +7803,7 @@ def infer_line_sorts(expr_list: list[Expr], keyword: str, kb: KnowledgeBase) -> 
                         continue
                     if (kb.is_flat(op) or kb.is_bracket_placeholder(op)) and position > 2:
                         continue
-                    slot = kb.is_bindop(op) and position == 1      # (a binder's variable: `sum i (0, n) i`, its `i` a number)
+                    slot = kb.is_binder(op) and position == 1      # (a binder's variable: `sum i (0, n) i`, its `i` a number)
                     if not slot and position <= len(args) and bool_expr(args[position - 1], kb, strict=True):
                         continue
                     if not slot and position <= len(args) and any(not kb.sort_fits(found, default) for found in top_sorts(args[position - 1], kb)):
@@ -7992,7 +8165,7 @@ def apply_subst(expr: Expr, s: State, kb: KnowledgeBase) -> Expr:
             return expr
 
         # binding operator: recurse into body with extended blocked
-        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
             bound_v, _ = unpack_condition(cond, kb)
             middle, body = binder_scope(tail)
             new_s = s.block_always(bound_v)
@@ -8024,7 +8197,7 @@ def free_bound_vars(expr: Expr, kb: KnowledgeBase) -> tuple[set[str], set[str]]:
             return set(), set()
         
         # binding operators "bind" free variables
-        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
             bound_v, opt_condition = unpack_condition(cond, kb)
             middle, body = binder_scope(tail)
             fv, bv = free_bound_vars(body, kb)
@@ -8085,7 +8258,7 @@ def new_bool_var_name(origin: Optional[str] = None) -> str:
 
 def replace_token_value(expr: Expr, old_value: str, new_token: Token) -> Expr:
     # pure structural replacement of every occurrence of a specific token value -- unlike
-    # `apply_subst`, this does NOT respect binder scoping (it will happily rewrite a bindop's
+    # `apply_subst`, this does NOT respect binder scoping (it will happily rewrite a binder's
     # own binder slot too). Only safe to use when `old_value` is a synthetic, globally-unique
     # name that cannot collide with some other, unrelated variable of the same name in a
     # different scope -- see `strip_premise_with_synced_conclusion`, its one caller.
@@ -8111,7 +8284,7 @@ def remove_outer_forall_quantifiers(expr: Expr, kb: KnowledgeBase) -> tuple[Expr
     # vars -- a quantifier with a condition, `∀ $x > 0 ...`, stays: what it means is said by the
     # rules of logic.kurt ("forall-cond-elim", "forall-cond-def"), not by the engine
     while is_forall(expr, kb):
-        # `is_forall` checks the role and the three parts, not that it's really a bindop-shaped
+        # `is_forall` checks the role and the three parts, not that it's really a binder-shaped
         # `[forall, bound-var, body]` triple -- the role needs a binder (`bind_engine_role`),
         # but this runs on every stored formula, so fail cleanly rather than crash
         # it can parse as a plain, flatly space-applied symbol instead, with a different shape.
@@ -8157,9 +8330,9 @@ def strip_premise_with_synced_conclusion(premise_raw: Expr, conclusion_raw: Expr
         fresh_vars.append(free_var)
         fresh_token = Token(label='SYMBOL', value=free_var)
         # a pure structural (non-capture-avoiding) rename, not `apply_subst`: `apply_subst`
-        # deliberately protects a bindop's own binder slot from substitution (correct for
+        # deliberately protects a binder's own binder slot from substitution (correct for
         # ordinary substitution, since you must never substitute into a variable's own
-        # binding declaration) -- but `sub` is itself a bindop, so it would refuse to rename
+        # binding declaration) -- but `sub` is itself a binder, so it would refuse to rename
         # `bound_var` inside the conclusion's own `sub $x $a %A` binder position, leaving
         # premise and conclusion referring to two different names for what must be the same
         # variable. Safe here specifically because `bound_var` is always a synthetic,
@@ -8196,7 +8369,7 @@ def binder_variables(e: Expr, kb: KnowledgeBase) -> set[str]:
     def walk(e: Expr) -> None:
         if isinstance(e, list) and e:
             head = e[0]
-            if isinstance(head, Token) and isinstance(head.value, str) and kb.is_bindop(head.value) and len(e) > 1:
+            if isinstance(head, Token) and isinstance(head.value, str) and kb.is_binder(head.value) and len(e) > 1:
                 try:
                     found.add(unpack_condition(e[1], kb)[0])
                 except KurtException:
@@ -8350,7 +8523,7 @@ def rename_all_vars_rec(expr: Expr, kb: KnowledgeBase, s: Optional[State] = None
             return expr, s
 
         # binding operator expression
-        case [Token(label='SYMBOL', value=bind_op), cond, *body] if isinstance(bind_op, str) and kb.is_bindop(bind_op):
+        case [Token(label='SYMBOL', value=bind_op), cond, *body] if isinstance(bind_op, str) and kb.is_binder(bind_op):
             bind_var, opt_condition = unpack_condition(cond, kb)
 
             # operator gets processed with current scope (actually nothing to do)
@@ -8409,7 +8582,7 @@ def bound_var_safe(expr: Expr, token_x: Token, expr_a: Optional[Expr], expr_A: E
         return free_a.isdisjoint(bound_A)
 
 
-def valid_bindop_conditions(expr: Expr, kb: KnowledgeBase) -> bool:
+def valid_binder_conditions(expr: Expr, kb: KnowledgeBase) -> bool:
     # whether every binding operator in `expr` still has a proper condition (bound variable): the
     # walk of `free_bound_vars`, which raises if some condition is not of the right shape, without
     # building its sets (1.4 s of 25.6 in 28-self-adjoint.kurt under the profiler, todo 50)
@@ -8417,7 +8590,7 @@ def valid_bindop_conditions(expr: Expr, kb: KnowledgeBase) -> bool:
         match e:
             case Token():
                 return True
-            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
                 try:
                     _, opt_condition = unpack_condition(cond, kb)
                 except KurtException:
@@ -8443,7 +8616,7 @@ def generate_all_combinations(expr: Expr, token_x: Token, expr_a: Optional[Expr]
     ### allow only one subterm to be replaced, much more efficient
     for (cand_expr_a, cand_expr_A) in all_single_hole_decompositions(expr, token_x, kb):
         if expr_a is None  or  equal_expr(expr_a, cand_expr_a, kb):
-            if not valid_bindop_conditions(cand_expr_A, kb):
+            if not valid_binder_conditions(cand_expr_A, kb):
                 continue    # e.g. the hole replaced the `∈` of `∀ $k ∈ Nat ...`, not a real subterm
             if bound_var_safe(expr, token_x, cand_expr_a, cand_expr_A, kb):     # requirement (2)
                 yield (cand_expr_a, cand_expr_A)
@@ -8473,7 +8646,7 @@ def all_single_hole_decompositions(expr: Expr, token_x: Token, kb: KnowledgeBase
     # `n` in `sum x (0, n) x = n * (n + 1) / 2`
     # (not for a bound variable, which would also replace its own binder slot)
     seen: list[Expr] = []
-    bound_vars = free_bound_vars(expr, kb)[1] if valid_bindop_conditions(expr, kb) else set()
+    bound_vars = free_bound_vars(expr, kb)[1] if valid_binder_conditions(expr, kb) else set()
     for path, node in hole_nodes(expr, kb):
         if len(path) == 0 or any(node == other for other in seen):
             continue
@@ -8572,7 +8745,7 @@ def term_operator(e: Expr, kb: KnowledgeBase) -> bool:
     # operator with a statement as its result (`=`, `∧`, `prop P` with `arity P 1`: on its own neither a term nor a formula), not
     # a binder (`∀`), not `sub` or a condition's marker, not a compound head (`(¬¬P) c`)
     return (isinstance(e, Token) and e.label == 'SYMBOL' and isinstance(e.value, str)
-            and e.value not in (SUB_SYMBOL, BOUND_SYMBOL) and not kb.is_bool(e.value) and not kb.is_bindop(e.value))
+            and e.value not in (SUB_SYMBOL, BOUND_SYMBOL) and not kb.is_bool(e.value) and not kb.is_binder(e.value))
 
 def hole_nodes(expr: Expr, kb: KnowledgeBase) -> Iterator[tuple[list[int], Expr]]:
     """Yield (path, subexpression) for every node where the hole of a `sub` may be cut: every node
@@ -8755,7 +8928,7 @@ def check_condition_holes(expr: Expr, kb: KnowledgeBase) -> None:
     holes: dict[str, str] = {}
     def binder_slots(e: Expr) -> None:
         match e:
-            case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and op != SUB_SYMBOL and kb.is_bindop(op) and is_sub(cond):
+            case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and op != SUB_SYMBOL and kb.is_binder(op) and is_sub(cond):
                 assert isinstance(cond, list)
                 x, C = cond[1], cond[3]
                 if isinstance(x, Token) and isinstance(C, Token) and is_bool_var_token(C, kb):
@@ -8791,7 +8964,7 @@ def contains_unbound_var(expr: Expr, s: State, kb: KnowledgeBase, except_var: Op
             # (a free variable of the goal itself is blocked as domain: it is fixed, not unknown)
             return (is_var_token(e, kb) and isinstance(e.value, str) and e.value != except_var and e.value not in bound
                     and not s.is_blocked_as_domain(e.value))
-        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
             try:
                 bv, _ = unpack_condition(cond, kb)
             except KurtException:
@@ -8837,7 +9010,7 @@ def find_dependent_vars(expr: Expr, kb: KnowledgeBase) -> dict[str, str]:
                 walk(a, scopes)
                 if not note(A, scopes | {bv}, None):
                     walk(A, scopes | {bv})
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 try:
                     bv, _ = unpack_condition(cond, kb)
                 except KurtException:
@@ -9169,14 +9342,14 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                             yield from unify_exprs_with_patterns([(expr, [bound_head, *args_p])] + tail, s_head, kb)
 
                 # binding operator matching (rename bound variable before!)
-                case [Token(label='SYMBOL', value=op_p), cond_p, *args_p] if isinstance(op_p, str) and kb.is_bindop(op_p):
+                case [Token(label='SYMBOL', value=op_p), cond_p, *args_p] if isinstance(op_p, str) and kb.is_binder(op_p):
                     v_p, opt_condition_p = unpack_condition(cond_p, kb)
                     if op_p == SUB_SYMBOL and not is_sub(expr):   
                             # asymmetric:  don't match a `sub` expr to a `sub` pattern (an infinite loop!)
                             yield from match_against_sub(expr, pattern, tail, s, kb)
                     # in any case: additionally binding ops match against their matching binding ops
                     match expr:
-                        case [Token(label='SYMBOL', value=op_e), cond_e, *args_e] if isinstance(op_e, str) and kb.is_bindop(op_e):
+                        case [Token(label='SYMBOL', value=op_e), cond_e, *args_e] if isinstance(op_e, str) and kb.is_binder(op_e):
                             v_e, opt_condition_e = unpack_condition(cond_e, kb)
                             if op_p==op_e and len(args_p)==len(args_e) and is_sub(cond_p) and opt_condition_e is not None and not is_sub(cond_e):
                                 # a rule's binder with any condition, e.g. `∀ (sub $x $v %C) %P`
@@ -9206,7 +9379,15 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                                                           bounded_sorts(expr, binder_node_sorts(expr, kb), kb, s), s, kb)
                                 if target is None:
                                     return
-                                args_e = alpha_rename_binder_body(args_e, v_e, target, kb)
+                                if (target == v_p != v_e and is_internal_name(v_p) and is_internal_name(v_e) and s.lookup(v_p) is None
+                                        and has_open_variables(args_e, v_e, s, kb) and not has_open_variables(args_p, v_p, s, kb)):
+                                    # the variables to give values are on the expression's side (a stored fact with `%X`, matched
+                                    # with a part of a premise): its binder stays, the pattern's body is renamed to it, so that
+                                    # the values stand in terms of the binder the kernel sees in the stored fact (todo 76)
+                                    args_p = alpha_rename_binder_body(args_p, v_p, v_e, kb)
+                                    target = v_e
+                                else:
+                                    args_e = alpha_rename_binder_body(args_e, v_e, target, kb)
                                 for s_middle in unify_exprs_with_patterns(list(zip(middle_e, middle_p)), s, kb):
                                     # Block the pattern binder (domain+range) during descent
                                     s_local = s_middle.block_always(target)
@@ -9270,7 +9451,7 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 # list matching (same length, no special operators) -- not of a binder (its bound
                 # variable is no argument), which an operator variable `∘` could otherwise match
                 case [*_] if isinstance(expr, list) and len(expr)==len(pattern) and not (
-                        isinstance(expr[0], Token) and isinstance(expr[0].value, str) and kb.is_bindop(expr[0].value)):
+                        isinstance(expr[0], Token) and isinstance(expr[0].value, str) and kb.is_binder(expr[0].value)):
                     yield from unify_exprs_with_patterns(list(zip(expr, pattern)) + tail, s, kb)
 
                 case _:
@@ -9278,6 +9459,10 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                     pass
 
         
+def has_open_variables(args: list[Expr], bound: str, s: State, kb: KnowledgeBase) -> bool:
+    # a variable (`%X`, `$x`) other than the binder's own (`bound`) with no value yet in `s`, free in `args`
+    return any(v != bound and kb.is_var(v) and s.lookup(v) is None for a in args for v in free_vars_only(a, kb))
+
 def free_vars_only(e: Expr, kb: KnowledgeBase) -> set[str]:
     return free_bound_vars(e, kb)[0]
 
@@ -9295,7 +9480,7 @@ def check_poly_marks(expr: Expr, kb: KnowledgeBase) -> None:
             if e.label == 'SYMBOL' and isinstance(e.value, str) and is_poly_name(e.value):
                 seen.add(e.value)
             return
-        if e and isinstance(e[0], Token) and isinstance(e[0].value, str) and kb.is_bindop(e[0].value) and len(e) > 1:
+        if e and isinstance(e[0], Token) and isinstance(e[0].value, str) and kb.is_binder(e[0].value) and len(e) > 1:
             try:
                 bv, _ = unpack_condition(e[1], kb)
                 bound.add(bv)
@@ -9344,7 +9529,7 @@ def parametric_binders(rule: Expr, kb: KnowledgeBase) -> set[str]:
                 if not isinstance(side, Token):
                     walk(side, allowed)   # (a variable as a side of `=`: the identity, the same in every sort)
             return
-        if isinstance(head, Token) and isinstance(head.value, str) and kb.is_bindop(head.value) and len(e) > 1:
+        if isinstance(head, Token) and isinstance(head.value, str) and kb.is_binder(head.value) and len(e) > 1:
             try:
                 bv, _ = unpack_condition(e[1], kb)
             except KurtException:
@@ -9495,7 +9680,7 @@ def alpha_rename_binder_body(body: list[Expr], old: str, new: str, kb: Knowledge
             case Token(label='SYMBOL', value=s) if isinstance(s, str) and s == old:
                 # This occurrence is bound by the current binder thus rename
                 return Token(label='SYMBOL', value=new)
-            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
                 bv, opt_condition = unpack_condition(cond, kb)
                 middle, body = binder_scope(tail)
                 if bv == old:
@@ -9535,7 +9720,7 @@ def capture_avoiding_replace(A: Expr, x: str, t: Expr, s: State, kb: KnowledgeBa
             case Token():
                 return e
 
-            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
                 bv, opt_condition = unpack_condition(cond, kb)
                 # the middle arguments are outside the scope of `bv` (`binder_scope`)
                 middle, body = binder_scope(tail)
@@ -9573,7 +9758,7 @@ def capture_avoiding_replace(A: Expr, x: str, t: Expr, s: State, kb: KnowledgeBa
     # $T) $T`), which the occurs check of `bind` would take for a cycle (found 2026-10-02)
     def rename_bound_x(e: Expr) -> Expr:
         match e:
-            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *tail] if isinstance(op, str) and kb.is_binder(op):
                 bv, _ = unpack_condition(cond, kb)
                 middle, body = binder_scope(tail)        # the middle arguments are outside the scope
                 if bv == x:
@@ -9667,7 +9852,7 @@ def trigger_sub(expr: Expr, s: State, kb: KnowledgeBase) -> tuple[Expr, State]:
                     return [e[0], e[1], t_s, A_s], s_after
 
             # binding operator: [op, bv, *body]
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 bv, opt_condition = unpack_condition(cond, kb)
 
                 # enter binder scope
@@ -10461,7 +10646,7 @@ def k_equal(t1: Expr, t2: Expr, kb: KbReader, bmap1: Optional[dict] = None, bmap
                 return bmap1.get(v1) == v2 and bmap2.get(v2) == v1
             return v1 == v2
         case ([Token(label='SYMBOL', value=op1), cond1, *body1], [Token(label='SYMBOL', value=op2), cond2, *body2]) \
-                if isinstance(op1, str) and op1 == op2 and kb.is_bindop(op1) and len(body1) == len(body2):
+                if isinstance(op1, str) and op1 == op2 and kb.is_binder(op1) and len(body1) == len(body2):
             b1, b2 = k_bound(cond1, kb), k_bound(cond2, kb)
             if k_binder_sorts(t1, kb) != k_binder_sorts(t2, kb):
                 return False    # the bound variables range over the same sort (todo 34)
@@ -10517,7 +10702,7 @@ def k_free(e: Expr, kb: KbReader, bound: frozenset[str] = frozenset()) -> set[st
             return set() if v in bound else {v}
         case Token():
             return set()
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             return (set().union(*(k_free(c, kb, bound) for c in body[:-1]))          # outside the scope
                     | set().union(*(k_free(c, kb, bound | {bv}) for c in [cond, *body[-1:]])))
@@ -10549,7 +10734,7 @@ def k_dependencies(e: Expr, kb: KbReader) -> dict[str, str]:
                 walk(a, scopes)
                 if not note(A, scopes | {x}, None):
                     walk(A, scopes | {x})
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 bv = k_bound(cond, kb)
                 walk(cond, scopes)
                 for c in body[:-1]:
@@ -10590,7 +10775,7 @@ def k_instantiate(e: Expr, values: dict[str, Expr], deps: dict[str, str], kb: Kb
             return deepcopy_expr(value)
         case Token():
             return e
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             return [e[0], k_instantiate(cond, values, deps, kb, bound | {bv}),
                     *(k_instantiate(c, values, deps, kb, bound) for c in body[:-1]),          # outside the scope
@@ -10606,7 +10791,7 @@ def k_replace(A: Expr, x: str, t: Expr, kb: KbReader) -> Expr:
             return deepcopy_expr(t)
         case Token():
             return A
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             middle = [k_replace(c, x, t, kb) for c in body[:-1]]       # outside the scope of `bv`
             if bv == x:
@@ -10635,7 +10820,7 @@ def k_evaluate(e: Expr, kb: KbReader) -> Expr:
                     if not k_has_sort(t, sort, kb):
                         raise KernelReject(f'`{expr_str(t, kb)}` does not have the sort `{sort}` of `{x}`, which it replaces')
             return k_replace(A, x, t, kb)
-        case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and kb.is_bindop(op) and is_sub(cond):
+        case [Token(label='SYMBOL', value=op), cond, *_] if isinstance(op, str) and kb.is_binder(op) and is_sub(cond):
             # a binder with any condition, `∀ (sub $x $v C)`: `C` must not contain `$v` itself
             assert isinstance(cond, list)
             v = cond[2]
@@ -10653,7 +10838,7 @@ def k_evaluate(e: Expr, kb: KbReader) -> Expr:
 def k_binder_variables(e: Expr, kb: KbReader) -> set[str]:
     # the variables that a binder of `e` binds
     match e:
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             return {k_bound(cond, kb)} | set().union(*(k_binder_variables(c, kb) for c in [cond, *body]))
         case [*children]:
             return set().union(*(k_binder_variables(c, kb) for c in children)) if children else set()
@@ -10686,7 +10871,7 @@ def k_parametric_binders(rule: Expr, kb: KbReader) -> set[str]:
                 if not isinstance(a, Token):
                     walk(a, where_ok)     # (a variable as the value: `k_evaluate` checks its sort)
                 walk(A, where_ok)
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 bv = k_bound(cond, kb)
                 bound.add(bv)
                 walk(cond, where_ok | {bv})
@@ -10726,7 +10911,7 @@ def k_poly_sorts(rule: Expr, values: dict[str, Expr], kb: KbReader,
         match e:
             case [Token(label='SYMBOL', value=op), _, _, body] if op == SUB_SYMBOL:
                 return binders(body)
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                 return {k_bound(cond, kb)} | set().union(*(binders(c) for c in [cond, *body]))
             case [*children]:
                 return set().union(*(binders(c) for c in children)) if children else set()
@@ -10923,7 +11108,7 @@ def k_constants(e: Expr, kb: KbReader, bound: frozenset[str] = frozenset()) -> s
             return set() if v in bound or kb.is_var(v) else {v}
         case Token():
             return set()
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             bv = k_bound(cond, kb)
             return ({op} | set().union(*(k_constants(c, kb, bound) for c in body[:-1]))      # outside the scope
                     | set().union(*(k_constants(c, kb, bound | {bv}) for c in [cond, *body[-1:]])))
@@ -10948,7 +11133,7 @@ class KbReader(Protocol):
     def all_subsorts(self) -> frozenset[tuple[str, str]]: ...
     def generalized_sorts(self, symbol: str) -> frozenset[str]: ...
     def binder_sorts(self, node: Expr) -> frozenset[str]: ...
-    def is_bindop(self, s: str) -> bool: ...
+    def is_binder(self, s: str) -> bool: ...
     def is_const(self, s: str) -> bool: ...
     def is_known(self, s: str) -> bool: ...
     def is_used(self, s: str) -> bool: ...
@@ -11072,8 +11257,8 @@ class KernelEnv:
         return self._call('generalized_sorts', self._kb.generalized_sorts, symbol)
     def binder_sorts(self, node: Expr) -> frozenset[str]:
         return self._call('binder_sorts', self._kb.binder_sorts, node)
-    def is_bindop(self, s: str) -> bool:
-        return self._call('is_bindop', self._kb.is_bindop, s)
+    def is_binder(self, s: str) -> bool:
+        return self._call('is_binder', self._kb.is_binder, s)
     def is_const(self, s: str) -> bool:
         return self._call('is_const', self._kb.is_const, s)
     def is_known(self, s: str) -> bool:
@@ -11154,7 +11339,7 @@ def k_reading(e: Expr, kb: KbReader) -> Optional[list[str]]:
     match e:
         case Token():
             return []
-        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+        case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
             try:
                 bv = k_bound(cond, kb)
             except KernelReject:
@@ -11214,8 +11399,11 @@ def kernel_verify_block(cert: Certificate) -> Optional[str]:
     def no_escape(e: Expr) -> Optional[str]:
         # an individual constant of the block must not occur in what the block gives -- and the
         # witness of a `pick` never, even if it is also a "vocabulary" symbol (`prop`, `arity`)
-        leaked = {c for c in k_constants(e, parent) if c in block.const and not parent.is_var(c)
-                  and (not block.is_vocabulary_symbol(c) or c == witness)}
+        # -- nor a symbol defined by a `def` of the block (todo 77), whatever it is: its meaning is
+        # a fact of the block only
+        defined = {f.def_symbol for f in block.theory if f.def_symbol is not None}
+        leaked = {c for c in k_constants(e, parent) if (c in block.const and not parent.is_var(c)
+                  and (not block.is_vocabulary_symbol(c) or c == witness)) or c in defined}
         if leaked:
             return f'the constants {sorted(leaked)} of the block occur in `{expr_str(e, parent)}`'
         return k_reading_changes(block, parent, e, last.expr)
@@ -11545,7 +11733,7 @@ def cannot_unify(e: Expr, p: Expr, kb: 'KnowledgeBase') -> bool:
         if kb.is_sym(op_e):
             return no_partner(es, ps, kb)
         return any(cannot_unify(a, b, kb) for a, b in zip(es, ps))
-    if len(e) != len(p) or kb.is_bindop(op_e):
+    if len(e) != len(p) or kb.is_binder(op_e):
         return False
     if kb.is_sym(op_e):
         return no_partner(e[1:], p[1:], kb)
@@ -11597,7 +11785,7 @@ def cannot_conclude(formula: Expr, goal: Expr, kb: 'KnowledgeBase') -> bool:
         return False
     def no(conclusion: Expr) -> bool:
         if isinstance(conclusion, list) and conclusion and isinstance(conclusion[0], Token) \
-                and isinstance(conclusion[0].value, str) and kb.is_bindop(conclusion[0].value):
+                and isinstance(conclusion[0].value, str) and kb.is_binder(conclusion[0].value):
             return False
         return cannot_unify(conclusion, goal, kb)
     if is_implication(formula):
@@ -11761,7 +11949,7 @@ def rigid_head(h: tuple, kb: KnowledgeBase) -> Optional[tuple]:
         return None
     if kind == 'T':
         return ('T', value)
-    if kind == 'L' and value != SUB_SYMBOL and not kb.is_bindop(value):
+    if kind == 'L' and value != SUB_SYMBOL and not kb.is_binder(value):
         return ('L', value)
     return None
 
@@ -11777,7 +11965,7 @@ class HeadsFilter:
         self.op: Optional[str] = None
         self.sym = False
         self.pattern: list[Optional[tuple]] = []
-        if heads is not None and not kb.is_bindop(heads[0]) and not kb.is_flat(heads[0]):
+        if heads is not None and not kb.is_binder(heads[0]) and not kb.is_flat(heads[0]):
             self.op = heads[0]
             self.sym = kb.is_sym(heads[0])
             self.pattern = [rigid_head(h, kb) for h in heads[1]]
@@ -11855,7 +12043,7 @@ def match_all_theory(exprs: list[Expr], s: State, kb: KnowledgeBase) -> tuple[bo
                             tail_local.append(e_local)
                     except BinderMisread:
                         continue
-                    if not all(valid_bindop_conditions(e, kb) for e in tail_local):
+                    if not all(valid_binder_conditions(e, kb) for e in tail_local):
                         continue    # see the same check in `impl_elim`
                     success, found_formulas, s_final, strips = match_all_theory(tail_local, s_local, kb)
                     if success:
@@ -12001,7 +12189,7 @@ def impl_elim(expr: Expr, expr_free_vars: frozenset[str], proven_formula: Formul
                 premise_local, s_local = trigger_sub(premise, s_matched, kb)
             except BinderMisread:
                 continue
-            if not valid_bindop_conditions(premise_local, kb):
+            if not valid_binder_conditions(premise_local, kb):
                 continue        # e.g. `∀ (sub $x $v %C) %P` with a `%C` that doesn't mention `$x`
 
             # block the premise's own freshly-introduced eigenvariables (from stripping this
@@ -12257,7 +12445,7 @@ def failure_explanation(goal: Expr, goal_free_vars: frozenset[str], filename: st
                 premise_local, state = trigger_sub(premise, matched, kb)
             except BinderMisread:
                 continue
-            if not valid_bindop_conditions(premise_local, kb):
+            if not valid_binder_conditions(premise_local, kb):
                 continue
             for fresh in premise_fresh:
                 state = state.unblock(fresh).block_eigen(fresh)
@@ -12364,7 +12552,51 @@ def failure_explanation(goal: Expr, goal_free_vars: frozenset[str], filename: st
     hint = restriction_hint(goal, kb) or (premise_hints[0] if premise_hints else None)
     if hint is not None:
         result['restriction'] = hint
+    nested = nested_conditioned_hint(goal, kb)
+    if nested is not None:
+        result['nested'] = nested
     return result
+
+def nested_conditioned_hint(goal: Expr, kb: KnowledgeBase) -> Optional[str]:
+    # a fact `∀ x ∈ V ∀ y ∈ V P` whose body fits the goal, `P` for `a`, `b`, but whose conditions (`a ∈ V`, `b ∈ V`) are not all
+    # known: it takes one "forall-cond-elim" per `∀`, so say which conditions are missing (todo 82; the search finds the steps itself)
+    for f in reversed(list(kb.all_theory())):
+        layers, inner = peel_conditioned(f.simplified_expr, kb)
+        if len(layers) < 2:
+            continue
+        fresh = {v: new_var_name(v) for v, _ in layers}
+        pattern = inner
+        for v, _ in layers:
+            pattern = alpha_rename_binder_body([pattern], v, fresh[v], kb)[0]
+        try:
+            solution = next(iter(unify_exprs_with_patterns([(goal, pattern)], State.empty(), kb)), None)
+        except KurtException:
+            continue
+        if solution is None:
+            continue
+        state = State.empty()
+        for v, _ in layers:
+            value = solution.walk(Token('SYMBOL', fresh[v]))
+            if isinstance(value, Token) and value.value == fresh[v]:
+                break
+            state = state.bind(v, value)
+        else:
+            known = [g.simplified_expr for g in kb.all_theory()]
+            missing = []
+            for _, node in layers:
+                condition = unpack_condition(node[1], kb)[1]
+                if condition is not None:
+                    instance = apply_subst(condition, state, kb)
+                    if not any(equal_expr(instance, g, kb) for g in known):
+                        missing.append(f'`{expr_str(instance, kb)}`')
+            name = f.label or f'the fact of line {f.line}'
+            steps = 'steps' if len(layers) > 1 else 'step'
+            where = f' (line {f.line})' if f.label and f.line else ''
+            text = f'`{name}`{where} has {len(layers)} quantifiers with conditions: it gives this line by {len(layers)} "forall-cond-elim" {steps}'
+            if missing:
+                return text + f', but {", ".join(missing)} {"is" if len(missing) == 1 else "are"} not known'
+            return text + ' -- all its conditions are known'
+    return None
 
 def restriction_hint(goal: Expr, kb: KnowledgeBase) -> Optional[str]:
     # the goal `∀ n:real P n` is a fact `∀ x P x` but for the sort of its binder, a bigger one
@@ -12430,6 +12662,8 @@ def failure_explanation_text(explanation: dict) -> str:
         lines.append(f'- `{name}`{where}: {"; ".join(item["violations"])}')
     if explanation.get('restriction'):
         lines.append(explanation['restriction'])
+    if explanation.get('nested'):
+        lines.append(explanation['nested'])
     counterexample = explanation.get('counterexample')
     if counterexample is not None:
         lines.append(counterexample_text(counterexample))
@@ -12501,7 +12735,7 @@ def propositional_counterexample(goal: Expr, kb: KnowledgeBase) -> Optional[dict
         if isinstance(e, Token):
             if e.label == 'SYMBOL':
                 v = e.value
-                if not isinstance(v, str) or kb.is_var(v) or kb.is_bool(v) or kb.is_bindop(v) or v in (SUB_SYMBOL, BOUND_SYMBOL):
+                if not isinstance(v, str) or kb.is_var(v) or kb.is_bool(v) or kb.is_binder(v) or v in (SUB_SYMBOL, BOUND_SYMBOL):
                     raise NotPropositional()
             return
         for c in e:
@@ -12523,7 +12757,7 @@ def propositional_counterexample(goal: Expr, kb: KnowledgeBase) -> Optional[dict
                     raise NotPropositional()
                 variables.add(v)
                 return ('var', v)
-            if kb.all_roles.get(v) or kb.is_bindop(v) or v in (SUB_SYMBOL, BOUND_SYMBOL, COMMA_SYMBOL):
+            if kb.all_roles.get(v) or kb.is_binder(v) or v in (SUB_SYMBOL, BOUND_SYMBOL, COMMA_SYMBOL):
                 raise NotPropositional()
             atoms.setdefault(key(e), e)
             return ('atom', key(e))
@@ -12535,7 +12769,7 @@ def propositional_counterexample(goal: Expr, kb: KnowledgeBase) -> Optional[dict
         if connective is not None:
             return (connective, tuple(compile(c, variables) for c in e[1:]))
         # an opaque atom: a statement about objects (`P a`, `x ∈ B`)
-        if kb.all_roles.get(h) or kb.is_bindop(h) or kb.is_var(h) or h in (SUB_SYMBOL, BOUND_SYMBOL, COMMA_SYMBOL) \
+        if kb.all_roles.get(h) or kb.is_binder(h) or kb.is_var(h) or h in (SUB_SYMBOL, BOUND_SYMBOL, COMMA_SYMBOL) \
                 or any(i != 0 for i in kb.bool_sig(h)):
             raise NotPropositional()
         for c in e[1:]:
@@ -12641,7 +12875,7 @@ def statement_schema(e: Expr, kb: KnowledgeBase) -> bool:
         return not (e.label == 'SYMBOL' and isinstance(e.value, str) and kb.is_var(e.value) and not kb.is_bool(e.value))
     head = e[0]
     if isinstance(head, Token) and isinstance(head.value, str) and head.value != SUB_SYMBOL \
-            and (kb.is_bindop(head.value) or head.value == BOUND_SYMBOL):
+            and (kb.is_binder(head.value) or head.value == BOUND_SYMBOL):
         return False                    # (`sub` substitutes, it quantifies over nothing)
     return all(statement_schema(c, kb) for c in e)
 
@@ -12801,6 +13035,11 @@ def derive_expr_as_given(expr: Expr, filename: str, s: State, kb: KnowledgeBase)
         if found is not None:
             return found
 
+    # a fact with several conditioned quantifiers, one step per `∀` (todo 81)
+    nested = nested_conditioned_elim(expr, filename, s, kb)
+    if nested is not None:
+        return nested
+
     # A case block closes to `alternative implies goal`. Once every alternative of a stored flat
     # disjunction has such an implication, eliminate all of them in one bounded, exact scan.
     case_cert = nary_case_elim(written, kb)
@@ -12909,7 +13148,7 @@ def differing_subterms(fact: Expr, goal: Expr, kb: 'KnowledgeBase') -> list[Expr
     found: list[Expr] = []
     if isinstance(fact, list) and isinstance(goal, list) and fact and goal and isinstance(fact[0], Token) and fact[0] == goal[0]:
         op = fact[0].value
-        if isinstance(op, str) and not kb.is_bindop(op):
+        if isinstance(op, str) and not kb.is_binder(op):
             if len(fact) == len(goal) and not (kb.is_flat(op) or kb.is_sym(op)):
                 for a, b in zip(fact[1:], goal[1:]):
                     found += differing_subterms(a, b, kb)
@@ -12973,7 +13212,7 @@ def differing_pairs(fact: Expr, goal: Expr, kb: 'KnowledgeBase') -> list[tuple[E
     found: list[tuple[Expr, Expr]] = []
     if isinstance(fact, list) and isinstance(goal, list) and fact and goal and isinstance(fact[0], Token) and fact[0] == goal[0]:
         op = fact[0].value
-        if isinstance(op, str) and not kb.is_bindop(op):
+        if isinstance(op, str) and not kb.is_binder(op):
             if len(fact) == len(goal) and not (kb.is_flat(op) or kb.is_sym(op)):
                 for a, b in zip(fact[1:], goal[1:]):
                     found += differing_pairs(a, b, kb)
@@ -13007,7 +13246,7 @@ def differing_places(a: Expr, b: Expr, kb: 'KnowledgeBase', path: tuple[int, ...
     if equal_expr(a, b, kb):
         return []
     if (isinstance(a, list) and isinstance(b, list) and len(a) == len(b) and len(a) > 1 and isinstance(a[0], Token)
-            and isinstance(b[0], Token) and a[0].value == b[0].value and isinstance(a[0].value, str) and not kb.is_bindop(a[0].value)):
+            and isinstance(b[0], Token) and a[0].value == b[0].value and isinstance(a[0].value, str) and not kb.is_binder(a[0].value)):
         return [place for i, (x, y) in enumerate(zip(a[1:], b[1:]), 1) for place in differing_places(x, y, kb, path + (i,))]
     return [(path, a, b)]
 
@@ -13033,6 +13272,80 @@ def next_sub_line(kb: 'KnowledgeBase') -> str:
     line = key[1] if key is not None else 0
     used = {g.line for g in kb.all_theory()}
     return next(f'{line}{x}' for x in letter_generator() if f'{line}{x}' not in used)
+
+NESTED_CONDITIONED = 3      # `nested_conditioned_elim`: the conditioned `∀`s of one fact that a line may instantiate (one step each)
+
+def peel_conditioned(e: Expr, kb: 'KnowledgeBase') -> tuple[list[tuple[str, list[Expr]]], Expr]:
+    # `∀ x ∈ V ∀ y ∈ V P`: its layers, (the bound variable, the `∀` node) from the outside, and the body `P` under all of them
+    layers: list[tuple[str, list[Expr]]] = []
+    node = e
+    while is_forall(node, kb) and isinstance(node[1], list) and is_bound_condition(node[1]):
+        layers.append((unpack_condition(node[1], kb)[0], node))
+        node = node[2]
+    return layers, node
+
+def nested_conditioned_elim(expr: Expr, filename: str, s: State, kb: 'KnowledgeBase') -> Optional[tuple[list[Certificate], State]]:
+    # a fact with two or three conditioned quantifiers, `∀ x ∈ V ∀ y ∈ V P`, takes one step per `∀` ("forall-cond-elim": the
+    # condition is a premise, as for `∀ x > 0 P`): the line `P` for known `a ∈ V`, `b ∈ V` is found with the first `∀`
+    # instantiated -- the instance for `a` is derived (one step) and added as a step of its own (`17a`), and the line again from it
+    # (todo 81; as `multi_rewrite` does). Each step has its certificate; nothing changes in the kernel.
+    if run_state.nested_cond_depth >= NESTED_CONDITIONED - 1:
+        return None
+    for f in list(kb.all_theory()):
+        e = f.simplified_expr
+        if not (is_forall(e, kb) and isinstance(e[1], list) and is_bound_condition(e[1])):
+            continue
+        layers, inner = peel_conditioned(e, kb)
+        if len(layers) < 2:
+            continue
+        # the values of the bound variables, from the body against the line (the variables as pattern variables)
+        fresh = {v: new_var_name(v) for v, _ in layers}
+        pattern = inner
+        for v, _ in layers:
+            pattern = alpha_rename_binder_body([pattern], v, fresh[v], kb)[0]
+        try:
+            matches = unify_exprs_with_patterns([(expr, pattern)], State.empty(), kb)
+            solution = next(iter(matches), None)
+        except KurtException:
+            continue
+        if solution is None:
+            continue
+        first = layers[0][0]
+        value = solution.walk(Token('SYMBOL', fresh[first]))
+        if is_var_token(value, kb) and isinstance(value, Token) and value.value == fresh[first]:
+            continue
+        instance = apply_subst(layers[0][1][2], State.empty().bind(first, value), kb)
+        if any(equal_expr(instance, g.simplified_expr, kb) for g in kb.all_theory()):
+            continue
+        before = len(kb.theory)
+        run_state.nested_cond_depth += 1
+        try:
+            try:
+                with quietly():
+                    certs, _ = derive_expr(instance, filename, State.empty(), kb)       # (the one step from `f`, the condition known)
+            except ResourceError:
+                raise
+            except KurtException:
+                del kb.theory[before:]
+                continue
+            line_str = next_sub_line(kb)
+            step = Formula(kb, instance, expr_str(instance, kb), line_str, filename, '', step_reason(certs, filename, line_str), keyword='')
+            kb.theory_append(step)
+            try:
+                with quietly():
+                    found = derive_expr(expr, filename, s, kb)
+            except ResourceError:
+                raise
+            except KurtException:
+                del kb.theory[before:]
+                continue
+        finally:
+            run_state.nested_cond_depth -= 1
+        if printing():
+            for g in kb.theory[before:]:
+                log(kb, g.formula_str(kb), g.reason, kb.level)
+        return found
+    return None
 
 def multi_rewrite(expr: Expr, filename: str, s: State, kb: 'KnowledgeBase') -> Optional[tuple[list[Certificate], State]]:
     # a line that rewrites several places at once, `x + y = 0 + 0` from `x = 0` and `y = 0`: it
@@ -13116,7 +13429,7 @@ def schema_renamed(fact: Expr, goal: Expr, kb: 'KnowledgeBase') -> Expr:
                 and isinstance(f[0], Token) and isinstance(g[0], Token) and f[0].value == g[0].value):
             return
         op = f[0].value
-        if not isinstance(op, str) or kb.is_bindop(op):
+        if not isinstance(op, str) or kb.is_binder(op):
             return
         fs, gs = f[1:], g[1:]
         if len(fs) == 2 and kb.is_sym(op) and head_of(fs[0]) != head_of(gs[0]) and head_of(fs[0]) == head_of(gs[1]):
@@ -13275,6 +13588,10 @@ class LexerState:
     # for good diagnostics
     line: int = 0                                                # current line number
     col: int = 0                                                 # current column number
+    extra_blocks: int = 0                                        # blocks the requester opened beyond the first (`pick x, y with F`): they share its indentation
+    # a line that is a term, `(a+b)*(c+d)`, waits for the next line to start with a relation, `= a*c + ...` (todo 80): the term, its source, its line
+    pending_term: Optional[tuple[Expr, str, int]] = None
+    lookahead: bool = False                                      # a term line waits for the next line (also in the shell, where a file may be pasted): it is not an error yet
 
 def count_leading_spaces(s: str) -> int:
     # (tabs are already converted to spaces by `read_eval_loop`)
@@ -13294,10 +13611,13 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     # the indentation and chain state before the line: a line that fails (or needs more input)
     # leaves it as it was -- unless it closed blocks before failing, then it matches those
     saved = LexerState(lexer_state.initial_LHS, list(lexer_state.chained_ops), list(lexer_state.indent_stack),
-                       lexer_state.indent_requester, lexer_state.line, lexer_state.col)
+                       lexer_state.indent_requester, lexer_state.line, lexer_state.col, lexer_state.extra_blocks,
+                       pending_term=lexer_state.pending_term)
     def restore() -> None:
         lexer_state.initial_LHS, lexer_state.chained_ops = saved.initial_LHS, saved.chained_ops
+        lexer_state.pending_term = saved.pending_term
         lexer_state.indent_stack, lexer_state.indent_requester = saved.indent_stack, saved.indent_requester
+        lexer_state.extra_blocks = saved.extra_blocks
     try:
         if run_state.cancel is not None and run_state.cancel():
             raise cancelled_error()
@@ -13312,19 +13632,35 @@ def scan_parse_check_eval(input_line: str, lexer_state: LexerState, kb: Knowledg
     except KurtException as e:
         run_state.certificates_by_line.pop(key, None)
         restore()
+        if e.reread:
+            lexer_state.pending_term = None         # (its error is raised, the term is done with)
         indent = count_leading_spaces(input_line)
         if saved.indent_requester and indent > saved.indent_stack[-1]:
             # the failed line was the first of a block: the block is open, with this indentation
-            lexer_state.indent_stack = saved.indent_stack + [indent]
+            lexer_state.indent_stack = saved.indent_stack + [indent] * (1 + saved.extra_blocks)
             lexer_state.indent_requester = ''
+            lexer_state.extra_blocks = 0
         if e.kb_after is not None:
             # the blocks closed by the line stay closed, and so does their indentation (and a chain)
             del lexer_state.indent_stack[open_block_depth(e.kb_after) + 1:]
             lexer_state.initial_LHS, lexer_state.chained_ops, lexer_state.indent_requester = None, [], ''
         raise
     finally:
+        if run_state.profile and run_state.line_start is not None:
+            run_state.line_profile[key] = (time.monotonic() - run_state.line_start, run_state.line_steps)
         run_state.current_line[0] = outer
         run_state.line_steps, run_state.line_start = outer_budget
+
+def term_without_continuation(pending: tuple[Expr, str, int], filename: str, kb: KnowledgeBase) -> KurtException:
+    # the error of a term line that no relation continued (todo 80): at the line of the term, as if it were read alone; the line that
+    # showed it (or the end of the file) is read again after it
+    term, text, term_line = pending
+    column = count_leading_spaces(text)
+    e = KurtException(f'EvalError: must be a statement, got `{expr_str(term, kb)}`', column=column, line=term_line, filename=filename)
+    where = '\n' if filename in ('<stdin>', '<shell>') else f'\nFile `{filename}`, line {term_line}:\n'
+    e.msg = f'{where}{text}\n{" " * column}^\n' + e.msg
+    e.reread = True
+    return e
 
 def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: KnowledgeBase, line: int, filename: str) -> tuple[KnowledgeBase, LexerState]:
     run_state.current_lexer_state[0] = lexer_state      # (for `summary`: what could come next)
@@ -13340,6 +13676,16 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
     # scan the input line and prepare for the parsing
     ts = PeekableGenerator(scan_string(input_line, kb))    # runs the lexer
 
+    # the line before was a term, `(a+b)*(c+d)`: this line must continue it, indented, with a relation of a chain (`= a*c + ...`)
+    term_before = lexer_state.pending_term
+    if term_before is not None:
+        lexer_state.pending_term = None
+        first_here = ts.peek
+        if not (first_here is not None and first_here.label == 'SYMBOL' and isinstance(first_here.value, str)
+                and first_here.value not in keywords and kb.is_chainable(first_here.value)
+                and leading_spaces > lexer_state.indent_stack[-1] and not lexer_state.indent_requester):
+            raise term_without_continuation(term_before, filename, kb)
+
     # indentation handling before parsing
     # three cases:
     # 1. increased indentation, check that we expected it or that we are starting a chain
@@ -13350,13 +13696,16 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
         if len(lexer_state.indent_requester) > 0:
             requested = True
             lexer_state.indent_requester = ''       # reset expectation
-        elif len(ops) == 1:
+        elif len(ops) == 1 or term_before is not None:
             # we are starting a chain, once allow increased indentation
             pass 
         else:
             raise KurtException(f'ParseError: unexpected increased indentation at line {line} in {filename}', leading_spaces)
-        # no error, so push the new indentation level
+        # no error, so push the new indentation level (once more for each further block the line opened)
         lexer_state.indent_stack.append(leading_spaces)
+        if requested:
+            lexer_state.indent_stack.extend([leading_spaces] * lexer_state.extra_blocks)
+            lexer_state.extra_blocks = 0
         indents = 1   # a single indent, this is required for starting a chain
         dedents = 0   # the pushing of a new level is handled during evaluation (or we have a chain)
     else:
@@ -13390,7 +13739,16 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
         first_value = first_token.value
         if first_label == 'SYMBOL' and isinstance(first_value, str):
             if first_value not in keywords and kb.is_chainable(first_value):
-                if lhs is not None and ops != []:         # did we start a chain before?
+                if term_before is not None:
+                    # the chain starts with the term of the line before: `T`, then `= U` is `T = U`; the operator counts twice,
+                    # as if the chain had a line already, so that the next lines `  = V` go on as every chain does
+                    lhs, ops = term_before[0], [first_token, first_token]
+                    resulting_op = kb.get_chain_op([first_token])
+                    if resulting_op is None:
+                        raise KurtException(f'ParseError: `{first_value}` does not continue the term above at line {line} in {filename}')
+                    chained = True
+                    ts.prepend(LHS_token)
+                elif lhs is not None and ops != []:         # did we start a chain before?
                     if len(ops) == 1  and  indents != 1:
                         raise KurtException(f'ParseError: expected indentation to start the chain at line {line} in {filename}')
                     if len(ops) > 1  and  (indents != 0 or dedents != 0):
@@ -13503,7 +13861,13 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
         else:
             was_proof = kb.mode_str == 'proof'
             kb = kb.pop_level()             # just pop one level, discarding it, no proof step
-            lexer_state.indent_stack.pop()  # pop one indentation level
+            indent = lexer_state.indent_stack.pop()  # pop one indentation level
+            discarded = 1
+            while (len(lexer_state.indent_stack) > 1 and lexer_state.indent_stack[-1] == indent
+                   and kb.parent is not None and not kb.is_load_boundary and kb.mode_str == 'pick'):
+                kb = kb.pop_level()         # `pick x, y with F` opened a block for each name, all with this indentation: `break` gives up all
+                lexer_state.indent_stack.pop()
+                discarded += 1
             if was_proof:
                 assert len(kb.show) > 0, 'BUG: breaking a `proof` block with no pending `show` on its parent'
                 kb.claim_last = True        # (a `break` now withdraws the claim)
@@ -13511,7 +13875,7 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
                     log(kb, 'break', Reason(str(line), f'closed the proof -- the claim `{expr_str(kb.show[-1].expr, kb)}` is still open: '
                                                        f'a new `proof`, or `break` to withdraw it'), kb.level + 1)   # (where it is written)
             elif printing():
-                log(kb, 'break', Reason(str(line), 'discarded the last block'), kb.level + 1)
+                log(kb, 'break', Reason(str(line), 'discarded the last block' if discarded == 1 else f'discarded the {discarded} blocks of the `pick`'), kb.level + 1)
     elif keyword == 'qed':
         # dry run to check the block modes and that we are not closing too many levels
         dedents_check = dedents
@@ -13555,6 +13919,15 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
             e.closing = True                 # (the block `kb` didn't close)
             raise e
 
+        if (lexer_state.lookahead and not chained and keyword_token is None and len(expr_list) == 1
+                and not bool_expr(expr_list[0], kb, strict=False)):
+            # a term on its own: it may be the left side of an equation in two lines, `(a+b)*(c+d)` and, indented, `= ...`
+            # (todo 80) -- the next line decides: it continues it, or this is the error it was
+            lexer_state.pending_term = (expr_list[0], input_line, line)
+            lexer_state.indent_requester, lexer_state.extra_blocks = '', 0
+            lexer_state.initial_LHS, lexer_state.chained_ops = None, []
+            return kb, lexer_state
+
         # evaluate the expression
         run_state.new_symbols.clear()
         run_state.used_symbols.clear()
@@ -13596,8 +13969,10 @@ def scan_parse_check_eval_line(input_line: str, lexer_state: LexerState, kb: Kno
     # update lexer state for indentation handling
     if keyword_token is not None and isinstance(keyword_token.value, str) and keyword_token.value in keywords_opening_blocks:
         lexer_state.indent_requester = keyword_token.value  # next line should be indented
+        lexer_state.extra_blocks = max(0, kb.level - kb_predecessor.level - 1) if keyword_token.value == 'pick' else 0   # (`pick x, y with F`)
     else:
         lexer_state.indent_requester = ''
+        lexer_state.extra_blocks = 0
 
     # update lexer state for chaining
     lexer_state.initial_LHS = lhs
@@ -13751,6 +14126,15 @@ def error_line_of(e: KurtException) -> Optional[int]:
         return e.via_load
     at = re.search(r'line (\d+):', e.msg)
     return int(at.group(1)) if at else e.line
+
+SLOW_LINE_SECONDS = 2.0     # the editors mark a line that took longer (Information, and its time in the hint at its end)
+
+def slow_lines(profile: list[dict], name: str, threshold: float = SLOW_LINE_SECONDS) -> dict[int, tuple[float, int]]:
+    # the lines of the file `name` that took at least `threshold` seconds: line -> seconds, search steps
+    return {p['line']: (p['seconds'], p['steps']) for p in profile if p['file'] == name and p['seconds'] >= threshold}
+
+def slow_note(seconds: float, steps: int) -> str:
+    return f'slow line: {seconds:.1f} s, {steps} search steps'
 
 UNUSED_NOTE = 'not used: no later line, block or `qed` cites it'     # (the editors, `kurt --unused`)
 UNUSED_IN_BLOCKS = ('proof', 'show', 'assume', 'let', 'pick', 'case')     # the blocks whose lines `unused_lines` reports
@@ -13920,7 +14304,7 @@ def builtin_origin(symbol: str, kb: KnowledgeBase) -> Optional[str]:
 def calculator_bindings(cert: 'Certificate', kb: Optional[KnowledgeBase]) -> tuple[str, list[str]]:
     # what a `calc` step computes with: the symbols of its goal (and of the fact that computes to
     # it) that are bound to the calculator, with the files that bound them -- `computed by the
-    # calculator (`+` add, `=` equal of numbers.kurt)`, and those files
+    # calculator (`+` add, `=` equal of number.kurt)`, and those files
     if kb is None:
         return 'computed by the calculator', []
     exprs = [cert.goal] + ([cert.rule.expr] if cert.rule is not None else [])
@@ -14223,7 +14607,7 @@ def checked_exports_now(fname: str, f: IO[str], candidate, loader: KnowledgeBase
     if main:
         run_state.main_kb = (getattr(f, 'name', fname), kb)     # (its top-level facts, for `CheckResult.proves`)
         for sort, where_declared in ([] if is_trusted_file(fname) else uninhabited_sorts(kb)):
-            # (not for a theory of Kurt: objects.kurt declares `real`, numbers.kurt names its objects)
+            # (not for a theory of Kurt: set.kurt declares `real`, number.kurt names its objects)
             print(f'Warning: the sort `{sort}` ({where_declared}) has no constant in this file -- a model needs at least one object of '
                   f'`{sort}` (all sorts are inhabited, doc/kurt-spec.md §2.2), so the file assumes one: declare it, e.g. `{sort} c`', file=sys.stderr)
     run_state.file_theories[fname] = kb.theory     # (also its unlabelled and `local` facts, see `file_foundations`)
@@ -14258,13 +14642,13 @@ def symbol_declarations(kb: 'KnowledgeBase | ExportBundle', s: str) -> tuple:
         custom_sorts = tuple(sorted((sort, tuple(signatures.get(s, [])))
                                     for sort, signatures in kb.sort_sigs.items() if signatures.get(s)))
         return (kb.infix.get(s), kb.prefix.get(s), kb.postfix.get(s), kb.arity.get(s, 0), kb.arity_shape.get(s), inline_text(kb.inline.get(s)), tuple(kb.prop.get(s, [])),
-                custom_sorts, s in kb.bindop, s in kb.flat, s in kb.sym, kb.alias.get(s),
-                tuple(kb.builtins.get(s, [])), tuple(kb.roles.get(s, [])), kb.brackets.get(s))
+                custom_sorts, s in kb.binder, s in kb.flat, s in kb.sym, kb.alias.get(s),
+                tuple(kb.builtins.get(s, [])), tuple(kb.roles.get(s, [])), kb.brackets.get(s), kb.binder_power.get(s))
     custom_sorts = tuple(sorted((sort, tuple(kb.sort_sig(sort, s)))
                                 for sort in kb.all_sort_names() if sort != 'prop' and kb.sort_sig(sort, s)))
     return (kb.get_infix(s), kb.get_prefix(s), kb.get_postfix(s), kb.get_arity(s), kb.get_arity_shape(s), inline_text(kb.all_inlines().get(s)), tuple(kb.bool_sig(s)),
-            custom_sorts, kb.is_bindop(s), kb.is_flat(s), kb.is_sym(s), kb.get_alias(s),
-            tuple(kb.get_builtins(s)), tuple(kb.all_roles.get(s, [])), kb.get_lbracket(s))
+            custom_sorts, kb.is_binder(s), kb.is_flat(s), kb.is_sym(s), kb.get_alias(s),
+            tuple(kb.get_builtins(s)), tuple(kb.all_roles.get(s, [])), kb.get_lbracket(s), kb.get_binder_power(s))
 
 def validate_against_loader(bundle: ExportBundle, loader: 'KnowledgeBase', fname: str) -> None:
     # the file was checked on its own: a symbol it shares with its loader must mean the same on
@@ -14307,7 +14691,7 @@ def validate_against_loader(bundle: ExportBundle, loader: 'KnowledgeBase', fname
     def key(f: 'Formula') -> tuple[str, str, str]:
         return (f.filename, f.line, f.label)
     # a symbol is declared by one file only (`declare_origin`): two theories with their own `+`
-    # (numbers.kurt and field.kurt) can't be loaded together, the same theory twice can
+    # (number.kurt and field.kurt) can't be loaded together, the same theory twice can
     for sym, origin in sorted(bundle.declared_in.items()):
         there = loader.get_declared_in(sym)
         if there is not None and there != origin:
@@ -14346,7 +14730,7 @@ def validate_against_loader(bundle: ExportBundle, loader: 'KnowledgeBase', fname
     for sym in sorted(bundle.symbols - core):
         if sym[0] in '$%' or not loader.is_known(sym):
             continue
-        # a later file may add to a symbol (numbers.kurt binds `=` of equality.kurt to the
+        # a later file may add to a symbol (number.kurt binds `=` of equality.kurt to the
         # calculator), so a declaration may be missing on one side -- but not be another one
         if any(a and b and a != b for i, (a, b) in enumerate(zip(symbol_declarations(loader, sym), symbol_declarations(bundle, sym))) if i != 7):   # (7: the sorts, an overload may add profiles: checked above)
             raise KurtException(f'EvalError: `{sym}` is declared differently here and in `{fname}` -- rename it in one of them')
@@ -14488,6 +14872,8 @@ class RunConfig:
     # called at each step and each line: True stops the check with a `ResourceError` at that line
     # (`CheckResult.cancelled`; e.g. `threading.Event().is_set`, or "the document changed")
     cancel: Optional[Callable[[], bool]] = None
+    # note the time and the search steps of each line (`CheckResult.profile`; `kurt --profile` prints the slowest)
+    profile: bool = False
 
 @dataclasses.dataclass
 class CheckResult:
@@ -14508,6 +14894,7 @@ class CheckResult:
     _kb: 'Optional[KnowledgeBase]' = dataclasses.field(default=None, repr=False, compare=False)
     _name: str = dataclasses.field(default='', repr=False, compare=False)
     _session: 'Optional[Session]' = dataclasses.field(default=None, repr=False, compare=False)
+    profile: list[dict] = dataclasses.field(default_factory=list)   # with `RunConfig.profile`: each line (of this and the loaded files) with its `seconds` and search `steps`
     foundations: list[dict] = dataclasses.field(default_factory=list)   # the file's top-level facts, each with its class and what it rests on (`foundation=True`; `file_foundations`)
 
     def foundation(self, label: str) -> Optional[dict]:
@@ -14589,7 +14976,7 @@ def _fresh_run_state(config: RunConfig) -> RunState:
                     trusted_paths=list(paths), untrusted_names=untrusted_names, source_overlays=overlays,
                     kurtc_enabled=config.kurtc, comment_indent=config.comment_indent,
                     line_numbers=config.line_numbers, all_errors=config.all_errors, progress=config.progress,
-                    time_limit=config.time_limit, step_limit=config.step_limit, cancel=config.cancel)
+                    time_limit=config.time_limit, step_limit=config.step_limit, cancel=config.cancel, profile=config.profile)
 
 # a session's run state is `run_state` while it is active: one session at a time (several threads
 # take turns -- the checks are Python work, which wouldn't run in parallel anyway)
@@ -14624,6 +15011,7 @@ class Session:
             run_state.errors = []
             run_state.progress_files = []
             run_state.main_kb = None
+            run_state.line_profile = {}
             printed_before, run_state.print_errors = run_state.print_errors, 'stdout'   # (all errors: in the output, at their places)
             stopped: Optional[KurtException] = None
             shown: dict[int, str] = {}
@@ -14648,7 +15036,9 @@ class Session:
                 run_state.print_errors = printed_before
                 main_name, main_kb = run_state.main_kb or ('', None)     # (for `proves`: the file's own facts, in its context)
                 run_state.main_kb = None
-        own = {'loaded': main_kb.loaded_files() if main_kb is not None else [], '_kb': main_kb, '_name': main_name, '_session': self}
+        own = {'loaded': main_kb.loaded_files() if main_kb is not None else [], '_kb': main_kb, '_name': main_name, '_session': self,
+               'profile': [{'file': f, 'line': n, 'seconds': round(sec, 4), 'steps': steps}
+                           for (f, n), (sec, steps) in sorted(self._state.line_profile.items())]}
         if not errors:
             return CheckResult(True, out.getvalue(), None, None, list(kb.todos()), None, events, certificates=shown, foundations=rests, **own)
         if stopped is not None:
@@ -14867,6 +15257,7 @@ class LanguageServer:
         # time and so can't read a message meanwhile: a flag in a SharedArrayBuffer (todo 51)
         self.cancel: Optional[Callable[[], bool]] = None
         self.client_refreshes_hints = False
+        self.heat_notifications = False        # send `kurt/progress` and `kurt/profile` (option `heat` of an editor that tints the lines)
         self.timers: dict[str, threading.Timer] = {}
         # the files checked so far (`_checked_exports`), shared by all checks: a theory is checked
         # once, not on each change of the document (only again when it, or what it loads, changes)
@@ -14878,6 +15269,8 @@ class LanguageServer:
         self.shutdown_requested = False
         self.running = True
         self.cancelled_ids: set = set()               # the requests the client cancelled (`$/cancelRequest`), see `serve`
+        self.checking: set[str] = set()               # the documents being checked now
+        self.cancelled_checks: set[str] = set()       # ... and those the editor asked to stop (`kurt/cancel`, its status menu)
 
     def send(self, message: dict) -> None:
         body = json.dumps(message, ensure_ascii=False).encode('utf-8')
@@ -14918,9 +15311,46 @@ class LanguageServer:
                              if open_uri.startswith('file:') and open_uri != uri and not lsp_same_as_file(lsp_uri_path(open_uri), text))
         session = Session(RunConfig(paths=self.extra_paths, untrusted_paths=(folder,),
                                     overlays=overlays, strict=self.strict, all_errors=self.all_errors,
-                                    progress=self.progress, time_limit=self.budget or None, cancel=cancel))
+                                    progress=self.progress or (self.progress_notifier(uri) if self.heat_notifications else None), time_limit=self.budget or None, cancel=cancel, profile=True))
         session._state._checked_exports = self.checked     # (used under `work_lock` only)
         return session
+
+    def progress_notifier(self, uri: str) -> Callable[[dict], None]:
+        # the editor is told which line of the document is checked (`kurt/progress`, at most ten times a second, the last
+        # state always follows): it can tint the lines done and the line at work
+        name = lsp_uri_path(uri) or 'proof.kurt'
+        state: dict = {'last': 0.0, 'waiting': None, 'timer': None}
+        lock = threading.Lock()
+        def send_now(event: dict) -> None:
+            state['last'] = time.monotonic()
+            self.send({'jsonrpc': '2.0', 'method': 'kurt/progress',
+                       'params': {'uri': uri, 'line': event['line'], 'lines': event['lines'], 'done': bool(event.get('done'))}})
+        def flush() -> None:
+            with lock:
+                event, state['waiting'], state['timer'] = state['waiting'], None, None
+                if event is not None:
+                    send_now(event)
+        def notify(event: dict) -> None:
+            if event.get('file') != name:
+                return
+            with lock:
+                wait = 0.1 - (time.monotonic() - state['last'])
+                if event.get('done') or wait <= 0:
+                    send_now(event)
+                    state['waiting'] = None
+                    return
+                state['waiting'] = event
+                if state['timer'] is None:
+                    state['timer'] = threading.Timer(wait, flush)
+                    state['timer'].daemon = True
+                    state['timer'].start()
+        return notify
+
+    def publish_profile(self, uri: str, profile: list[dict]) -> None:
+        # the time and the search steps of each line of the document (`kurt/profile`), for the editor's heat map
+        name = lsp_uri_path(uri) or 'proof.kurt'
+        lines = [{'line': p['line'], 'seconds': p['seconds'], 'steps': p['steps']} for p in profile if p['file'] == name]
+        self.send({'jsonrpc': '2.0', 'method': 'kurt/profile', 'params': {'uri': uri, 'lines': lines}})
 
     def publish_diagnostics(self, uri: str, diagnostics: list[dict], version: Optional[int]) -> None:
         params: dict[str, object] = {'uri': uri, 'diagnostics': diagnostics}
@@ -14945,15 +15375,23 @@ class LanguageServer:
             # discarded below; before, the check of the new text waited for it) -- read without the
             # lock, at every step of the search
             stale = lambda: (self.texts.get(uri) is not text or self.versions.get(uri) != version
-                             or (request_id is not None and request_id in self.cancelled_ids)      # (or the client cancelled the request,
+                             or uri in self.cancelled_checks                                       # (the editor's `kurt/cancel`,
+                             or (request_id is not None and request_id in self.cancelled_ids)      # or the client cancelled the request,
                              or (self.cancel is not None and self.cancel()))                       # or the embedder, `cancel`)
+            self.cancelled_checks.discard(uri)
+            self.checking.add(uri)
             session = self.session_for(uri, cancel=stale)
         # Keep the source directory: sibling loads must precede the server's launch directory.
         # check_text treats this name as untrusted even if it happens to name a trusted file.
-        with self.work_lock:
-            result = session.check_text(text, lsp_uri_path(uri) or 'proof.kurt', certificates=True, links=True, foundation=True)
+        try:
+            with self.work_lock:
+                result = session.check_text(text, lsp_uri_path(uri) or 'proof.kurt', certificates=True, links=True, foundation=True)
+        finally:
+            self.checking.discard(uri)
         with self.state_lock:
             if result.cancelled or uri not in self.texts or self.texts[uri] != text or self.versions.get(uri) != version:
+                if self.heat_notifications and uri in self.cancelled_checks:
+                    self.send({'jsonrpc': '2.0', 'method': 'kurt/progress', 'params': {'uri': uri, 'line': 0, 'lines': 0, 'done': True, 'cancelled': True}})
                 return                          # a newer edit superseded this check
             self.results[uri] = result
             # (only of a file without errors: after an error, the lines that would use a line are missing)
@@ -14979,6 +15417,11 @@ class LanguageServer:
             end = lsp_python_to_utf16(lines[line], len(lines[line])) if line < len(lines) else 0
             diagnostics.append({'range': {'start': {'line': line, 'character': 0}, 'end': {'line': line, 'character': end}},
                                 'severity': 2, 'source': 'kurt', 'message': f'todo: {todo}'})
+        for n, (seconds, steps) in sorted(slow_lines(result.profile, lsp_uri_path(uri) or 'proof.kurt').items()):
+            line = n - 1
+            end = lsp_python_to_utf16(lines[line], len(lines[line])) if line < len(lines) else 0
+            diagnostics.append({'range': {'start': {'line': line, 'character': 0}, 'end': {'line': line, 'character': end}},
+                                'severity': 3, 'source': 'kurt', 'message': slow_note(seconds, steps)})
         for n in sorted(self.unused[uri][0]):
             # a hint with the tag "unnecessary": the editors grey the line out (VS Code; Neovim's
             # `DiagnosticUnnecessary`, Eglot a face), like an unused import
@@ -14987,6 +15430,8 @@ class LanguageServer:
             diagnostics.append({'range': {'start': {'line': line, 'character': 0}, 'end': {'line': line, 'character': end}},
                                 'severity': 4, 'tags': [1], 'source': 'kurt', 'message': UNUSED_NOTE})
         self.publish_diagnostics(uri, diagnostics, version)
+        if self.heat_notifications:
+            self.publish_profile(uri, result.profile)
         self.refresh_inlay_hints()
 
     def schedule_check(self, uri: str) -> None:
@@ -15052,7 +15497,7 @@ class LanguageServer:
         certificate = result.certificates.get(n + 1, '') if result else ''
         details = '  \n'.join(re.sub(r'^; (\w[\w ]*:)\s+', r'**\1** ', line) for line in certificate.splitlines() if line.strip())
         if not details and all(str(e.get('text', '')).startswith('load ') for e in events):
-            # `load propositional, numbers`: the files, as links (todo 51, 2026-10-15)
+            # `load propositional, number`: the files, as links (todo 51, 2026-10-15)
             links = []
             for e in events:
                 name = str(e['text'])[5:].strip()
@@ -15103,9 +15548,14 @@ class LanguageServer:
         'expect': '**expect:** an error of this kind must happen inside; then the block is discarded',
         'builtin': '**built in:** a meaning that Kurt itself implements for the symbol',
     }
+    LOCAL_DEFINITION = ('**definition, local to its block:** a new symbol, a name for its right-hand side (conservative: '
+                        'nothing new follows); it and its defining fact are gone when the block closes, and the block\'s '
+                        'last line must not mention it')
 
     def what_it_is(self, event: dict) -> str:
         words = event.get('text', '').split()
+        if words and words[0] == 'def' and (event.get('level') or 0) > 0:
+            return self.LOCAL_DEFINITION         # (a `def` inside a block, todo 77)
         return self.WHAT_IT_IS.get(words[0], '') if words else ''
 
     @staticmethod
@@ -15143,9 +15593,10 @@ class LanguageServer:
                         f'gets it (a `$` variable, a new constant, a position of a new operator, a bound variable); not across `load`'
                         if rest else '**default:** names the default sort in force here'),
             'alias': lambda: f'**alias:** `{number(0)}` is another name for `{number(1)}`, with all its properties',
+            'nested': lambda: f'**nested:** the variable of {listed} may be a list, `{number(0)} x, y P` is `{number(0)} x {number(0)} y P`',
             'flat': lambda: f'**flat:** a run of {listed} is one term, `a {number(0)} b {number(0)} c` -- grouping doesn\'t matter (associative)',
             'sym': lambda: f'**symmetric:** the order of the arguments of {listed} doesn\'t matter when Kurt matches (commutative)',
-            'bindop': lambda: f'**binding operator{"s" if len(names) > 1 else ""}:** {listed} bind{"" if len(names) > 1 else "s"} '
+            'binder': lambda: f'**binding operator{"s" if len(names) > 1 else ""}:** {listed} bind{"" if len(names) > 1 else "s"} '
                       f'the variable of {"their" if len(names) > 1 else "its"} first argument in its condition and its last '
                       f'argument, as `∀ x P(x)` does (the arguments in between are outside: `sum i (a, b) T`); with a '
                       f'condition (`∀ x > 0 ...`), its first new symbol or variable',
@@ -15189,11 +15640,14 @@ class LanguageServer:
         lines = self.texts.get(uri, '').split('\n')
         first, last = params['range']['start']['line'], params['range']['end']['line']
         hints = []
+        slow = slow_lines(self.results[uri].profile, lsp_uri_path(uri) or 'proof.kurt') if uri in self.results else {}
         for n, events in sorted(self.line_events(uri).items()):
             if first <= n <= last and n < len(lines):
                 # (a `qed` that isn't written -- the proof closed by a dedent -- says so)
                 reason = '; '.join(('qed ' if e['text'] == 'qed' and lines[n].strip() != 'qed' else '') + self.reason_here(e) for e in events)
                 character = lsp_python_to_utf16(lines[n], len(lines[n]))
+                if n + 1 in slow:
+                    reason += f' [{slow[n + 1][0]:.1f} s, {slow[n + 1][1]} steps]'
                 hints.append({'position': {'line': n, 'character': character}, 'label': f'  ; {reason}',
                               'paddingLeft': True})
         return hints
@@ -15228,6 +15682,7 @@ class LanguageServer:
             self.extra_paths = tuple(os.path.abspath(os.path.expanduser(path)) for path in options.get('theoryPaths', []))
             self.strict = bool(options.get('strict', False))
             self.all_errors = bool(options.get('allErrors', True))
+            self.heat_notifications = bool(options.get('heat', False))   # the editor wants `kurt/progress` and `kurt/profile` (it tints the lines)
             self.budget = max(0.0, float(options.get('budget', self.DEFAULT_BUDGET) or 0))   # (0, null: none)
             self.check_on_change = bool(options.get('checkOnChange', options.get('checkOnType', False)))
             self.check_delay = max(0.05, float(options.get('checkOnChangeDelay', 0.3)))
@@ -15316,6 +15771,9 @@ class LanguageServer:
                 try:
                     if method == '$/cancelRequest':
                         self.cancelled_ids.add(params.get('id'))
+                        continue
+                    if method == 'kurt/cancel':          # (the editor's status menu: stop the check that runs)
+                        self.cancelled_checks.update([params['uri']] if params.get('uri') else self.checking)
                         continue
                     if method == 'textDocument/didChange':
                         self.apply_change(params)
@@ -15957,6 +16415,7 @@ def read_eval_loop(input_stream: IO[str], kb: KnowledgeBase,
     statement_start = first_line              # the first line of a statement that continues on the next ones
     continued  = False
     lexer_state = lexer_state or LexerState()   # lexer state for indentation management (the one of a breakpoint)
+    lexer_state.lookahead = True                # (a term line waits for the next line to continue it -- a file pasted into the shell too)
     input_line = ''
     skip_deeper_than: Optional[int] = None   # skip the rest of an `expect` block after its error
     skip_proof_at: Optional[int] = None      # ... and the `proof` of a `show` that failed (all errors)
@@ -15969,6 +16428,7 @@ def read_eval_loop(input_stream: IO[str], kb: KnowledgeBase,
             shell_terminal.append(Terminal.open(shell_history))   # (None: not a terminal, then `input()`)
         terminal = shell_terminal[0]
     while True:
+        flush = False
         try:
             if replay is not None:
                 new_line, replay = replay, None
@@ -15982,7 +16442,7 @@ def read_eval_loop(input_stream: IO[str], kb: KnowledgeBase,
                     steps = next_steps(kb, lexer_state)
                     if steps:
                         print(f'; hint: next, e.g. {"  or  ".join(step.rstrip() for step in steps)}  (Tab writes it)')
-                prompt_text = kurt_prompt(kb.level, line, continued, show_level=terminal is None)
+                prompt_text = kurt_prompt(kb.level, line, continued or lexer_state.pending_term is not None, show_level=terminal is None)
                 if terminal is not None:
                     complete = lambda text, word: completions(text, word, kb, lexer_state)
                     new_line = terminal.read_line(prompt_text, ' ' * next_indentation(lexer_state), complete).rstrip()
@@ -15992,7 +16452,9 @@ def read_eval_loop(input_stream: IO[str], kb: KnowledgeBase,
             else:
                 # here indentation matters, we read exactly what is in the file
                 new_line = input_stream.readline()
-                if not new_line:
+                if not new_line and lexer_state.pending_term is not None and not continued:
+                    flush = True       # the file ends after a term line: an empty line is read, which raises its error (inside the `try` below)
+                if not new_line and not flush:
                     if continued:
                         # still mid-parse (e.g. an unclosed bracket) when the file ran out --
                         # raise instead of silently breaking, otherwise this looks exactly
@@ -16012,7 +16474,7 @@ def read_eval_loop(input_stream: IO[str], kb: KnowledgeBase,
                 if line == 1:
                     new_line = new_line.removeprefix('\ufeff')   # a byte order mark, invisible in editors
             new_line = new_line.expandtabs(tab_indent)     # tabs are ok, but are converted
-            if not continued and (new_line.strip() == '' or new_line.lstrip().startswith(';')):
+            if not continued and not flush and (new_line.strip() == '' or new_line.lstrip().startswith(';')):
                 # a blank line (or a line with only a comment) never carries anything to parse -- skip it outright rather
                 # than feeding it through the indentation logic below, where its own leading-
                 # space count (0, whether truly empty or just whitespace) would otherwise be
@@ -16138,6 +16600,9 @@ def read_eval_loop(input_stream: IO[str], kb: KnowledgeBase,
                     statement, one_line = input_line, len(pending) == 1
                     pending = []                   # (the statement is not saved)
                     input_line, continued = '', False
+                    if e.reread:                   # (the error of the line before: this one is read now)
+                        replay = new_line
+                        continue
                     if e.closing and kb.parent is not None and not kb.is_load_boundary:
                         # a block didn't close: it closes anyway, and the line is read again
                         # (it may close more blocks, and it has its own content) -- not a `qed`,
@@ -16166,10 +16631,16 @@ def read_eval_loop(input_stream: IO[str], kb: KnowledgeBase,
                 else:
                     print(e.msg, file=sys.stderr)  # show the error and go on
                     pending = []                   # the statement is not saved
+                    if e.reread:                   # (the error of the line before: this one is read now)
+                        replay = new_line
+                        input_line, continued = '', False
+                        continue
             input_line = ''  # Reset input
             continued = False
             line += 1
         except EOFError:
+            if lexer_state.pending_term is not None:      # (a term line that nothing continued)
+                print(term_without_continuation(lexer_state.pending_term, input_stream.name, kb).msg, file=sys.stderr)
             log(kb, "\nBye!")      # this only happens when Ctrl-d is pressed in the interactive session
             break
     if is_file and len(run_state._loading_in_progress) <= 1 and run_state.shell_start[0] is None:
@@ -16188,6 +16659,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-d', '--debug',        action='store_true', help='show debugging information')
     parser.add_argument('-a', '--all-errors',   action='store_true', help='go on checking after an error, and show all errors (by default only the first one; the editors show all)')
     parser.add_argument('--budget', metavar='SECONDS', type=float, help='the budget of the search for one line: a line that takes longer fails with a `ResourceError` (neither proved nor refuted); by default none (the editors: 30 s)')
+    parser.add_argument('--profile',            action='store_true', help='after the check, print the slowest lines of the file: the time and the search steps of each')
     parser.add_argument('--no-line-numbers',    action='store_true', help='print the output without the numbers of the source lines in front (the reasons then start with them, `; 5 by 3(4)`)')
     parser.add_argument('--no-kurtc',           action='store_true', help='neither write nor use `.kurtc` files (the certificates of a checked file, see doc/kurt-ref.md)')
     parser.add_argument('--json',               action='store_true', help='check the file and print the result as JSON: each line as an event (its id, kind, rule, the lines it uses), the error, the todos -- for graders and editors')
@@ -16200,6 +16672,8 @@ def parse_args() -> argparse.Namespace:
                         help='check the file, then show for each fact at its top level what it rests on: the axioms, definitions, `todo`s and calculator steps behind its proof, by file -- and for each of these, the facts resting on it; '
                              '`--foundation LABEL FILE`: only the fact with this label (or at this line)')
     parser.add_argument('-o', '--output', metavar='FILE', help='with --latex, --markdown or --lean: write to FILE instead of next to the file; `-o -` to standard output (for a pipe, e.g. `kurt --lean p.kurt -o - | lean --stdin`)')
+    parser.add_argument('--share',              action='store_true', help='print the playground link of the proof in `filename` (`https://www.kurt-lang.org/#proof=...`: its text, UTF-8, in base64 with the URL-safe alphabet, no padding); the file is not checked')
+    parser.add_argument('--unshare',            metavar='LINK',      help='print the proof of a playground link (or of the code after `#proof=`), e.g. `kurt --unshare LINK > proof.kurt`')
     parser.add_argument('--deps',               action='store_true', help='show the files that `filename` loads, with the state of their certificates (then checks it quietly, for the symbols used without loading their theory)')
     args = parser.parse_args()
     # `--foundation FILE` (the whole file), `--foundation LABEL FILE` and `FILE --foundation LABEL`
@@ -16212,6 +16686,38 @@ def parse_args() -> argparse.Namespace:
             args.foundation_label = args.foundation
         args.foundation = True
     return args
+
+#############################################################
+## share: a proof as a link of the playground (`kurt --share`) ##
+#############################################################
+
+PLAYGROUND_URL = 'https://www.kurt-lang.org/'
+
+def share_link(text: str) -> str:
+    # what the playground's Share button makes (kurt-web, `encodeShare`): the UTF-8 bytes of the proof, base64 with
+    # `-` and `_` for `+` and `/`, without the `=` padding, after `#proof=`
+    code = base64.urlsafe_b64encode(text.encode('utf-8')).decode('ascii').rstrip('=')
+    return f'{PLAYGROUND_URL}#proof={code}'
+
+def unshare_text(link: str) -> tuple[str, Optional[str]]:
+    # the proof of a link (or of the bare code), and the `&folder=` it names, if any (where its `load`s find files);
+    # a `ValueError` says what is wrong
+    fragment = link.split('#', 1)[1] if '#' in link else link if link.startswith(('proof=', 'file=')) else 'proof=' + link
+    parts: dict[str, str] = {}
+    for piece in fragment.split('&'):
+        if piece:
+            key, _, value = piece.partition('=') if '=' in piece else ('proof', '', piece)
+            parts[key] = value
+    if 'proof' not in parts:
+        if 'file' in parts:
+            raise ValueError(f'the link names the file `{parts["file"]}` of the playground, it has no proof text')
+        raise ValueError('no `#proof=` in the link')
+    code = parts['proof']
+    try:
+        text = base64.b64decode(code.replace('-', '+').replace('_', '/') + '=' * (-len(code) % 4), validate=True).decode('utf-8')
+    except ValueError:          # (`binascii.Error` and `UnicodeDecodeError` are ValueErrors)
+        raise ValueError('the code of the link is not base64 of UTF-8 text') from None
+    return text, parts.get('folder')
 
 #############################################################
 ## export: a checked file as LaTeX or Markdown (`kurt --latex`) ##
@@ -16337,7 +16843,7 @@ def tex_expr(e: Expr, kb: KnowledgeBase, outer: int = 0) -> str:
         return l + ', '.join(tex_expr(a, kb) for a in items) + r
     if kb.has_role(op, 'setbuilder') and len(args) == 2:
         return r'\left\{' + tex_expr(args[0], kb) + r' \;\middle|\; ' + tex_expr(args[1], kb) + r'\right\}'
-    if kb.is_bindop(op) and args:
+    if kb.is_binder(op) and args:
         variable = tex_expr(args[0], kb)
         body = tex_expr(args[-1], kb, 100)
         middle = ', '.join(tex_expr(a, kb) for a in args[1:-1])
@@ -16499,7 +17005,7 @@ def document_and_result(path: str, fmt: str, config: Optional[RunConfig] = None)
 #   associativity/commutativity as an axiom (what the declaration asserts), and `a · b · c` is
 #   nested. A symbol that is applied and also an object (`f a`, `f ∈ (A → B)`) is an `Obj`, applied
 #   with `k_apply` (`find_mixed`).
-# - With objects.kurt's `lean Obj ZFSet` (set.kurt, every theory of numbers), `Obj` is Mathlib's
+# - With set.kurt's `lean Obj ZFSet` (set.kurt, every theory of numbers), `Obj` is Mathlib's
 #   `ZFSet` and a sort with a `lean` type (`lean real ℝ`) that type, embedded into the sets by the
 #   injective `k_emb` (a definition, `LeanWriter.zfset_preamble`): the types follow Kurt's sorts
 #   (`LeanTranslator.term` returns each term's type, `coerce` embeds a number where a set is
@@ -16528,7 +17034,7 @@ LEAN_NATIVE_INFIX = {'implies': '→', 'and': '∧', 'or': '∨', 'iff': '↔', 
 LEAN_NATIVE_CONST = {'true': 'True', 'false': 'False'}
 LEAN_BINDERS = {'forall': '∀', 'exists': '∃'}
 LEAN_CARRIER = 'Obj'       # `lean Obj ZFSet`: the Lean type of Kurt's objects (with Mathlib), see `LeanTranslator`
-LEAN_ZFSET = 'ZFSet'       # `lean Obj ZFSet` (objects.kurt): the objects are Mathlib's ZF sets, the numbers embedded (`k_emb`)
+LEAN_ZFSET = 'ZFSet'       # `lean Obj ZFSet` (set.kurt): the objects are Mathlib's ZF sets, the numbers embedded (`k_emb`)
 LEAN_SORT_PREFIX = 'sort '   # `lean real ℝ`: the Lean type of the sort `real`, stored as `sort real` (a sort is no symbol)
 LEAN_PROFILE = ' @'         # `lean complex ^ k_cpow $1 $2`: the `complex` profile of `^`, stored as `^ @complex` (decision 19 of dev/todo-sorts.md)
 LEAN_COMPLEX = 'ℂ'          # `lean complex ℂ` (complex.kurt): a type above the numbers' `ℝ`, embedded into the sets by `k_embC` (`LeanWriter.complex_preamble`)
@@ -16642,13 +17148,13 @@ class LeanTranslator:
         self.infos: dict[int, tuple] = {}           # id of a formula -> its free variables, schema, the types of its variables, generic or not (`statement`)
         self.generic = False                        # while a statement is read with its unsorted variables of one type `α` (`statement`)
         # with Mathlib: the theories' `lean` declarations (`lean + $1 + $2`), and the type of the
-        # objects (`lean Obj ZFSet`, objects.kurt; `lean Obj ℝ` of a file of its own; None: an
+        # objects (`lean Obj ZFSet`, set.kurt; `lean Obj ℝ` of a file of its own; None: an
         # opaque `Obj`, no Mathlib, numbers not translated)
         self.maps: dict[str, dict[int, str]] = kb.all_lean()
         carrier = self.maps.get(LEAN_CARRIER, {}).get(0)
         self.carrier: Optional[str] = carrier.strip() if carrier is not None else None
         # the objects are Mathlib's ZF sets, and a sort with a `lean` type of its own (`lean real ℝ`,
-        # numbers.kurt) is that type, embedded into the sets (`k_emb`): two types, `ℝ` for the numbers
+        # number.kurt) is that type, embedded into the sets (`k_emb`): two types, `ℝ` for the numbers
         # (their rules and tactics are those of Mathlib's reals) and `Obj` for every object
         self.zfset = self.carrier == LEAN_ZFSET
         number_sort = kb.pos_sort(NUMBERS_KEY, 0) if self.zfset else None
@@ -16747,7 +17253,7 @@ class LeanTranslator:
                 return v in LEAN_NATIVE_CONST or v.startswith(('$', '%')) or kb.is_var(v) or self.mapped(v, 0) is not None
             case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and (op in LEAN_NATIVE_INFIX or op in LEAN_BINDERS or op == 'not'):
                 return all(self.all_mapped(a, kb) for a in args)
-            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and not kb.is_bindop(op):
+            case [Token(label='SYMBOL', value=op), *args] if isinstance(op, str) and not kb.is_binder(op):
                 return self.mapped(op, len(args)) is not None and all(self.all_mapped(a, kb) for a in args)
         return False
 
@@ -16874,7 +17380,7 @@ class LeanTranslator:
                 case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), a, A] if op == SUB_SYMBOL and isinstance(x, str):
                     walk(a)
                     walk(A)
-                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op):
+                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op):
                     if is_bound_condition(cond):
                         walk(cond[2])
                     elif isinstance(cond, list):
@@ -16904,6 +17410,12 @@ class LeanTranslator:
         if not self.zfset:
             self.symbols.setdefault('<apply>', ('k_apply', 'Obj → Obj → Obj'))
         return 'k_apply'
+
+    def grind(self) -> str:
+        # `grind` as the last resort of a step; with numbers (Mathlib) it is told that a power with the exponent 1 is
+        # its base (`Real.rpow_one`): `x ^ (1 : ℝ)` comes out of a rule like "complex-pow-identity" and `grind` doesn't
+        # unfold it by itself
+        return 'grind [Real.rpow_one]' if self.num is not None else 'grind'
 
     def ac(self) -> str:
         # the simp set for Kurt's normal forms: Lean's own for `and`/`or`/`=`, and what the
@@ -17060,7 +17572,7 @@ class LeanTranslator:
                     types.setdefault(x, self.binder_var_type(t, x, kb))
                     walk(a)
                     walk(A)
-                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op) and body:
+                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op) and body:
                     with contextlib.suppress(LeanUnsupported):
                         x, _ = self.binder(cond, kb)
                         types.setdefault(x, self.binder_var_type(t, x, kb))
@@ -17177,7 +17689,7 @@ class LeanTranslator:
                             raise LeanGeneric()
                     parts = [(ta, ha), (tb, hb)]
                 return '(' + f' {LEAN_NATIVE_INFIX[op]} '.join(p[0] for p in parts) + ')', 'Prop'
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op) and body:
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op) and body:
                 # any other binder: a higher-order constant applied to `fun x => ...` (the middle
                 # arguments are outside the scope of the variable, see `binder_scope`)
                 x, condition = self.binder(cond, kb)
@@ -17349,7 +17861,7 @@ class LeanTranslator:
                 case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), a, A] if op == SUB_SYMBOL and isinstance(x, str):
                     walk(a, bound)
                     walk(A, bound + (x,))
-                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op) and body:
+                case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op) and body:
                     x, condition = self.binder(cond, kb)
                     if condition is not None:
                         walk(condition, bound + (x,))
@@ -17491,7 +18003,7 @@ class LeanTranslator:
                 return e
             case [Token(label='SYMBOL', value=op), Token(label='SYMBOL', value=x), a, A] if op == SUB_SYMBOL and isinstance(x, str):
                 return [e[0], e[1], self.holes(a, kb, known, bound), self.holes(A, kb, known, bound | {x})]
-            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_bindop(op) and body:
+            case [Token(label='SYMBOL', value=op), cond, *body] if isinstance(op, str) and kb.is_binder(op) and body:
                 x, condition = self.binder(cond, kb)
                 inner = bound | {x}
                 if condition is not None:
@@ -17571,7 +18083,7 @@ class LeanWriter:
         ac = self.t.ac()
         cast = f' | (have r := {term}; exact_mod_cast r)' if self.t.casts else ''
         return (f'first | exact {term} | (have r := {term}; simp only [{ac}] at r ⊢; exact r){cast}'
-                f' | (have r := {term}; (try simp only [{ac}] at r ⊢); first | done | grind)')
+                f' | (have r := {term}; (try simp only [{ac}] at r ⊢); first | done | {self.t.grind()})')
 
     def instance(self, f, name: str, values: dict, kb) -> str:
         # a fact with the certificate's values for its variables (and those introduced in the
@@ -17618,7 +18130,7 @@ class LeanWriter:
         filled = [f'have h{k} := {self.instance(f, n, cert.values, kb)}' for k, (f, n) in enumerate(zip(cert.facts, names), start=1)]
         hs = [f'h{k}' for k in range(1, len(filled) + 1)]
         targets = ' '.join(['r'] + hs)
-        grind = '(' + '; '.join([f'have r := {term}'] + filled + [f'(try simp only [{ac}] at {targets} ⊢)', 'first | done | grind']) + ')'
+        grind = '(' + '; '.join([f'have r := {term}'] + filled + [f'(try simp only [{ac}] at {targets} ⊢)', f'first | done | {self.t.grind()}']) + ')'
         # a rule about complex numbers for reals (`complex-add-identity` for `x + 0 = x`, `x` a real): the
         # rule's instance is about their casts, `(x : ℂ) + 0 = x`, which Mathlib's casts bring back (`norm_cast`)
         # -- or, for a goal about reals, the goal cast into `ℂ` (`Complex.ofReal_injective`) and the casts pushed
@@ -17793,7 +18305,7 @@ class LeanWriter:
 
     def block_lines(self, cert, block, block_id: int, intros: list[str], indent: str) -> list[str]:
         lines = [f"{indent}intro {' '.join(intros)}"] if intros else []
-        hyps = [g for g in self.formulas[block_id] if g.id not in self.justification]
+        hyps = [g for g in self.formulas[block_id] if g.id not in self.justification and g.keyword != 'def']   # (a `def` of the block: see `body`)
         match cert.kind:
             case 'impl-intro' | 'not-intro':
                 assumption = hyps[0] if hyps else None
@@ -17840,6 +18352,15 @@ class LeanWriter:
         lines = []
         kb = self.r.levels[kb_id]
         for g in self.formulas.get(kb_id, []):
+            if g.id not in self.justification and g.keyword == 'def' and g.def_symbol is not None:
+                # a `def` of the block (todo 77): a local constant with its equation
+                try:
+                    lines += self.local_definition(g, kb, indent)
+                except LeanUnsupported as e:
+                    self.untranslated.add(self.name(g))
+                    self.t.missing.append(f'line {g.line} `{g.input_line}` as a `def` in a block ({e})')
+                    lines.append(f'{indent}-- line {g.line}: {g.input_line} -- not translated: {e}')
+                continue
             if g.id not in self.justification:
                 continue                         # an assumption, a `pick` fact: from `intro`/`obtain`
             name = self.name(g)
@@ -17861,12 +18382,29 @@ class LeanWriter:
             lines += proof
         return lines
 
-    def definition(self, f, kb) -> None:
-        # a `def`: a Lean `def` of the new symbol, and its defining equation as a theorem by `rfl`
-        # (so Lean sees that the definition is conservative) -- the symbol applied to variables on
-        # one side, the other side a term in them (`eval_def` checks that); a direction of it that
-        # a step used (`L ⇒ R` of the `iff`) is the `def` itself
+    def local_definition(self, f, kb, indent: str) -> list[str]:
+        # a `def` inside a block (todo 77): its symbol is a constant of the proof there, with its
+        # defining equation as the hypothesis -- `obtain ⟨t, f12⟩ : ∃ (t : ℝ), t = 3 := ⟨3, ...⟩`,
+        # which holds only in the block (Lean's scope of the `obtain` is the block's, as Kurt's)
         e = f.simplified_expr if f.direction_of is None else f.direction_of
+        lhs, rhs, params, param_names, is_prop = self.definition_sides(f, e, kb)
+        order, _ = self.t.schema_of(e, kb)
+        types = self.t.formula_types(e, kb, order)
+        param_types = [self.t.var_type(p, kb, types) for p in param_names]
+        value, result = self.t.term(rhs, kb, bound=tuple(param_names), types=types)
+        result = 'Prop' if is_prop else (result if result is not None and (result == 'Obj' or self.t.is_number_type(result)) else 'Obj')
+        lean = self.t.symbol(f.def_symbol, kb, len(params) if params else None, list(params) if params else None, param_types or None)
+        self.t.signatures[lean] = (param_types, result)
+        stmt, _, _ = self.t.statement(e, kb)
+        binders = ' '.join(f'({lean_ident(p)} : {t})' for p, t in zip(param_names, param_types))
+        witness = f'(fun {binders} => {value})' if binders else value
+        where = f'{os.path.basename(f.filename)}:{f.line}' + (f' "{f.label}"' if f.label else '')
+        return [f'{indent}obtain ⟨{lean}, {self.name(f)}⟩ : ∃ ({lean} : {" → ".join(param_types + [result])}), {stmt} :=   -- def {where}, in a block',
+                f'{indent}  ⟨{witness}, by intros; first | rfl | exact Iff.rfl⟩']
+
+    def definition_sides(self, f, e, kb):
+        # the sides of a `def` (`e`, or one direction of it): the symbol applied to its parameters,
+        # the right side, the parameters, their names (variables), and whether it is an `iff`
         if not (isinstance(e, list) and len(e) == 3 and isinstance(e[0], Token) and e[0].value in ('=', 'iff')):
             raise LeanUnsupported('a `def` not with `=` or `iff`')
         is_prop = e[0].value == 'iff'
@@ -17885,6 +18423,15 @@ class LeanWriter:
         param_names = [p.value for p in params if isinstance(p, Token) and isinstance(p.value, str) and kb.is_var(p.value)]
         if len(param_names) != len(params):
             raise LeanUnsupported('a `def` of a symbol applied to more than variables')
+        return lhs, rhs, params, param_names, is_prop
+
+    def definition(self, f, kb) -> None:
+        # a `def`: a Lean `def` of the new symbol, and its defining equation as a theorem by `rfl`
+        # (so Lean sees that the definition is conservative) -- the symbol applied to variables on
+        # one side, the other side a term in them (`eval_def` checks that); a direction of it that
+        # a step used (`L ⇒ R` of the `iff`) is the `def` itself
+        e = f.simplified_expr if f.direction_of is None else f.direction_of
+        lhs, rhs, params, param_names, is_prop = self.definition_sides(f, e, kb)
         lean = lean_ident(f.def_symbol)
         # the types of the parameters by their sorts (`def even $m`: a number), of the result the
         # right side's (`def $a ∩ $b = {...}`: a set)
@@ -18001,7 +18548,7 @@ class LeanWriter:
                     if f is not None and f.filename != self.r.path:
                         wanted += sorted(symbols_in(f.simplified_expr))
             elif kind == 'formula' and getattr(x, 'lean_proof', None) is not None:
-                wanted += sorted(symbols_in(x.simplified_expr))      # (its proof in Lean may unfold them: integer.kurt's "int-sub-real")
+                wanted += sorted(symbols_in(x.simplified_expr))      # (its proof in Lean may unfold them: number.kurt's "int-sub-real")
         seen: set[str] = set()
         while wanted:
             s = wanted.pop()
@@ -18118,8 +18665,8 @@ class LeanWriter:
                 '  simpa using k_cpow_natCast z (OfNat.ofNat n)']
 
     def zfset_preamble(self) -> list[str]:
-        # `lean Obj ZFSet` (objects.kurt): Kurt's objects are Mathlib's ZF sets (`ZFSet`, a model of
-        # ZFC), and the numbers (`lean real ℝ`, numbers.kurt) are embedded into them -- every number
+        # `lean Obj ZFSet` (set.kurt): Kurt's objects are Mathlib's ZF sets (`ZFSet`, a model of
+        # ZFC), and the numbers (`lean real ℝ`, number.kurt) are embedded into them -- every number
         # is a set, as `real ⊂ set` says. The embedding is a definition (an ordinal for each real, by
         # a well-ordering, and its von Neumann level), injective by Mathlib's theorems, so nothing is
         # assumed: a number at the place of a set is `k_emb x`, two embedded numbers are equal only
@@ -18208,7 +18755,7 @@ def main() -> None:
     config = RunConfig(strict=args.strict, paths=(args.path,) if args.path else (),
                        kurtc=not args.no_kurtc, comment_indent=args.comment_indent,
                        line_numbers=not args.no_line_numbers, all_errors=args.all_errors,
-                       time_limit=args.budget if args.budget else None)
+                       time_limit=args.budget if args.budget else None, profile=args.profile)
     if args.lsp:
         # a language server for editors: its own sessions, one per check (not inside this one,
         # whose lock would hold back the checks of its other threads)
@@ -18220,9 +18767,53 @@ def main() -> None:
         os._exit(code)
     session = Session(config)
     with session._active():
-        run_command_line(args, session, copy.deepcopy(kb))
+        try:
+            run_command_line(args, session, copy.deepcopy(kb))
+        finally:
+            if args.profile and args.filename is not None:
+                print(profile_report(run_state.line_profile, args.filename), file=sys.stderr)
+
+PROFILE_LINES = 10          # `kurt --profile`: how many lines it lists
+
+def profile_report(line_profile: dict[tuple[str, int], tuple[float, int]], filename: str, count: int = PROFILE_LINES) -> str:
+    # the slowest lines of a file: seconds and search steps of each (a `load` line has the time of the file it loads)
+    fname = filename if filename.endswith('.kurt') or os.path.isfile(filename) else filename + '.kurt'
+    try:
+        source = Path(fname).read_text(encoding='utf-8').splitlines()
+    except OSError:
+        source = []
+    mine = {n: v for (f, n), v in line_profile.items() if os.path.abspath(f) == os.path.abspath(fname)}
+    total = sum(sec for sec, _ in mine.values())
+    rows = sorted(mine.items(), key=lambda item: -item[1][0])[:count]
+    lines = [f'the slowest lines of {fname} ({total:.2f} s in all, seconds and search steps):']
+    for n, (sec, steps) in rows:
+        text = source[n - 1].strip() if 0 < n <= len(source) else ''
+        lines.append(f'{sec:8.2f} s {steps:8d} steps  {n:>5}  {text[:70]}')
+    return '\n'.join(lines)
 
 def run_command_line(args: argparse.Namespace, session: 'Session', kb: KnowledgeBase) -> None:
+    # a proof as a link of the playground, and back (no check)
+    if args.share or args.unshare is not None:
+        if args.share and args.unshare is not None:
+            sys.exit('--share and --unshare are two ways: use one')
+        if args.share:
+            if args.filename is None:
+                sys.exit('--share needs a file')
+            fname = args.filename if args.filename.endswith('.kurt') or os.path.isfile(args.filename) else args.filename + '.kurt'
+            if not os.path.isfile(fname):
+                sys.exit(f'no file `{fname}`')
+            print(share_link(Path(fname).read_text(encoding='utf-8')))
+        else:
+            assert isinstance(args.unshare, str)
+            try:
+                text, folder = unshare_text(args.unshare)
+            except ValueError as e:
+                sys.exit(f'--unshare: {e}')
+            if folder:
+                print(f'(the link names the folder `{folder}` of the playground: its `load`s find their files there)', file=sys.stderr)
+            sys.stdout.write(text)
+        sys.exit(0)
+
     # only the files and their certificates?
     if args.deps:
         if args.filename is None:

@@ -2,7 +2,7 @@
 ; written `-3 + k` against the derived `k + -3` (2026-10-15, todo 52): the derived `∃` of
 ; natural.kurt's "range" is compared normalized -- `- 3` is the number `-3` -- and a `sym` operator's
 ; arguments as a set.
-load logic, natural
+load logic, natural, interval
 const y
 calc on
 use y ∈ { -3, ..., 8 }

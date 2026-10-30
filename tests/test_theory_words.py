@@ -15,7 +15,7 @@ WORDS = {
     'set.kurt': {'∪': 'union', '∩': 'intersect', '∅': 'emptyset', '⊂': 'subset', '⊃': 'superset', '∉': 'notin',
                  '×': 'cross', '→': 'to', '∈': 'in'},
     'equality.kurt': {'≠': 'neq'},
-    'natural.kurt': {'∣': 'divides'},
+    'divisibility.kurt': {'∣': 'divides'},
     'field.kurt': {'·': 'times'},
     'matrix.kurt': {'·': 'times'},
     'group.kurt': {'∘': 'compose'},

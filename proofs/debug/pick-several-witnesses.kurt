@@ -1,0 +1,49 @@
+; `pick x, y, z with F` picks several witnesses at once: the blocks of `pick x with ∃ y ∃ z F`,
+; `pick y with ∃ z F` and `pick z with F` are nested, but the lines indent once
+load logic, number
+use ∃ x ∃ y (x < y) "two"
+use ∃ x ∃ y ∃ z (x < y ∧ y < z) "three"
+
+show ∃ a ∃ b (a < b)
+proof
+    pick x, y with x < y
+        x < y
+        ∃ a ∃ b (a < b)
+qed
+
+show ∃ u ∃ v (u < v)
+proof
+    pick x, y, z with x < y ∧ y < z
+        x < y
+        ∃ a ∃ b (a < b)
+qed
+
+; two lines after the block belong to the parent again
+show ∃ u ∃ v (u < v) ∧ ∃ u ∃ v (u < v)
+proof
+    pick x, y with x < y
+        ∃ u ∃ v (u < v)
+    ∃ u ∃ v (u < v)
+qed
+
+; the errors
+expect "EvalError" "distinct"
+    pick x, x with x < x
+        true
+expect "EvalError" "several witnesses"
+    pick x, y
+        true
+expect "EvalError" "several witnesses"
+    pick x with x < y, y with x < y
+        true
+expect "ProofError"
+    pick x, y, z, w with x < y
+        true
+
+; `break` gives up all the blocks of the pick
+show ∃ a ∃ b (a < b)
+proof
+    pick x, y with x < y
+        break
+    ∃ a ∃ b (a < b)
+qed

@@ -7,7 +7,7 @@
 
 load logic, equality
 
-show forall $x ($x = $x)
+show forall x (x = x)
 proof
     let x
         x = x
@@ -19,10 +19,10 @@ qed
 ; For a conditioned quantifier, put the condition in the `let` line. The condition is available as
 ; an assumption inside the block:
 
-load logic, numbers
+load logic, number
 calc on              ; for evaluating `1>0` below
 
-show forall $x > 1 ($x > 0)
+show forall x > 1 (x > 0)
 proof
     let x > 1
         1 > 0

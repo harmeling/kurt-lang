@@ -1,0 +1,26 @@
+; 48-profile.kurt
+
+; `kurt --profile FILE` checks the file as usual and then prints, on stderr, its ten slowest lines with the time and the number
+; of search steps of each -- where a proof is slow:
+;
+;     the slowest lines of proof.kurt (1.37 s in all, seconds and search steps):
+;         0.85 s        0 steps      1  load logic, number
+;         0.40 s     1200 steps     14  x + y = y + x
+;
+; (a `load` line has the time of the files it loads; a file checked before costs nothing). A line that takes seconds is
+; usually a goal that doesn't follow in one step, so the search tries every rule and fact: split it into steps, or give
+; the fact it needs. From Python, `kurt.RunConfig(profile=True)` fills `CheckResult.profile` (and `--json`): a record
+; `file`, `line`, `seconds`, `steps` for each line.
+;
+; In an editor with the language server (VS Code: the extension), the same shows while you write: the line
+; being checked is tinted while a check runs, and afterwards every line gets an orange to red background, the slower the
+; redder (`kurt.heat.enabled`); a line of 2 s or more also has an Information diagnostic with its time. The status item
+; says `Kurt: checking 12/84` and its menu can cancel the check.
+;
+; The file below is checked as every lesson is; run `kurt --profile keywords/48-profile.kurt` to see its own profile.
+
+load logic
+prop A, B
+use A implies B
+use A
+B                       ; one step: "impl-elim" of the two facts

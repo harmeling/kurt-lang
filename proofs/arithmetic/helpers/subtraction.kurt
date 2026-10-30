@@ -1,6 +1,6 @@
 ;; The laws of subtraction and halving that analysis.kurt states (with the same names there:
 ;; "sub-add-cancel", "sub-zero", "sub-split", "sub-add", "sub-mul", "double", "halves",
-;; "le-mul-nonneg") follow from its "sub-def", a - b = a + (-b), and the laws of numbers.kurt.
+;; "le-mul-nonneg") follow from its "sub-def", a - b = a + (-b), and the laws of number.kurt.
 ;;
 ;; tests/test_subtraction_laws.py checks this file against a copy of analysis.kurt without these
 ;; eight laws (with them, a proof could cite its own law) -- so it is a helper, not a test of its

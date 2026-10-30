@@ -11,7 +11,7 @@ import kurt.kurt as internals
 
 class TestPackagedTheoryLookup(unittest.TestCase):
     def test_a_packaged_theory_is_looked_up_once(self):
-        # `is_file` of a packaged path lists the directory each time (3 ms; 280 times for `load rational`)
+        # `is_file` of a packaged path lists the directory each time (3 ms; 280 times for `load divisibility`)
         first = internals.packaged_theory_file('propositional.kurt')
         self.assertIsNotNone(first)
         self.assertIs(internals.packaged_theory_file('propositional.kurt'), first)

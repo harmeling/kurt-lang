@@ -31,3 +31,7 @@ x = y < z
 ; A chain must be indented to continue (see `doc/dev-notes.md`, "chains");
 ; writing the continuation at the same indentation as the first line is a
 ; `ParseError`, not a chain.
+
+; The first line of an equation in two lines may be a term (not a statement), `a + b` and, indented, `= b + a` (that needs
+; arithmetic, which this file declares for itself): doc/kurt-ref.md §6.2, "A term on a line of its own", and
+; proofs/debug/term-line-continues.kurt.

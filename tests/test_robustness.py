@@ -44,7 +44,7 @@ class TestSharedCache(unittest.TestCase):
         self.assertTrue(session.check_text('load analysis\n').ok)
         bundles = [value[0] for value in shared.values()]
         self.assertTrue(any(b.dependent_vars for b in bundles), 'analysis.kurt has rules with dependent variables')
-        self.assertTrue(all(b.origin_names for b in bundles if b.theory))     # (objects.kurt has no facts, only sorts)
+        self.assertTrue(all(b.origin_names for b in bundles if b.theory))     # (set.kurt has no facts, only sorts)
 
 
 class TestUnreadableFiles(unittest.TestCase):
@@ -175,7 +175,7 @@ class TestDecisionsOfTheSecondHunt(unittest.TestCase):
 
     def test_a_multi_place_rewrite_shows_only_the_step_it_uses(self):
         # `x + y = 0 + 0` from `x = 0`, `y = 0` showed `5a`-`5c`, all `y = (0 + 0)`, and used `5d`
-        result = kurt.check_text('load numbers\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
+        result = kurt.check_text('load number\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
         self.assertTrue(result.ok, result.error)
         self.assertIn('5a by', result.output)
         self.assertNotIn('5b', result.output)
@@ -185,7 +185,7 @@ class TestDecisionsOfTheSecondHunt(unittest.TestCase):
         import contextlib
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
-            result = kurt.check_text('load numbers\nvar a, b\nuse a <= b\nconst c\nuse c <= b\nuse $a <= $a\nuse a <= b implies b <= a\n')
+            result = kurt.check_text('load number\nvar a, b\nuse a <= b\nconst c\nuse c <= b\nuse $a <= $a\nuse a <= b implies b <= a\n')
         self.assertTrue(result.ok, result.error)
         warnings = [line for line in err.getvalue().splitlines() if 'holds for every value' in line]
         self.assertEqual(len(warnings), 1, err.getvalue())
@@ -231,11 +231,11 @@ class TestLeftoversOfTheSecondHunt(unittest.TestCase):
             self.assertIn(f'[lib.kurt]({Path(tmp, "lib.kurt").as_uri()})', hover(1))
 
     def test_load_names_separated_by_spaces_are_refused(self):
-        # `load propositional numbers` loaded `numbers` only; `propositional` was dropped without a word
-        result = kurt.check_text('load propositional numbers\n')
+        # `load propositional number` loaded `number` only; `propositional` was dropped without a word
+        result = kurt.check_text('load propositional number\n')
         self.assertEqual(result.error_kind, 'ScanError')
-        self.assertIn('`load propositional, numbers`', result.error or '')
-        self.assertTrue(kurt.check_text('load propositional, numbers\nload "propositional"\n').ok)
+        self.assertIn('`load propositional, number`', result.error or '')
+        self.assertTrue(kurt.check_text('load propositional, number\nload "propositional"\n').ok)
 
     def test_a_false_membership_fails_fast(self):
         # `1 ∈ {-1, 2}` after a set of three was used took 81 s: the multi-place rewrite took the

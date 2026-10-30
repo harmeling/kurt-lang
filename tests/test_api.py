@@ -181,7 +181,7 @@ class TestApi(unittest.TestCase):
 
     def test_a_shell_after_the_end_and_at_a_breakpoint(self):
         shell = kurt.Shell()
-        shell.start_text('load numbers\ncalc on\nconst x\nuse x = 3\n')
+        shell.start_text('load number\ncalc on\nconst x\nuse x = 3\n')
         self.assertEqual(shell.stopped, 'end')
         self.assertEqual(shell.completions('17*42=', ''), ['714'])
         self.assertTrue(numbered(shell.feed('x = 3'), 5, 'by proof.kurt:4'))

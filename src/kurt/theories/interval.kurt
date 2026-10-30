@@ -1,0 +1,81 @@
+; interval -- the numbers between two numbers: `Icc a b`, `Ico a b`, `Ioc a b`, `Ioo a b`, and the progressions `{a, ..., c}`
+;
+; covers: the intervals of numbers by Mathlib's names, closed `Icc a b` (`a ≤ x ≤ b`), half open `Ico a b` (`a ≤ x < b`) and
+; `Ioc a b` (`a < x ≤ b`), open `Ioo a b` (`a < x < b`) -- sets of numbers, each a subset of `Real`; and the arithmetic
+; progressions with `...`, `{a, ..., c}` the numbers from `a` to `c` in steps of one (the natural numbers `k` with
+; `a + k ≤ c`), see below. (The brackets `[a, b]` are left out: matrix.kurt has `[ ]` too, and a symbol is declared
+; by one file only.) As for natural.kurt, they are numbers of number.kurt, so its laws (and `calc`) apply.
+load propositional, equality, logic
+load set
+load number
+load natural
+default real              ; every symbol of this file is a number, except where said otherwise:
+
+;; the intervals
+const Icc, Ico, Ioc, Ioo
+arity Icc 2, Ico 2, Ioc 2, Ioo 2
+set Icc 0, Ico 0, Ioc 0, Ioo 0           ; a set of numbers, of the two numbers at its places 1 and 2
+real Icc 1 2, Ico 1 2, Ioc 1 2, Ioo 1 2
+tex Icc [$1, $2]
+tex Ico [$1, $2)
+tex Ioc ($1, $2]
+tex Ioo ($1, $2)
+use $x ∈ Icc $a $b  ≡  $a <= $x ∧ $x <= $b     "in-Icc"
+use $x ∈ Ico $a $b  ≡  $a <= $x ∧ $x < $b      "in-Ico"
+use $x ∈ Ioc $a $b  ≡  $a < $x ∧ $x <= $b      "in-Ioc"
+use $x ∈ Ioo $a $b  ≡  $a < $x ∧ $x < $b       "in-Ioo"
+use Icc $a $b ⊂ Real     "Icc-sub-real"
+use Ico $a $b ⊂ Real     "Ico-sub-real"
+use Ioc $a $b ⊂ Real     "Ioc-sub-real"
+use Ioo $a $b ⊂ Real     "Ioo-sub-real"
+; `kurt --lean`: the sets of the embedded numbers with the property (`k_numset`), so the eight rules are theorems of Mathlib
+lean Icc k_numset (fun x_ => $1 ≤ x_ ∧ x_ ≤ $2)
+lean Ico k_numset (fun x_ => $1 ≤ x_ ∧ x_ < $2)
+lean Ioc k_numset (fun x_ => $1 < x_ ∧ x_ ≤ $2)
+lean Ioo k_numset (fun x_ => $1 < x_ ∧ x_ < $2)
+
+;; the progressions
+; sets of numbers with `...` (an arithmetic progression): `{a, ..., c}` the numbers from `a` to
+; `c` in steps of one, `{a, b, ..., c}` and `{a, b, ...}` in steps of `b - a` (for `a < b`), with
+; or without an end -- Kurt refuses other lists with `...`: their pattern would be a guess
+; (`{2, 3, 5, 7, 11, ...}`; write `{p ∈ Nat | ...}`), see dev/design-sets-and-brackets.md §7
+use $x ∈ {$a, ..., $c}  ≡  ∃ $k ∈ Nat ($x = $a + $k ∧ $x <= $c)                                 "range"
+use $x ∈ {$a, ...}  ≡  ∃ $k ∈ Nat ($x = $a + $k)                                              "range-infinite"
+use $a < $b ∧ $x ∈ {$a, $b, ..., $c}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($b - $a) ∧ $x <= $c)   "progression"
+use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a) ∧ $x <= $c))  ⇒  $x ∈ {$a, $b, ..., $c}  "progression-intro"
+use $a < $b ∧ $x ∈ {$a, $b, ...}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($b - $a))                  "progression-infinite"
+use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a)))  ⇒  $x ∈ {$a, $b, ...}                "progression-infinite-intro"
+; ... in Lean: the sets of the embedded numbers so made (`k_numset`) -- the six rules above are then
+; theorems (their `lean "label" ...` below), the definitions of these notations
+lean {_,...,_} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ ∧ x_ ≤ $2)
+lean {_,...} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_)
+lean {_,_,...,_} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ * ($2 - $1) ∧ x_ ≤ $3)
+lean {_,_,...} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ * ($2 - $1))
+
+;; the rules as theorems of Mathlib (`k_mem_numset`: `x ∈ k_numset p` iff `p x`)
+lean "in-Icc" intros; rw [k_mem_numset]; all_goals (beta_reduce; first | exact Iff.rfl | tauto)
+lean "Icc-sub-real" intro a b; simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "in-Ico" intros; rw [k_mem_numset]; all_goals (beta_reduce; first | exact Iff.rfl | tauto)
+lean "Ico-sub-real" intro a b; simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "in-Ioc" intros; rw [k_mem_numset]; all_goals (beta_reduce; first | exact Iff.rfl | tauto)
+lean "Ioc-sub-real" intro a b; simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "in-Ioo" intros; rw [k_mem_numset]; all_goals (beta_reduce; first | exact Iff.rfl | tauto)
+lean "Ioo-sub-real" intro a b; simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "range" intros; rw [k_mem_numset]; simp only [k_mem_Nat, Set.mem_range, exists_exists_eq_and]
+lean "range" all_goals constructor <;> rintro ⟨n, h⟩ <;> exact ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "range-infinite" intros; rw [k_mem_numset]; simp only [k_mem_Nat, Set.mem_range, exists_exists_eq_and]
+lean "range-infinite" all_goals constructor <;> rintro ⟨n, h⟩ <;> exact ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression" intros; casesm* _ ∧ _
+lean "progression" obtain ⟨n, h⟩ := (k_mem_numset _ _).mp ‹_›
+lean "progression" exact ⟨n, (k_mem_Nat _).mpr ⟨n, rfl⟩, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression-intro" intros; casesm* _ ∧ _
+lean "progression-intro" obtain ⟨k, hk, h⟩ := ‹∃ _, _›
+lean "progression-intro" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp hk
+lean "progression-intro" exact (k_mem_numset _ _).mpr ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression-infinite" intros; casesm* _ ∧ _
+lean "progression-infinite" obtain ⟨n, h⟩ := (k_mem_numset _ _).mp ‹_›
+lean "progression-infinite" exact ⟨n, (k_mem_Nat _).mpr ⟨n, rfl⟩, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+lean "progression-infinite-intro" intros; casesm* _ ∧ _
+lean "progression-infinite-intro" obtain ⟨k, hk, h⟩ := ‹∃ _, _›
+lean "progression-infinite-intro" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp hk
+lean "progression-infinite-intro" exact (k_mem_numset _ _).mpr ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩

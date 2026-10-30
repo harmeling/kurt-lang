@@ -1,6 +1,6 @@
 ; `lean SYMBOL LEAN` (how `kurt --lean` writes a symbol with Mathlib, doc/kurt-ref.md `--lean`):
 ; the places of the arguments are $1 to $N, and `lean Obj TYPE` names a type, no places
-load numbers
+load number
 lean ⊕ $1 ⊕ $2
 lean - opaque $1
 expect "EvalError" "the places of the arguments are $1 to $2"
@@ -9,7 +9,7 @@ expect "EvalError" "the places of the arguments are $1 to $3"
     lean f g $1 $3
 expect "EvalError" "names the Lean type of the objects"
     lean Obj ℝ $1
-; `lean real TYPE`: the Lean type of a sort (numbers.kurt's `lean real ℝ`) -- with places, `lean SORT OP
+; `lean real TYPE`: the Lean type of a sort (number.kurt's `lean real ℝ`) -- with places, `lean SORT OP
 ; TEMPLATE` is how the profile of an overloaded operator at that sort is written (complex.kurt's
 ; `lean complex ^ k_cpow $1 $2`): OP must have a signature of the sort
 expect "EvalError" "`ℝ` has no `real` signature"

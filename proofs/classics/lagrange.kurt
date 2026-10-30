@@ -7,6 +7,7 @@
 ; known about them).
 load group
 load finite             ; finite sets: `bijection`, `hassize`
+load divisibility       ; `∣`: the order of a subgroup divides the order of the group
 load analysis           ; "sub-add-cancel": (a - b) + b = a
 
 ; a group G, with the operation ∘ (group.kurt), the identity e and the inverse inv -- the hypothesis

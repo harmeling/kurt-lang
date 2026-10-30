@@ -4,7 +4,7 @@
 ; symbols were constants at the time -- so it could change when a block closed (its constants are
 ; free again), and `∀ x > 0 ...` with a new plain `x` was rejected.
 load logic
-load numbers
+load number
 
 ; a new plain name is bound, as without a condition
 show ∀ x > 0 (x ≠ 0)

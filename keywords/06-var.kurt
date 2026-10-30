@@ -5,6 +5,10 @@
 
 var x, y
 
+; A variable needs no `let` in a proof: a `show` about `x` and `y` is a claim for all of
+; them, and its proof just uses `x` and `y` (see lesson 10 on, e.g.
+; `show x > y implies not x = y`, `assume x > y`, ...).
+
 ; Just like `const`, once a role is fixed on a level it cannot be changed
 ; afterwards, in either direction:
 ;

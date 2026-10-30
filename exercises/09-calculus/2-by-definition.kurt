@@ -2,7 +2,7 @@
 ;
 ; Continuity and derivatives by ε and δ ("cont-def", "diff-def", "deriv-intro" in
 ; theory/definitions.kurt), without the rules of differentiation -- the scene has only the
-; definitions, and the algebra of analysis.kurt and numbers.kurt -- for linear functions, where
+; definitions, and the algebra of analysis.kurt and number.kurt -- for linear functions, where
 ; the algebra is short. Work with `calc on` (it
 ; computes 2 * 3 + 1 = 7 and the like). You may prove what the definition asks for as a lemma of
 ; your own first (a `show` before the part).

@@ -30,7 +30,7 @@ nat n
 vec v
 
 ; Subsorts: a chain `sort big small` declares `small ⊂ big` -- a `small` fits where a `big` is
-; required (objects.kurt has `sort set real`: a number is a set).
+; required (set.kurt has `sort set real`: a number is a set).
 
 sort nat pos
 pos one

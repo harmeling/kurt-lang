@@ -1,7 +1,7 @@
 ; CALCULUS: DERIVATIVES AND INTEGRALS
 ;
 ; The exercises use Kurt's theories of derivatives and integrals (derivative.kurt, integral.kurt,
-; with analysis.kurt and numbers.kurt). Functions are written as terms in a variable, which the
+; with analysis.kurt and number.kurt). Functions are written as terms in a variable, which the
 ; operators bind:
 ;
 ;     cont x a T              T (a term in x) is continuous in x at the point a
@@ -57,7 +57,7 @@
 ;                           ⇒ integral x (a, b) T = F(b) - F(a)
 ;     "ftc-diff", "ftc-deriv"   the integral as a function of its upper end
 ;
-; and the laws of numbers (numbers.kurt) and of abs (analysis.kurt: "abs-nonneg", "abs-zero",
+; and the laws of numbers (number.kurt) and of abs (analysis.kurt: "abs-nonneg", "abs-zero",
 ; "abs-mul", "abs-triangle", ...).
 ;
 ; Computing: `calc on` computes with numbers (`2 * 3 + 1` is `7`, `2 ∈ Nat`). Kurt applies the

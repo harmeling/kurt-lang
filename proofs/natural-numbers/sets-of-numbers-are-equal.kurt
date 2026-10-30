@@ -3,7 +3,7 @@
 ; objects, so set.kurt's "extensionality" (over all objects) doesn't apply. "ext-real" closes the gap
 ; for sets that contain only numbers -- `A ⊂ Real`, from `Nat ⊂ Real` ("nat-sub-real"). Both rules
 ; are proved in Lean (`kurt --lean`). `Real`, `Nat`, `Int`, `Rat` are also written `ℝ`, `ℕ`, `ℤ`, `ℚ`.
-load natural
+load natural, interval
 default real
 
 const A, B

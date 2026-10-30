@@ -5,7 +5,7 @@
 ; Kurt checks that a number is not used as a set where that makes no sense: `{1, 2} + 0` is a type
 ; error. It does that with *sorts*, five rules in all:
 ;
-;   1. The sorts form a hierarchy with `any` on top: `real ⊂ set ⊂ any` (objects.kurt). A number is
+;   1. The sorts form a hierarchy with `any` on top: `real ⊂ set ⊂ any` (set.kurt). A number is
 ;      a set (as in set theory), every object is an `any`.
 ;   2. Every symbol has a sort; without one it is `any`, any object. A constant gets its sort at its
 ;      *first sorted use*, and that is final.

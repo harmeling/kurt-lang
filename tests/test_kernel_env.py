@@ -22,7 +22,7 @@ SAMPLES = {
     'variable_sorts': [(s,) for s in SYMBOLS], 'pos_sort': [(s, i) for s in SYMBOLS for i in (0, 1, 2)],
     'pos_sorts': [(s, i) for s in SYMBOLS for i in (0, 1, 2)],
     'all_subsorts': [()], 'generalized_sorts': [(s,) for s in SYMBOLS], 'binder_sorts': [(e,) for e in EXPRESSIONS],
-    'is_bindop': [(s,) for s in SYMBOLS], 'is_const': [(s,) for s in SYMBOLS], 'is_known': [(s,) for s in SYMBOLS],
+    'is_binder': [(s,) for s in SYMBOLS], 'is_const': [(s,) for s in SYMBOLS], 'is_known': [(s,) for s in SYMBOLS],
     'is_used': [(s,) for s in SYMBOLS], 'is_fixed_var': [(s,) for s in SYMBOLS],
     'is_vocabulary_symbol': [(s,) for s in SYMBOLS], 'get_arity': [(s,) for s in SYMBOLS],
     'is_flat': [(s,) for s in SYMBOLS], 'is_sym': [(s,) for s in SYMBOLS], 'all_flat': [()],

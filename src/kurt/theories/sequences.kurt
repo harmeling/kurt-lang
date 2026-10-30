@@ -10,12 +10,12 @@
 ; geometric series are theorems of analysis, stated here as axioms (their proofs by ε and N are
 ; long); proofs/analysis/sequences-and-series.kurt proves 1/n → 0 from the definition. For Lean
 ; they are proved, from Mathlib (`lean "label" ...` at the end of this file).
-load propositional, equality, logic, set, numbers, natural, analysis
+load propositional, equality, logic, set, number, natural, analysis
 default real              ; every symbol of this file is a number, except where said otherwise
 
 const converges, seqlim, series
 arity converges 3, seqlim 2, series 3
-bindop converges, seqlim, series      ; the variable, then (outside) the limit or the start, then the body
+binder converges, seqlim, series      ; the variable, then (outside) the limit or the start, then the body
 prop converges 0
 tex converges $3 \underset{$1 \to \infty}{\longrightarrow} $2
 tex seqlim \lim_{$1 \to \infty} $2
@@ -25,7 +25,7 @@ tex series \sum_{$1=$2}^{\infty} $3
 ; the partial sums `sum i (a, n) T` (analysis.kurt's `lean sum`), as "series-def" says
 lean converges (Filter.Tendsto (fun k_ : ℕ => $2 (k_ : ℝ)) Filter.atTop (nhds $1))
 lean seqlim (Filter.limUnder Filter.atTop (fun k_ : ℕ => $1 (k_ : ℝ)))
-lean series (Filter.limUnder Filter.atTop (fun k_ : ℕ => (∑ n_ ∈ Finset.Ico (0 : ℤ) (⌈(k_ : ℝ) - $1⌉ + 1), $2 ((k_ : ℝ) - n_) - ∑ n_ ∈ Finset.Ico (⌈(k_ : ℝ) - $1⌉ + 1) 0, $2 ((k_ : ℝ) - n_))))
+lean series (Filter.limUnder Filter.atTop (fun k_ : ℕ => (if $1 ≤ (k_ : ℝ) then ∑ n_ ∈ Finset.range (⌊(k_ : ℝ) - $1⌋₊ + 1), $2 ((k_ : ℝ) - (n_ : ℝ)) else 0)))
 
 ;; the limit of a sequence, by ε and N
 use (converges $n $L $T)  ⇔  ∀ $e > 0 ∃ $N ∀ $m ∈ Nat ($m > $N  ⇒  abs((sub $n $m $T) - $L) < $e)   "converges-def"
@@ -47,10 +47,10 @@ use (series $i $a $T) = seqlim $n (sum $i ($a, $n) $T)                          
 ; depend on the variable `$i` of the sum, doc/kurt-soundness.md §8.31)
 use (converges $n $L (sum $i ($a, $n) $T))  ⇒  (series $i $a $T) = $L               "series-intro"
 ; the geometric series, for |q| < 1
-; (the first summand is `$q ^ 0`: not for `$q = 0`, whose `0 ^ 0` numbers.kurt leaves open)
+; (the first summand is `$q ^ 0`: not for `$q = 0`, whose `0 ^ 0` number.kurt leaves open)
 use (abs($q) < 1 ∧ $q ≠ 0)  ⇒  converges $n (1 / (1 - $q)) (sum $i (0, $n) ($q ^ $i))   "geometric"
 
-;; the rules as theorems of Mathlib (see numbers.kurt): `lean "label" TACTIC` is a proof in Lean
+;; the rules as theorems of Mathlib (see number.kurt): `lean "label" TACTIC` is a proof in Lean
 lean "converges-def" have key : ∀ (f : ℝ → ℝ) (L : ℝ), Filter.Tendsto (fun k_ : ℕ => f (k_ : ℝ)) Filter.atTop (nhds L) ↔ ∀ e, 0 < e → ∃ N : ℝ, ∀ m, k_emb m ∈ Nat → N < m → |f m - L| < e := by
 lean "converges-def"   intro f L
 lean "converges-def"   rw [Metric.tendsto_atTop]
@@ -81,15 +81,13 @@ lean "series-intro" intros; exact Filter.Tendsto.limUnder_eq ‹_›
 lean "geometric" intro q h
 lean "geometric" have h1 : |q| < 1 := by first | exact h.1 | exact h.2
 lean "geometric" beta_reduce
-lean "geometric" have e : ∀ (q : ℝ) (n : ℕ), (∑ n_ ∈ Finset.Ico (0 : ℤ) (⌈(n : ℝ) - 0⌉ + 1), q ^ ((n : ℝ) - n_) - ∑ n_ ∈ Finset.Ico (⌈(n : ℝ) - 0⌉ + 1) 0, q ^ ((n : ℝ) - n_)) = ∑ i ∈ Finset.range (n + 1), q ^ i := by
+lean "geometric" have e : ∀ (q : ℝ) (n : ℕ), (if (0 : ℝ) ≤ (n : ℝ) then ∑ n_ ∈ Finset.range (⌊(n : ℝ) - 0⌋₊ + 1), q ^ ((n : ℝ) - (n_ : ℝ)) else 0) = ∑ i ∈ Finset.range (n + 1), q ^ i := by
 lean "geometric"   intro q n
-lean "geometric"   rw [show (n : ℝ) - 0 = ((n : ℤ) : ℝ) by simp, Int.ceil_intCast, Finset.Ico_eq_empty_of_le (by omega : (0 : ℤ) ≤ (n : ℤ) + 1), Finset.sum_empty, sub_zero, Int.Ico_eq_finset_map, Finset.sum_map]
-lean "geometric"   simp only [Function.Embedding.trans_apply, Nat.castEmbedding_apply, addLeftEmbedding_apply, zero_add, show ((n : ℤ) + 1 - 0).toNat = n + 1 by omega]
-lean "geometric"   rw [← Finset.sum_range_reflect]
+lean "geometric"   rw [if_pos (Nat.cast_nonneg n), sub_zero, Nat.floor_natCast, ← Finset.sum_range_reflect]
 lean "geometric"   apply Finset.sum_congr rfl
 lean "geometric"   intro i hi
 lean "geometric"   rw [Finset.mem_range] at hi
-lean "geometric"   rw [show n + 1 - 1 - i = n - i by omega, Int.cast_natCast, Nat.cast_sub (by omega : i ≤ n), sub_sub_cancel, Real.rpow_natCast]
+lean "geometric"   rw [show n + 1 - 1 - i = n - i by omega, Nat.cast_sub (by omega : i ≤ n), sub_sub_cancel, Real.rpow_natCast]
 lean "geometric" simp only [e]
 lean "geometric" have h := ((hasSum_geometric_of_abs_lt_one h1).tendsto_sum_nat).comp (Filter.tendsto_add_atTop_nat 1)
 lean "geometric" rw [one_div]; exact h

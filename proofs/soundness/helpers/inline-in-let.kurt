@@ -1,0 +1,7 @@
+; `inline` inside `let` (see ../def-in-a-block-escapes.kurt): refused, a `def` is allowed there
+load logic
+prop P
+arity P 1
+let x
+    def k iff P x
+    inline j iff P x

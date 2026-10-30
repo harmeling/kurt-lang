@@ -22,11 +22,11 @@
 ; binders (the premise `$c = $c` of "deriv-const", the factor of "deriv-scale").
 ;
 ; These rules are theorems of real analysis, stated as axioms (their proofs need the
-; completeness of the real numbers, which numbers.kurt doesn't have) -- each needs the conditions
+; completeness of the real numbers, which number.kurt doesn't have) -- each needs the conditions
 ; of the theorem. (The definitions "cont-def", "diff-def", "deriv-intro" are continuity.kurt's.)
 ; For Lean they are proved, from Mathlib's calculus: `kurt --lean` writes them as theorems with the
 ; proofs at the end of this file (`lean "label" ...`).
-load propositional, equality, logic, set, numbers, natural, analysis
+load propositional, equality, logic, set, number, natural, analysis
 load continuity             ; `cont`, `diff`, `deriv` and their definitions (by ε and δ)
 default real              ; every symbol of this file is a number, except where said otherwise
 
@@ -49,7 +49,7 @@ use (diff $v $a $S) ∧ (diff $v $a $T)  ⇒  diff $v $a ($S * $T)          "dif
 use (diff $v $a $S) ∧ (diff $v $a $T)  ⇒  (deriv $v $a ($S * $T)) = (deriv $v $a $S) * (sub $v $a $T) + (sub $v $a $S) * (deriv $v $a $T)   "deriv-mul"
 use (diff $v $a $S) ∧ (diff $v $a $T) ∧ (sub $v $a $T) ≠ 0  ⇒  diff $v $a ($S / $T)   "diff-div"
 use (diff $v $a $S) ∧ (diff $v $a $T) ∧ (sub $v $a $T) ≠ 0  ⇒  (deriv $v $a ($S / $T)) = ((deriv $v $a $S) * (sub $v $a $T) - (sub $v $a $S) * (deriv $v $a $T)) / (sub $v $a $T) ^ 2   "deriv-div"
-; (for `$n = 0`: `$v ^ 0` is undefined at 0 -- numbers.kurt leaves `0 ^ 0` open -- so not these rules)
+; (for `$n = 0`: `$v ^ 0` is undefined at 0 -- number.kurt leaves `0 ^ 0` open -- so not these rules)
 use ($n ∈ Nat ∧ 0 < $n)  ⇒  diff $v $a ($v ^ $n)                          "diff-pow"
 use ($n ∈ Nat ∧ 0 < $n)  ⇒  (deriv $v $a ($v ^ $n)) = $n * $a ^ ($n - 1)  "deriv-pow"
 ; the chain rule: `$T` is the outer function (of `$w`), `$S` the inner one (of `$v`)
@@ -64,7 +64,7 @@ use (diff $v $a $T) ∧ (∃ $d > 0 ∀ $y (abs($y - $a) < $d  ⇒  (sub $v $y $
 ;; is the derivative somewhere inside
 use ($a < $b) ∧ (∀ $y (($a <= $y ∧ $y <= $b)  ⇒  cont $v $y $T)) ∧ (∀ $y (($a < $y ∧ $y < $b)  ⇒  diff $v $y $T))  ⇒  ∃ $c ($a < $c ∧ $c < $b ∧ (deriv $v $c $T) * ($b - $a) = (sub $v $b $T) - (sub $v $a $T))   "mean-value"
 
-;; the rules as theorems of Mathlib (see numbers.kurt): `lean "label" TACTIC` is a proof in Lean
+;; the rules as theorems of Mathlib (see number.kurt): `lean "label" TACTIC` is a proof in Lean
 lean "diff-cont" intros; exact DifferentiableAt.continuousAt ‹_›
 lean "diff-const" intros; exact differentiableAt_const _
 lean "deriv-const" intros; exact deriv_const _ _

@@ -20,7 +20,18 @@ use p
 q
 
 ; A definition can also have arguments: the variable `$x` on the left-hand side stands for
-; any argument, so this defines a function `f` (`+` comes from `numbers.kurt`):
-load numbers
+; any argument, so this defines a function `f` (`+` comes from `number.kurt`):
+load number
 def f($x) = $x + $x
 f(3) = 3 + 3
+
+; A `def` may also stand inside a proof (or any other block, lessons 18-21): there it is a name
+; for this proof only. It is gone when the block closes, and the result of the block must not
+; mention it -- so a later proof may define `d` anew.
+load logic
+show ∃ z (z = 3 + 3)
+proof
+    def d = 3 + 3            ; a name for the witness, in this proof only
+    d = 3 + 3
+    ∃ z (z = 3 + 3)          ; `d` is the witness
+qed

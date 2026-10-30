@@ -16,7 +16,7 @@
 ;     converges(a, L)
 ;
 ; Kurt finds the N for the `∃` itself, from the `let n ∈ Nat` block above it. Two things to know:
-; Kurt reads `e > 0` as `0 < e`, the same fact (numbers.kurt's `inline`), and a
+; Kurt reads `e > 0` as `0 < e`, the same fact (number.kurt's `inline`), and a
 ; fact like `∀ n ∈ Nat (a(n) = 1 / n)` gives `a(n) = 1 / n` for an `n` with `n ∈ Nat`.
 ; Replace each `todo` by a proof; don't change the `show` lines. Check with
 ; `kurt 1-first-limits.kurt`.

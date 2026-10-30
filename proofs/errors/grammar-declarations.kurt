@@ -1,5 +1,5 @@
 ; each misuse of a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`,
-; `bindop`, `flat`, `sym`, `chain`, `alias`, `var`, `const`, `prop`) is rejected with an error,
+; `binder`, `flat`, `sym`, `chain`, `alias`, `var`, `const`, `prop`) is rejected with an error,
 ; and the declaration isn't half-done -- see doc/kurt-ref.md §4
 infix   plus 60 60
 prefix  neg 80
@@ -35,14 +35,14 @@ expect "EvalError"
 
 ; a binder needs an arity of at least two, first, and isn't an operator
 expect "EvalError"
-    bindop g
+    binder g
 arity h 1
 expect "EvalError"
-    bindop h
+    binder h
 expect "EvalError"
-    bindop neg                      ; (an infix operator can be a binder, like set.kurt's `|`)
+    binder neg                      ; (an infix operator can be a binder, like set.kurt's `|`)
 arity b 2
-bindop b
+binder b
 expect "EvalError"
     prop b 0 1
 
@@ -105,7 +105,7 @@ expect "EvalError"
 expect "EvalError"
     var 1
 expect "EvalError"
-    bindop 1
+    binder 1
 expect "EvalError"
     chain 1 2
 
@@ -114,7 +114,7 @@ use u = u plus w
 expect "EvalError"
     arity u 2
 expect "EvalError"
-    bindop u
+    binder u
 expect "EvalError"
     brackets u w2
 expect "EvalError"

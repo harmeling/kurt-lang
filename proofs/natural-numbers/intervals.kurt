@@ -1,0 +1,47 @@
+; the intervals of interval.kurt: `Icc a b` (closed), `Ico a b`, `Ioc a b` (half open), `Ioo a b` (open) --
+; the endpoints are in the closed one and not in the open one
+load natural, interval
+calc on
+
+show 1 ∈ Icc 1 5 ∧ 5 ∈ Icc 1 5 ∧ 3 ∈ Icc 1 5
+proof
+    1 <= 1 ∧ 1 <= 5
+    1 ∈ Icc 1 5                  ; in-Icc
+    5 <= 5 ∧ 1 <= 5
+    5 ∈ Icc 1 5
+    1 <= 3 ∧ 3 <= 5
+    3 ∈ Icc 1 5
+qed
+
+show ¬(1 ∈ Ioo 1 5)
+proof
+    assume 1 ∈ Ioo 1 5
+        1 < 1 ∧ 1 < 5             ; in-Ioo
+        1 < 1
+        ¬(1 < 1)
+        1 < 1 ∧ ¬(1 < 1)
+        ⊥
+    ¬(1 ∈ Ioo 1 5)
+qed
+
+; half open: the left endpoint in, the right one out
+show 1 ∈ Ico 1 5 ∧ ¬(5 ∈ Ico 1 5)
+proof
+    1 <= 1 ∧ 1 < 5
+    1 ∈ Ico 1 5
+    assume 5 ∈ Ico 1 5
+        1 <= 5 ∧ 5 < 5            ; in-Ico
+        5 < 5
+        ¬(5 < 5)
+        5 < 5 ∧ ¬(5 < 5)
+        ⊥
+    ¬(5 ∈ Ico 1 5)
+qed
+
+; an interval is a set of numbers: "ext-real" applies
+show $x ∈ Ioc 0 1  ⇒  $x > 0
+proof
+    assume $x ∈ Ioc 0 1
+        0 < $x ∧ $x <= 1
+        $x > 0
+qed

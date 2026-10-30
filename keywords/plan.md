@@ -30,7 +30,7 @@ THEORIES -- building and reusing bodies of knowledge
 -----------------------------------------------------
     10-load      pulling in ready-made theories, e.g. `propositional.kurt`
     11-save      keep what you did: write the accepted lines out to a file
-    12-def       introducing a new constant via its defining equation
+    12-def       introducing a new constant via its defining equation (also inside a proof: local to the block)
     13-theory    inspecting the current theory
     14-todo      admitting a step as an exercise/placeholder
     15-sandbox   a scratch block that is thrown away when closed
@@ -56,7 +56,7 @@ SYNTAX -- extending Kurt's grammar from Kurt source
     29-postfix   declaring postfix operators
     30-brackets  declaring bracket pairs
     31-arity     declaring a symbol's number of arguments
-    32-bindop    declaring variable-binding operators (`forall`, `exists`, ...)
+    32-binder    declaring variable-binding operators (`forall`, `exists`, ...)
     33-chain     declaring chains of mixed (in)equalities, e.g. `a = b < c`
 
 SUGAR -- syntactic convenience
@@ -86,6 +86,7 @@ OPTIONAL SORTS
 --------------
     44-sort        sorts: kinds of objects below `any`, subsorts, the first sorted use is final, `default`
     47-default     the sort of the new symbols of a file: at the first appearance, unless the line says otherwise
+    48-profile     `kurt --profile`: where a proof is slow (the slowest lines; the heat map in the editor)
 
 MEANINGS BUILT INTO KURT
 ------------------------

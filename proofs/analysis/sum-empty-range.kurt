@@ -1,0 +1,21 @@
+; the empty sum: `sum i (a, b) T` is 0 for every range with a > b (todo 78; before, only for a = b + 1), and
+; "sum-last" needs a <= b + 1 -- without that premise the two rules proved `3 = 0`
+load analysis
+calc on
+
+; every range with a > b is empty
+5 > 3
+(sum i (5, 3) i) = 0
+5 > 2
+(sum i (5, 2) i) = 0
+1 > 0
+(sum i (1, 0) (i * i)) = 0
+
+; a range of one term, and one more term
+(sum i (2, 2) i) = 2
+1 <= 2 + 1
+(sum i (1, 2 + 1) i) = (2 + 1) + (sum i (1, 2) i)
+
+; "sum-last" does not apply to a range that is empty by more than one: this was the derivation of `3 = 0`
+expect "ProofError"
+    (sum i (5, 2 + 1) i) = (2 + 1) + (sum i (5, 2) i)

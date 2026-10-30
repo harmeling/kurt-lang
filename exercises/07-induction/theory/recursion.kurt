@@ -2,11 +2,11 @@
 ;
 ; Functions on the natural numbers, defined by recursion: the value at 0, and the value at n + 1
 ; from the value at n. The numbers are those of natural.kurt (`Nat`, with the arithmetic of
-; numbers.kurt), and so is its induction rule.
+; number.kurt), and so is its induction rule.
 ;
 ;     odds(n)     1 + 3 + 5 + ... + (2n - 1), the sum of the first n odd numbers (odds(0) = 0)
 ;     a(n)        the sequence 0, 1, 3, 7, 15, ...: start with 0, then double and add 1
-;     2 ^ n       the powers of 2 (numbers.kurt)
+;     2 ^ n       the powers of 2 (number.kurt)
 ;     d ∣ m       d divides m (`\mid`, natural.kurt): m = d * k for some k ∈ Nat
 ;
 ; The rules of this scene:
@@ -19,7 +19,7 @@
 ;     "pow2-zero"     2 ^ 0 = 1                      (proven below)
 ;     "pow2-succ"     2 ^ (x + 1) = 2 * 2 ^ x        (proven below)
 ;
-; and from natural.kurt and numbers.kurt, among others:
+; and from natural.kurt and number.kurt, among others:
 ;
 ;     "induction"     A(0) ∧ ∀ n ∈ Nat (A(n) ⇒ A(n + 1))  ⇒  ∀ n ∈ Nat A(n)
 ;     "nat-zero", "nat-one", "nat-succ", "nat-add", "nat-mul"   0, 1, n + 1, m + n, m * n ∈ Nat
@@ -33,7 +33,7 @@
 ; The exercises leave `calc` off: write each step of the algebra as a line (one rule each).
 ;
 ; This file is the scene of exercise 3: it loads it with `load theory/recursion`. Don't change it.
-load natural
+load natural, divisibility
 
 const odds, a
 arity odds 1, a 1

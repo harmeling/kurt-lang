@@ -83,11 +83,11 @@ class TestStandaloneBundle(unittest.TestCase):
 
     def test_the_certificates_of_the_theories_are_embedded(self):
         # the bundle can't write certificates next to its theories: without the embedded ones,
-        # `load rational` took 8 s every time (and `load field` 15 s), instead of about 1 s
+        # `load divisibility` took 8 s every time (and `load field` 15 s), instead of about 1 s
         script = (
             "import kurt\n"
             "session = kurt.new_session(kurt.RunConfig(kurtc=True))\n"
-            "assert session.check_text('load rational\\n').ok\n"
+            "assert session.check_text('load divisibility\\n').ok\n"
             "print(session._state.replayed)\n")
         env = dict(os.environ, XDG_CACHE_HOME=os.path.join(self.tmpdir, "cache"))
         env.pop("PYTHONPATH", None)

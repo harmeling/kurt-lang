@@ -8,7 +8,7 @@ import kurt.kurt as kurt
 
 PROOF = 'load propositional\nprop A, B\nuse A implies B\nuse A\nB\n'
 UNDECLARED = 'load propositional\nuse A\nA\n'                       # `use` of any kind is an error with `--strict`
-TEXTS = [PROOF, UNDECLARED, 'load numbers\ncalc on\n17 * 42 = 714\n', 'load logic\nprop P\narity P 1\nconst P\nuse ∀ x P(x)\nconst c\nP(c)\n']
+TEXTS = [PROOF, UNDECLARED, 'load number\ncalc on\n17 * 42 = 714\n', 'load logic\nprop P\narity P 1\nconst P\nuse ∀ x P(x)\nconst c\nP(c)\n']
 CONFIGS = [kurt.RunConfig(), kurt.RunConfig(strict=True), kurt.RunConfig(comment_indent=30)]
 
 

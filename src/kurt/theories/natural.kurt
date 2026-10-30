@@ -6,14 +6,17 @@
 ; a worked example: with the base case and the step as two facts, "induction" applies in one step.
 ;
 ; also: `0 <= n`, so `n + 1 ≠ 0` and every n ≠ 0 has a predecessor; no natural number between
-; n and n + 1; the well-ordering principle (from induction); even and odd numbers (every number is
-; one of them, none is both); divisibility `∣` (`\mid`) and `coprime`.
+; n and n + 1; the well-ordering principle (from induction); how `Nat` sits in the other sets of
+; number.kurt (`Nat ⊂ Real`, an integer is a natural number or the negative of one, a positive
+; integer is a natural number, a rational is a fraction of an integer and a natural number, a
+; positive one of two natural numbers, cancelling a common factor). Even and odd numbers, `∣` and
+; `coprime` are in divisibility.kurt, the sets `{a, ..., c}` and the intervals in interval.kurt.
 ;
-; arithmetic comes from numbers.kurt: natural numbers are real numbers, so all of its laws
-; (and `calc`) apply to them as well.
+; arithmetic and the sets `Real`, `Int`, `Rat` come from number.kurt: natural numbers are real
+; numbers, so all of its laws (and `calc`) apply to them as well.
 load propositional, equality
 load set
-load numbers
+load number
 load logic
 default real              ; every symbol of this file is a number, except where said otherwise:
 
@@ -22,31 +25,19 @@ set Nat                  ; the natural numbers are a set (of numbers)
 const Nat
 builtin Nat naturals                   ; `calc on` proves `3 ∈ Nat`
 tex Nat \mathbb{N}
-; `kurt --lean` with Mathlib: the numbers are Mathlib's reals (numbers.kurt), embedded into the sets
-; (objects.kurt), and `Nat` is the set of the natural numbers among them -- a definition (the set of
+; `kurt --lean` with Mathlib: the numbers are Mathlib's reals (number.kurt), embedded into the sets
+; (set.kurt), and `Nat` is the set of the natural numbers among them -- a definition (the set of
 ; the embedded reals that are natural numbers), and what `x ∈ Nat` means a theorem, `k_mem_Nat`; the
 ; rules below are theorems then (each `lean "label" ...`)
 lean Nat member $1 ∈ Set.range (fun n : ℕ => (n : ℝ))
 
-; the real numbers as a set (`Real`, `ℝ`): every number is in it -- a fact about the numbers, not a
-; sort (decision 11 of dev/todo-sorts.md: `x ∈ Real` gives `x` no sort; `real x` is what makes `x` a
-; number). With it, two sets of numbers are equal when they have the same numbers ("ext-real"):
-; extensionality over all objects ("extensionality", set.kurt) needs every object, and a binder of a
-; `default real` file ranges over the numbers only
-set Real
-const Real
-alias ℝ Real
-tex Real \mathbb{R}
-lean Real member $1 = $1
-use $x ∈ Real  "real-all"
 use Nat ⊂ Real  "nat-sub-real"
-use (∀ $n ($n ∈ $A ⇔ $n ∈ $B)) ∧ $A ⊂ Real ∧ $B ⊂ Real  ⇒  $A = $B   "ext-real"
 alias ℕ Nat
 
 use 0 in Nat  "nat-zero"
 use $n in Nat  implies  $n+1 in Nat  "nat-succ"
 ; sums and products of natural numbers are natural numbers (by induction from a recursive
-; definition of `+` and `*`; numbers.kurt states their laws instead)
+; definition of `+` and `*`; number.kurt states their laws instead)
 use $a in Nat ∧ $b in Nat  implies  $a + $b in Nat  "nat-add"
 use $a in Nat ∧ $b in Nat  implies  $a * $b in Nat  "nat-mul"
 ; natural numbers aren't negative
@@ -340,283 +331,130 @@ proof
         $b < $d * $b
 qed
 
-;; even and odd numbers
-prop even, odd
-arity even 1, odd 1
-def even $m  iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)       "even-def"
-def odd $m   iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)   "odd-def"
 
-; every natural number is even or odd (by induction)
-show ∀ $n ∈ Nat  (even $n ∨ odd $n)   "even-or-odd"
+; ---- integers and rationals (the sets `Int` and `Rat` are in number.kurt)
+;
+; `Nat` in `Int`, the integers are the natural numbers and their negatives (and nothing else);
+; an integer ≥ 1 is a natural number
+
+use $n ∈ Nat  ⇒  $n ∈ Int                         "int-nat"
+
+use $n ∈ Nat  ⇒  -$n ∈ Int                        "int-neg-nat"
+
+use $z ∈ Int  ⇒  $z ∈ Nat ∨ -$z ∈ Nat             "int-cases"      ; nothing else
+
+show 0 ∈ Int     "int-zero"
 proof
-    ; base case: 0 = 2 * 0
-    0 = 2 * 0
-    0 ∈ Nat ∧ 0 = 2 * 0
-    ∃ $k ($k ∈ Nat ∧ 0 = 2 * $k)
-    even 0
-    even 0 ∨ odd 0
-    ; induction step
-    show ∀ $n ∈ Nat  ((even $n ∨ odd $n)  ⇒  (even ($n + 1) ∨ odd ($n + 1)))
-    proof
-        let n ∈ Nat
-            assume even n ∨ odd n
-                assume even n
-                    ∃ $k ($k ∈ Nat ∧ n = 2 * $k)
-                    pick k with k ∈ Nat ∧ n = 2 * k
-                        n = 2 * k
-                        k ∈ Nat
-                        n + 1 = 2 * k + 1
-                        k ∈ Nat ∧ n + 1 = 2 * k + 1
-                        ∃ $j ($j ∈ Nat ∧ n + 1 = 2 * $j + 1)
-                        odd (n + 1)
-                        even (n + 1) ∨ odd (n + 1)
-                assume odd n
-                    ∃ $k ($k ∈ Nat ∧ n = 2 * $k + 1)
-                    pick k with k ∈ Nat ∧ n = 2 * k + 1
-                        n = 2 * k + 1
-                        k ∈ Nat
-                        n + 1 = 2 * k + 1 + 1
-                        calc on
-                        n + 1 = 2 * k + 2
-                        calc off
-                        2 * (k + 1) = 2 * k + 2 * 1
-                        calc on
-                        2 * (k + 1) = 2 * k + 2
-                        calc off
-                        n + 1 = 2 * (k + 1)
-                        k + 1 ∈ Nat
-                        k + 1 ∈ Nat ∧ n + 1 = 2 * (k + 1)
-                        ∃ $j ($j ∈ Nat ∧ n + 1 = 2 * $j)
-                        even (n + 1)
-                        even (n + 1) ∨ odd (n + 1)
-                even (n + 1) ∨ odd (n + 1)
-    qed
-    ; by induction (natural.kurt)
+    0 ∈ Nat
+    0 ∈ Int
 qed
 
-; 2 k = 2 j + 1 has no solution in Nat
-show ∀ $k ∈ Nat ∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)     "even-ne-odd"
+show 1 ∈ Int     "int-one"
 proof
-    ; k = 0: 2 j + 1 ≠ 0
-    let j ∈ Nat
-        2 * j ∈ Nat
-        2 * j + 1 ≠ 0                                 ; nat-succ-ne-zero
-        calc on
-        2 * 0 ≠ 2 * j + 1
-        calc off
-    ∀ $j ∈ Nat (2 * 0 ≠ 2 * $j + 1)
-    ; k → k + 1
-    let k ∈ Nat
-        assume ∀ $j ∈ Nat (2 * k ≠ 2 * $j + 1)
-            2 * k ∈ Nat
-            2 * (k + 1) = 2 * k + 2 * 1
-            let j ∈ Nat
-                assume 2 * (k + 1) = 2 * j + 1
-                    j = 0 ∨ ∃ $m ($m ∈ Nat ∧ j = $m + 1)       ; nat-zero-or-succ
-                    case j = 0
-                        2 * k + 2 * 1 = 2 * (k + 1)
-                                      = 2 * j + 1
-                                      = 2 * 0 + 1
-                        2 * k + 2 * 1 + (- 1) = 2 * 0 + 1 + (- 1)
-                        calc on
-                        2 * k + 1 = 0
-                        calc off
-                        2 * k + 1 ≠ 0                         ; nat-succ-ne-zero
-                        ¬(2 * k + 1 = 0)
-                        2 * k + 1 = 0 ∧ ¬(2 * k + 1 = 0)
-                        ⊥
-                    case ∃ $m ($m ∈ Nat ∧ j = $m + 1)
-                        pick m with m ∈ Nat ∧ j = m + 1
-                            m ∈ Nat
-                            j = m + 1
-                            2 * (m + 1) = 2 * m + 2 * 1
-                            2 * k + 2 * 1 = 2 * (k + 1)
-                                          = 2 * j + 1
-                                          = 2 * (m + 1) + 1
-                                          = 2 * m + 2 * 1 + 1
-                            2 * k + 2 * 1 + (- 2) = 2 * m + 2 * 1 + 1 + (- 2)
-                            calc on
-                            2 * k = 2 * m + 1
-                            calc off
-                            2 * k ≠ 2 * m + 1
-                            ¬(2 * k = 2 * m + 1)
-                            2 * k = 2 * m + 1 ∧ ¬(2 * k = 2 * m + 1)
-                            ⊥
-                    ⊥
-                ¬(2 * (k + 1) = 2 * j + 1)
-                2 * (k + 1) ≠ 2 * j + 1
-            ∀ $j ∈ Nat (2 * (k + 1) ≠ 2 * $j + 1)
-    ∀ $k ∈ Nat (∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)  ⇒  ∀ $j ∈ Nat (2 * ($k + 1) ≠ 2 * $j + 1))
-    (∀ $j ∈ Nat (2 * 0 ≠ 2 * $j + 1)) ∧ ∀ $k ∈ Nat (∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)  ⇒  ∀ $j ∈ Nat (2 * ($k + 1) ≠ 2 * $j + 1))
-    ∀ $k ∈ Nat ∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)
+    1 ∈ Nat
+    1 ∈ Int
 qed
 
-; no number is even and odd
-show ¬(even $m ∧ odd $m)     "not-even-and-odd"
+show $z ∈ Int  ⇒  -$z ∈ Int     "int-neg"
 proof
-    assume even $m ∧ odd $m
-        even $m
-        odd $m
-        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
-        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)
-        pick k with k ∈ Nat ∧ $m = 2 * k
-            k ∈ Nat
-            $m = 2 * k
-            pick j with j ∈ Nat ∧ $m = 2 * j + 1
-                j ∈ Nat
-                $m = 2 * j + 1
-                2 * k = $m
-                      = 2 * j + 1
-                ∀ $j ∈ Nat (2 * k ≠ 2 * $j + 1)        ; even-ne-odd
-                2 * k ≠ 2 * j + 1
-                ¬(2 * k = 2 * j + 1)
-                2 * k = 2 * j + 1 ∧ ¬(2 * k = 2 * j + 1)
-                ⊥
+    assume $z ∈ Int
+        $z ∈ Nat ∨ -$z ∈ Nat
+        case $z ∈ Nat
+            -$z ∈ Int                                  ; int-neg-nat
+        case -$z ∈ Nat
+            -$z ∈ Int                                  ; int-nat
+        -$z ∈ Int
 qed
 
-; the square of an odd number is odd: m m = (2k+1) m = 2 k m + m = 2 (k m + k) + 1
-show $m ∈ Nat ∧ odd $m  ⇒  odd ($m * $m)   "odd-square"
+; a positive integer is a natural number
+show $z ∈ Int ∧ $z > 0  ⇒  $z ∈ Nat     "int-pos-nat"
 proof
-    assume $m ∈ Nat ∧ odd $m
-        odd $m
-        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)
-        pick k with k ∈ Nat ∧ $m = 2 * k + 1
-            $m = 2 * k + 1
-            k ∈ Nat
-            $m ∈ Nat
-            $m * $m = (2 * k + 1) * $m
-                    = 2 * k * $m + 1 * $m
-                    = 2 * k * $m + $m
-                    = 2 * k * $m + (2 * k + 1)
-                    = 2 * k * $m + 2 * k + 1
-                    = 2 * (k * $m + k) + 1
-            k * $m ∈ Nat
-            k * $m + k ∈ Nat
-            k * $m + k ∈ Nat ∧ $m * $m = 2 * (k * $m + k) + 1
-            ∃ $j ($j ∈ Nat ∧ $m * $m = 2 * $j + 1)
-            odd ($m * $m)
+    assume $z ∈ Int ∧ $z > 0
+        $z ∈ Int
+        $z > 0
+        $z ∈ Nat ∨ -$z ∈ Nat
+        case $z ∈ Nat
+            $z ∈ Nat
+        case -$z ∈ Nat
+            0 <= -$z                                   ; nat-nonneg
+            -$z >= 0                                   ; le-ge
+            -$z + $z >= 0 + $z                         ; ge-add
+            -$z + $z = 0                               ; add-inverse
+            0 + $z = $z                                ; add-identity
+            0 >= 0 + $z
+            0 >= $z
+            $z <= 0                                    ; le-ge
+            $z > 0 ∧ $z <= 0
+            ⊥                                          ; gt-le-contra
+            $z ∈ Nat
+        $z ∈ Nat
 qed
 
-; if the square is even, so is the number: otherwise it is odd, and so is its square
-show $m ∈ Nat ∧ even ($m * $m)  ⇒  even $m   "even-square"
-proof
-    assume $m ∈ Nat ∧ even ($m * $m)
-        $m ∈ Nat
-        even $m ∨ odd $m                               ; even-or-odd
-        assume even $m
-            even $m
-        assume odd $m
-            odd ($m * $m)                              ; odd-square
-            even ($m * $m) ∧ odd ($m * $m)
-            false                                      ; not-even-and-odd
-            even $m
-        even $m                                        ; or-elim
-qed
+; ---- the rationals: the fractions m / n of an integer m and a natural number n ≠ 0, and a positive one with natural m, n
 
-;; divisibility
-infix divides 20 20
-prop divides 0
-alias ∣ divides
-def $a ∣ $b  ⇔  ∃ $k ($k ∈ Nat ∧ $b = $a * $k)       "divides"
+; A defining axiom, not `def`: `Rat` is an existing calculator-bound carrier, and this
+; characterizes membership in it rather than introducing one fresh predicate abbreviation.
+use $q ∈ Rat  ⇔  ∃ $m ∃ $n ($m ∈ Int ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = $m / $n)     "rat-def"
 
-show $a ∈ Nat  ⇒  $a ∣ $a     "divides-refl"
+show $z ∈ Int  ⇒  $z ∈ Rat     "rat-int"
 proof
-    assume $a ∈ Nat
+    assume $z ∈ Int
         1 ∈ Nat
-        $a = $a * 1
-        1 ∈ Nat ∧ $a = $a * 1
-        ∃ $k ($k ∈ Nat ∧ $a = $a * $k)
-        $a ∣ $a
+        calc on
+        1 ≠ 0
+        calc off
+        $z = $z / 1                                    ; div-identity
+        $z ∈ Int ∧ 1 ∈ Nat ∧ 1 ≠ 0 ∧ $z = $z / 1
+        ∃ $n ($z ∈ Int ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $z = $z / $n)
+        ∃ $m ∃ $n ($m ∈ Int ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $z = $m / $n)
+        $z ∈ Rat
 qed
 
-show $a ∈ Nat  ⇒  1 ∣ $a     "one-divides"
+; a positive rational is a fraction of natural numbers
+show $q ∈ Rat ∧ $q > 0  ⇒  ∃ $m ∃ $n ($m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = $m / $n)     "rat-pos"
 proof
-    assume $a ∈ Nat
-        $a = 1 * $a
-        $a ∈ Nat ∧ $a = 1 * $a
-        ∃ $k ($k ∈ Nat ∧ $a = 1 * $k)
-        1 ∣ $a
+    assume $q ∈ Rat ∧ $q > 0
+        $q ∈ Rat
+        $q > 0
+        ∃ $m ∃ $n ($m ∈ Int ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = $m / $n)
+        pick m with ∃ $n (m ∈ Int ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = m / $n)
+            pick n with m ∈ Int ∧ n ∈ Nat ∧ n ≠ 0 ∧ $q = m / n
+                m ∈ Int
+                n ∈ Nat
+                n ≠ 0
+                $q = m / n
+                0 < n                                  ; nat-pos
+                n > 0                                  ; lt-gt
+                ; m = q n > 0
+                (m / n) * n = m                        ; div-mul
+                $q * n = (m / n) * n
+                       = m
+                $q * n > 0                             ; mul-pos
+                m > 0
+                m ∈ Nat                                ; int-pos-nat
+                m ∈ Nat ∧ n ∈ Nat ∧ n ≠ 0 ∧ $q = m / n
+                ∃ $j (m ∈ Nat ∧ $j ∈ Nat ∧ $j ≠ 0 ∧ $q = m / $j)
+                ∃ $i ∃ $j ($i ∈ Nat ∧ $j ∈ Nat ∧ $j ≠ 0 ∧ $q = $i / $j)
 qed
 
-show $a ∣ $b ∧ $b ∣ $c  ⇒  $a ∣ $c     "divides-trans"
+; cancelling a common factor
+show $d ≠ 0 ∧ $b ≠ 0  ⇒  ($d * $a) / ($d * $b) = $a / $b     "frac-cancel"
 proof
-    assume $a ∣ $b ∧ $b ∣ $c
-        $a ∣ $b
-        $b ∣ $c
-        ∃ $k ($k ∈ Nat ∧ $b = $a * $k)
-        ∃ $k ($k ∈ Nat ∧ $c = $b * $k)
-        pick k with k ∈ Nat ∧ $b = $a * k
-            k ∈ Nat
-            $b = $a * k
-            pick j with j ∈ Nat ∧ $c = $b * j
-                j ∈ Nat
-                $c = $b * j
-                $c = $a * k * j
-                k * j ∈ Nat
-                k * j ∈ Nat ∧ $c = $a * (k * j)
-                ∃ $l ($l ∈ Nat ∧ $c = $a * $l)
-                $a ∣ $c
+    assume $d ≠ 0 ∧ $b ≠ 0
+        $d ≠ 0
+        $b ≠ 0
+        ($d / $d) * ($a / $b) = ($d * $a) / ($d * $b)    ; div-mul-div
+        $d / $d = 1                                    ; div-self
+        1 * ($a / $b) = $a / $b                        ; mul-identity
+        ($d * $a) / ($d * $b) = ($d / $d) * ($a / $b)
+                              = 1 * ($a / $b)
+                              = $a / $b
 qed
 
-; even means divisible by 2
-show even $m  ⇔  2 ∣ $m     "even-divides"
-proof
-    assume even $m
-        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
-        2 ∣ $m
-    assume 2 ∣ $m
-        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
-        even $m
-qed
 
-; coprime: 1 is the only common divisor
-arity coprime (_, _)
-def coprime($a, $b)  ⇔  ∀ $d ∈ Nat ($d ∣ $a ∧ $d ∣ $b  ⇒  $d = 1)     "coprime"
-
-show coprime($a, $b)  ⇒  ¬(even $a ∧ even $b)     "coprime-not-both-even"
-proof
-    assume coprime($a, $b)
-        ∀ $d ∈ Nat ($d ∣ $a ∧ $d ∣ $b  ⇒  $d = 1)
-        assume even $a ∧ even $b
-            even $a
-            even $b
-            2 ∣ $a                                     ; even-divides
-            2 ∣ $b                                     ; even-divides
-            2 ∣ $a ∧ 2 ∣ $b
-            2 ∣ $a ∧ 2 ∣ $b  ⇒  2 = 1
-            2 = 1
-            calc on
-            2 ≠ 1
-            calc off
-            ¬(2 = 1)
-            2 = 1 ∧ ¬(2 = 1)
-            false
-qed
-
-; sets of numbers with `...` (an arithmetic progression): `{a, ..., c}` the numbers from `a` to
-; `c` in steps of one, `{a, b, ..., c}` and `{a, b, ...}` in steps of `b - a` (for `a < b`), with
-; or without an end -- Kurt refuses other lists with `...`: their pattern would be a guess
-; (`{2, 3, 5, 7, 11, ...}`; write `{p ∈ Nat | ...}`), see dev/design-sets-and-brackets.md §7
-use $x ∈ {$a, ..., $c}  ≡  ∃ $k ∈ Nat ($x = $a + $k ∧ $x <= $c)                                 "range"
-use $x ∈ {$a, ...}  ≡  ∃ $k ∈ Nat ($x = $a + $k)                                              "range-infinite"
-use $a < $b ∧ $x ∈ {$a, $b, ..., $c}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($b - $a) ∧ $x <= $c)   "progression"
-use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a) ∧ $x <= $c))  ⇒  $x ∈ {$a, $b, ..., $c}  "progression-intro"
-use $a < $b ∧ $x ∈ {$a, $b, ...}  ⇒  ∃ $k ∈ Nat ($x = $a + $k * ($b - $a))                  "progression-infinite"
-use $a < $b ∧ (∃ $k ∈ Nat ($x = $a + $k * ($b - $a)))  ⇒  $x ∈ {$a, $b, ...}                "progression-infinite-intro"
-; ... in Lean: the sets of the embedded numbers so made (`k_numset`) -- the six rules above are then
-; theorems (their `lean "label" ...` below), the definitions of these notations
-lean {_,...,_} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ ∧ x_ ≤ $2)
-lean {_,...} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_)
-lean {_,_,...,_} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ * ($2 - $1) ∧ x_ ≤ $3)
-lean {_,_,...} k_numset (fun x_ => ∃ k_ : ℕ, x_ = $1 + k_ * ($2 - $1))
-
-;; the rules as theorems of Mathlib (see numbers.kurt): `Nat` by its axiom `k_mem_Nat` (`lean Nat
+;; the rules as theorems of Mathlib (see number.kurt): `Nat` by its axiom `k_mem_Nat` (`lean Nat
 ;; member ...` above: `x ∈ Nat` iff `x` is `↑n` for an `n : ℕ`)
-lean "real-all" intro x; exact (k_mem_Real _).mpr rfl
 lean "nat-sub-real" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
-lean "ext-real" intro A B ⟨h, hA, hB⟩; simp only [subset] at hA hB; apply ZFSet.ext; intro z; constructor
-lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hA z hz); exact (h x).mp hz
-lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hB z hz); exact (h x).mpr hz
 lean "nat-zero" exact (k_mem_Nat _).mpr ⟨0, by simp⟩
 lean "nat-succ" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; exact (k_mem_Nat _).mpr ⟨n + 1, by push_cast; ring⟩
 lean "nat-add" intro a b h; obtain ⟨⟨m, rfl⟩, ⟨n, rfl⟩⟩ := And.intro ((k_mem_Nat _).mp h.1) ((k_mem_Nat _).mp h.2); exact (k_mem_Nat _).mpr ⟨m + n, by push_cast; ring⟩
@@ -678,10 +516,6 @@ lean "nat-lt-mul" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp ‹k_emb _ ∈ Nat›;
 lean "nat-lt-mul" have h0 : n ≠ 0 := by rintro rfl; simp_all
 lean "nat-lt-mul" have : (0 : ℝ) < n := by exact_mod_cast Nat.pos_of_ne_zero h0
 lean "nat-lt-mul" nlinarith
-lean "even-ne-odd" intro x hx y hy
-lean "even-ne-odd" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; obtain ⟨m, rfl⟩ := (k_mem_Nat y).mp hy; beta_reduce
-lean "even-ne-odd" intro h; have : 2 * n = 1 + 2 * m := by exact_mod_cast h
-lean "even-ne-odd" omega
 lean "well-ordering" intro S h; casesm* _ ∧ _
 lean "well-ordering" obtain ⟨x, hx⟩ : ∃ x, k_emb x ∈ S := by assumption
 lean "well-ordering" have hsub : subset S Nat := by assumption
@@ -693,83 +527,41 @@ lean "well-ordering" refine ⟨(Nat.find ex : ℝ), ?_⟩
 lean "well-ordering" constructor <;> first
 lean "well-ordering"   | exact Nat.find_spec ex
 lean "well-ordering"   | (intro y hy; obtain ⟨m, rfl⟩ := (k_mem_Nat y).mp (hsub (k_emb y) hy); beta_reduce at hy ⊢; exact_mod_cast Nat.find_min' ex hy)
-lean "even-or-odd" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; simp only [even, odd]
-lean "even-or-odd" rcases Nat.even_or_odd' n with ⟨k, rfl | rfl⟩
-lean "even-or-odd" all_goals first
-lean "even-or-odd"   | (left; refine ⟨(k : ℝ), ?_⟩; constructor <;> first | exact (k_mem_Nat _).mpr ⟨k, rfl⟩ | (push_cast; first | done | ring1))
-lean "even-or-odd"   | (right; refine ⟨(k : ℝ), ?_⟩; constructor <;> first | exact (k_mem_Nat _).mpr ⟨k, rfl⟩ | (push_cast; first | done | ring1))
-lean "not-even-and-odd" intro x h; casesm* _ ∧ _
-lean "not-even-and-odd" have he : even x := by assumption
-lean "not-even-and-odd" have ho : odd x := by assumption
-lean "not-even-and-odd" simp only [even, odd] at he ho
-lean "not-even-and-odd" obtain ⟨a, ha⟩ := he; obtain ⟨b, hb⟩ := ho; casesm* _ ∧ _
-lean "not-even-and-odd" obtain ⟨i, rfl⟩ := (k_mem_Nat a).mp (by assumption)
-lean "not-even-and-odd" obtain ⟨j, rfl⟩ := (k_mem_Nat b).mp (by assumption)
-lean "not-even-and-odd" have e : ((2 * i : ℕ) : ℝ) = ((2 * j + 1 : ℕ) : ℝ) := by push_cast; linarith
-lean "not-even-and-odd" have := Nat.cast_injective e
-lean "not-even-and-odd" omega
-lean "odd-square" intro x h; casesm* _ ∧ _
-lean "odd-square" have ho : odd x := by assumption
-lean "odd-square" simp only [odd] at ho ⊢
-lean "odd-square" obtain ⟨b, hb⟩ := ho; casesm* _ ∧ _
-lean "odd-square" obtain ⟨j, rfl⟩ := (k_mem_Nat b).mp (by assumption)
-lean "odd-square" have e : x = 2 * j + 1 := by linarith
-lean "odd-square" subst e
-lean "odd-square" refine ⟨((2 * j * j + 2 * j : ℕ) : ℝ), ?_⟩
-lean "odd-square" constructor <;> first | exact (k_mem_Nat _).mpr ⟨_, rfl⟩ | (push_cast; first | done | ring1)
-lean "even-square" intro x h; casesm* _ ∧ _
-lean "even-square" have he : even (x * x) := by assumption
-lean "even-square" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp (by assumption)
-lean "even-square" simp only [even] at he ⊢
-lean "even-square" obtain ⟨a, ha⟩ := he; casesm* _ ∧ _
-lean "even-square" obtain ⟨i, rfl⟩ := (k_mem_Nat a).mp (by assumption)
-lean "even-square" have e : ((n * n : ℕ) : ℝ) = ((2 * i : ℕ) : ℝ) := by push_cast; linarith
-lean "even-square" have e' := Nat.cast_injective e
-lean "even-square" have : Even (n * n) := ⟨i, by omega⟩
-lean "even-square" obtain ⟨t, ht⟩ := (Nat.even_mul.mp this).elim id id
-lean "even-square" refine ⟨(t : ℝ), ?_⟩
-lean "even-square" constructor <;> first | exact (k_mem_Nat _).mpr ⟨t, rfl⟩ | (rw [ht]; push_cast; first | done | ring1)
-lean "divides-refl" intro x hx; simp only [divides]; refine ⟨1, ?_⟩
-lean "divides-refl" constructor <;> first | exact (k_mem_Nat _).mpr ⟨1, by simp⟩ | ring1
-lean "one-divides" intro x hx; simp only [divides]; refine ⟨x, ?_⟩
-lean "one-divides" constructor <;> first | exact hx | ring1
-lean "divides-trans" intro a b c h
-lean "divides-trans" obtain ⟨h1, h2⟩ := h
-lean "divides-trans" simp only [divides] at h1 h2 ⊢
-lean "divides-trans" obtain ⟨p, hp⟩ := h1; obtain ⟨q, hq⟩ := h2; casesm* _ ∧ _
-lean "divides-trans" obtain ⟨i, rfl⟩ := (k_mem_Nat p).mp (by assumption)
-lean "divides-trans" obtain ⟨j, rfl⟩ := (k_mem_Nat q).mp (by assumption)
-lean "divides-trans" refine ⟨((i * j : ℕ) : ℝ), ?_⟩
-lean "divides-trans" constructor <;> first | exact (k_mem_Nat _).mpr ⟨_, rfl⟩ | (push_cast; subst_vars; first | done | ring1)
-lean "even-divides" intro x; simp only [even, divides]
-lean "even-divides" first | done | (constructor <;> rintro ⟨k, h1, h2⟩ <;> first | exact ⟨k, h1, h2⟩ | exact ⟨k, h2, h1⟩)
-lean "coprime-not-both-even" intro a b h he
-lean "coprime-not-both-even" obtain ⟨ha, hb⟩ := he
-lean "coprime-not-both-even" simp only [even] at ha hb
-lean "coprime-not-both-even" simp only [coprime, divides] at h
-lean "coprime-not-both-even" have two := h 2 ((k_mem_Nat _).mpr ⟨2, by norm_num⟩)
-lean "coprime-not-both-even" obtain ⟨p, hp⟩ := ha; obtain ⟨q, hq⟩ := hb; casesm* _ ∧ _
-lean "coprime-not-both-even" have : (2 : ℝ) = 1 := by
-lean "coprime-not-both-even"   apply two
-lean "coprime-not-both-even"   constructor
-lean "coprime-not-both-even"   · refine ⟨p, ?_⟩; constructor <;> assumption
-lean "coprime-not-both-even"   · refine ⟨q, ?_⟩; constructor <;> assumption
-lean "coprime-not-both-even" norm_num at this
-lean "range" intros; rw [k_mem_numset]; simp only [k_mem_Nat, Set.mem_range, exists_exists_eq_and]
-lean "range" all_goals constructor <;> rintro ⟨n, h⟩ <;> exact ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
-lean "range-infinite" intros; rw [k_mem_numset]; simp only [k_mem_Nat, Set.mem_range, exists_exists_eq_and]
-lean "range-infinite" all_goals constructor <;> rintro ⟨n, h⟩ <;> exact ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
-lean "progression" intros; casesm* _ ∧ _
-lean "progression" obtain ⟨n, h⟩ := (k_mem_numset _ _).mp ‹_›
-lean "progression" exact ⟨n, (k_mem_Nat _).mpr ⟨n, rfl⟩, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
-lean "progression-intro" intros; casesm* _ ∧ _
-lean "progression-intro" obtain ⟨k, hk, h⟩ := ‹∃ _, _›
-lean "progression-intro" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp hk
-lean "progression-intro" exact (k_mem_numset _ _).mpr ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
-lean "progression-infinite" intros; casesm* _ ∧ _
-lean "progression-infinite" obtain ⟨n, h⟩ := (k_mem_numset _ _).mp ‹_›
-lean "progression-infinite" exact ⟨n, (k_mem_Nat _).mpr ⟨n, rfl⟩, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
-lean "progression-infinite-intro" intros; casesm* _ ∧ _
-lean "progression-infinite-intro" obtain ⟨k, hk, h⟩ := ‹∃ _, _›
-lean "progression-infinite-intro" obtain ⟨n, rfl⟩ := (k_mem_Nat _).mp hk
-lean "progression-infinite-intro" exact (k_mem_numset _ _).mpr ⟨n, by first | (constructor <;> linarith [h.1, h.2]) | linarith [h]⟩
+
+;; the rules about the integers and rationals as theorems of Mathlib (`Int`, `Rat` by `k_mem_Int`, `k_mem_Rat`)
+lean "int-nat" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; exact (k_mem_Int _).mpr ⟨n, by simp⟩
+lean "int-neg-nat" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; exact (k_mem_Int _).mpr ⟨-n, by simp⟩
+lean "int-cases" intro z hz
+lean "int-cases" obtain ⟨m, rfl⟩ := (k_mem_Int z).mp hz
+lean "int-cases" obtain ⟨n, rfl | rfl⟩ := Int.eq_nat_or_neg m
+lean "int-cases" all_goals first | (left; refine (k_mem_Nat _).mpr ⟨n, ?_⟩; simp; done) | (right; refine (k_mem_Nat _).mpr ⟨n, ?_⟩; simp; done)
+lean "int-zero" exact (k_mem_Int _).mpr ⟨0, by simp⟩
+lean "int-one" exact (k_mem_Int _).mpr ⟨1, by simp⟩
+lean "int-neg" intro z hz; obtain ⟨m, rfl⟩ := (k_mem_Int z).mp hz; exact (k_mem_Int _).mpr ⟨-m, by simp⟩
+lean "int-pos-nat" intros; casesm* _ ∧ _
+lean "int-pos-nat" obtain ⟨m, rfl⟩ := (k_mem_Int _).mp ‹k_emb _ ∈ Int›; beta_reduce at *
+lean "int-pos-nat" have : 0 < m := by exact_mod_cast (‹_› : (0 : ℝ) < m)
+lean "int-pos-nat" exact (k_mem_Nat _).mpr ⟨m.toNat, by beta_reduce; exact_mod_cast Int.toNat_of_nonneg this.le⟩
+lean "rat-def" intro q; rw [k_mem_Rat]; constructor
+lean "rat-def" · rintro ⟨r, rfl⟩
+lean "rat-def"   refine ⟨r.num, r.den, ?_⟩
+lean "rat-def"   refine ⟨?_, ?_, ?_, ?_⟩ <;> first | exact (k_mem_Int _).mpr ⟨r.num, rfl⟩ | exact (k_mem_Nat _).mpr ⟨r.den, rfl⟩ | exact Rat.cast_def r | (simp [r.den_nz]; done)
+lean "rat-def" · rintro ⟨m, n, h⟩
+lean "rat-def"   casesm* _ ∧ _
+lean "rat-def"   obtain ⟨i, rfl⟩ := (k_mem_Int m).mp ‹_›
+lean "rat-def"   obtain ⟨j, rfl⟩ := (k_mem_Nat n).mp ‹_›
+lean "rat-def"   subst_vars
+lean "rat-def"   exact ⟨(i : ℚ) / (j : ℚ), by push_cast; ring⟩
+lean "rat-int" intro z hz; obtain ⟨m, rfl⟩ := (k_mem_Int z).mp hz; exact (k_mem_Rat _).mpr ⟨m, by simp⟩
+lean "rat-pos" intros; casesm* _ ∧ _
+lean "rat-pos" obtain ⟨r, rfl⟩ := (k_mem_Rat _).mp ‹k_emb _ ∈ Rat›; beta_reduce at *
+lean "rat-pos" have hr : 0 < r := by exact_mod_cast (‹_› : (0 : ℝ) < r)
+lean "rat-pos" have hnum : 0 ≤ r.num := (Rat.num_pos.mpr hr).le
+lean "rat-pos" refine ⟨(r.num.toNat : ℝ), (r.den : ℝ), ?_⟩
+lean "rat-pos" refine ⟨?_, ?_, ?_, ?_⟩
+lean "rat-pos" all_goals first
+lean "rat-pos"   | exact (k_mem_Nat _).mpr ⟨_, rfl⟩
+lean "rat-pos"   | (simp [r.den_nz]; done)
+lean "rat-pos"   | (rw [show ((r.num.toNat : ℕ) : ℝ) = ((r.num.toNat : ℤ) : ℝ) from (Int.cast_natCast _).symm, Int.toNat_of_nonneg hnum]; exact Rat.cast_def r)
+lean "frac-cancel" intros; casesm* _ ∧ _
+lean "frac-cancel" field_simp

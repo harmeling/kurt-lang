@@ -3,7 +3,7 @@
 ; everywhere, not only at the place rewritten, and the instance of the conditional rule "below"
 ; (`get (ins c A G) n = get G n`, condition `n < c`) was not found -- unless it was written as a line
 ; of its own first. Found in proofs/classics/lambda-preservation.kurt ("ins-ins").
-load numbers
+load number
 const get, ins
 arity get 2, ins 3
 var A, G, B

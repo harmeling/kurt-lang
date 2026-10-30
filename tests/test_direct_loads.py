@@ -24,7 +24,7 @@ class TestDirectLoads(unittest.TestCase):
 
     def test_a_trusted_theory_gets_the_note_a_proof_not(self):
         with tempfile.TemporaryDirectory() as teacher, tempfile.TemporaryDirectory() as student:
-            text = 'load numbers\nconst a\nuse a = 1 "a-one"\n'      # `=` is from equality.kurt
+            text = 'load number\nconst a\nuse a = 1 "a-one"\n'      # `=` is from equality.kurt
             for d in (teacher, student):
                 with open(os.path.join(d, 'mine.kurt'), 'w') as f:
                     f.write(text)
@@ -38,11 +38,11 @@ class TestDirectLoads(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, 'p.kurt')
             with open(path, 'w') as f:
-                f.write('load numbers\nconst a\nuse a = 1\n')
+                f.write('load number\nconst a\nuse a = 1\n')
             report = kurt.dependencies_str(path)
             self.assertIn('equality.kurt: `=`', report)
             with open(path, 'w') as f:
-                f.write('load equality, numbers\nconst a\nuse a = 1\n')
+                f.write('load equality, number\nconst a\nuse a = 1\n')
             self.assertIn('used without loading: nothing', kurt.dependencies_str(path))
 
 if __name__ == '__main__':

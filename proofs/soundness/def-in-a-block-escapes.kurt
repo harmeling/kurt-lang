@@ -1,0 +1,90 @@
+; a `def` inside a block is local to it (todo 77): the symbol and its fact are gone when the block
+; closes, and the result of the block (its last line) must not mention the symbol -- otherwise
+; `let x` / `def k iff P x` gives `∀ x (k iff P x)`, and with it `P c ⇔ P d` for any `c`, `d`
+; (soundness review of 2026-09-29; doc/kurt-soundness.md §8.51)
+load logic, number
+calc on
+prop P
+arity P 1
+const c, d
+
+; the last line of a `let` is the `def`: `∀ x (k iff P x)` would follow
+expect "ProofError" "is defined in this block"
+    let x
+        def k iff P x
+
+; ... also when the end of the file closes the block (in a helper file: the end of a file)
+expect "ProofError" "is defined in this block"
+    load "helpers/def-in-let.kurt"
+
+; ... or a line that mentions what it defined
+expect "ProofError" "is defined in this block"
+    let x
+        def k iff P x
+        k iff P x
+
+; ... the same with a local function: `∀ x ∀ $y (f($y) = $y + x)` would make `f` depend on nothing
+expect "ProofError" "is defined in this block"
+    let x
+        def f($y) = $y + x
+
+; the last line of `assume`, `case` and `pick` is the `def`
+prop A, B
+expect "ProofError" "is defined in this block"
+    assume A
+        def m = 3
+expect "ProofError" "is defined in this block"
+    assume A
+        def q iff P c
+use A ∨ B
+expect "ProofError" "is defined in this block"
+    case A
+        def n = 3
+use ∃ y (P y)
+expect "ProofError" "is defined in this block"
+    pick e with P e
+        def g iff P e
+expect "ProofError" "is defined in this block"
+    pick e with P e
+        def h = 2
+        h = 2
+
+; after the block, the symbol is unknown again: a new constant, not the defined one
+show ∃ x (x * x = 9)
+proof
+    def t = 3
+    t * t = 3 * 3
+    t * t = 9
+    ∃ x (x * x = 9)
+qed
+expect "ProofError" "can not derive"
+    t * t = 9
+
+; ... and the facts about it are gone with the block (a `def` cited after its block)
+show ∃ x (x = 7)
+proof
+    def s7 = 7 "seven"
+    s7 = 7
+    ∃ x (x = 7)
+qed
+expect "ProofError" "can not derive"
+    s7 = 7
+
+; a symbol of a fact of the enclosing level can't be defined in a block (it isn't new)
+use P(r)
+expect "EvalError" "new constant"
+    assume A
+        def r = 3
+
+; nor one that a fact of the block already uses
+expect "EvalError" "new constant"
+    assume A
+        z = z
+        def z = 3
+
+; the declarations that postulate or change the file stay refused in a block (in helper files:
+; inside `expect`, whose content is discarded, they are allowed)
+expect "EvalError" "`use` is not allowed inside `assume`"
+    load "helpers/use-in-a-let-with-def.kurt"
+expect "EvalError" "`inline` is not allowed inside `let`"
+    load "helpers/inline-in-let.kurt"

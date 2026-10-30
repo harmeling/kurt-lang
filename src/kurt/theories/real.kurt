@@ -1,7 +1,0 @@
-; real -- the number tower up to the real numbers, one `load`
-;
-; numbers.kurt (the operators, the sort `real`, the laws of an ordered field) -> natural.kurt (`Nat`, induction,
-; and the set `Real`, `ℝ`) -> integer.kurt (`Int`) -> rational.kurt (`Rat`). Loading this file is
-; loading all four; a file that needs less loads one of them (`load natural`). complex.kurt builds on it
-; (`real ⊂ complex`). The order is the one of the sets: `Nat ⊂ Int ⊂ Rat ⊂ Real`.
-load numbers, natural, integer, rational

@@ -1,0 +1,4 @@
+; `binder` inside `assume` (see ../grammar-declaration-in-a-block.kurt)
+prop A
+assume A
+    binder foo

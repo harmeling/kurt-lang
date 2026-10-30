@@ -1,0 +1,48 @@
+; `def` inside a block, without numbers (todo 77): a statement, a term and a local function, each
+; local to its block -- also for `kurt --lean`, where each is an `obtain` in the proof
+; (tests/test_export_lean.py)
+load logic, equality
+prop A, P
+arity P 1
+const P, c
+use P c
+
+; a name for a statement about a constant of the file
+show A ⇒ P c
+proof
+    assume A
+        def k iff P c
+        k
+        P c
+qed
+
+; ... about the constant of a `let`
+show ∀ x (P x ⇒ P x)
+proof
+    let x
+        def q iff P x
+        assume P x
+            q
+            P x
+qed
+
+; a name for a term
+show A ⇒ ∃ y P y
+proof
+    assume A
+        def m = c
+        P m
+        ∃ y P y
+qed
+
+; a local function
+const f
+arity f 1
+use ∀ z P f(z)
+show ∃ y P y
+proof
+    def g($z) = f($z)
+    P f(c)
+    P g(c)
+    ∃ y P y
+qed

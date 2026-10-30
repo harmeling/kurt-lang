@@ -1,0 +1,461 @@
+; divisibility -- even and odd numbers, `∣`, `coprime`, and the lowest terms of a rational
+;
+; covers: `even` and `odd` (every natural number is one of them, none is both), the divisibility `∣` (`\mid`) of
+; natural numbers and `coprime`; and "lowest-terms": every positive rational is m / n with coprime natural numbers m, n,
+; proved from the well-ordering of natural.kurt. As for natural.kurt, they are numbers of number.kurt, so its laws
+; (and `calc`) apply.
+load propositional, equality
+load set
+load number
+load logic
+load natural
+default real              ; every symbol of this file is a number, except where said otherwise:
+
+;; even and odd numbers
+prop even, odd
+arity even 1, odd 1
+def even $m  iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)       "even-def"
+def odd $m   iff  ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)   "odd-def"
+
+; every natural number is even or odd (by induction)
+show ∀ $n ∈ Nat  (even $n ∨ odd $n)   "even-or-odd"
+proof
+    ; base case: 0 = 2 * 0
+    0 = 2 * 0
+    0 ∈ Nat ∧ 0 = 2 * 0
+    ∃ $k ($k ∈ Nat ∧ 0 = 2 * $k)
+    even 0
+    even 0 ∨ odd 0
+    ; induction step
+    show ∀ $n ∈ Nat  ((even $n ∨ odd $n)  ⇒  (even ($n + 1) ∨ odd ($n + 1)))
+    proof
+        let n ∈ Nat
+            assume even n ∨ odd n
+                assume even n
+                    ∃ $k ($k ∈ Nat ∧ n = 2 * $k)
+                    pick k with k ∈ Nat ∧ n = 2 * k
+                        n = 2 * k
+                        k ∈ Nat
+                        n + 1 = 2 * k + 1
+                        k ∈ Nat ∧ n + 1 = 2 * k + 1
+                        ∃ $j ($j ∈ Nat ∧ n + 1 = 2 * $j + 1)
+                        odd (n + 1)
+                        even (n + 1) ∨ odd (n + 1)
+                assume odd n
+                    ∃ $k ($k ∈ Nat ∧ n = 2 * $k + 1)
+                    pick k with k ∈ Nat ∧ n = 2 * k + 1
+                        n = 2 * k + 1
+                        k ∈ Nat
+                        n + 1 = 2 * k + 1 + 1
+                        calc on
+                        n + 1 = 2 * k + 2
+                        calc off
+                        2 * (k + 1) = 2 * k + 2 * 1
+                        calc on
+                        2 * (k + 1) = 2 * k + 2
+                        calc off
+                        n + 1 = 2 * (k + 1)
+                        k + 1 ∈ Nat
+                        k + 1 ∈ Nat ∧ n + 1 = 2 * (k + 1)
+                        ∃ $j ($j ∈ Nat ∧ n + 1 = 2 * $j)
+                        even (n + 1)
+                        even (n + 1) ∨ odd (n + 1)
+                even (n + 1) ∨ odd (n + 1)
+    qed
+    ; by induction (natural.kurt)
+qed
+
+; 2 k = 2 j + 1 has no solution in Nat
+show ∀ $k ∈ Nat ∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)     "even-ne-odd"
+proof
+    ; k = 0: 2 j + 1 ≠ 0
+    let j ∈ Nat
+        2 * j ∈ Nat
+        2 * j + 1 ≠ 0                                 ; nat-succ-ne-zero
+        calc on
+        2 * 0 ≠ 2 * j + 1
+        calc off
+    ∀ $j ∈ Nat (2 * 0 ≠ 2 * $j + 1)
+    ; k → k + 1
+    let k ∈ Nat
+        assume ∀ $j ∈ Nat (2 * k ≠ 2 * $j + 1)
+            2 * k ∈ Nat
+            2 * (k + 1) = 2 * k + 2 * 1
+            let j ∈ Nat
+                assume 2 * (k + 1) = 2 * j + 1
+                    j = 0 ∨ ∃ $m ($m ∈ Nat ∧ j = $m + 1)       ; nat-zero-or-succ
+                    case j = 0
+                        2 * k + 2 * 1 = 2 * (k + 1)
+                                      = 2 * j + 1
+                                      = 2 * 0 + 1
+                        2 * k + 2 * 1 + (- 1) = 2 * 0 + 1 + (- 1)
+                        calc on
+                        2 * k + 1 = 0
+                        calc off
+                        2 * k + 1 ≠ 0                         ; nat-succ-ne-zero
+                        ¬(2 * k + 1 = 0)
+                        2 * k + 1 = 0 ∧ ¬(2 * k + 1 = 0)
+                        ⊥
+                    case ∃ $m ($m ∈ Nat ∧ j = $m + 1)
+                        pick m with m ∈ Nat ∧ j = m + 1
+                            m ∈ Nat
+                            j = m + 1
+                            2 * (m + 1) = 2 * m + 2 * 1
+                            2 * k + 2 * 1 = 2 * (k + 1)
+                                          = 2 * j + 1
+                                          = 2 * (m + 1) + 1
+                                          = 2 * m + 2 * 1 + 1
+                            2 * k + 2 * 1 + (- 2) = 2 * m + 2 * 1 + 1 + (- 2)
+                            calc on
+                            2 * k = 2 * m + 1
+                            calc off
+                            2 * k ≠ 2 * m + 1
+                            ¬(2 * k = 2 * m + 1)
+                            2 * k = 2 * m + 1 ∧ ¬(2 * k = 2 * m + 1)
+                            ⊥
+                    ⊥
+                ¬(2 * (k + 1) = 2 * j + 1)
+                2 * (k + 1) ≠ 2 * j + 1
+            ∀ $j ∈ Nat (2 * (k + 1) ≠ 2 * $j + 1)
+    ∀ $k ∈ Nat (∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)  ⇒  ∀ $j ∈ Nat (2 * ($k + 1) ≠ 2 * $j + 1))
+    (∀ $j ∈ Nat (2 * 0 ≠ 2 * $j + 1)) ∧ ∀ $k ∈ Nat (∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)  ⇒  ∀ $j ∈ Nat (2 * ($k + 1) ≠ 2 * $j + 1))
+    ∀ $k ∈ Nat ∀ $j ∈ Nat (2 * $k ≠ 2 * $j + 1)
+qed
+
+; no number is even and odd
+show ¬(even $m ∧ odd $m)     "not-even-and-odd"
+proof
+    assume even $m ∧ odd $m
+        even $m
+        odd $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)
+        pick k with k ∈ Nat ∧ $m = 2 * k
+            k ∈ Nat
+            $m = 2 * k
+            pick j with j ∈ Nat ∧ $m = 2 * j + 1
+                j ∈ Nat
+                $m = 2 * j + 1
+                2 * k = $m
+                      = 2 * j + 1
+                ∀ $j ∈ Nat (2 * k ≠ 2 * $j + 1)        ; even-ne-odd
+                2 * k ≠ 2 * j + 1
+                ¬(2 * k = 2 * j + 1)
+                2 * k = 2 * j + 1 ∧ ¬(2 * k = 2 * j + 1)
+                ⊥
+qed
+
+; the square of an odd number is odd: m m = (2k+1) m = 2 k m + m = 2 (k m + k) + 1
+show $m ∈ Nat ∧ odd $m  ⇒  odd ($m * $m)   "odd-square"
+proof
+    assume $m ∈ Nat ∧ odd $m
+        odd $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k + 1)
+        pick k with k ∈ Nat ∧ $m = 2 * k + 1
+            $m = 2 * k + 1
+            k ∈ Nat
+            $m ∈ Nat
+            $m * $m = (2 * k + 1) * $m
+                    = 2 * k * $m + 1 * $m
+                    = 2 * k * $m + $m
+                    = 2 * k * $m + (2 * k + 1)
+                    = 2 * k * $m + 2 * k + 1
+                    = 2 * (k * $m + k) + 1
+            k * $m ∈ Nat
+            k * $m + k ∈ Nat
+            k * $m + k ∈ Nat ∧ $m * $m = 2 * (k * $m + k) + 1
+            ∃ $j ($j ∈ Nat ∧ $m * $m = 2 * $j + 1)
+            odd ($m * $m)
+qed
+
+; if the square is even, so is the number: otherwise it is odd, and so is its square
+show $m ∈ Nat ∧ even ($m * $m)  ⇒  even $m   "even-square"
+proof
+    assume $m ∈ Nat ∧ even ($m * $m)
+        $m ∈ Nat
+        even $m ∨ odd $m                               ; even-or-odd
+        assume even $m
+            even $m
+        assume odd $m
+            odd ($m * $m)                              ; odd-square
+            even ($m * $m) ∧ odd ($m * $m)
+            false                                      ; not-even-and-odd
+            even $m
+        even $m                                        ; or-elim
+qed
+
+;; divisibility
+infix divides 20 20
+prop divides 0
+alias ∣ divides
+def $a ∣ $b  ⇔  ∃ $k ($k ∈ Nat ∧ $b = $a * $k)       "divides"
+
+show $a ∈ Nat  ⇒  $a ∣ $a     "divides-refl"
+proof
+    assume $a ∈ Nat
+        1 ∈ Nat
+        $a = $a * 1
+        1 ∈ Nat ∧ $a = $a * 1
+        ∃ $k ($k ∈ Nat ∧ $a = $a * $k)
+        $a ∣ $a
+qed
+
+show $a ∈ Nat  ⇒  1 ∣ $a     "one-divides"
+proof
+    assume $a ∈ Nat
+        $a = 1 * $a
+        $a ∈ Nat ∧ $a = 1 * $a
+        ∃ $k ($k ∈ Nat ∧ $a = 1 * $k)
+        1 ∣ $a
+qed
+
+show $a ∣ $b ∧ $b ∣ $c  ⇒  $a ∣ $c     "divides-trans"
+proof
+    assume $a ∣ $b ∧ $b ∣ $c
+        $a ∣ $b
+        $b ∣ $c
+        ∃ $k ($k ∈ Nat ∧ $b = $a * $k)
+        ∃ $k ($k ∈ Nat ∧ $c = $b * $k)
+        pick k with k ∈ Nat ∧ $b = $a * k
+            k ∈ Nat
+            $b = $a * k
+            pick j with j ∈ Nat ∧ $c = $b * j
+                j ∈ Nat
+                $c = $b * j
+                $c = $a * k * j
+                k * j ∈ Nat
+                k * j ∈ Nat ∧ $c = $a * (k * j)
+                ∃ $l ($l ∈ Nat ∧ $c = $a * $l)
+                $a ∣ $c
+qed
+
+; even means divisible by 2
+show even $m  ⇔  2 ∣ $m     "even-divides"
+proof
+    assume even $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
+        2 ∣ $m
+    assume 2 ∣ $m
+        ∃ $k ($k ∈ Nat ∧ $m = 2 * $k)
+        even $m
+qed
+
+; coprime: 1 is the only common divisor
+arity coprime (_, _)
+def coprime($a, $b)  ⇔  ∀ $d ∈ Nat ($d ∣ $a ∧ $d ∣ $b  ⇒  $d = 1)     "coprime"
+
+show coprime($a, $b)  ⇒  ¬(even $a ∧ even $b)     "coprime-not-both-even"
+proof
+    assume coprime($a, $b)
+        ∀ $d ∈ Nat ($d ∣ $a ∧ $d ∣ $b  ⇒  $d = 1)
+        assume even $a ∧ even $b
+            even $a
+            even $b
+            2 ∣ $a                                     ; even-divides
+            2 ∣ $b                                     ; even-divides
+            2 ∣ $a ∧ 2 ∣ $b
+            2 ∣ $a ∧ 2 ∣ $b  ⇒  2 = 1
+            2 = 1
+            calc on
+            2 ≠ 1
+            calc off
+            ¬(2 = 1)
+            2 = 1 ∧ ¬(2 = 1)
+            false
+qed
+
+; lowest terms: a positive rational is m / n with coprime natural numbers m, n -- take the least
+; denominator n (well-ordering); a common divisor d ≥ 2 of m and n would give the smaller
+; denominator n / d
+show $q ∈ Rat ∧ $q > 0  ⇒  ∃ $m ∃ $n ($m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ coprime($m, $n) ∧ $q = $m / $n)     "lowest-terms"
+proof
+    assume $q ∈ Rat ∧ $q > 0
+        ∃ $m ∃ $n ($m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = $m / $n)     ; rat-pos
+        ; the denominators -- a subset of `Nat`: for every element, not only the numbers among
+        ; them, so `c` is any set (`set c`; the `default real` would make it a number)
+        set c
+        let c
+            assume c ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) }
+                c ∈ Nat                                     ; separation-in
+        { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } ⊂ Nat
+        pick m with ∃ $n (m ∈ Nat ∧ $n ∈ Nat ∧ $n ≠ 0 ∧ $q = m / $n)
+            pick n with m ∈ Nat ∧ n ∈ Nat ∧ n ≠ 0 ∧ $q = m / n
+                m ∈ Nat
+                n ∈ Nat
+                n ≠ 0
+                $q = m / n
+                m ∈ Nat ∧ $q = m / n
+                ∃ $i ($i ∈ Nat ∧ $q = $i / n)
+                n ∈ Nat ∧ n ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / n)
+                n ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) }     ; separation
+                ∃ $x ($x ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) })
+        ∃ $x ($x ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) })
+        { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } ⊂ Nat ∧ ∃ $x ($x ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) })
+        ; the least one
+        ∃ $l ($l ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } ∧ ∀ $y ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } ($l <= $y))   ; well-ordering
+        pick n with n ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } ∧ ∀ $y ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } (n <= $y)
+            n ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) }
+            ∀ $y ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) } (n <= $y)
+            n ∈ Nat ∧ n ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / n)     ; separation
+            n ∈ Nat
+            n ≠ 0
+            ∃ $i ($i ∈ Nat ∧ $q = $i / n)
+            pick m with m ∈ Nat ∧ $q = m / n
+                m ∈ Nat
+                $q = m / n
+                ; m and n are coprime
+                let d ∈ Nat
+                    assume d ∣ m ∧ d ∣ n
+                        d ∣ m
+                        d ∣ n
+                        ∃ $k ($k ∈ Nat ∧ m = d * $k)
+                        ∃ $k ($k ∈ Nat ∧ n = d * $k)
+                        pick a with a ∈ Nat ∧ m = d * a
+                            a ∈ Nat
+                            m = d * a
+                            pick b with b ∈ Nat ∧ n = d * b
+                                b ∈ Nat
+                                n = d * b
+                                ; d ≠ 0 and b ≠ 0, since n ≠ 0
+                                assume d = 0
+                                    n = 0 * b
+                                    n = 0                      ; mul-zero
+                                    ¬(n = 0)
+                                    n = 0 ∧ ¬(n = 0)
+                                    ⊥
+                                ¬(d = 0)
+                                d ≠ 0
+                                assume b = 0
+                                    n = d * 0
+                                    n = 0                      ; mul-zero
+                                    ¬(n = 0)
+                                    n = 0 ∧ ¬(n = 0)
+                                    ⊥
+                                ¬(b = 0)
+                                b ≠ 0
+                                ; so q = a / b, and b is a denominator too
+                                (d * a) / (d * b) = a / b      ; frac-cancel
+                                $q = m / n
+                                   = (d * a) / n
+                                   = (d * a) / (d * b)
+                                   = a / b
+                                a ∈ Nat ∧ $q = a / b
+                                ∃ $i ($i ∈ Nat ∧ $q = $i / b)
+                                b ∈ Nat ∧ b ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / b)
+                                b ∈ { $j ∈ Nat | $j ≠ 0 ∧ ∃ $i ($i ∈ Nat ∧ $q = $i / $j) }     ; separation
+                                n <= b
+                                ; d = 1, since d ≥ 2 would make b < d b = n
+                                assume ¬(d = 1)
+                                    d ≠ 1
+                                    2 <= d                     ; nat-ge-two
+                                    b < d * b                  ; nat-lt-mul
+                                    b < n
+                                    b >= n                     ; le-ge
+                                    b < n ∧ b >= n
+                                    ⊥                          ; lt-ge-contra
+                                ¬¬(d = 1)
+                                d = 1
+                ∀ $d ∈ Nat ($d ∣ m ∧ $d ∣ n  ⇒  $d = 1)
+                coprime(m, n)
+                m ∈ Nat ∧ n ∈ Nat ∧ n ≠ 0 ∧ coprime(m, n) ∧ $q = m / n
+                ∃ $j (m ∈ Nat ∧ $j ∈ Nat ∧ $j ≠ 0 ∧ coprime(m, $j) ∧ $q = m / $j)
+                ∃ $i ∃ $j ($i ∈ Nat ∧ $j ∈ Nat ∧ $j ≠ 0 ∧ coprime($i, $j) ∧ $q = $i / $j)
+qed
+
+;; the theorems Kurt proves above, as theorems of Mathlib (see natural.kurt): `coprime` and `∣` unfolded
+lean "even-or-odd" intro x hx; obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; simp only [even, odd]
+lean "even-or-odd" rcases Nat.even_or_odd' n with ⟨k, rfl | rfl⟩
+lean "even-or-odd" all_goals first
+lean "even-or-odd"   | (left; refine ⟨(k : ℝ), ?_⟩; constructor <;> first | exact (k_mem_Nat _).mpr ⟨k, rfl⟩ | (push_cast; first | done | ring1))
+lean "even-or-odd"   | (right; refine ⟨(k : ℝ), ?_⟩; constructor <;> first | exact (k_mem_Nat _).mpr ⟨k, rfl⟩ | (push_cast; first | done | ring1))
+lean "even-ne-odd" intro x hx y hy
+lean "even-ne-odd" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp hx; obtain ⟨m, rfl⟩ := (k_mem_Nat y).mp hy; beta_reduce
+lean "even-ne-odd" intro h; have : 2 * n = 1 + 2 * m := by exact_mod_cast h
+lean "even-ne-odd" omega
+lean "not-even-and-odd" intro x h; casesm* _ ∧ _
+lean "not-even-and-odd" have he : even x := by assumption
+lean "not-even-and-odd" have ho : odd x := by assumption
+lean "not-even-and-odd" simp only [even, odd] at he ho
+lean "not-even-and-odd" obtain ⟨a, ha⟩ := he; obtain ⟨b, hb⟩ := ho; casesm* _ ∧ _
+lean "not-even-and-odd" obtain ⟨i, rfl⟩ := (k_mem_Nat a).mp (by assumption)
+lean "not-even-and-odd" obtain ⟨j, rfl⟩ := (k_mem_Nat b).mp (by assumption)
+lean "not-even-and-odd" have e : ((2 * i : ℕ) : ℝ) = ((2 * j + 1 : ℕ) : ℝ) := by push_cast; linarith
+lean "not-even-and-odd" have := Nat.cast_injective e
+lean "not-even-and-odd" omega
+lean "odd-square" intro x h; casesm* _ ∧ _
+lean "odd-square" have ho : odd x := by assumption
+lean "odd-square" simp only [odd] at ho ⊢
+lean "odd-square" obtain ⟨b, hb⟩ := ho; casesm* _ ∧ _
+lean "odd-square" obtain ⟨j, rfl⟩ := (k_mem_Nat b).mp (by assumption)
+lean "odd-square" have e : x = 2 * j + 1 := by linarith
+lean "odd-square" subst e
+lean "odd-square" refine ⟨((2 * j * j + 2 * j : ℕ) : ℝ), ?_⟩
+lean "odd-square" constructor <;> first | exact (k_mem_Nat _).mpr ⟨_, rfl⟩ | (push_cast; first | done | ring1)
+lean "even-square" intro x h; casesm* _ ∧ _
+lean "even-square" have he : even (x * x) := by assumption
+lean "even-square" obtain ⟨n, rfl⟩ := (k_mem_Nat x).mp (by assumption)
+lean "even-square" simp only [even] at he ⊢
+lean "even-square" obtain ⟨a, ha⟩ := he; casesm* _ ∧ _
+lean "even-square" obtain ⟨i, rfl⟩ := (k_mem_Nat a).mp (by assumption)
+lean "even-square" have e : ((n * n : ℕ) : ℝ) = ((2 * i : ℕ) : ℝ) := by push_cast; linarith
+lean "even-square" have e' := Nat.cast_injective e
+lean "even-square" have : Even (n * n) := ⟨i, by omega⟩
+lean "even-square" obtain ⟨t, ht⟩ := (Nat.even_mul.mp this).elim id id
+lean "even-square" refine ⟨(t : ℝ), ?_⟩
+lean "even-square" constructor <;> first | exact (k_mem_Nat _).mpr ⟨t, rfl⟩ | (rw [ht]; push_cast; first | done | ring1)
+lean "divides-refl" intro x hx; simp only [divides]; refine ⟨1, ?_⟩
+lean "divides-refl" constructor <;> first | exact (k_mem_Nat _).mpr ⟨1, by simp⟩ | ring1
+lean "one-divides" intro x hx; simp only [divides]; refine ⟨x, ?_⟩
+lean "one-divides" constructor <;> first | exact hx | ring1
+lean "divides-trans" intro a b c h
+lean "divides-trans" obtain ⟨h1, h2⟩ := h
+lean "divides-trans" simp only [divides] at h1 h2 ⊢
+lean "divides-trans" obtain ⟨p, hp⟩ := h1; obtain ⟨q, hq⟩ := h2; casesm* _ ∧ _
+lean "divides-trans" obtain ⟨i, rfl⟩ := (k_mem_Nat p).mp (by assumption)
+lean "divides-trans" obtain ⟨j, rfl⟩ := (k_mem_Nat q).mp (by assumption)
+lean "divides-trans" refine ⟨((i * j : ℕ) : ℝ), ?_⟩
+lean "divides-trans" constructor <;> first | exact (k_mem_Nat _).mpr ⟨_, rfl⟩ | (push_cast; subst_vars; first | done | ring1)
+lean "even-divides" intro x; simp only [even, divides]
+lean "even-divides" first | done | (constructor <;> rintro ⟨k, h1, h2⟩ <;> first | exact ⟨k, h1, h2⟩ | exact ⟨k, h2, h1⟩)
+lean "coprime-not-both-even" intro a b h he
+lean "coprime-not-both-even" obtain ⟨ha, hb⟩ := he
+lean "coprime-not-both-even" simp only [even] at ha hb
+lean "coprime-not-both-even" simp only [coprime, divides] at h
+lean "coprime-not-both-even" have two := h 2 ((k_mem_Nat _).mpr ⟨2, by norm_num⟩)
+lean "coprime-not-both-even" obtain ⟨p, hp⟩ := ha; obtain ⟨q, hq⟩ := hb; casesm* _ ∧ _
+lean "coprime-not-both-even" have : (2 : ℝ) = 1 := by
+lean "coprime-not-both-even"   apply two
+lean "coprime-not-both-even"   constructor
+lean "coprime-not-both-even"   · refine ⟨p, ?_⟩; constructor <;> assumption
+lean "coprime-not-both-even"   · refine ⟨q, ?_⟩; constructor <;> assumption
+lean "coprime-not-both-even" norm_num at this
+lean "lowest-terms" intro q h; casesm* _ ∧ _
+lean "lowest-terms" obtain ⟨r, rfl⟩ := (k_mem_Rat q).mp (by assumption)
+lean "lowest-terms" have hr : 0 < r := by exact_mod_cast (by assumption : (0 : ℝ) < r)
+lean "lowest-terms" have key : ∃ a b : ℕ, b ≠ 0 ∧ Nat.Coprime a b ∧ (r : ℝ) = (a : ℝ) / (b : ℝ) := by
+lean "lowest-terms"   have h0 : 0 ≤ r.num := (Rat.num_pos.mpr hr).le
+lean "lowest-terms"   refine ⟨r.num.toNat, r.den, r.den_nz, ?_, ?_⟩
+lean "lowest-terms"   · have e : r.num.toNat = r.num.natAbs := by omega
+lean "lowest-terms"     rw [e]; exact r.reduced
+lean "lowest-terms"   · have hnum : ((r.num.toNat : ℕ) : ℤ) = r.num := Int.toNat_of_nonneg h0
+lean "lowest-terms"     rw [Rat.cast_def r]; congr 1; exact_mod_cast hnum.symm
+lean "lowest-terms" obtain ⟨a, b, hb, hab, he⟩ := key
+lean "lowest-terms" refine ⟨(a : ℝ), (b : ℝ), ?_⟩
+lean "lowest-terms" refine ⟨?_, ?_, ?_, ?_, ?_⟩
+lean "lowest-terms" all_goals first
+lean "lowest-terms"   | exact he
+lean "lowest-terms"   | exact (k_mem_Nat _).mpr ⟨a, rfl⟩
+lean "lowest-terms"   | exact (k_mem_Nat _).mpr ⟨b, rfl⟩
+lean "lowest-terms"   | exact_mod_cast hb
+lean "lowest-terms"   | (simp only [coprime]
+lean "lowest-terms"      intro d hd hdiv
+lean "lowest-terms"      obtain ⟨e, rfl⟩ := (k_mem_Nat d).mp hd
+lean "lowest-terms"      have dvd : ∀ c : ℕ, divides (e : ℝ) (c : ℝ) → e ∣ c := by
+lean "lowest-terms"        intro c hc; simp only [divides] at hc; obtain ⟨s, hs⟩ := hc; casesm* _ ∧ _
+lean "lowest-terms"        obtain ⟨s', rfl⟩ := (k_mem_Nat s).mp (by assumption)
+lean "lowest-terms"        exact ⟨s', by exact_mod_cast (by linarith : (c : ℝ) = e * s')⟩
+lean "lowest-terms"      have hda := dvd a (by first | exact hdiv.1 | exact hdiv.2)
+lean "lowest-terms"      have hdb := dvd b (by first | exact hdiv.1 | exact hdiv.2)
+lean "lowest-terms"      have := Nat.dvd_gcd hda hdb
+lean "lowest-terms"      rw [Nat.Coprime.gcd_eq_one hab] at this
+lean "lowest-terms"      simp [Nat.dvd_one.mp this])

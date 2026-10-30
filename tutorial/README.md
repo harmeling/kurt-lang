@@ -15,6 +15,7 @@ a document that is gone.)
 - [`07-instantiate-a-universal-fact.kurt`](07-instantiate-a-universal-fact.kurt): Instantiate a universal fact
 - [`08-prove-a-universal-fact.kurt`](08-prove-a-universal-fact.kurt): Prove a universal fact
 - [`09-use-an-existential-witness.kurt`](09-use-an-existential-witness.kurt): Use an existential witness
+- [`09a-prove-an-existential-statement.kurt`](09a-prove-an-existential-statement.kurt): Prove an existential statement
 - [`10-use-exact-arithmetic-with-calc.kurt`](10-use-exact-arithmetic-with-calc.kurt): Use exact arithmetic with `calc`
 - [`11-prove-a-statement-by-induction.kurt`](11-prove-a-statement-by-induction.kurt): Prove a statement by induction
 - [`12-write-and-load-a-reusable-theory.kurt`](12-write-and-load-a-reusable-theory.kurt): Write and load a reusable theory
@@ -35,6 +36,7 @@ a document that is gone.)
 - [`27-type-and-reduce-lambda-terms.kurt`](27-type-and-reduce-lambda-terms.kurt): Type and reduce simply typed lambda terms
 - [`28-prove-with-modal-logic.kurt`](28-prove-with-modal-logic.kurt): Prove with modal logic
 - [`29-numbers-sets-and-sorts.kurt`](29-numbers-sets-and-sorts.kurt): Numbers and sets together: sorts
+- [`29a-intervals-and-progressions.kurt`](29a-intervals-and-progressions.kurt): The numbers between two numbers: `Icc a b`, `Ioo a b`, and `{a, ..., c}`
 
 The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one by one, and
 [`doc/kurt-ref.md`](../doc/kurt-ref.md) is the complete language reference. More examples:

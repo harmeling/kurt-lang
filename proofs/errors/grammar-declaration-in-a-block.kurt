@@ -1,4 +1,4 @@
-; a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`, `bindop`, `flat`,
+; a grammar declaration (`infix`, `prefix`, `postfix`, `brackets`, `arity`, `binder`, `flat`,
 ; `sym`, `alias`, `sort`) is rejected inside a proof-like block, for the same reason as
 ; `use`/`load`/`def`/`chain`/`inline`: once a block's own notation is used by a formula that
 ; survives the block, the declaration is promoted and locked in for good (`is_used`), so
@@ -25,8 +25,8 @@ expect "EvalError" "`brackets` is not allowed inside `pick`"
     load "helpers/brackets-in-pick.kurt"
 expect "EvalError" "`arity` is not allowed inside `proof`"
     load "helpers/arity-in-proof.kurt"
-expect "EvalError" "`bindop` is not allowed inside `assume`"
-    load "helpers/bindop-in-assume.kurt"
+expect "EvalError" "`binder` is not allowed inside `assume`"
+    load "helpers/binder-in-assume.kurt"
 expect "EvalError" "`flat` is not allowed inside `assume`"
     load "helpers/flat-in-assume.kurt"
 expect "EvalError" "`sym` is not allowed inside `assume`"

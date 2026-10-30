@@ -1,5 +1,5 @@
 ; numbers and sets live together (todo 34, doc/kurt-soundness.md §8.41): every number is a set
-; (objects.kurt, `sort set real`), a set is no number; a rule about numbers says nothing about a
+; (set.kurt, `sort set real`), a set is no number; a rule about numbers says nothing about a
 ; set, a rule about sets holds for numbers too. An object without a sort is neither (design B):
 ; the elements of a set have no sort
 load natural

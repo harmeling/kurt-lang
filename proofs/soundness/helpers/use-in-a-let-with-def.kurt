@@ -1,0 +1,9 @@
+; `use` inside a block after a `def` (see ../def-in-a-block-escapes.kurt): a `def` is allowed in a
+; block, `use` still not -- the result would rest on the axiom
+load logic
+prop A, P
+arity P 1
+const c
+assume A
+    def k iff P c
+    use k

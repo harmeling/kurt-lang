@@ -1,7 +1,7 @@
 ; CALCULUS BY THE DEFINITIONS
 ;
 ; Exercise 2 uses only the definitions of continuity and of the derivative (those of
-; continuity.kurt, written out here, with analysis.kurt and numbers.kurt) -- not the rules of
+; continuity.kurt, written out here, with analysis.kurt and number.kurt) -- not the rules of
 ; differentiation of theory/calculus.kurt, and not continuity.kurt's "cont-tends" with the limit
 ; rules of analysis.kurt, so that a proof goes through ε and δ. Functions are written as terms in
 ; a variable, which the operators bind:
@@ -19,14 +19,14 @@
 ;     "deriv-intro"   (∀ e > 0 ∃ d > 0 ∀ h ((0 < abs(h) ∧ abs(h) < d)
 ;                                ⇒ abs((T(a + h) - T(a)) / h - L) < e))  ⇒  deriv x a T = L
 ;
-; and the algebra of analysis.kurt and numbers.kurt ("add-sub", "distrib-sub", "abs-mul", ...).
+; and the algebra of analysis.kurt and number.kurt ("add-sub", "distrib-sub", "abs-mul", ...).
 ;
 ; This file is the scene of exercise 2: it loads it with `load theory/definitions`. Don't change it.
 load analysis
 default real                      ; the symbols of this scene are numbers (`x` of `cont x a T`)
 const cont, diff, deriv
 arity cont 3, diff 3, deriv 3
-bindop cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
+binder cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
 prop cont 0, diff 0
 tex cont \operatorname{cont}_{$1=$2} $3
 tex diff \operatorname{diff}_{$1=$2} $3

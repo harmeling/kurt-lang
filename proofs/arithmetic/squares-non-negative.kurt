@@ -1,0 +1,18 @@
+; the theorem "squares-non-negative" of number.kurt (proved there, by trichotomy): a square is not negative
+load number
+real a
+show a * a >= 0
+proof
+    a * a >= 0              ; by "squares-non-negative"
+qed
+
+show (a + 1) * (a + 1) >= 0
+proof
+    (a + 1) * (a + 1) >= 0
+qed
+
+show ¬ (a * a < 0)
+proof
+    a * a >= 0
+    ¬ (a * a < 0)
+qed

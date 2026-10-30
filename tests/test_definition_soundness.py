@@ -48,7 +48,7 @@ not (c rel c)
 c rel c
 false
 ''',
-    'calculator_argument': '''load numbers
+    'calculator_argument': '''load number
 const plus
 infix plus 60 60
 builtin plus add
@@ -68,7 +68,7 @@ not (0 = 1)
 (0 = 1) and not (0 = 1)
 false
 ''',
-    'calculator_head': '''load numbers
+    'calculator_head': '''load number
 infix plus 60 60
 builtin plus add
 def $x plus $y = 0
@@ -137,7 +137,7 @@ class TestDefinitionSoundness(unittest.TestCase):
         sources = [
             'load group\ndef $a ∘ $b = $a\n',
             'load propositional\ndef p iff true, q iff p\np\nq\n',
-            'load numbers\ndef square($x) = $x * $x\ncalc on\nsquare(3) = 9\n',
+            'load number\ndef square($x) = $x * $x\ncalc on\nsquare(3) = 9\n',
             'load equality\nbrackets ⟨ ⟩\nconst b\ndef q = ⟨b, b⟩\nq = ⟨b, b⟩\n',
             'load propositional\ndef negate(%A) iff not %A\nnegate(true) iff not true\n',
         ]

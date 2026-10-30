@@ -22,7 +22,7 @@
 ; (`x < n`) needs it as a number; the rule gives a number equal to it (`pick k with k = x`). It is a
 ; theorem in the model of the Lean export (Nat is the set of the embedded natural numbers there),
 ; see the `lean "nat-number"` at the end. Everything else here is a `def` or a theorem.
-load propositional, equality, logic, set, numbers, natural
+load propositional, equality, logic, set, number, natural, interval
 
 ; the sorts of the variables (a fact gives no sort, doc/kurt-ref.md §5.2): mappings and sets are
 ; sets, sizes are numbers, an element (also of a set of pairs, `c ∈ {(n, a)}`) is any object

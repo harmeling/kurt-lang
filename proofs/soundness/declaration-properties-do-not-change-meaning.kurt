@@ -15,13 +15,13 @@ expect "EvalError" "can not also be prefix"
 
 expect "EvalError" "can not be `sym`"
     infix q 20 20
-    bindop q
+    binder q
     sym q
 
 expect "EvalError" "can not be a binding operator"
     infix q 20 20
     sym q
-    bindop q
+    binder q
 
 expect "EvalError" "explicit arity"
     arity h 2
@@ -36,6 +36,6 @@ expect "EvalError" "a term as its result"
     prop arithmetic 0
 
 expect "EvalError" "first position"
-    prop binder 0 1
-    arity binder 2
-    bindop binder
+    prop binderop 0 1
+    arity binderop 2
+    binder binderop

@@ -1,20 +1,23 @@
-; numbers -- the laws of numbers (N, Z, Q, R: an ordered field), formerly arith.kurt
+; number -- the laws of numbers (an ordered field), and the sets of numbers `Real`, `Int`, `Rat`
 ;
 ; Its laws hold for everything written with its operators (`$a * $b = $b * $a` for any `$a`, `$b`):
 ; for vectors or matrices, use a structure with its own operators instead (a field, a vector
 ; space) -- a symbol is declared by one file only, so the two can't be loaded together.
 ;
 ; covers: +, -, *, /, ^ (with real algebraic identities: distributivity, inverses, identities,
-; the exponent laws), <, >, <=, >= (with transitivity, antisymmetry, trichotomy), and
-; factorial (recursively defined via "factorial-step", not just the base case) -- see
-; proofs/arithmetic/ for worked examples of all of this.
+; the exponent laws, "pow-two": a square), <, >, <=, >= (with transitivity, antisymmetry,
+; trichotomy), theorems proved from these rules (a square is not negative, the three binomial
+; formulas "binomial-plus", "binomial-minus", "binomial-product", and "two-times"), factorial
+; (recursively defined via "factorial-step", not just the base case), and the sets of numbers
+; `Real` (ℝ), `Int` (ℤ), `Rat` (ℚ) with their closure under the operations (the natural numbers
+; `Nat` are in natural.kurt) -- see proofs/arithmetic/ for worked examples of all of this.
 ;
 ; `calc on` computes what you type, the results of substitutions, and a part of a rule as soon as
 ; its variables have values (`($n - 1)!` with `$n := 3` matches `2!`, see
 ; proofs/arithmetic/factorial-with-calc.kurt) -- but it doesn't solve: `$b / 3` doesn't match
 ; `0` while `$b` is unknown.
-load propositional, equality
-load objects               ; the sorts: `real`, and `real ⊂ set`
+load propositional, equality, logic     ; (`logic`: the quantifiers, for the theorems below)
+load set                   ; the sorts: `real`, and `real ⊂ set` (every number is a set)
 default real                ; every symbol of this file is a number, every position a number's
 
 ;; syntax
@@ -50,9 +53,9 @@ tex / \frac{$1}{$2}
 tex ^ {$1}^{$2}
 
 ; how `kurt --lean` writes them with Mathlib (doc/kurt-ref.md, `--lean`): the numbers are Mathlib's
-; reals -- for every theory of numbers (natural.kurt, integer.kurt, rational.kurt: `Nat`, `Int`,
+; reals -- for every theory of numbers (natural.kurt, divisibility.kurt: `Nat`, `Int`,
 ; `Rat` are sets of them, as here) --, embedded into the sets of Mathlib, the objects (`lean Obj
-; ZFSet`, objects.kurt: every number is a set), a number `2` is `(2 : ℝ)`, `^` the real power
+; ZFSet`, set.kurt: every number is a set), a number `2` is `(2 : ℝ)`, `^` the real power
 ; (`Real.rpow`), and `n!` is `Γ(n + 1)` (`Real.Gamma`: `0! = 1` and `n! = n (n - 1)!` for every
 ; `n > 0`, as the rules below say, and `n!` the factorial for a natural number). With `ℝ`, `x / 0 =
 ; 0` (Mathlib's convention); no rule below says otherwise. Each rule is a theorem of Mathlib: its
@@ -99,6 +102,8 @@ use $a - 0 = $a          "sub-identity"
 ; guarded by `$a ≠ 0` below instead of being a blanket axiom.
 use $a ^ 1 = $a                          "pow-identity"
 use $a ≠ 0  ⇒  $a ^ 0 = 1                "pow-zero"
+; a square, for every base (the binomial formulas below are proved from it)
+use $a ^ 2 = $a * $a                     "pow-two"
 ; the other laws only for a positive base: `((-1) ^ 2) ^ (1 / 2)` is `1`, but `(-1) ^ 1` is `-1`,
 ; and `0 ^ 1 * 0 ^ (-1)` would be `0 ^ 0`
 use $a > 0  ⇒  $a ^ $b * $a ^ $c = $a ^ ($b + $c)   "pow-add"
@@ -175,6 +180,133 @@ use $a >  $b ∧ $a <= $b  ⇒  false   "gt-le-contra"
 ;; trichotomy
 use $a < $b ∨ $a = $b ∨ $a > $b   "trichotomy"
 
+;; a theorem: the square of a number is not negative (by trichotomy, from the rules above)
+show ∀ x (x * x >= 0)   "squares-non-negative"
+proof
+    let x
+        x < 0 ∨ x = 0 ∨ x > 0                  ; by trichotomy
+        case x < 0
+            x < 0 ∧ x < 0
+            x * x > 0 * x                       ; "lt-mul-neg": a < b and c < 0, so a * c > b * c
+            0 * x = 0
+            x * x > 0
+            x * x >= 0
+        case x = 0
+            x * x = 0 * 0
+            0 * 0 = 0
+            x * x = 0
+            x * x >= 0
+        case x > 0
+            x > 0 ∧ x > 0
+            x * x > 0
+            x * x >= 0
+        x * x >= 0
+qed
+
+;; binomial formulas: theorems, proved from the rules above ("pow-two", "distrib-add",
+;; "distrib-sub", "add-sub", ...), one rewrite per line
+show ∀ x (2 * x = x + x)   "two-times"
+proof
+    let x
+        calc on
+        (1 + 1) * x = 1 * x + 1 * x             ; "distrib-add"
+        1 * x = x
+        2 * x = x + x                           ; by calc: `1 + 1` is `2`
+qed
+
+; two helpers, not exported: a difference as a sum, and a factor's minus sign
+show ∀ x ∀ y (x - y = x + (-y))   local "sub-as-add"
+proof
+    let x
+        let y
+            (y + (-y)) - (-y) = y - (-y - (-y))     ; "add-sub"
+            -y - (-y) = 0
+            (y + (-y)) - (-y) = y - 0
+            y - 0 = y
+            (y + (-y)) - (-y) = y
+            y + (-y) = 0
+            0 - (-y) = y
+            (x + (-y)) - 0 = x - (0 - (-y))          ; "add-sub"
+            (x + (-y)) - 0 = x - y
+            (x + (-y)) - 0 = x + (-y)
+            x - y = x + (-y)
+qed
+
+show ∀ x ∀ y (x * (-y) = -(x * y))   local "mul-neg"
+proof
+    let x
+        let y
+            y * (-1) = -y
+            x * (-y) = x * y * (-1)
+            x * y * (-1) = -(x * y)
+            x * (-y) = -(x * y)
+qed
+
+show ∀ a ∀ b ((a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2)   "binomial-plus"
+proof
+    let a
+        let b
+            (a + b) ^ 2 = (a + b) * (a + b)                     ; "pow-two"
+            (a + b) * (a + b) = a * (a + b) + b * (a + b)       ; "distrib-add"
+            a * (a + b) = a * a + a * b
+            b * (a + b) = a * b + b * b
+            (a + b) ^ 2 = a * (a + b) + b * (a + b)
+            (a + b) ^ 2 = a * a + a * b + b * (a + b)
+            (a + b) ^ 2 = a * a + a * b + a * b + b * b
+            2 * (a * b) = a * b + a * b                         ; "two-times"
+            (a + b) ^ 2 = a * a + 2 * a * b + b * b
+            a ^ 2 = a * a
+            b ^ 2 = b * b
+            (a + b) ^ 2 = a ^ 2 + 2 * a * b + b * b
+            (a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2
+qed
+
+show ∀ a ∀ b ((a - b) ^ 2 = a ^ 2 - 2 * a * b + b ^ 2)   "binomial-minus"
+proof
+    let a
+        let b
+            a - b = a + (-b)                                    ; "sub-as-add"
+            (a - b) ^ 2 = (a + (-b)) ^ 2
+            (a + (-b)) ^ 2 = a ^ 2 + 2 * a * (-b) + (-b) ^ 2    ; "binomial-plus"
+            (a - b) ^ 2 = a ^ 2 + 2 * a * (-b) + (-b) ^ 2
+            (2 * a) * (-b) = -(2 * a * b)                       ; "mul-neg"
+            (a - b) ^ 2 = a ^ 2 + -(2 * a * b) + (-b) ^ 2
+            (-b) ^ 2 = (-b) * (-b)
+            (-b) * (-b) = -((-b) * b)
+            (-b) * b = -(b * b)
+            (-b) * (-b) = -(-(b * b))
+            -(-(b * b)) = b * b
+            (-b) * (-b) = b * b
+            b ^ 2 = b * b
+            (-b) ^ 2 = b ^ 2
+            (a - b) ^ 2 = a ^ 2 + -(2 * a * b) + b ^ 2
+            a ^ 2 - 2 * a * b = a ^ 2 + -(2 * a * b)            ; "sub-as-add"
+            (a - b) ^ 2 = a ^ 2 - 2 * a * b + b ^ 2
+qed
+
+show ∀ a ∀ b ((a + b) * (a - b) = a ^ 2 - b ^ 2)   "binomial-product"
+proof
+    let a
+        let b
+            (a - b) * (a + b) = a * (a + b) - b * (a + b)       ; "distrib-sub"
+            a * (a + b) = a * a + a * b
+            b * (a + b) = a * b + b * b
+            (a + b) * (a - b) = (a * a + a * b) - b * (a + b)
+            (a + b) * (a - b) = (a * a + a * b) - (a * b + b * b)
+            (a * a + a * b) - (a * b + b * b) = a * a - ((a * b + b * b) - a * b)   ; "add-sub"
+            (b * b + a * b) - a * b = b * b - (a * b - a * b)
+            a * b - a * b = 0
+            (b * b + a * b) - a * b = b * b - 0
+            b * b - 0 = b * b
+            (a * b + b * b) - a * b = b * b
+            (a + b) * (a - b) = a * a - ((a * b + b * b) - a * b)
+            (a + b) * (a - b) = a * a - b * b
+            a ^ 2 = a * a
+            b ^ 2 = b * b
+            (a + b) * (a - b) = a ^ 2 - b * b
+            (a + b) * (a - b) = a ^ 2 - b ^ 2
+qed
+
 ;; factorial
 use 0! = 1                              "factorial-base"
 use $n > 0  ⇒  $n! = $n * ($n - 1)!     "factorial-step"
@@ -208,6 +340,7 @@ lean "add-identity" intros; ring
 lean "sub-identity" intros; ring
 lean "pow-identity" intros; simp
 lean "pow-zero" intros; simp
+lean "pow-two" intros; rw [Real.rpow_two]; ring
 lean "pow-add" intros; rw [← Real.rpow_add ‹_›]
 lean "pow-mul" intros; rw [← Real.rpow_mul (le_of_lt ‹_›)]
 lean "lt-add" intros; linarith
@@ -259,3 +392,75 @@ lean "gt-le-contra" intros; casesm* _ ∧ _; linarith
 lean "trichotomy" intro a b; rcases lt_trichotomy a b with h | h | h <;> tauto
 lean "factorial-base" norm_num
 lean "factorial-step" intro n h; rw [sub_add_cancel, Real.Gamma_add_one h.ne']
+
+;; the sets of numbers: `Real`, `Int`, `Rat` (and `Nat`, natural.kurt)
+;
+; They are sets of numbers, closed under the operations they are closed under: `Int` under `+`, `-`, `*`, `Rat` under
+; `+`, `-`, `*` and `/` by a number ≠ 0. What needs the natural numbers (`Nat ⊂ Int`, the fractions m / n of an integer
+; and a natural number, "a positive rational is a fraction of natural numbers") is in natural.kurt.
+; the real numbers as a set (`Real`, `ℝ`): every number is in it -- a fact about the numbers, not a
+; sort (decision 11 of dev/todo-sorts.md: `x ∈ Real` gives `x` no sort; `real x` is what makes `x` a
+; number). With it, two sets of numbers are equal when they have the same numbers ("ext-real"):
+; extensionality over all objects ("extensionality", set.kurt) needs every object, and a binder of a
+; `default real` file ranges over the numbers only
+set Real
+const Real
+alias ℝ Real
+tex Real \mathbb{R}
+lean Real member $1 = $1
+use $x ∈ Real  "real-all"
+
+use (∀ $n ($n ∈ $A ⇔ $n ∈ $B)) ∧ $A ⊂ Real ∧ $B ⊂ Real  ⇒  $A = $B   "ext-real"
+
+set Int                  ; the integers are a set (of numbers)
+const Int
+builtin Int integers                   ; `calc on` proves `-3 ∈ Int`
+tex Int \mathbb{Z}
+; `kurt --lean` with Mathlib: the objects are Mathlib's reals (number.kurt), `Int` the integers
+; among them (as `Nat` in natural.kurt)
+lean Int member $1 ∈ Set.range (fun n : ℤ => (n : ℝ))
+alias ℤ Int
+use Int ⊂ Real  "int-sub-real"      ; a set of numbers (natural.kurt's "ext-real")
+
+use $a ∈ Int ∧ $b ∈ Int  ⇒  $a + $b ∈ Int         "int-add"
+
+use $a ∈ Int ∧ $b ∈ Int  ⇒  $a - $b ∈ Int         "int-sub"
+
+use $a ∈ Int ∧ $b ∈ Int  ⇒  $a * $b ∈ Int         "int-mul"
+
+set Rat                  ; the rationals are a set (of numbers)
+const Rat
+builtin Rat rationals                  ; `calc on` proves `1 / 3 ∈ Rat`
+tex Rat \mathbb{Q}
+; `kurt --lean` with Mathlib: the objects are Mathlib's reals (number.kurt), `Rat` the rationals
+; among them (as `Nat` in natural.kurt)
+lean Rat member $1 ∈ Set.range (fun q : ℚ => (q : ℝ))
+alias ℚ Rat
+use Rat ⊂ Real  "rat-sub-real"      ; a set of numbers (natural.kurt's "ext-real")
+
+use $a ∈ Rat ∧ $b ∈ Rat  ⇒  $a + $b ∈ Rat                          "rat-add"
+
+use $a ∈ Rat ∧ $b ∈ Rat  ⇒  $a - $b ∈ Rat                          "rat-sub"
+
+use $a ∈ Rat ∧ $b ∈ Rat  ⇒  $a * $b ∈ Rat                          "rat-mul"
+
+use $a ∈ Rat ∧ $b ∈ Rat ∧ $b ≠ 0  ⇒  $a / $b ∈ Rat                 "rat-div"
+
+
+;; the rules above as theorems of Mathlib (`Int`, `Rat` by their axioms `k_mem_Int`, `k_mem_Rat`)
+lean "real-all" intro x; exact (k_mem_Real _).mpr rfl
+lean "ext-real" intro A B ⟨h, hA, hB⟩; simp only [subset] at hA hB; apply ZFSet.ext; intro z; constructor
+lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hA z hz); exact (h x).mp hz
+lean "ext-real" · intro hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z (hB z hz); exact (h x).mpr hz
+lean "int-sub-real" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "int-add" intro a b h; obtain ⟨⟨m, rfl⟩, ⟨n, rfl⟩⟩ := And.intro ((k_mem_Int _).mp h.1) ((k_mem_Int _).mp h.2); exact (k_mem_Int _).mpr ⟨_, Int.cast_add _ _⟩
+lean "int-sub" intro a b h; obtain ⟨⟨m, rfl⟩, ⟨n, rfl⟩⟩ := And.intro ((k_mem_Int _).mp h.1) ((k_mem_Int _).mp h.2); exact (k_mem_Int _).mpr ⟨_, Int.cast_sub _ _⟩
+lean "int-mul" intro a b h; obtain ⟨⟨m, rfl⟩, ⟨n, rfl⟩⟩ := And.intro ((k_mem_Int _).mp h.1) ((k_mem_Int _).mp h.2); exact (k_mem_Int _).mpr ⟨_, Int.cast_mul _ _⟩
+lean "rat-sub-real" simp only [subset]; intro z hz; obtain ⟨x, rfl, _⟩ := k_numset_elem _ z hz; exact (k_mem_Real _).mpr rfl
+lean "rat-add" intro a b h; obtain ⟨⟨p, rfl⟩, ⟨q, rfl⟩⟩ := And.intro ((k_mem_Rat _).mp h.1) ((k_mem_Rat _).mp h.2); exact (k_mem_Rat _).mpr ⟨_, Rat.cast_add _ _⟩
+lean "rat-sub" intro a b h; obtain ⟨⟨p, rfl⟩, ⟨q, rfl⟩⟩ := And.intro ((k_mem_Rat _).mp h.1) ((k_mem_Rat _).mp h.2); exact (k_mem_Rat _).mpr ⟨_, Rat.cast_sub _ _⟩
+lean "rat-mul" intro a b h; obtain ⟨⟨p, rfl⟩, ⟨q, rfl⟩⟩ := And.intro ((k_mem_Rat _).mp h.1) ((k_mem_Rat _).mp h.2); exact (k_mem_Rat _).mpr ⟨_, Rat.cast_mul _ _⟩
+lean "rat-div" intro a b h; casesm* _ ∧ _
+lean "rat-div" obtain ⟨p, rfl⟩ := (k_mem_Rat a).mp ‹_›
+lean "rat-div" obtain ⟨q, rfl⟩ := (k_mem_Rat b).mp ‹_›
+lean "rat-div" exact (k_mem_Rat _).mpr ⟨_, Rat.cast_div _ _⟩

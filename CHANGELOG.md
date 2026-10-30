@@ -1,5 +1,82 @@
 # Changelog
 
+## 0.12.0 (2026-10-30)
+
+**Breaking, for 0.11 to 0.12** (each one below too): `numbers.kurt` is `number.kurt` (`load number`); `integer.kurt`, `rational.kurt`,
+`real.kurt` and `objects.kurt` are gone (`load natural` has what they had; the sets `Real`, `Int`, `Rat` are in `number.kurt`; `even`, `odd`, `∣`, `coprime`
+are in `divisibility.kurt`, `{a, ..., c}` in `interval.kurt`); the declaration `bindop` is `binder`; the sum is empty for `a > b`; a `def` is
+local to the block it is in (and may not be in its result). New: `kurt --share`/`--unshare`, `kurt --profile`, `∃ x, y P`, `var real x, y`, an equation
+whose first line is a term, `nested` and `binder SYMBOL POWER`, the intervals, a fact with several conditioned `∀` in one line, the editors' heat map.
+
+
+- A fact with two or three quantifiers that have conditions, `∀ x ∈ V ∀ y ∈ V P`, is used in one line: Kurt derives the instance for the first
+  `∀` as a step of its own (`9a by forall-cond-elim(V2, 7)`) and then the line; before, each `∀` needed a line of yours. If a condition is not
+  known, the message names it (`V2 has 2 quantifiers with conditions ... but b ∈ V is not known`). Reference §4.4, soundness §8.52.
+
+- A term on its own line continues on the next line (todo 80): `(a + b) * c` and, indented, `= a * c + b * c` are one statement `(a + b) * c =
+  a * c + b * c` -- the usual way to write an equation in two lines, with further lines `  = ...` as in a chain (only the relations of a `chain`
+  continue a term). A term line that nothing continues is the same error as before, "must be a statement", at its own line (also with all errors
+  and in the editors); the shell waits for the next line, so a pasted file works. Reference §6.2.
+
+- `binder SYMBOL POWER` (`binder sum 65`): the binding power of the body of a binder; without it the body stays one tight argument.
+  `nested forall, exists` (in logic.kurt) declares the binders whose variable may be a list, `forall x > 0, y > 0 P`: the quantifiers
+  are no longer found by their engine roles. Reference §4.4. The theories use it: `forall`, `exists`, `existsunique` 17 (the comparisons
+  and `not` inside, `and`, `or`, `implies` outside: `∀ x x > 0 ∧ x < 5` is `(∀ x (x > 0)) ∧ x < 5`), `sum`, `max`, `min`, `argmax`, `argmin`, `sup`,
+  `inf`, `lim`, `integral`, `integrable` 65 (`*` inside, `+` outside: `sum i (1, n) i * 2 + 1` is `(sum i (1, n) (i * 2)) + 1`). Before, a body
+  was one tight argument and such a line was a type error; no file of the corpus reads differently.
+- The number files (plan step 6-8): **Breaking**, a file that loads `integer`, `rational` or `real` loads `natural` now (`Int`, `Rat`,
+  `Real` are in `number.kurt`, which is `numbers.kurt` renamed: write `load number`); `even`, `odd`, `∣`, `coprime` are in
+  `divisibility.kurt`; `{a, ..., c}` and the new intervals `Icc a b`, `Ico a b`, `Ioc a b`, `Ioo a b` in `interval.kurt` `objects.kurt` is gone (its sorts are in `set.kurt`).
+
+- `kurt --profile FILE`: after the check, the ten slowest lines with their time and search steps; `RunConfig(profile=True)` fills
+  `CheckResult.profile` (also in `--json`). The language server marks lines of 2 s or more (Information, and the time in the hint).
+
+- **Breaking:** the declaration `bindop` is now `binder` (`binder forall`, `binder sum`): the common word, and the one the messages and the
+  reference already used. No alias: a file of your own that says `bindop` says `binder` now (the theories of Kurt are changed). Also
+  `keywords/32-bindop.kurt` is `keywords/32-binder.kurt`.
+
+- `exists x, y, z P` (and `forall x, y P`) with several variables, each with its own condition if wanted (`forall x > 0, y > 0 P`): `exists x exists y exists z P` (`pick x, y, z with ...` is the proof side).
+
+- `var real x, y, z` and `const real c, d`: a sort in front of the names declares them and gives them that sort (reference §3.2).
+- Fixed: a `KernelError` for a stored fact `(C or (forall y %X)) implies G` used with "or-elim" (todo 76).
+
+- **Breaking (analysis.kurt, todo 78):** the empty sum is 0 for every range with `a > b` ("sum-empty": `use $a > $b ⇒ sum i ($a, $b) T = 0`;
+  before, only `sum i (b + 1, b) T = 0`), and "sum-last" has the premise `$a <= $b + 1`. The sum is no longer the signed one (for fewer
+  than no terms its negative): with that, the rule for all ranges together with "sum-last" without a premise gave `3 = 0`. A proof
+  that cites "sum-last" proves its premise (`0 <= k + 1`); `kurt --lean` writes `sum` as `if a ≤ b then ∑ n ∈ range (⌊b - a⌋₊ + 1), T (b - n) else 0`.
+
+- doc/kurt-ref.md §8.2 starts "What gets exported" with a table (a `load` brings / stays in the file), also in
+  keywords/17-local.kurt and tutorial/12. The reference said a `local` declaration that an exported fact needs
+  "still goes along"; it is an error (as the spec says).
+
+- The lessons write the bound variable of a quantifier as a plain name (`forall x P(x)`, `exists x > 0 P(x)`); the `$` is only for
+  the free variables of a rule. Nothing changes in Kurt (`∀ $x` is still accepted); doc/kurt-ref.md §3.4 says so.
+
+- **A `def` is allowed inside a block** (`proof`, `assume`, `case`, `let`, `pick`; todo 77), also with
+  `--strict`. It is local to the block: the symbol is a constant of the block, it and its defining fact
+  are gone when the block closes (a later block may define the name anew), and the block's result must
+  not mention it (`ProofError: \`w\` is defined in this block ...`). Its right side may mention the
+  block's constants: `let a`, then `def w = a * a + 1` names a witness that depends on `a`. The kernel
+  checks the scope on its own, `kurt --lean` writes such a `def` as an `obtain` in the proof, and the
+  hover says "local to its block". `use`, `chain`, `load`, `inline` and the grammar declarations stay
+  refused in a block. Lesson tutorial/09a and keywords/12-def show it.
+
+- A tutorial lesson on proving an existential statement: tutorial/09a-prove-an-existential-statement.kurt (the witness,
+  `exists-intro`, a computed witness, a condition, two quantifiers, a witness from a `pick`, a wrong witness).
+
+- numbers.kurt has the binomial formulas as proved theorems: "binomial-plus" `(a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2`,
+  "binomial-minus" `(a - b) ^ 2 = a ^ 2 - 2 * a * b + b ^ 2`, "binomial-product" `(a + b) * (a - b) = a ^ 2 - b ^ 2`, and
+  "two-times" `2 * x = x + x`; a step like `(x + y) ^ 2 = x ^ 2 + 2 * x * y + y ^ 2` follows from them in one step
+  (proofs/arithmetic/binomial-formulas.kurt). They rest on one new rule, "pow-two" `$a ^ 2 = $a * $a` (for every base;
+  in Lean `Real.rpow_two`, proved there like the other rules).
+
+- numbers.kurt has a proved theorem, "squares-non-negative": `∀ $x ($x * $x >= 0)` (by trichotomy, from its rules). It loads
+  `logic` now, for the quantifiers.
+
+- `kurt --share FILE` prints the playground link of a proof (`#proof=`, the text in base64) and `kurt --unshare LINK` prints
+  the proof of a link back, so a proof can be sent as a link and turned into a file from the command line; the Python
+  for both is in doc/kurt-ref.md §1.
+
 ## 0.11.0 (2026-10-26)
 
 - Two false rejections of the search, fixed (todo 50). A number or a string was taken for a clash with a

@@ -19,9 +19,9 @@ parse g(a, b)            ; (g (() (, a b))): `()` is the tuple, `,` the list in 
 
 ; the shape can mix both: a finite sum `mysum i (1, n) T` takes the variable,
 ; the range as a pair, and the body -- three arguments, the second a pair. This is
-; how analysis.kurt declares its `sum` (`arity sum _ (_, _) _`, also a `bindop`,
-; 32-bindop.kurt), and integral.kurt its `integral`.
-load numbers
+; how analysis.kurt declares its `sum` (`arity sum _ (_, _) _`, also a `binder`,
+; 32-binder.kurt), and integral.kurt its `integral`.
+load number
 var n
 arity mysum _ (_, _) _
 parse mysum i (1, n) (i * i)          ; (mysum i (() (, 1 n)) (* i i))

@@ -14,14 +14,15 @@ load equality  ; `=`, for unique existence
 ; rules are the axioms below. Without `load logic`, a file has no quantifiers (a deep object
 ; language may use the words and the glyphs for something else).
 arity   forall 2, exists 2
-bindop  forall, exists          ; with a condition, `∀ x > 0 ...` binds the first symbol of the
+binder  forall 17, exists 17          ; with a condition, `∀ x > 0 ...` binds the first symbol of the
                                 ; condition that is new or a variable (decided when it is read)
 prop    forall 0 2, exists 0 2  ; the body is a statement, and so is the whole
 builtin forall universal, exists existential
+nested  forall, exists          ; the variable may be a list, each with its own condition: `∀ x > 0, y > 0 P` is `∀ x > 0 ∀ y > 0 P`
 alias   ∀ forall
 alias   ∃ exists
 arity  existsunique 2     ; unique existence: `existsunique x P(x)`, `∃! x P(x)`
-bindop existsunique       ; binds its variable, also with a condition: `∃! x ∈ M P(x)`
+binder existsunique 17       ; binds its variable, also with a condition: `∃! x ∈ M P(x)`
 prop   existsunique 0 2   ; the body is a statement, and so is the whole
 alias  ∃! existsunique
 

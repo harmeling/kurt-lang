@@ -54,12 +54,19 @@ def check_file(path_str: str):
 # shared; 1 checks them one after the other in this process)
 JOBS = int(os.environ.get('KURT_TEST_JOBS', '4'))
 
+def wanted(path, filters) -> bool:
+    # `KURT_TEST_FILTER=soundness,debug`: only the files whose path contains one of the words (a quick
+    # subset while working; empty = all files, as the full run before a push needs)
+    return not filters or any(f in str(path) for f in filters)
+
+FILTERS = [f for f in os.environ.get('KURT_TEST_FILTER', '').split(',') if f]
+
 class TestProving(unittest.TestCase):
     def test_proving(self):
         example_paths = sorted(proofs_root.rglob("*.kurt"))
         example_paths += list(traversable_rglob(theories_root, ".kurt"))   # (`.kurt`, not `*.kurt`: a suffix, not a pattern)
-        example_paths = [p for p in example_paths if is_test_file(p)]
-        self.assertTrue(example_paths, "No `.kurt` files found under proofs/")
+        example_paths = [p for p in example_paths if is_test_file(p) and wanted(p, FILTERS)]
+        self.assertTrue(example_paths, "No `.kurt` files found under proofs/ (for KURT_TEST_FILTER)")
         names = [str(p) for p in example_paths]
         if JOBS > 1:
             with concurrent.futures.ProcessPoolExecutor(max_workers=JOBS) as pool:
@@ -69,6 +76,11 @@ class TestProving(unittest.TestCase):
         for i, (name, error) in enumerate(zip(names, errors)):
             with self.subTest(i=i, msg=name):
                 self.assertIsNone(error)
+
+    def test_filter(self):
+        self.assertTrue(wanted('/p/proofs/soundness/a.kurt', []))
+        self.assertTrue(wanted('/p/proofs/soundness/a.kurt', ['debug', 'soundness']))
+        self.assertFalse(wanted('/p/proofs/analysis/a.kurt', ['debug', 'soundness']))
 
     def test_discovery(self):
         root = pathlib.Path('/home/helpers/kurt/proofs')

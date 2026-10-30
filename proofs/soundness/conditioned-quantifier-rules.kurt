@@ -3,7 +3,7 @@
 ; kurt.py, doc/kurt-soundness.md §8.11): the condition must be matched as a whole, with every
 ; occurrence of the bound variable in the hole -- never dropped, weakened, or mixed up with
 ; another condition
-load numbers, logic
+load number, logic
 calc on
 prop P, Q
 arity P 1

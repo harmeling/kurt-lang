@@ -1,9 +1,9 @@
-; coverage test: the transitivity of `<` (numbers.kurt's `chain = <= <`, the generated rules
+; coverage test: the transitivity of `<` (number.kurt's `chain = <= <`, the generated rules
 ; "chain-trans-*") in a real proof -- Kurt's derivation is single-hop, so a < b < c < d needs an
 ; explicit intermediate a < c step. The four are constants: with `var a, b, c, d` (until 2026-10-14)
 ; `use c < d` was the schema `$c < $d`, "every number is less than every number", and `1 < 1`
 ; followed (found by the examples hunt).
-load numbers
+load number
 const a, b, c, d
 
 use a < b

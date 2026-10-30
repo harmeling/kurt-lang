@@ -1,4 +1,4 @@
-; numbers.kurt leaves `0 ^ 0` open ("pow-zero" needs `$a ≠ 0`). derivative.kurt's "diff-pow" and
+; number.kurt leaves `0 ^ 0` open ("pow-zero" needs `$a ≠ 0`). derivative.kurt's "diff-pow" and
 ; "deriv-pow" with `$n = 0` would decide it: `v ↦ v ^ 0` differentiable at 0, so continuous there,
 ; and `y ^ 0 = 1` for `y ≠ 0` gave `0 ^ 0 = 1` in 53 lines; sequences.kurt's "geometric" with
 ; `$q = 0` (its first summand is `0 ^ 0`) the same. Since 2026-10-15 the rules need `0 < $n`, `$q ≠ 0`.

@@ -1,0 +1,9 @@
+; todo 76: a stored fact with a statement variable under a binder (`∀ y %X`), matched with a part of
+; the premise of "or-elim", was given the value in the other side's bound variable: the kernel
+; rejected the step (`KernelError`, a bug in Kurt, though safe). The search now renames the
+; side without variables to the binder of the fact, so the certificate's values are in its terms.
+load logic
+use A or C or (forall z P(z))
+use A implies G
+use (C or (forall y %X)) implies G
+G

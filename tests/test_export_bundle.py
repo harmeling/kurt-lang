@@ -18,7 +18,7 @@ CASES = {
     'prefix':   ('prefix S 80',   'use S a',            lambda kb, s: kb.is_prefix(s)),
     'postfix':  ('postfix S 80',  'use a S',            lambda kb, s: kb.is_postfix(s)),
     'arity':    ('arity S 1',     'use S a',            lambda kb, s: kb.get_arity(s) == 1),
-    'bindop':   ('arity S 2\nbindop S', 'use S $v a',   lambda kb, s: kb.is_bindop(s)),
+    'binder':   ('arity S 2\nbinder S', 'use S $v a',   lambda kb, s: kb.is_binder(s)),
     'flat':     ('infix S 50 50\nflat S', 'use a S a',  lambda kb, s: kb.is_flat(s)),
     'sym':      ('infix S 50 50\nsym S', 'use a S a',   lambda kb, s: kb.is_sym(s)),
     'prop':     ('prop S',        'use S',              lambda kb, s: len(kb.bool_sig(s)) > 0),

@@ -70,7 +70,7 @@ class TestWriting(KurtcTestCase):
 
 
     def test_unchanged_certificates_are_not_written_again(self):
-        # (every run wrote the `.kurtc` of each file again, 0.5 s for `load rational`)
+        # (every run wrote the `.kurtc` of each file again, 0.5 s for `load divisibility`)
         path = self.write('mp.kurt', 'prop A, B\nuse A implies B\nuse A\nB\n')
         self.run_file(path)
         kurtc = Path(str(path) + 'c')
@@ -139,8 +139,8 @@ class TestReplay(KurtcTestCase):
     def test_a_line_rewriting_two_places_replays_with_its_step(self):
         # `multi_rewrite`: the line with one place rewritten is a step (`5a`), and the line's
         # certificate cites it
-        path = self.write('two.kurt', 'load numbers\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
-        self.run_file(self.write('warm.kurt', 'load numbers\n'))
+        path = self.write('two.kurt', 'load number\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
+        self.run_file(self.write('warm.kurt', 'load number\n'))
         out1, searches1 = self.count_searches(path, 'match_all_theory')
         self.assertIn('5a by equal-elim', out1)
         out2, searches2 = self.count_searches(path, 'match_all_theory')
@@ -151,7 +151,7 @@ class TestReplay(KurtcTestCase):
     def test_a_step_without_its_certificate_is_searched(self):
         # the step's certificate taken out of the `.kurtc`: the line's can't be rebuilt, the search
         # runs (and finds the same), nothing is accepted without the kernel
-        path = self.write('two.kurt', 'load numbers\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
+        path = self.write('two.kurt', 'load number\nconst x, y\nuse x = 0\nuse y = 0\nx + y = 0 + 0\n')
         out1 = self.run_file(path)
         kurtc = Path(str(path) + 'c')
         content = json.loads(kurtc.read_text())
@@ -268,9 +268,9 @@ class TestForgedCertificates(KurtcTestCase):
 
     def test_direction_only_of_an_iff(self):
         # "bottom-elim" `false ⇒ %A` read backwards would give `false` from any fact
-        path = self.write('h.kurt', 'load numbers\nfalse\n')
+        path = self.write('h.kurt', 'load number\nfalse\n')
         file, line = theory_line('propositional', 'bottom-elim')
-        fact_file, fact_line = theory_line('numbers', 'factorial-base')
+        fact_file, fact_line = theory_line('number', 'factorial-base')
         S = lambda v: ['SYMBOL', v]
         E = lambda *c: {'e': list(c)}
         fact = E(S('='), E(S('!'), ['INT', 0]), ['INT', 1])

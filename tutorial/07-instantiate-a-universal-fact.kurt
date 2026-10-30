@@ -9,9 +9,10 @@ load logic
 prop P
 const P, c
 
-use forall $x P($x)
+use forall x P(x)
 P(c)
 
-; `$x` is the bound variable. A symbol starting with `$` (or `%` for a formula) is always a
-; variable, no matter what (see keywords/06-var.kurt). Instantiating it is built into Kurt, so
-; `P(c)` follows directly from the fact and the output shows just `by 12`.
+; `x` is the bound variable of the quantifier: it needs no declaration and no sigil, and it doesn't
+; become a constant. (A `$` or `%` sigil marks a *free* variable, as in a rule `use $a + 0 = $a`
+; (see keywords/06-var.kurt); a bound variable doesn't need one.) Instantiating a universal fact is built
+; into Kurt, so `P(c)` follows directly from the fact and the output shows just `by` and the line of the fact.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Cold loads and repeated sessions, apart: the time of `load rational` (and the theories below it)
+# Cold loads and repeated sessions, apart: the time of `load divisibility` (and the theories below it)
 # in a new `Session` -- cold, every theory checked from its source -- and of the same check again
 # in the same session, where the theories come from its cache (as the editors and the playground
 # check: one session, many checks). Also cold with the shipped certificates (`.kurtc`, as `kurt`
@@ -30,7 +30,7 @@ def seconds(check) -> float:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('names', nargs='*', default=['rational'], help='theories to load (default: rational)')
+    parser.add_argument('names', nargs='*', default=['divisibility'], help='theories to load (default: divisibility)')
     parser.add_argument('--runs', type=int, default=1)
     args = parser.parse_args()
     print(f'{"cold":>8} {"certified":>10} {"warm":>8}   theory      (seconds: a new session; a new session with the shipped .kurtc; the same session again)')

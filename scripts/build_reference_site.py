@@ -316,7 +316,7 @@ def make_kurt_lexer(keywords: list[str]):
     Comment, Keyword, Name, Number, String, Text, Operator, Punctuation = (
         token.Comment, token.Keyword, token.Name, token.Number, token.String, token.Text, token.Operator, token.Punctuation)
 
-    declarations = ['var', 'const', 'infix', 'postfix', 'prefix', 'brackets', 'arity', 'bindop', 'chain',
+    declarations = ['var', 'const', 'infix', 'postfix', 'prefix', 'brackets', 'arity', 'binder', 'chain',
                     'flat', 'sym', 'prop', 'calc', 'alias', 'sort', 'default', 'everything', 'builtin']
     commands = sorted(set(keywords) - set(declarations) | {'with', 'local'})
 

@@ -21,11 +21,11 @@ class TestTab(unittest.TestCase):
     # what Tab offers in the shell (`completions`), without a terminal
 
     def test_the_value_after_an_equal_sign(self):
-        kb, state = shell(['load numbers', 'calc on'])
+        kb, state = shell(['load number', 'calc on'])
         self.assertEqual(kurt.completions('17*42=', '', kb, state), ['714'])
         self.assertEqual(kurt.completions('1/3 + 1/6 =', '', kb, state), ['0.5'])
         self.assertEqual(kurt.completions('x + 1 =', '', kb, state), [])          # no value
-        kb, state = shell(['load numbers'])
+        kb, state = shell(['load number'])
         self.assertEqual(kurt.completions('17*42=', '', kb, state), [])           # only with `calc on`
 
     def test_latex_shortcuts(self):
@@ -36,7 +36,7 @@ class TestTab(unittest.TestCase):
 
     def test_theories_after_load(self):
         kb, state = shell([])
-        self.assertEqual(kurt.completions('load nu', 'nu', kb, state), ['numbers'])
+        self.assertEqual(kurt.completions('load nu', 'nu', kb, state), ['number'])
         self.assertIn('vectorspace', kurt.completions('load v', 'v', kb, state))
         self.assertNotIn('minimal', kurt.completions('load m', 'm', kb, state))
 

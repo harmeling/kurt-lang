@@ -2,8 +2,8 @@
 """Check every theory of `src/kurt/theories/` and write its certificates (`theories/*.kurtc`), so
 that they can be shipped: the standalone `kurt.py` embeds them (`scripts/build_standalone.py`),
 and the package has them next to the theories (`pyproject.toml`). A bundled or installed Kurt
-can't write certificates next to its theories, and without them it checks natural.kurt,
-integer.kurt and rational.kurt from scratch on every `load` (seconds each time). The kernel
+can't write certificates next to its theories, and without them it checks natural.kurt
+and divisibility.kurt from scratch on every `load` (seconds each time). The kernel
 checks a shipped certificate again, as any other: it only saves the search.
 
 Usage:

@@ -109,7 +109,7 @@ class TestConflicts(LoadTestCase):
         self.assertIn('declared differently', self.fails('main.kurt'))
 
     def test_a_symbol_is_declared_by_one_file_only(self):
-        # the same declaration from two files is an error too (numbers.kurt and field.kurt both
+        # the same declaration from two files is an error too (number.kurt and field.kurt both
         # declare `+`, with laws for different things), in both orders, directly or via a `load`
         self.write('lib.kurt', 'prop P\narity P 2\nuse P $x $y "p"\n')
         self.write('main.kurt', 'prop P\narity P 2\nuse P $x $x "q"\nload lib\n')

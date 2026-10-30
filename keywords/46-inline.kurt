@@ -5,7 +5,7 @@
 ; formula. `x > 0` and `0 < x` are then one and the same term -- there is nothing
 ; to switch.
 
-load numbers           ; (numbers.kurt has `inline $a > $b iff $b < $a`)
+load number           ; (number.kurt has `inline $a > $b iff $b < $a`)
 const x
 use 0 < x
 x > 0                  ; the same term: Kurt prints `0 < x`

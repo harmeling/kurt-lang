@@ -1,20 +1,20 @@
-; 32-bindop.kurt
+; 32-binder.kurt
 
-; `bindop` marks a symbol as a *variable-binding operator*: its first
+; `binder` marks a symbol as a *variable-binding operator*: its first
 ; argument is the variable (or a condition on it, e.g. `forall x>0 F(x)`) that
 ; is then considered bound inside the rest of the expression.  `forall` and `exists` (used already in lessons
 ; 19-let.kurt and 20-pick.kurt) are declared exactly this way, in `logic.kurt`,
 ; next to their axioms ("forall-elim" etc.):
 ;
 ;     arity  forall 2, exists 2
-;     bindop forall, exists
+;     binder forall, exists
 ;
 ; A symbol needs an `arity` (31-arity.kurt), or an `infix` (set.kurt's `|`),
-; before it can be declared a `bindop`. The binding scope is fixed semantics, so `bindop` also makes the
+; before it can be declared a `binder`. The binding scope is fixed semantics, so `binder` also makes the
 ; symbol a constant and prints that implied declaration. Here is a minimal binder of our own:
 
 arity myforall 2
-bindop myforall
+binder myforall
 
 prop P
 const P
@@ -29,17 +29,34 @@ parse myforall x (P x)   ; (myforall x (P x)) -- `x` is bound in `(P x)`
 ; when a block closes and its constants are free again; doc/kurt-ref.md §4.4).
 
 const c
-load numbers
+load number
 use myforall (c < y) (P y)          ; binds `y`: `c` is a constant
 use myforall (P z) (z = z)          ; binds `z`: `P` is a predicate
 use myforall (0 < e) (myforall (e < w) (0 < w))   ; the inner one binds `w`: `e` is bound outside
 expect "TypeError" "no variable to bind"
     use myforall (c < 1) (P c)      ; every symbol is a constant
 
-; `bindop` sets up scope and checks that the first argument really is an
+; `binder` sets up scope and checks that the first argument really is an
 ; unbound variable; the actual
 ; reasoning rules ("forall-elim" etc.) are ordinary `use` axioms, exactly
 ; like the ones in `logic.kurt`.
+
+; The body of a binder is one tight argument, as the argument of `f x` is: `myforall x x < 5` is `(myforall x x) < 5`.
+; With a power, `binder NAME POWER` (a number below 90), the body is read with it -- the operators that bind tighter
+; than the power are inside the body, the others outside. `*` binds with 70 and `+` with 60, so a binder with the power 65
+; takes a product and not a sum (this is how `sum` of analysis.kurt is declared), and one with 17 takes a comparison (20),
+; like `forall` and `exists` of logic.kurt:
+arity mysum 2
+binder mysum 65
+parse mysum i i * 2 + 1      ; (+ 1 (mysum i (* 2 i))): the product is the body, the sum is outside
+arity yourall 2
+binder yourall 17
+parse yourall x x < 5        ; (yourall x (< x 5)): the comparison is the body
+
+; `nested NAME` lets the variable be a list, one binder for each name: `yourall x, y P` is `yourall x (yourall y P)`
+; (`∀ x, y P`, `∃ x > 0, y > 0 P` in logic.kurt, which declares `nested forall, exists`):
+nested yourall
+parse yourall x, y x < y     ; (yourall x (yourall y (< x y)))
 
 ; The binding operators of the theories that come with Kurt, for ideas -- a
 ; binder is the right tool whenever a notation has a variable that only lives

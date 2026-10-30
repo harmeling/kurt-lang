@@ -6,7 +6,8 @@ load analysis
 const n, f
 arity f 1
 
-; "sum-last" substitutes the outer x also into the range of the inner sum
+; "sum-last" substitutes the outer x also into the range of the inner sum (its premise: the range starts at most one above its end)
+use 0 <= n + 1
 (sum x (0, n + 1) (sum x (0, x) x)) = (sum x (0, n + 1) x) + (sum x (0, n) (sum x (0, x) x))
 
 ; instantiating a ∀ with the name of the binder: no capture, the range is outside

@@ -68,7 +68,7 @@ class TestEqualExprAlpha(unittest.TestCase):
         e2 = exists("a", forall("b", app("R", sym("b"), sym("b"))))
         self.assertTrue(equal_expr(e1, e2, self.kb))
 
-    def test_non_bindop_structural_equality_unaffected(self):
+    def test_non_binder_structural_equality_unaffected(self):
         e1 = app("and", sym("A"), sym("B"))
         e2 = app("and", sym("A"), sym("C"))
         self.assertFalse(equal_expr(e1, e2, self.kb))

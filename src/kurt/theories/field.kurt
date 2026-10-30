@@ -4,7 +4,7 @@
 ; (`$a ∈ K`): the scalars are the elements of `K`, nothing else. A step that uses an axiom on a
 ; subterm needs the memberships as lines; the instance itself Kurt derives (a step `17a`).
 ;
-; A structure with its own operators: not together with numbers.kurt, whose laws hold for
+; A structure with its own operators: not together with number.kurt, whose laws hold for
 ; everything written with `+` -- a symbol is declared by one file only (doc/kurt-ref.md, `load`).
 ; For vectors over `K`: vectorspace.kurt.
 ;

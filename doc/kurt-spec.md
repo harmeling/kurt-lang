@@ -22,7 +22,7 @@ There is no separate syntax for formulas: a formula is a term whose result is a 
 
 **1.2 Declared syntax.** How text is read into trees is declared in Kurt source, not fixed in the
 implementation: `infix OP lbp rbp`, `prefix OP rbp`, `postfix OP lbp`, `brackets L R`, `arity OP
-N` or `arity OP SHAPE`, `bindop OP`, `alias NEW OLD`. The core (`minimal.kurt`) declares `( )`
+N` or `arity OP SHAPE`, `binder OP`, `alias NEW OLD`. The core (`minimal.kurt`) declares `( )`
 (grouping only), `,` (lists and tuples), space (application), `true`, `implies`, `and` and `sub`.
 Application `f a b` is one node `(f a b)`; with `arity f 2` it takes exactly two arguments.
 `(a, b)` is a tuple, a term of its own, and `(a, (b, c))`, `((a, b), c)` and `(a, b, c)` are three
@@ -43,7 +43,7 @@ operator. Declaring either makes the operator a constant.
 **1.4 `inline`.** `inline L = R` and `inline L iff R` define a notation: every later occurrence of
 the symbol of `L`, applied to arguments for its variables, is *read as* `R`, so the symbol occurs
 in no stored term and no stored fact. `inline` has the conditions of `def` (§7.2) and additionally
-`R` contains no binder.
+`R` contains no binder; unlike a `def`, it is not allowed inside a proof block (§6.6).
 
 **1.5 `sub`.** `sub $x $a A` is `A` with `$a` substituted for `$x`, capture-avoiding: a binder in
 `A` whose variable occurs free in `$a` is renamed first. `sub` is written only in `use` and `def`
@@ -159,7 +159,7 @@ a condition* are removed and their variables become schematic (a `%`-name stays 
 meaning is given by rules (§3.6).
 
 **3.3 Constants.** A symbol that is not a variable is a constant: declared `const c`, introduced by
-`def`, `let`, `pick`, `brackets`, `bindop`, `flat`, `sym`, `chain` or a calculator binding, or used
+`def`, `let`, `pick`, `brackets`, `binder`, `flat`, `sym`, `chain` or a calculator binding, or used
 for the first time in a formula without a declaration (reported as `const c ; added constant`;
 with `--strict` an error). On a level, a symbol is constant or variable, never both, and the role
 does not change once set; a block's constants are forgotten when the block closes. Numbers are
@@ -169,11 +169,11 @@ constants.
 *fixed*: they are not renamed, not instantiated, and not bound by `let`. In `assume P $x`, `$x` is
 one arbitrary object for the whole block (`P $x` follows, `P $y` does not), and closing the block
 gives `P $x ⇒ ...`, a schema again. The free variables of a `let` condition other than the `let`
-name are fixed in the same way. `let $x` (or `let x` for a declared `var x`) makes the variable a
+name are fixed in the same way. `let x` (a new name, or a declared `var x`; `let $x` is refused: a `$`-name is always a variable) makes the name a
 *constant* of its block; a `$`- or `%`-name made a constant by an enclosing block stays a constant
 in nested blocks.
 
-**3.5 Bound variables and scope.** A `bindop` has a variable slot (the first argument) and binds
+**3.5 Bound variables and scope.** A `binder` has a variable slot (the first argument) and binds
 that variable in its *condition* and in its *body*, the last argument. Arguments in between (the
 range `(a, b)` of `sum i (a, b) T`, the point `a` of `lim v a T`) are outside the scope: in
 `sum x (0, x) x` the `x` of the range is the outer `x`. Bound variables are renamed freely
@@ -283,7 +283,8 @@ so), and the file is not complete.
 A block has a *hypothesis* and *constants* of its own; its *result* is made from its last fact `L`
 when it closes. For every block: no individual constant of the block occurs in the result (a
 *vocabulary* symbol -- one with an arity, a declared operator, a binder, a `prop` symbol -- may,
-except the witness of a `pick`); every binder of the result binds the same variable outside the
+except the witness of a `pick`); no symbol that a `def` of the block defined occurs in the result,
+whatever it is (§7.2); every binder of the result binds the same variable outside the
 block as inside; a constant of the block that has a sort (§2.4: a `let x` that a line made a
 number, a fixed `$x` of an `assume`) is a variable of that sort in the result; the block has at
 least one fact, and a bare `todo` is not its last line.
@@ -319,10 +320,14 @@ text) somewhere inside, including while a nested block closes; it is discarded e
 closing it without the error is itself an error. `break` closes the innermost block at once and
 discards it; it cannot close the file's own level.
 
-**6.6 What a block may not contain.** `use`, `def`, `inline`, `chain` and `load` are not allowed
-inside `proof`, `assume`, `case`, `let` or `pick` (the result would look proven); they are allowed
-at the top level of a file and anywhere inside a `sandbox` or `expect`, whose content is
-discarded.
+**6.6 What a block may not contain.** `use`, `inline`, `chain`, `load` and the declarations of
+syntax and sorts (`infix`, `prefix`, `postfix`, `brackets`, `arity`, `binder`, `flat`, `sym`,
+`alias`, `sort`, `default`) are not allowed inside `proof`, `assume`, `case`, `let` or `pick`: `use`
+and `chain` postulate facts, so the result would look proven although it rests on them; `load` and
+the declarations change what the file contains and how it is read, beyond the block; `inline` stays
+refused for now (a notation, read away while parsing; dev/todo.md 18). They are allowed at the top
+level of a file and anywhere inside a `sandbox` or `expect`, whose content is discarded. A `def` is
+allowed in every block (§7.2): it postulates nothing, and it is local to its block.
 
 ## 7. Postulates
 
@@ -340,14 +345,30 @@ recursive, conditional, implicit or characterizing definition.
   calculator, not `flat`, `sym`, in a `chain`, a binder, or of the core (an `arity`, `prop`,
   `infix` or sort declaration of `c` before the `def` is fine);
 - `R` has no free variables other than the parameters, does not contain `c` (aliases are already
-  resolved), and is a term for `=`, a formula for `iff`;
-- the `def` is not inside a proof block (§6.6); and a comma-separated batch is validated left to
-  right with earlier entries visible, and adds nothing unless every entry passes.
+  resolved), and is a term for `=`, a formula for `iff`; a constant is no variable, so `R` may
+  mention constants -- those of the file, and inside a block those of the block (a `let x`, a `pick`
+  witness, a variable fixed by an `assume`, §3.4): fixed objects there, `R` a term about them;
+- a comma-separated batch is validated left to right with earlier entries visible, and adds
+  nothing unless every entry passes.
+
+**A `def` inside a block** (`proof`, `assume`, `case`, `let`, `pick`; todo 77) is local to it: `c`
+is a constant of the block's level and the defining fact a fact of that level; both are gone when
+the block closes (its declarations are discarded with the level, §4.1), and the result of the block
+(§6) must not mention `c`, whatever `c` is -- an operator or a statement too, unlike the vocabulary
+symbols of §6. After the block `c` is an unknown symbol again: a later block may define it anew. At
+the top level of a file a `def` is as described above, and exported by `load` if it is labelled
+(§8).
 
 Why this is conservative: `c` has no meaning yet, so any model of the theory extends to one in
 which `c(x1, ..., xn)` denotes `R` -- the tuples being free (two are equal only if their components
 are, set.kurt's "pair-eq") -- and the defining equation holds by reflexivity. Hence the theory with
-`def` proves nothing in the old vocabulary that it didn't prove before. A `def` is a fact like a
+`def` proves nothing in the old vocabulary that it didn't prove before. Inside a block the same
+holds for the theory of the block, whose constants are fixed objects (each model of the block
+interprets them), so `R` denotes one value there; nothing derived with `c` leaves the block
+except a result without `c`, which is then a consequence of the block's theory alone. That is why
+the result must not mention `c`: `let x` / `def k iff P x` as the last line would give
+`∀ x (k iff P x)`, in which `k` is no longer a name for one statement (`P c ⇔ P d` would follow);
+doc/kurt-soundness.md §8.51. A `def` is a fact like a
 `use` and is used by §5.2, §5.3 and §5.7; its status stays `def`. A `def` with a variable only on
 the right (`def c = $y`), a recursion (`def liar iff ¬liar`), a non-variable argument
 (`def f(a) = a`), or a `def` of an operator with a meaning is refused, since each proves something
@@ -362,7 +383,8 @@ a statement as its result (`chain` adds `const` and `prop Ri 0`). The declaratio
 `%`-variables if the relations take formulas): the later relation absorbs the earlier, so `chain =
 <` is a different claim than `chain < =`. All chains together form a DAG. Notation that a `chain`
 enables: a continuation line `  R t` indented under a line `s R' u` is the line `s R'' t` with `R''`
-the relation of the largest index seen so far in the chain, checked by §5 like any line. Independent
+the relation of the largest index seen so far in the chain, checked by §5 like any line; the same when the line `s` above is a term
+and not a statement: `s` and, indented, `R t` are the line `s R t` (a term line that no such line follows is the error "must be a statement" at its line). Independent
 of `chain`, `a R b S c` on one line, for relations with a statement as their result, terms as arguments and
 the same binding power, is `(a R b) ∧ (b S c)`.
 
@@ -394,7 +416,7 @@ that finished loading is loaded once.
 - its exported facts (§4.3), with their internal variable names, sorts and dependent variables;
 - the symbols these facts need, plus the symbols bound to the calculator or a role, `inline`,
   `tex` and `lean` symbols, and the symbols the file declares at its top level without `local` -- with
-  everything known about each (fixity, arity and shape, `prop`, sorts, `bindop`, `flat`, `sym`,
+  everything known about each (fixity, arity and shape, `prop`, sorts, `binder`, `flat`, `sym`,
   `alias`, `tex`, `lean`, the file that declared it, the frozen marker), custom brackets, and aliases of
   exported symbols;
 - its sorts, its subsorts, the sort of all objects and the sorts of the elements of its sets
@@ -414,7 +436,7 @@ conservative only for a new symbol); it is a constant on one side and a variable
 nowhere; it is a sort on one side and a term symbol on the other nowhere; it is a statement
 (`prop`) on one side and a term on the other nowhere; it is an alias on one side and a symbol of
 its own on the other nowhere (unless the same alias); and it is declared (`infix`, `prefix`,
-`postfix`, `arity`, `brackets`, `bindop`, `flat`, `sym`, `alias`) by one file only. A sort is
+`postfix`, `arity`, `brackets`, `binder`, `flat`, `sym`, `alias`) by one file only. A sort is
 declared by one file only, a position of a symbol has one sort on both sides, the subsorts of both
 sides together have no cycle, both name the same sort of all objects (or one none), and a set's
 elements have one sort. A fact already present (same file, line, label) is added once.
@@ -474,12 +496,13 @@ file is incomplete). For a block (`impl-intro`, `not-intro`, `forall-intro`, `ex
 block is of the right kind, its cited last line is its last line, the result is the one §6
 prescribes, each `let` name and the `pick` witness is new in the block, the picked fact is the
 body of a known existential with the witness for its variable, no constant of the block
-escapes, a constant of the block with a sort is a variable of that sort (or a smaller one) in the
+escapes, no symbol defined by a `def` of the block occurs in the result, a constant of the block with a sort is a variable of that sort (or a smaller one) in the
 result, and the witness has at most the sort of the existential's variable.
 
 **10.3 What the kernel trusts.** Its own code; the parser; the normal forms (`flat`, `sym`, the
 calculator); the axioms of the theories and the roles they assign; the conservativity check of
-`def`; and plain helpers. It uses nothing of the search: not its unification, α-equivalence,
+`def` (the form of §7.2, checked when the line is read: for the kernel a `def` is a fact of the
+theory, like a `use`); and plain helpers. It uses nothing of the search: not its unification, α-equivalence,
 substitution or reading of conditions. It re-checks the term/formula distinction of §3.1 with
 its own reading of what a formula is (a statement variable or symbol, an operator with a statement as its
 result, a `sub` whose body is one): a `$`-variable's value is a term, a `%`-variable's a formula.

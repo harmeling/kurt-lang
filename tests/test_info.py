@@ -6,7 +6,7 @@ import kurt.kurt as kurt
 class TestInfo(unittest.TestCase):
     def test_info_shows_declaration_def_and_facts_mentioning_the_symbol(self):
         result = kurt.check_text(
-            'load numbers\n'
+            'load number\n'
             'calc on\n'
             'def four = 2 + 2\n'
             'four = 4\n'
@@ -20,7 +20,7 @@ class TestInfo(unittest.TestCase):
         self.assertIn('four = 4', info)
 
     def test_info_on_unknown_symbol_says_so(self):
-        result = kurt.check_text('load numbers\ninfo nonexistent\n')
+        result = kurt.check_text('load number\ninfo nonexistent\n')
         self.assertTrue(result.ok, result.error)
         self.assertIn('nothing known about `nonexistent`', result.output)
 
@@ -38,7 +38,7 @@ class TestInfo(unittest.TestCase):
             path.write_text('prop FileMarker\nuse FileMarker "file-marker"\n', encoding='utf-8')
             result = kurt.check_text(
                 f'load "{path}"\n'
-                'load numbers\n'
+                'load number\n'
                 'calc on\n'
                 'def four = 2 + 2\n'
                 'four = 4\n'

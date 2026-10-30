@@ -236,7 +236,7 @@ contain the bound `$x`; a term variable `$T` couldn't (§3, step 6).
 ### 4.1 `true` and `calc`
 
 ```
-load propositional, numbers
+load propositional, number
 true
 calc on
 2 + 3 = 5
@@ -332,7 +332,10 @@ flowchart LR
 | `pick w with P w` | exists-elim | the last line; `P w` is the body of a known `∃ y P y` with `w` for `y`, and `w` new in the block |
 
 And for each: no individual constant of the block occurs in the result (`no_escape`) -- the
-witness of a `pick` never.
+witness of a `pick` never, and never a symbol that a `def` of the block defined (a `def` inside a
+block is local to it, todo 77; `doc/kurt-soundness.md` §8.51): `let x` / `def k iff P x` as the last
+line would give `∀ x (k iff P x)`, and `k` is a statement, which the check of the individual
+constants lets through.
 
 ```
 load propositional, logic
@@ -446,8 +449,11 @@ The kernel can only be as right as what it relies on. Besides its own code, that
   file may not contain `use`, `todo` or `chain` outside the trusted theories.
 - **`def`**: a definition is a new fact too. Kurt accepts only forms that are conservative -- the
   left side is the new symbol applied to distinct variables, the right side has no other
-  variables, and not inside a proof block -- so that a definition adds no new truths about the old
-  symbols (`doc/kurt-soundness.md` §8.17).
+  variables -- so that a definition adds no new truths about the old symbols (`doc/kurt-soundness.md`
+  §8.17). The kernel doesn't check that form again: a `def` is a fact of the theory for it, like a
+  `use`. Inside a block a `def` is local to the block's level; what the kernel checks of it is the
+  scope: its fact is found only from the block's level (`k_known`), and the block's result doesn't
+  mention the symbol (`no_escape`, §8.51 of the soundness notes).
 - **Plain helpers** (`is_forall`, `get_token_set`, ...), and `expr_str`, only for messages.
 - **The reading of sorts.** The declarations (`sort`, `real x`, `default`), the sorts inference
   gives when a line is read, and the sort of a binder (`binder_node_sorts`) are what a formula

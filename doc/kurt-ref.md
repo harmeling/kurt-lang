@@ -20,10 +20,10 @@ the source.
 
 ## 0. The goal of Kurt
 
-Lean, Isabelle, Coq, Mizar, Metamath and the rest exist to formalize
+Lean, Isabelle, Coq, Mizar, Metamath and others exist to formalize
 substantial mathematics: large libraries, strong automation, decades of
 engineering behind each. Kurt isn't trying to do that, and measured against
-that goal it looks small on purpose, not unfinished. It was designed for a
+that goal it looks small. It was designed for a
 different goal: a student learning to prove things should get the same
 fast, specific, automatic feedback that a test suite gives someone learning
 to program. A proof is a text a person can read -- one claim per line, no
@@ -36,7 +36,7 @@ solver jump from premises to a conclusion in one call. A tactic that closes
 a goal in one step can save real work, but it also hides the steps it took
 -- the file no longer contains them for a reader to check. Writing out every
 single step is slower, and that's the point: it's the same discipline as
-refusing to write "clearly" or "it follows that" in a proof on paper, and
+refusing to write "clearly" or "trivially" or "obviously" in a proof on paper, and
 it's where whatever understanding a proof is supposed to produce actually
 happens. Kurt is built to make that slower way of proving the easy, checked
 default, not an inefficiency to automate away later.
@@ -67,6 +67,7 @@ person still has to understand, is a separate, open question.
     kurt -s path/to/proof.kurt       # strict, for grading (see below)
     kurt -a path/to/proof.kurt       # all errors, not only the first (also `--all-errors`, see below)
     kurt --budget 10 path/to/proof.kurt  # at most 10 s of search per line (see below; by default no limit)
+    kurt --profile path/to/proof.kurt    # after the check: the slowest lines, with their time and search steps
     kurt -r N path/to/proof.kurt     # set the comment/reason column to N (default 42)
     kurt --no-kurtc path/to/proof.kurt   # neither write nor use `.kurtc` files (see below)
     kurt path/to/proof.kurtc             # the certificates of proof.kurt, readable (see below)
@@ -79,6 +80,8 @@ person still has to understand, is a separate, open question.
     kurt --lean path/to/proof.kurt       # ... as a Lean 4 file, proof.lean (a prototype; see below)
     kurt --lean proof.kurt -o -          # -o FILE: to FILE instead, -o -: to the standard output
     kurt --no-line-numbers proof.kurt    # the output without the source line numbers in front
+    kurt --share path/to/proof.kurt      # the playground link of the proof (its text in the link; see below)
+    kurt --unshare LINK > proof.kurt     # the proof of such a link, back (see below)
     kurt --lsp                           # a language server for editors (see below)
 
 **In the browser:** the playground, [www.kurt-lang.org](https://www.kurt-lang.org), runs the same
@@ -123,6 +126,22 @@ loads (and on a `load` line), anything inside an `expect` block (there the error
 result; §9.6), and a `KernelError`. The editors (`kurt --lsp`) and the playground show all errors
 by default; from Python, `kurt.RunConfig(all_errors=True)`, and `CheckResult.errors` lists them
 (`error` is the first one).
+
+**Where a proof is slow (`--profile`):** `kurt --profile proof.kurt` checks the file as usual and then prints, on
+stderr, its ten slowest lines with the time and the search steps of each (the `load` line has the time of the files it
+loads, cached files cost nothing):
+
+    the slowest lines of proof.kurt (1.37 s in all, seconds and search steps):
+        0.85 s        0 steps      1  load logic, number
+        0.40 s     1200 steps     14  x + y = y + x
+
+From Python, `kurt.RunConfig(profile=True)` fills `CheckResult.profile` (also in `--json`): a record `file`, `line`,
+`seconds`, `steps` for each line. The editors (`kurt --lsp`) mark a line that took 2 s or more with an Information
+diagnostic (`slow line: 2.4 s, 5300 search steps`) and write the time into the hint at its end. An editor that asks for it
+(the initialization option `heat`: VS Code's `kurt.heat.enabled`) also gets two notifications: `kurt/progress` (the line being checked,
+at most ten times a second, for tinting the lines done and the line at work) and `kurt/profile` (time and steps of each line, after the
+check, for a heat map of the lines). `kurt/cancel` (with `uri`) from the editor stops the check that runs, at its next step (the editor is told
+by `kurt/progress` with `done` and `cancelled`); VS Code's status item shows `Kurt: checking 12/84` and a menu with the cancel.
 
 **Budgets (`--budget SECONDS`), and cancelling a check:** the search for one line normally takes
 a fraction of a second, but a false claim among many facts can take minutes (the search tries
@@ -189,7 +208,7 @@ theories, and the single-file `kurt.py` embeds them (`scripts/build_certificates
 In them, a theory of Kurt is named `<kurt>/propositional.kurt`, not by where it is, so they fit wherever
 Kurt is installed. If a theory's directory isn't writable, its new certificates go to the cache
 directory (`$XDG_CACHE_HOME/kurt`, or `~/.cache/kurt`). A `.kurtc` that is up to date isn't
-written again. (Without them, `load rational` in the single-file `kurt.py` took 8 s each time,
+written again. (Without them, `load divisibility` in the single-file `kurt.py` took 8 s each time,
 1.2 s with them.)
 
 `kurt --json foo.kurt` checks the file and prints the result as JSON (exit code as above): `ok`,
@@ -235,9 +254,31 @@ in one step). Neither says anything after a check that stopped at an error (`pro
 `loaded` empty); with `all_errors`, the check runs to the end, and `proves` tells the claims
 whose proofs are sound from the ones admitted after an error.
 
-    >>> result = kurt.check_text('load propositional\nbool A, B\nshow A ∧ B ⇒ A "a"\nproof\n    assume A ∧ B\n        A\nqed\n')
+    >>> result = kurt.check_text('load propositional\nprop A, B\nshow A ∧ B ⇒ A "a"\nproof\n    assume A ∧ B\n        A\nqed\n')
     >>> result.proves('(A and B) implies A'), result.proves('A ∧ B ⇒ A', 'b'), result.proof_of('A')
     (True, False, None)
+
+**A proof as a link (`--share`, `--unshare`).** The playground's Share button makes a link that
+holds the whole proof: `https://www.kurt-lang.org/#proof=CODE`, where CODE is the text of the file as
+UTF-8 bytes in base64 with `-` and `_` instead of `+` and `/`, without the `=` padding (no
+compression, nothing secret: anyone can read it; an optional `&folder=tutorial/` after it says
+where the proof's `load`s find their files). `kurt --share foo.kurt` prints that link for a file
+(it doesn't check it), and `kurt --unshare LINK` prints the proof of a link, or of the bare
+CODE, so that `kurt --unshare LINK > foo.kurt` gives a file to check. A very long proof makes a
+link that browsers and chat programs may cut (a few thousand characters): for a file that the
+playground has, `#file=exercises/01-knights-and-knaves/2-two-islanders.kurt` is short.
+The same without Kurt, in Python:
+
+    import base64
+    def share(text):                  # the link of a proof
+        return 'https://www.kurt-lang.org/#proof=' + base64.urlsafe_b64encode(text.encode('utf-8')).decode().rstrip('=')
+    def unshare(link):                # the proof of a link
+        code = link.split('#proof=')[-1].split('&')[0]
+        return base64.urlsafe_b64decode(code + '=' * (-len(code) % 4)).decode('utf-8')
+
+or in a shell, `python3 -c "import sys,base64; print('https://www.kurt-lang.org/#proof=' +
+base64.urlsafe_b64encode(open(sys.argv[1],'rb').read()).decode().rstrip('='))" foo.kurt`.
+(In the library: `kurt.kurt.share_link(text)` and `unshare_text(link)`, which also gives the folder.)
 
 **What a fact rests on (`--foundation`).** `kurt --foundation foo.kurt` checks the file and then
 shows, for each fact at its top level, its class -- `axiom` (`use`),
@@ -245,7 +286,7 @@ shows, for each fact at its top level, its class -- `axiom` (`use`),
 theorem, what it rests on: the `use` axioms and `def`s that the steps of its proof cite, directly
 or through the facts they cite, by file; the `todo`s that admit a step; the steps computed by the
 calculator (`calc on`), with the symbols' bindings and the file whose `builtin` made them
-(`` `+` add, `=` eq of numbers.kurt``). A fact without a label is named by its line (`line 12`), with
+(`` `+` add, `=` eq of number.kurt``). A fact without a label is named by its line (`line 12`), with
 its statement in its own heading: an unlabelled `use` is an axiom of the file like a labelled one
 (only it isn't exported). Found by walking the certificates of
 the steps (§6.5): through the blocks (a block's result rests on what its last line rests on; the
@@ -264,7 +305,7 @@ one line: "**rests on:** 2 axioms of gauss.kurt, 3 axioms of natural.kurt, 1 def
     gauss.kurt: what each fact at its top level rests on
 
     "gauss" (line 12, theorem): established, relative to 4 axioms, 1 definition and the calculator
-        gauss.kurt: "sum-def" (line 5), line 14 computed by the calculator (`+` add, `=` eq of numbers.kurt)
+        gauss.kurt: "sum-def" (line 5), line 14 computed by the calculator (`+` add, `=` eq of number.kurt)
         natural.kurt: "induction" (line 40), "plus-zero" (line 22), ...
         equality.kurt: "equal-elim" (line 23)
 
@@ -369,7 +410,8 @@ the declaration asserts), `∀ x ∈ A P` is `∀ x, x ∈ A → P` and `∃ x �
 (§4.4's "forall-cond-def"/"exists-cond-def"), any other binder is a constant applied to `fun x =>
 ...` (`sum i (a, b) T` is `sum a b (fun i => T)`; logic.kurt's `∃! x P(x)` is what its definition
 says, `∃ x, P x ∧ ∀ y, P y → y = x`, by its `lean`), a `def` is a Lean `def` with its defining
-equation proved by `rfl` (a `def` over a tuple, `def coprime($a, $b) ⇔ ...`, a function of the
+equation proved by `rfl` (a `def` inside a block an `obtain ⟨t, h⟩ : ∃ t, t = R := ⟨R, rfl⟩` in the
+proof, local as in Kurt; a `def` over a tuple, `def coprime($a, $b) ⇔ ...`, a function of the
 components, `coprime a b`; the `def`s of the symbols in what a step cites of a loaded file are Lean
 `def`s too), a `case` step `rcases`, and a symbol that is applied and also an object (`f a`, `f ∈ (A
 → B)`) is an `Obj` applied with `k_apply`. Without a number theory, a number is a constant of its
@@ -383,8 +425,8 @@ logical rules a proof uses, with or without Mathlib.
 propositional.kurt's `lean invimplies ($2 → $1)` and logic.kurt's `∃!`), as `tex` does for LaTeX (raw to the end of the line, `$1`, `$2`, ... the places of the arguments; one template
 per number of arguments, so `-` has two; only output, exported with `load`):
 
-    lean Obj ZFSet                      ; the Lean type of Kurt's objects (objects.kurt)
-    lean real ℝ                          ; the Lean type of the sort `real` (numbers.kurt), embedded into it
+    lean Obj ZFSet                      ; the Lean type of Kurt's objects (set.kurt)
+    lean real ℝ                          ; the Lean type of the sort `real` (number.kurt), embedded into it
     lean complex ^ k_cpow $1 $2          ; the `complex` profile of the overloaded `^` (complex.kurt)
     lean + $1 + $2
     lean - $1 - $2                      ; `a - b`
@@ -421,8 +463,8 @@ modal.kurt has a model of its own as the objects (`lean Obj ((Nat → Nat → Pr
 Kripke semantics): `kurt --lean field.kurt` and `kurt --lean modal.kurt` prove every axiom of the
 theory true in its model (doc/kurt-soundness.md §11).
 
-*Sets and numbers.* Kurt's objects are the sets of Mathlib's model of ZFC (`ZFSet`, objects.kurt's
-`lean Obj ZFSet`), and a sort with a type of its own -- numbers.kurt's `lean real ℝ` -- is embedded
+*Sets and numbers.* Kurt's objects are the sets of Mathlib's model of ZFC (`ZFSet`, set.kurt's
+`lean Obj ZFSet`), and a sort with a type of its own -- number.kurt's `lean real ℝ` -- is embedded
 into them, as `real ⊂ set` says: `k_emb : ℝ → Obj` is a definition (an ordinal for each real, by a
 well-ordering, and its von Neumann level), injective by Mathlib's theorems, so nothing is assumed.
 A variable, constant or binder of the sort `real` is a real (`∀ x ∈ Nat` over `ℝ`, `x` a number by its places or `default real`),
@@ -439,14 +481,14 @@ are proved once for every type (`∀ {α : Type u}`: their variables without a s
 applies to `∀ x ∈ Nat` over the reals and to `∀ x` over the sets alike. Without set.kurt and the
 numbers (field.kurt, group.kurt, vectorspace.kurt: no sorts), the objects stay an opaque `Obj`.
 
-The theories of numbers all read Kurt's numbers as Mathlib's reals `ℝ` (numbers.kurt's `lean real
-ℝ`; natural.kurt, integer.kurt, rational.kurt extend it, as in Kurt): `Nat`, `Int`, `Rat` are the
+The theories of numbers all read Kurt's numbers as Mathlib's reals `ℝ` (number.kurt's `lean real
+ℝ`; `Real`, `Int`, `Rat` of number.kurt and natural.kurt's `Nat` extend it, as in Kurt): `Nat`, `Int`, `Rat` are the
 sets of the embedded casts of `ℕ`, `ℤ`, `ℚ`, so `-` and `/` are the real ones everywhere, `^`
 is the real power `Real.rpow`, and `n!` is `Γ(n + 1)` (`Real.Gamma`: `0! = 1` and `n! = n (n -
-1)!` for every `n > 0`, the two rules numbers.kurt has, and the factorial for a natural number). In
-analysis.kurt `abs` is `|x|`, `sum i (a, b) T` the sum of `T(b), T(b-1), ..., T(a)` (`⌈b - a⌉ + 1`
-terms; for fewer than none, its negative, as for a sum over an integer range: so "sum-last" holds
-for any `a`, `b`), `max`/`sup` the supremum `sSup` of the values (`min`/`inf`: `sInf`), `argmax` a
+1)!` for every `n > 0`, the two rules number.kurt has, and the factorial for a natural number). In
+analysis.kurt `abs` is `|x|`, `sum i (a, b) T` the sum of `T(b), T(b-1), ..., T(b - k)` for the `k + 1 =
+⌊b - a⌋ + 1` terms that are at least `a`, and `0` for `a > b` (the empty sum: "sum-empty"; "sum-last" is
+for `a <= b + 1`), `max`/`sup` the supremum `sSup` of the values (`min`/`inf`: `sInf`), `argmax` a
 choice (Hilbert's ε), `lim` and `tends` Mathlib's limit along the punctured neighbourhoods; in
 continuity.kurt and derivative.kurt `cont`, `diff`, `deriv` are `ContinuousAt`,
 `DifferentiableAt`, `deriv`; in sequences.kurt `converges` and `seqlim` the limit along `atTop` of
@@ -472,20 +514,20 @@ Mathlib's `cpow` otherwise. A rule about complex numbers used for reals (`comple
 comment after it; more lines for the same label are the next lines of the proof, an indentation
 after one space is kept) of the fact "label" of the file, at its top level and after the fact --
 only output, as `tex`: Kurt doesn't read the tactic. `kurt --lean` writes such a rule as a
-`theorem` with this proof instead of an `axiom` (with a comment `-- numbers.kurt:70 "add-eq":
+`theorem` with this proof instead of an `axiom` (with a comment `-- number.kurt:70 "add-eq":
 proved in Lean`), so Lean checks the theory's rules, not only the steps of the proof; a tactic that
 doesn't prove the rule is an error in Lean. The rules a `chain` of Mathlib's relations generates
 (`chain = <= <`: "chain-trans-1-2") are theorems by `linarith`, as `flat`/`sym` of `+` are by `ring`,
 and what the calculator knows of `Nat` (`6 ∈ Nat`, `k_calc_Nat`) is one of `k_mem_Nat`; a `def` of a
 loaded file that a step uses is a Lean `def`, as the file's own. Every rule of the theories of
-numbers (numbers, natural, integer, rational, analysis, continuity, sequences, derivative,
-integral) and of set.kurt is proved this way -- natural.kurt's six rules of `{a, ..., c}` and `{a, b,
+numbers (number, natural, divisibility, analysis, continuity, sequences, derivative,
+integral) and of set.kurt is proved this way -- interval.kurt's six rules of `{a, ..., c}` and `{a, b,
 ...}` too (the sets of their shapes' `lean`) -- but "integral-riemann" (true for a continuous
-function, but its proof isn't in Mathlib); and the theorems Kurt proves in natural.kurt,
-integer.kurt and rational.kurt have a `lean "label"` too, for a proof that cites them (those about
+function, but its proof isn't in Mathlib); and the theorems Kurt proves in number.kurt, natural.kurt
+and divisibility.kurt have a `lean "label"` too, for a proof that cites them (those about
 `⊂`, `even`, `odd`, `∣`, `coprime` unfold the `def`s of these symbols). The tactics don't name the variables (`intros`, `‹_›`):
 Kurt orders the arguments of `+`, `*` and `∧` its own way, and names its variables by numbers.
-`kurt --lean numbers.kurt` writes a theory itself, all its rules with their proofs.
+`kurt --lean number.kurt` writes a theory itself, all its rules with their proofs.
 
 Where the proof's theories give a `lean Obj`, `kurt --lean` writes `import Mathlib`, `abbrev Obj :
 Type 1 := ZFSet.{0}` with the embedding instead of the opaque `axiom Obj : Type`, a number `2` as `(2 : ℝ)`, a mapped symbol by
@@ -665,6 +707,15 @@ then `var x` fails, and so does the reverse. A symbol that is a constant
 inside a block can still be an ordinary (as-yet-undecided) symbol outside
 it, once the block closes and its constants go out of scope.
 
+**A `var` needs no `let` in a proof.** A `show` about declared variables is a claim for all of
+them, and its proof works with them as they are: no `let x, y` first (that is for a `const`-like
+fresh object, §9.2). After `var x, y`, `show x > y implies not x = y` is proved by `assume x > y`,
+`assume x = y`, ... directly (regression test: `proofs/debug/var-needs-no-let.kurt`).
+
+**A sort with the names.** `var real x, y, z` declares the variables `x`, `y`, `z` and gives them the sort `real`: it is
+`var x, y, z` followed by `real x, y, z` (§5.2); `const real c, d` is `const c, d` and `real c, d` the same way. Only the plain
+form: a sort in front of the list, no places (`real x 0` is the sort line of §5.2 itself).
+
 **How Kurt handles variables** (the design, kept as it is on 2026-10-15):
 
 - A variable stands for anything: a `use`, `def` or `todo` with a variable
@@ -678,8 +729,8 @@ it, once the block closes and its constants go out of scope.
   below every number).
 - A constant stands for one object. `const c` declares it; `let x`, `pick c`
   and `def` introduce one; so does the first use of an undeclared name.
-- Inside a block, a variable can be held fixed: `let $x` (or `let x` for a
-  declared `var x`) makes it an arbitrary but fixed object for the block,
+- Inside a block, a variable can be held fixed: `let x` (a new name, or a
+  declared `var x`; `let $x` is a type error, a `$` name is always a variable) makes it an arbitrary but fixed object for the block,
   and closing the block gives the `∀` (§9.2); an assumption's variables are
   fixed inside it the same way (`assume P $x`: one `$x` throughout the block).
 - `load` exports no variable: a loaded file's `var n` stays its own, and its
@@ -700,13 +751,24 @@ everywhere, without a declaration:
 
 | sigil | the variable | example |
 |---|---|---|
-| `$x` | a term variable: stands for any term (an object) | `use $a = $a` |
+| `$x` | a term variable: stands for any term (an object) of its sort | `use $a = $a` |
 | `%A` | a statement variable: stands for any statement | `use %A and %B implies %A` |
-| `$$x` | a polymorphic term variable: the bound variable of a rule for a binder over any sort (§5.2) | logic.kurt's `∀ $$x %A ⇒ sub $$x $a %A` |
+| `$$x` | a polymorphic (polysorted) term variable: the bound variable of a rule for a binder over any sort (§5.2) | logic.kurt's `∀ $$x %A ⇒ sub $$x $a %A` |
 
 There are two kinds, `$` and `%`, because a statement is no object (§5.1; decision 17 of
 dev/todo-sorts.md): a term and a statement are never a value of the same variable, so the sigil
-says which a variable stands for. `$$` is a `$` that isn't tied to one sort. There is no other
+says which a variable stands for. `$$` is a `$` that isn't tied to one sort.
+
+*A sigil and the sorts* (§5.2). A term variable has a sort like every symbol: `$x` ranges over the
+objects of its sort and of the smaller sorts, and the sigil doesn't say which. The sort comes from
+a declaration (`real $x` or `var real x`, `set $A`), from a place of an operator where it is used
+(`$x + 1` is a number, `$x ∈ $A` takes an element of any sort on the left, a set on the right) or
+from `default real` of the file; without any of them it is `any`, the sort of all objects, so
+`$x` is any object. A statement variable `%A` has no sort: it is no object. `$$x` is the one
+exception, a variable that has no sort of its own: a rule with a binder `∀ $$x ...` is
+*polymorphic* (polysorted): each use of the rule takes the sort of the binder it is matched with
+(`∀ n (...)` over the numbers, `∀ A (...)` over the sets), once per use (the rule can't mix two
+sorts). Because of that, `$$x` may occur only in its binder, in `sub`s and as a side of `=`. There is no other
 sigil: `@x` is a scanning error. A plain name declared with `var` is a variable too (a term
 variable, or a statement variable with `prop`, §5.1).
 
@@ -742,11 +804,11 @@ Most symbols are declared by using them. What each kind of line does to a symbol
 | `const x` | a constant |
 | `brackets ⟨ ⟩` | both brackets constants |
 | `def g = ...` | `g` a new constant (a new symbol on the right side is introduced as on any line) |
-| `let x`, `pick x` | a constant inside the block (one arbitrary object); after the block, `x` is free again |
+| `let x`, `pick x` | a constant inside the block (one arbitrary object); after the block, `x` is free again. `x` is a new name or a declared `var x`; an existing constant, a name fixed by an enclosing `assume`, and a `$`/`%` name are errors |
 | `assume P $x` | `$x` fixed inside the block (not a variable there) |
 | `arity`, `infix`, `prefix`, `postfix`, `prop`, and a declared sort such as `nat` | declared, but neither constant nor variable: these give shape or type information only |
 | `sort nat` | `nat` a reserved sort name and declaration keyword, never a term symbol |
-| `bindop`, `flat`, `sym` | a constant: each gives the named operator fixed semantic behavior |
+| `binder`, `flat`, `sym` | a constant: each gives the named operator fixed semantic behavior |
 | `chain OP...` | every named relation a constant with a statement as its result (`prop OP 0`), because `chain` adds fixed transitivity rules |
 | `builtin x operation` | `x` a constant with the fixed calculator meaning (a bracket binding applies to the bracket expression); with a role of the engine (`builtin iff equivalence`), `x` keeps what it is |
 | `alias new old` | `new` another spelling of `old`, including `old`'s constant/variable role and properties |
@@ -761,12 +823,15 @@ Further rules:
   `prefix`, `postfix` for that symbol are errors ("already used in a formula"): the formula was
   read with what was known then.
 - **Syntax and meaning are separate.** Fixity, arity, `prop`, and optional sorts say how a symbol is parsed and
-  typed; they deliberately do not decide whether it is a constant or a variable. `bindop`,
+  typed; they deliberately do not decide whether it is a constant or a variable. `binder`,
   `flat`, `sym`, `chain` and calculator bindings do decide: their behavior belongs to one fixed
   operator, so Kurt makes it a constant and prints the implied declaration. A variable operator
   may still have fixity, arity and a prop signature, as `group.kurt`'s schematic `∘` does.
 - **The variable of a binder.** Without a condition, `∀ x (...)` binds `x` (a new name or a
-  variable; it doesn't become a constant). With a condition, it binds the first symbol of the
+  variable; it doesn't become a constant). The bound variable is written as a plain name, `∀ x (x = x)`,
+  `∃ x > 0 P(x)`: it needs no declaration and no sigil, and a `$` on it (`∀ $x ($x = $x)`) is accepted but
+  not needed. The sigils `$` and `%` are for the *free* variables of a rule (`use $a + 0 = $a`,
+  `use %A ⇒ %A`), where they say "for any term" or "for any statement"; a free plain name is a constant. With a condition, it binds the first symbol of the
   condition, as written, that is new or a variable and not bound by an enclosing binder:
   `x` in `∀ x > 0 (...)`, `x` in `∀ c < x (...)` with a constant `c`, `$x` in `∀ (P $x) (...)`
   with a predicate `P`, `x` in `∀ (0 < e) (∀ (e < x) ...)`. Kurt decides it when it reads the
@@ -779,6 +844,26 @@ Further rules:
   declared at all (neither by a line of the table nor by an earlier use) is an error, not a new
   constant. A declaration like `prop Q` or `infix ∘ 50 50` counts. (It also refuses `use`,
   `todo` and `chain` outside the trusted theories.)
+
+**Variables, constants and binders in one place** (the four rules, checked 2026-10-30):
+
+1. **A variable is ad hoc or declared.** `$x` (a term), `%A` (a statement) and `$$x` are variables by
+   their name and need no declaration; a plain name is a variable after `var x`. A plain name that
+   is neither declared nor a variable is a constant from its first use on a formula.
+2. **`let` and `pick` introduce a constant, and take only a new symbol.** The name is new (never
+   used as a constant) or a declared `var x`, which becomes a constant of the block. They refuse an
+   existing constant ("already a constant and can not be declared freshly again"), a name that an
+   enclosing `assume` fixed, and an ad hoc variable: `let $x`, `let %A` and `pick $x with ...` are type
+   errors, because a `$` or `%` name is always a variable (as `const $x` is an error). A claim with free
+   `$`-variables needs no `let`: they are one arbitrary object in its proof, and so is a `var`.
+   `pick` works the same as `let`, and `pick x, y, z with F` picks several witnesses (§9.3).
+3. **A binder binds a variable or a new symbol, never a constant.** `∀ x`, `sum i`, `lim v` bind a
+   plain name that is new (it needs no declaration and stays undeclared), a declared `var`, or a
+   `$x`; a constant is refused ("first arg of binding operator must not be constant ... give the bound
+   variable another name"). Names fixed by an enclosing block (`let`, `pick`, `assume`) count as constants there.
+4. **`sub $x $a A` is a binder over `$x` with two extra rules**: its first argument must be a
+   variable (`$x` or a declared `var x`), not a new symbol; it is written only in `use` and `def`
+   (in a claim, write the result of the substitution); and it is never nested.
 
 `tutorial/20-constants-variables-and-declarations.kurt` shows these rules, one at a time.
 
@@ -800,7 +885,7 @@ Each accepts a comma-separated list to declare several operators in one
 line (e.g. `infix "+" 20 20, "-" 20 20`). Binding powers control precedence
 and associativity: for `infix`, `lbp > rbp` makes the operator *right*-
 associative (as `implies` is: `infix implies 13 12`, so `A implies B
-implies C` parses as `A implies (B implies C)`; and numbers.kurt's `infix ^
+implies C` parses as `A implies (B implies C)`; and number.kurt's `infix ^
 75 74`, so `2 ^ 3 ^ 2` is `2 ^ 9`); `lbp == rbp` (as with `+` above) makes
 it left-associative (`a - b - c` is `(a - b) - c`), and a `flat` operator
 (§4.5) collects all its arguments anyway. Declaring the same symbol both `infix` and `prefix` is
@@ -810,7 +895,7 @@ Fixity alone does not classify a symbol as constant or variable.
 
 Called with no arguments (`infix`, `prefix`, `postfix`), each prints every
 currently-declared operator of that kind, across all open levels. The other
-property keywords (`const`, `var`, `sort`, `prop`, `arity`, `brackets`, `bindop`,
+property keywords (`const`, `var`, `sort`, `prop`, `arity`, `brackets`, `binder`,
 `chain`, `flat`, `sym`, and `alias`) work the same way. Every listed entry's
 comment gives both its scope level and the source location that established
 that exact property, for example `; level 1, natural.kurt:20`. A basename is
@@ -874,7 +959,7 @@ is still `- x`. An operator is no object (§5.3): elsewhere, `(+)` or a bare `f`
 is a type error. An operator can also be a variable -- `var ∘` and
 `infix ∘ 70 70` -- then `$a ∘ $b` in a rule matches `x + y` as well as `a ∘ b`
 (by the rules of the operator it stands for, e.g. `flat`, `sym`). See
-`group.kurt`.
+§5.4 and `group.kurt`.
 
 A relation as a parameter works the same way: a variable with a statement as its result,
 `var R` and `prop R 0`, then `R(x, y)` -- or with `infix R 20 20` also `x R y`,
@@ -893,23 +978,41 @@ clear, specific `EvalError` ("empty brackets `()` cannot supply an
 argument for `f`, which needs N argument(s)"), not a confusing parse —
 empty parens can never actually supply a real argument.
 
-### 4.4 `bindop`
+### 4.4 `binder`
 
-    bindop SYMBOL     ; e.g. bindop forall
+    binder SYMBOL            ; e.g. binder forall
+    binder SYMBOL POWER      ; e.g. binder sum 65: the binding power of the body (below)
+    nested SYMBOL, ...       ; e.g. nested forall, exists: the variable may be a list (below)
 
 Declares `SYMBOL` a *variable-binding operator*: its first argument is
 treated as a bound variable (or, with the sugar below, a condition, a statement
 whose free variable is the one being bound) for the rest of the
 expression. `forall`/`exists` are declared exactly this way, in
-`logic.kurt` (`arity forall 2, exists 2`, `bindop forall, exists`), together
+`logic.kurt` (`arity forall 2, exists 2`, `binder forall, exists`), together
 with their roles (`builtin forall universal, ...`, §8.1) and their axioms
 (`forall-elim`, `exists-intro`).
 For a plain space-applied binder, the symbol must already have an `arity` of at least 2 (the
 bound variable plus at least one more argument). An infix operator may instead be a binder, as
 set-builder `|` is: its left operand contains the condition and its right operand is the body.
 A binder cannot also be prefix, `flat`, `sym`, chained, calculator-bound, variable, or already
-used in a formula. `bindop` gives a fixed scope rule, so it makes the symbol a constant and
+used in a formula. `binder` gives a fixed scope rule, so it makes the symbol a constant and
 reports `const SYMBOL ; added constant` when that role was not already explicit.
+
+**The body of a binder, and its power.** Without a power, the body is one tight argument, as `f x` takes its argument:
+`sum i (1, n) i * 2` is `(sum i (1, n) i) * 2`, and `P x > 0` is `(P x) > 0`. With one, `binder sum 65`, the body is read with
+that binding power (a number from 1 to 89; the operators that bind tighter than it are inside the body, the others
+outside): `sum i (1, n) i * 2` is `sum i (1, n) (i * 2)` (`*` is 70, `+` is 60: `sum i (1, n) i + 1` is
+`(sum i (1, n) i) + 1`). A body that is an application is whole, `∀ x P x ∧ Q` is `(∀ x (P x)) ∧ Q`. Parenthesized
+bodies read the same either way, and what Kurt prints is parenthesized. The power belongs to the binder and goes with
+it through `load` (two files must declare the same one). It is for a binder with a space, not for an infix one. The theories use it: logic.kurt gives `forall`, `exists`, `existsunique` the
+power 17 (comparisons, arithmetic and `not` inside the body, `and`, `or`, `implies`, `iff` outside: `∀ x x > 0 ∧ x < 5` is `(∀ x (x > 0)) ∧ x < 5`),
+and analysis.kurt and integral.kurt give `sum`, `max`, `min`, `argmax`, `argmin`, `sup`, `inf`, `lim`, `integral`, `integrable` the power 65
+(`*` and `/` inside, `+` and `-` outside: `sum i (1, n) i * 2 + 1` is `(sum i (1, n) (i * 2)) + 1`).
+
+**Several variables.** `nested forall, exists` (logic.kurt) says that the variable of these binders may be a list:
+`∀ x, y P` is `∀ x ∀ y P`, and each name can have its own condition, `∀ x > 0, y > 0 P` (`∀ x > 0 ∀ y > 0 P`); a
+condition after a list of plain names, `∃ x, y > 0 P`, is a `ParseError`. Only a binder of two arguments (the variable
+and the body) can be nested, not `sum` or `lim`.
 
 The scope of the bound variable is the condition and the *last* argument,
 the body; arguments in between are outside of it, as in mathematics: in
@@ -985,6 +1088,19 @@ own ("forall-cond-def") — e.g. to close `∀ $c ($c ∈ A ⇒ $c ∈ B)` (the
 definition of `A ⊂ B`) after a `let x ∈ A` block, which gives
 `∀ x ∈ A (x ∈ B)`.
 
+**Several quantifiers with conditions.** A step is one application of one rule, and a fact with conditions on two quantifiers,
+`∀ x ∈ V ∀ y ∈ V ((x - y) = (2 * x - (x + y)))`, takes one "forall-cond-elim" per `∀`. Kurt does it for you when the line doesn't
+follow in one step: with `a ∈ V` and `b ∈ V` known, the line `a - b = 2 * a - (a + b)` is checked with an extra step of its own, the
+instance for the first `∀`, shown before it:
+
+       ∀ (y ∈ V) ((a - y) = (2 * a - (a + y)))   ; 9a by forall-cond-elim(V2, 7)
+    9  (a - b) = (2 * a - (a + b))               ; by forall-cond-elim(9a, 8)
+
+Two or three conditioned quantifiers are handled, and a condition may mention the variable before it (`∀ x ∈ V ∀ y > x ...`). If a
+condition is not known, the line fails as before, and the message names it: "`V2` (line 4) has 2 quantifiers with conditions: it gives
+this line by 2 "forall-cond-elim" steps, but `b ∈ V` is not known". The same fact without conditions, `∀ x ∀ y ...`, is stripped into
+variables and is one step. (Each step has its certificate, the kernel is unchanged; doc/kurt-soundness.md §8.52.)
+
 **Unique existence.** `logic.kurt` declares the binder `existsunique`, written
 `∃! x P(x)` (`∃!` is one symbol; in the shell `\exists!`). Its meaning is its
 definition, "existsunique-def": `∃! x P(x)` iff `∃ x (P(x) ∧ ∀ y (P(y) ⇒ y =
@@ -1049,7 +1165,7 @@ operator.
 Chains of relations, in one place: `a < b < c` on one line is read as `a < b and b < c` (below, for
 every relation between terms, `prop OP 0`, declared in a `chain` or not), and the `chain` line, by the order of its
 relations, gives the transitivity facts, so `a < c` follows from it in one step (with
-numbers.kurt's `chain = <= <`: "chain-trans-2-2"); a chain can also go on over indented
+number.kurt's `chain = <= <`: "chain-trans-2-2"); a chain can also go on over indented
 continuation lines. `chain` declares that the listed infix operators may be written one after another
 across indented continuation lines, mimicking how mathematicians chain
 (in)equalities: after a chain is declared, writing
@@ -1063,6 +1179,19 @@ side, and the operator used is the *strongest* one seen so far in the
 chain, by index in the declared list — this is why `chain = <` lets `= ,
 <`-chains resolve to `<` once a `<` has appeared).
 
+**A term on a line of its own.** The usual way to write an equation in two lines starts with the left side alone:
+
+    (a + b) * c
+      = a * c + b * c
+
+A line that is a term (no statement) waits for the next line: if that is indented deeper and starts with a relation of a
+`chain`, the two are the statement `(a + b) * c = a * c + b * c`, checked as one line (its output is at the line of the
+relation), and further lines `  = ...` go on as above. Only the relations of a `chain` continue a term, so `  - x` after a
+term is no continuation. Otherwise (the next line is not indented, starts with anything else, a block keyword, or the file
+ends) the term line is the error it always was, "must be a statement", at the line of the term. The shell waits the same way,
+so a file can be pasted into it; typing a term and then something else shows the error at that next line. Blank lines and
+comments between the two lines don't matter.
+
 Declaring a chain also generates real, directly usable transitivity
 axioms — one for every ordered pair of the chain's operators, using the
 same "pick the operator with the larger index" rule as the parsing sugar
@@ -1074,7 +1203,7 @@ positions of the two relations in the chain (counted from 0): `<` with `<` is
 two separately-proven facts (not written as one continuation-line chain),
 `x < z` really is now a single derivation step, citing the
 auto-generated fact (the line's reason lists the facts in the order the search used them, not in the order of the chain) — you don't need to hand-write these per theory
-(`numbers.kurt` used to; it no longer does). This only combines *two*
+(`number.kurt` used to; it no longer does). This only combines *two*
 facts in one hop, the same as every other inference rule — three or more
 links in a chain of relations still need an explicit intermediate step,
 same as any other multi-hop reasoning (§6.1's single-hop limitation still
@@ -1157,8 +1286,9 @@ can't declare a `union` of its own (a symbol is declared by one file only, §8.2
 | propositional.kurt | `true`, `false` | `⊤`, `⊥` | | modal.kurt | `wedge`, `vee`, `neg` | `∧`, `∨`, `¬` |
 | propositional.kurt | `implies`, `invimplies`, `iff` | `⇒`, `⇐`, `⇔` (and `≡`) | | modal.kurt | `bot` | `⊥` |
 | propositional.kurt | `and`, `or`, `not` | `∧`, `∨`, `¬` | | modal.kurt | `box`, `diamond` | `□`, `◇` |
-| logic.kurt | `forall`, `exists`, `existsunique` | `∀`, `∃`, `∃!` | | numbers.kurt | `<=`, `>=` | `≤`, `≥` |
-| natural.kurt | `Nat`, `Real` | `ℕ`, `ℝ` | | integer.kurt, rational.kurt, complex.kurt | `Int`, `Rat`, `Complex` | `ℤ`, `ℚ`, `ℂ` |
+| logic.kurt | `forall`, `exists`, `existsunique` | `∀`, `∃`, `∃!` | | number.kurt | `<=`, `>=` | `≤`, `≥` |
+| natural.kurt | `Nat` | `ℕ` | | number.kurt | `Real`, `Int`, `Rat` | `ℝ`, `ℤ`, `ℚ` |
+| complex.kurt | `Complex` | `ℂ` | | | | |
 | finite.kurt | `setminus` | `∖` | | | | |
 
 modal.kurt's connectives are those of its formulas (terms), not the core's `implies`, `and`, ...:
@@ -1177,7 +1307,7 @@ s-expression form -- in the normal form Kurt stores and matches (`flat`
 operators flattened, the arguments of `sym` ones sorted: `parse c + 1 + c`
 gives `(+ 1 c c)`; the exception is `=` and `iff`, which are `sym` for the search but keep their written order: `parse b = a` gives `(= b a)`) -- and the same per-symbol syntax info as `syntax`.
 `tokenize EXPR` shows the raw token stream before parsing. Each of
-`infix`/`prefix`/`postfix`/`brackets`/`arity`/`bindop`/`flat`/`sym`/
+`infix`/`prefix`/`postfix`/`brackets`/`arity`/`binder`/`flat`/`sym`/
 `chain`/`sort`/`prop`/`var`/`const`/`alias`, called with no
 arguments, also prints its own currently-declared table.
 
@@ -1202,7 +1332,7 @@ A category before the optional source narrows the result:
     list def natural           ; retained definitions originating there
     list syntax natural        ; every retained declaration originating there
 
-The declaration categories are `prefix`, `infix`, `postfix`, `brackets`, `arity`, `bindop`,
+The declaration categories are `prefix`, `infix`, `postfix`, `brackets`, `arity`, `binder`,
 `flat`, `sym`, `sort`, `prop`, `chain`, `var`, `const`, and `alias`. A declared sort name is also
 a category, so `list term lambda` shows the retained `term` signatures. After `list`, `symbols` and
 `declarations` are synonyms for `syntax` (`list symbols natural`). Locations in a source-filtered result refer to the original file and line.
@@ -1221,7 +1351,7 @@ or intermediate proof lines that were discarded during loading.
 (`syntax SYMBOL`), its `def` if it has one, and every retained fact that mentions it, wherever it
 came from -- use `info SYMBOL`:
 
-    load numbers
+    load number
     calc on
     def four = 2 + 2
     four = 4
@@ -1304,7 +1434,7 @@ Each new sort name becomes a declaration keyword with the same positional notati
 
 A convention of the theories, not a rule of the language: **sorts are lowercase, sets are
 capitalized.** `real x` says what kind of thing `x` is (a sort, syntax); `x ∈ Real` is a fact about
-`x` (a set, an object a fact can be about). The number sort is `real` (objects.kurt, `real ⊂ set`;
+`x` (a set, an object a fact can be about). The number sort is `real` (set.kurt, `real ⊂ set`;
 Kurt computes exactly with the rationals among them), the sets of numbers are `Nat`, `Int`, `Rat`,
 `Real` (`ℕ`, `ℤ`, `ℚ`, `ℝ`).
 
@@ -1339,7 +1469,7 @@ subsorts with where they were declared.
 `any` is the sort of all objects, every sort is below it, and every symbol without a sort is over
 all objects: a variable, a bound variable and a block's constant, inside a formula as at its top
 (`∀ x (x ∈ A ⇔ x ∈ B)` is about all objects wherever it is written, so it meets "extensionality"),
-and a constant until a use gives it a sort. `set` and `real` (objects.kurt) are restrictions below `any`, `real ⊂ set`: a binder over the
+and a constant until a use gives it a sort. `set` and `real` (set.kurt) are restrictions below `any`, `real ⊂ set`: a binder over the
 sets is one over fewer objects, like one over the numbers. set.kurt declares the places that are
 sets (`set ∈ 2`, `set ⊂ 1 2`, `set ∪ 0 1 2`, ...) and has no `default`: an element (the left of
 `∈`, an element of `{a, b}`, the variable of a set-builder, a component of a pair) is any object.
@@ -1395,8 +1525,8 @@ after the line, except a statement place, and a binder's variable with the binde
 `i` a number). The last `default` counts, from its line on. It doesn't cross `load`, but the sorts
 it gave to the file's symbols do, as sorts do. `default` alone names the one in force. `default any`
 is the same as none: a symbol without a sort is any object anyway, and a constant gets its sort at
-its first sorted use. numbers.kurt,
-natural.kurt, integer.kurt, rational.kurt and the analysis theories have `default real`; set.kurt,
+its first sorted use. number.kurt,
+natural.kurt, divisibility.kurt and the analysis theories have `default real`; set.kurt,
 group.kurt, field.kurt and vectorspace.kurt have none (their symbols are over all objects). A student's file has none, unless it wants one: after `default real`, every
 symbol that has no other sort is a number. "No other sort" includes what the line itself says: in
 `use A = {n ∈ Nat | n > 2}` the other side of `=` is a set, so a new `A` is a set there, not a
@@ -1449,8 +1579,7 @@ Every top-level `sort` declaration crosses `load` as part of the theory's public
 if no exported fact uses it yet; so do the subsorts. Sort
 signatures cross with the symbols that exported facts need (not those of `$` variables: their
 sorts are in the facts), and all declarations retain their source locations. A sort is declared by
-one file only (objects.kurt declares `set` and `real` for set.kurt and numbers.kurt, which both load
-it). Inspect them with:
+one file only (set.kurt declares `set` and `real`, and number.kurt loads set.kurt). Inspect them with:
 
     sort                     ; prop plus every user sort, and the subsorts
     nat                      ; every nat signature
@@ -1461,7 +1590,7 @@ Generic equality deliberately remains polymorphic: `prop = 0` constrains its res
 two operands unsorted. A theory may add more specific operators when it wants stronger checking.
 
 **Overloading.** An operator may have a second signature on the same places for a sort that fits the
-first one (`real ⊂ complex`): `+ - * / ^` of numbers.kurt have one on `real` and, after `load complex`, one
+first one (`real ⊂ complex`): `+ - * / ^` of number.kurt have one on `real` and, after `load complex`, one
 on `complex` (complex.kurt). A signature is of one sort at all its places (`complex ^ 0 1 2`: the
 exponent of `z ^ 2` is a complex number too), so `abs : complex -> real` can't be one -- complex.kurt
 has `cabs`. A term gets its *least sort* from its syntax: `1 + 2` and `x + y` for
@@ -1472,6 +1601,14 @@ overloaded operator is inferred to be the smallest sort (`x + 1`: a `real`); a c
 (`complex z`). Only a theory of Kurt can add a signature to an operator of another file; a signature
 for unrelated sorts (`real`, `vec`) is not possible yet (decision 19 of dev/todo-sorts.md, stage 2);
 doc/kurt-kernel.md §8.5 has the soundness argument.
+
+**One table of sorts per symbol, whatever its fixity.** The places in a sort line are the argument
+positions of the symbol: `0` for the result, `1, 2, ...` for the arguments. A symbol that is both
+prefix and infix, like `-`, has one table: `real - 0 1 2` (inferred in `number.kurt`) covers the
+prefix use `- x` (places 0 and 1) and the infix use `a - b` (places 0, 1 and 2). So unary and binary
+minus can't have different sorts for their first argument; an overload along a chain of sorts
+(`complex - 0 1 2`, doc/kurt-spec.md §2.3a) covers both. A sort line for a symbol of a theory of
+Kurt is refused ("it would change the meaning of `-`"), as are `brackets` and `chain` for it.
 
 ### 5.3 Operators are no objects; functions as values are mappings
 
@@ -1509,6 +1646,54 @@ with objects that are no sets -- higher-order logic through the back door. Kurt 
 operators are applied, mappings are the functions one can talk about, and the operator parameters of
 structures are schemas. The search (`bare_operator_for`), the kernel (`k_has_kind`) and the type
 check (`bare_operator_as_value`, `operator_parameters`) agree on it.
+
+### 5.4 Operator variables: `var ∘` with `infix ∘ 70 70`
+
+An operator is no object (§5.3), so a definition or theorem that holds for *every* operation --
+a group, a field, "associative", "reflexive" -- can't take the operation as an argument. Kurt
+uses an **operator variable** instead: a symbol that stands for an operator, declared in two lines,
+
+    infix ∘ 70 70      ; its shape: an infix operator, as `+` is (a relation: `prop R 0`, then `var R`)
+    var ∘              ; ... and a variable: it may stand for any operator of that shape
+
+(`group.kurt` writes `infix compose 70 70`, `alias ∘ compose`, `var compose`; the word is the
+standard name, the symbol its alias.) Its rules:
+
+1. **In a rule, an operator variable matches an operator by itself.** `$a ∘ $b` matches `x + y`
+   and `x mix y` and `a ∘ b`, through the unifier (`∘ := +`), not as a hole at a term (§8.1).
+   The properties of the operator it stands for (`flat`, `sym`) apply as usual.
+2. **An operator parameter is a place where a defined predicate takes an operator.** In the
+   definition it is written in round brackets, `def selfinverse($A, (∘), $e) ⇔ ...`, and at a
+   use, `selfinverse(R, (mix), e)`, `group(R, (+), 0, (-))`. This is the only place where a bare
+   operator is allowed. `(- x)` is still `- x`.
+3. **A definition with an operator parameter is a schema.** `use selfinverse(R, (mix), e)` unfolds
+   into the first-order formula `e ∈ R ∧ ∀ a ∈ R (a mix a = e)` about the actual `mix`: no
+   operator is ever a value, so the soundness argument stays first-order.
+4. **Everything else with an operator is refused.** An operator without brackets at an argument
+   is a parse error (`token + cannot start an expression`), `(mix) = (mix)` is a type error (an
+   operator is no object), and so is quantifying over it (`∀ ∘ (x ∘ x = x)`).
+5. **The `var` stays in its file.** Only the `infix ∘` is exported by `load`, not the `var`: a
+   file that loads `group.kurt` can use `∘` as an operation of its own (tutorial 24).
+6. **It replaces namespaces** (§11.2): "which `+`" is something you pass in, not something you look up.
+
+Example (`proofs/debug/operator-variable.kurt`):
+
+    load propositional, equality, logic, set
+    infix ∘ 70 70
+    var ∘
+    arity selfinverse (_, _, _)
+    def selfinverse($A, (∘), $e) ⇔ $e ∈ $A ∧ ∀ $a ∈ $A ($a ∘ $a = $e)   "selfinverse"
+
+    infix mix 60 60                       ; a word as the operation of this file
+    const R, e, x
+    use selfinverse(R, (mix), e)
+    use x ∈ R
+    e ∈ R ∧ ∀ a ∈ R (a mix a = e)        ; "selfinverse" unfolded, with `∘ := mix`
+    ∀ a ∈ R (a mix a = e)
+    x mix x = e
+
+A **relation** is a parameter in the same way: `prop R 0`, `var R`, then `R(x, y)` (or `x R y`
+with `infix R 20 20`), e.g. `def reflexive((R), $A) ⇔ ∀ x ∈ $A (x R x)` and `reflexive((<=), A)`.
 
 ## 6. The theory: making and using claims
 
@@ -1673,14 +1858,16 @@ It is only allowed at the top level of a file, or inside a `sandbox` or
 `assume`, `case`, `let` or `pick`, where the result would look proven
 although it relies on the axiom (e.g. `assume A` with `use B` inside would
 give `A implies B` "by impl-intro"). State axioms before the proof, or use
-`todo` (§6.3) for a step you want to leave open. The same holds for `def`,
-`inline`, `chain`, and every grammar declaration (`infix`, `prefix`, `postfix`, `brackets`,
-`arity`, `bindop`, `flat`, `sym`, `alias`, `sort`): not inside a `proof`, `assume`, `case`, `let`
-or `pick` (`EvalError: \`def\` is not allowed inside \`assume\``), but in a `sandbox` or
+`todo` (§6.3) for a step you want to leave open. The same holds for `chain` (it generates
+axioms), `load`, `inline`, and every grammar declaration (`infix`, `prefix`, `postfix`, `brackets`,
+`arity`, `binder`, `flat`, `sym`, `alias`, `sort`): not inside a `proof`, `assume`, `case`, `let`
+or `pick` (`EvalError: \`inline\` is not allowed inside \`assume\``), but in a `sandbox` or
 `expect` -- declare them before the proof. For the grammar declarations this isn't only about
 looking proven: a notation used by a formula that survives the block gets locked in for good
 wherever that formula is visible, so it was never actually scoped to the block in the first place
-(§11.2). An optional trailing string labels it. The label
+(§11.2). A `def` is allowed in a block: it is local to the block (see below).
+
+An optional trailing string labels a `use`. The label
 is shown on the `use` output line and on later references and error messages instead of a bare
 line number. When the axiom contains declared named variables, normal output also shows the
 stored schematic form in a `; schema:` comment. For example:
@@ -1726,7 +1913,7 @@ not `def $f is injective iff ...`.
 
 The new symbol must not occur on its own right-hand side, even through an
 alias. It must not already have semantic declarations such as `calc`,
-`flat`, `sym`, `chain`, or `bindop`. Comma-separated definitions are checked
+`flat`, `sym`, `chain`, or `binder`. Comma-separated definitions are checked
 left to right: `def p iff true, q iff p` is allowed, but defining the same
 symbol twice, or defining a symbol already used by an earlier entry, is
 not. A rejected batch adds no definitions or declarations.
@@ -1747,12 +1934,38 @@ safe to admit is different: the checked extension is conservative rather than an
 mathematical assumption. Both `use` and `def`, called with no
 arguments, print everything `use`d/`def`ined so far.
 
+**`def` inside a block.** A `def` may also be written inside a `proof`, `assume`, `case`, `let` or
+`pick` (since 2026-10-27; also with `--strict`, it is conservative by its form). There it is local
+to the block: the new symbol is a constant of the block, and the symbol and its defining fact are
+gone when the block closes. The right side may mention the block's own constants -- a name for a
+term about the `let` constant or the `pick` witness:
+
+    show ∀ $a ∃ x (x > $a * $a)
+    proof
+        let a
+            def w = a * a + 1             ; a name for a term about `a`
+            0 < 1
+            0 + a * a < 1 + a * a
+            a * a < a * a + 1
+            a * a < w
+            ∃ x (x > a * a)               ; `w` is the witness
+    qed
+
+A local function, `def sq($y) = $y * $y + 3`, works the same way (its parameters are variables, as
+at the top level). The result of the block -- its last line, made into `A ⇒ L`, `∀ x L`, or `L`
+itself after `pick` -- must not mention the defined symbol (`ProofError: \`w\` is defined in this
+block (line 4), so the result of the block can't mention it`): `let x` with `def k iff P x` as the
+last line would otherwise give `∀ x (k iff P x)`, which makes `k` mean `P c` and `P d` at once. A
+`def` at the top level is exported with its label as before; one in a block never is. After the
+block the name is unknown again, and a later block may define it anew (`def t = 3` in one proof,
+`def t = 4` in the next).
+
 **`inline`: a definition applied while reading.** A `def` is a fact, and
 using it is a step: from `x > 0` to `0 < x` takes a line, and inside a formula
 a rewrite. When two notations should simply be the same, `inline` defines the
 new symbol by what it is read as:
 
-    inline $a > $b   iff  $b < $a          ; numbers.kurt (also `>=`)
+    inline $a > $b   iff  $b < $a          ; number.kurt (also `>=`)
     inline $a ≠ $b   iff  not ($a = $b)    ; equality.kurt
     inline $A ⊃ $B   iff  $B ⊂ $A          ; set.kurt (also `∉`)
     inline sq $x     =    $x * $x          ; a term
@@ -2030,7 +2243,7 @@ library can't use a fact without loading the file it comes from, and the
 order of two `load`s doesn't change what either of them proves. What the file
 exports (below) is then added to the loading file. A symbol that both know
 must mean the same there: its declarations may not contradict each other
-(one side may have more, e.g. numbers.kurt binds `=` of equality.kurt to the
+(one side may have more, e.g. number.kurt binds `=` of equality.kurt to the
 calculator), and if it is defined by a `def`, it must be the same `def` on
 both sides -- a `def` is only conservative for a new symbol, so
 `const f` / `use f = 1` here and `def f = 2` in the loaded file is an error.
@@ -2038,29 +2251,29 @@ A fact that two loaded files both pass on (from a file both of them load)
 is added once.
 
 **A symbol is declared by one file only.** The declarations of a symbol --
-`infix`, `prefix`, `postfix`, `arity`, `brackets`, `bindop`, `flat`, `sym` --
+`infix`, `prefix`, `postfix`, `arity`, `brackets`, `binder`, `flat`, `sym` --
 come from the one file that declares it; Kurt remembers which (it travels
 with the exports). If two different files declare the same symbol, they
 can't be loaded together, in either order, directly or through other files:
 
-    EvalError: `+` is declared in `numbers.kurt` and in `field.kurt` -- a symbol
+    EvalError: `+` is declared in `number.kurt` and in `field.kurt` -- a symbol
     is declared by one file only, so these two can't be loaded together
 
 The reason: a theory's laws hold for everything written with its operators.
-numbers.kurt says `$a * $b = $b * $a` for every `$a`, `$b`; a theory of
+number.kurt says `$a * $b = $b * $a` for every `$a`, `$b`; a theory of
 matrices that declares its own `·` or `+` must not get those laws. So:
 
-- numbers (ℕ, ℤ, ℚ, ℝ): `load numbers` (or `natural`, `integer`, `rational`,
+- numbers (ℕ, ℤ, ℚ, ℝ): `load number` (or `natural`, `divisibility`, `interval`,
   `analysis`, which load it);
 - linear algebra: a structure that declares its own operators, like
   `field.kurt`, `vectorspace.kurt` (and `proofs/mafi1/matrices.kurt`) -- not
-  together with numbers.kurt;
+  together with number.kurt;
 - `group.kurt` takes its operation as an argument (`group(G, (∘), e, inv)`),
   so it goes with either.
 
 **A theory loads what it uses.** A file gets the symbols of the files that
 its loaded files load, too: after `load natural`, `∀` (from logic.kurt) and
-`+` (from numbers.kurt) are there. But a theory that relies on this breaks
+`+` (from number.kurt) are there. But a theory that relies on this breaks
 when the file in between stops loading them. So a trusted theory -- one that
 comes with Kurt, or one from a `-p` directory -- gets a note for a symbol of a
 theory it doesn't load itself:
@@ -2069,11 +2282,11 @@ theory it doesn't load itself:
     ; `load logic` makes it independent of what the other files load
 
 The theories that come with Kurt load everything they use (a test checks
-it). For a proof, this isn't noted -- `load numbers` and then `=` is fine --
+it). For a proof, this isn't noted -- `load number` and then `=` is fine --
 but `kurt --deps` lists such symbols for any file (§1).
 
-The same file reached twice (two files both load numbers.kurt) is one
-declaration, not two. (numbers.kurt used to be called `arith.kurt`.) In one run of Kurt, a file is checked once and its exports
+The same file reached twice (two files both load number.kurt) is one
+declaration, not two. (number.kurt used to be called `arith.kurt`.) In one run of Kurt, a file is checked once and its exports
 are reused, as long as neither it nor a file it loads changed; only the
 file you check itself is always checked again (it prints its steps).
 
@@ -2085,19 +2298,17 @@ declaring their own prerequisites via their own `load` lines:
 | `propositional.kurt` | `or`, `not`, `iff`, `invimplies`, `false`; aliases `⊤`, `⇒`, `∧`, `∨`, `¬`; and-elim, or-intro/elim, iff-intro, iff-elim-forward/backward, not-intro/elim, bottom-intro/elim | (none — builds on the hard-coded core) |
 | `equality.kurt` | `=`, `≠` (`a ≠ b` is read as `¬(a = b)`, `inline`); equal-intro/elim | `propositional` |
 | `logic.kurt` | aliases `∀`/`∃`; forall-elim, exists-intro, the rules for quantifiers with a condition (§4.4), and rewriting under a quantifier ("forall-iff", "exists-iff": from `∀ x (A ⇔ B)`, `(∀ x A) ⇔ (∀ x B)`); the quantifiers `forall`/`exists` themselves, with their roles (§8.1); unique existence `∃! x P(x)` (`existsunique`, below) | `propositional`, `equality` |
-| `objects.kurt` | the sorts of the objects (§5.2): `sort set real` (every number is a set; an object of no sort is any object); loaded by set.kurt and numbers.kurt | (none) |
-| `set.kurt` | Zermelo-Fraenkel-style (the words of its symbols: §4.7): `in`/`∈`, `⊂` (`A ⊃ B` read as `B ⊂ A`, `x ∉ A` as `¬(x ∈ A)`: `inline`), `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox; "separation-in": an element of a part of `A` is in `A`), sets by their elements `{a, b}` ("singleton", and generated rules, §10), `∅` (also `{}`), `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings as sets of pairs (`f ∈ (A → B)`: `f ⊂ A × B` with one pair `(a, f a)` for each `a ∈ A`), "apply", "apply-in", "function-extensionality" | `equality`, `logic`, `objects` |
-| `numbers.kurt` | arithmetic; the order (`<`, `<=`; `>`, `>=` are read as them, `inline`); its symbols are numbers (`default real`) | `equality`, `objects` |
-| `natural.kurt` | natural numbers (`set Nat`, `ℕ`), the set of all numbers `Real` (`ℝ`) with "ext-real" (two sets of numbers with the same numbers are equal), induction (for a variable that is a number: `default real`); `0 <= n`, the predecessor, no number between n and n + 1, the well-ordering principle (proven from induction); `even` and `odd` (every number is one of them, none both); divisibility `∣` (`\mid`), `coprime` | `set`, `numbers`, `logic` |
-| `integer.kurt` | integers `Int`: the natural numbers and their negatives, closed under `+`, `-`, `*` | `natural` |
-| `rational.kurt` | rationals `Rat`: m / n with m ∈ `Int`, n ∈ `Nat`, n ≠ 0; closed under `+`, `-`, `*`, `/`; "lowest-terms": a positive rational is m / n with coprime m, n (proven from the well-ordering) | `integer` |
-| `real.kurt` | the number tower in one `load`: numbers, natural, integer, rational (`Nat ⊂ Int ⊂ Rat ⊂ Real`) | `numbers`, `natural`, `integer`, `rational` |
+| `set.kurt` | the sorts of the objects (§5.2): `sort set real` (every number is a set; an object of no sort is any object); Zermelo-Fraenkel-style (the words of its symbols: §4.7): `in`/`∈`, `⊂` (`A ⊃ B` read as `B ⊂ A`, `x ∉ A` as `¬(x ∈ A)`: `inline`), `∪`, `∩`, separation `{ x ∈ A \| ... }` (no unrestricted `{ x \| ... }`, which would allow Russell's paradox; "separation-in": an element of a part of `A` is in `A`), sets by their elements `{a, b}` ("singleton", and generated rules, §10), `∅` (also `{}`), `Pow`, ordered pairs and tuples (`(a, b)`, "pair-eq", `fst`, `snd`), Cartesian products `A × B`, mappings as sets of pairs (`f ∈ (A → B)`: `f ⊂ A × B` with one pair `(a, f a)` for each `a ∈ A`), "apply", "apply-in", "function-extensionality" | `equality`, `logic`, `objects` |
+| `number.kurt` | arithmetic (`^`: "pow-two" `$a ^ 2 = $a * $a` for every base, the other exponent laws for a positive one); the order (`<`, `<=`; `>`, `>=` are read as them, `inline`); its symbols are numbers (`default real`); theorems proved from its rules: "squares-non-negative" (`x * x >= 0`), the binomial formulas "binomial-plus" (`(a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2`), "binomial-minus", "binomial-product" (`(a + b) * (a - b) = a ^ 2 - b ^ 2`), and "two-times" (`2 * x = x + x`); the sets of numbers `Real` (`ℝ`, with "ext-real": two sets of numbers with the same numbers are equal), `Int` (`ℤ`) and `Rat` (`ℚ`), closed under the operations | `equality`, `logic`, `set` |
+| `natural.kurt` | natural numbers (`set Nat`, `ℕ`), induction (for a variable that is a number: `default real`); `0 <= n`, the predecessor, no number between n and n + 1, the well-ordering principle (proven from induction); `Nat ⊂ Real`, an integer is a natural number or the negative of one, a positive integer is a natural number, the rational numbers as fractions m / n ("rat-def", "rat-pos", "frac-cancel"), the sets `{a, ..., c}` | `set`, `number`, `logic` |
+| `divisibility.kurt` | `even` and `odd` (every natural number is one of them, none both), the divisibility `∣` (`\mid`), `coprime`; "lowest-terms": a positive rational is m / n with coprime natural numbers m, n (proven from the well-ordering) | `natural` |
+| `interval.kurt` | the numbers between two numbers, `Icc a b` (`a ≤ x ≤ b`), `Ico a b`, `Ioc a b`, `Ioo a b` (Mathlib's names; each a subset of `Real`), and the progressions `{a, ..., c}`, `{a, b, ...}` ("range", "progression", ...) | `natural` |
 | `complex.kurt` | complex numbers: the sort `complex` (`real ⊂ complex ⊂ set`), `+ - * / ^` overloaded on `real` and `complex` (§5.2: the least sort of a term; `<` stays on `real`; `^` with the laws for a natural-number exponent, "complex-pow-succ"), the unit `i` (`builtin i imaginary`: `calc on` computes exactly with Gaussian rationals, `i * i` is `-1`, `(1 + i) ^ 2` is `2 * i`), the set `Complex` (`ℂ`, `\C`), the laws of a field for every complex number ("complex-distrib-add", ...), `re`, `im`, `conj`, the modulus `cabs` (not `abs`: a result of another sort than the argument is stage 2 of overloading) with their laws; `kurt --lean` with Mathlib's `ℂ`, every rule proved there | `real` |
 | `group.kurt` | groups: `group(G, (∘), e, inv)` defined by `closed`, `associative`, `identity`, `inverse`; rules for single steps ("group-associative", "group-right-inverse", ...); theorems: the identity and the inverse are unique, `inv (inv a) = a`. Also `abelian(G, (∘))` and `abeliangroup(G, (∘), e, inv)` (`group` and `abelian` together), with "abeliangroup-commute". `∘` is an operator variable, so it all holds for any group, e.g. `group(R, (+), 0, (-))` | `set` |
 | `finite.kurt` | finite sets: `injective`, `surjective`, `bijection(f, A, B)` (set.kurt's mappings), their composition `comp(g, f, A, C)`, the difference `A ∖ B`, the numbers below n `below(n)` = {0, ..., n - 1}, `hassize(A, n)` (A has n elements: a bijection from `below(n)` onto A) and `finite(A)`; theorems: ∅ has 0 elements, `{a}` 1, adding a new element adds one, removing one removes one, the number is unique, a bijection keeps it, disjoint unions add up (and differences), a subset has at most as many, subsets, unions and bijective images of finite sets are finite. No `card` (a `def` needs a term, and Kurt has no description operator); one axiom, "nat-number" (an element of `Nat` is a number) | `set`, `natural` |
-| `field.kurt` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1` (`+` flat and sym, `·` flat): every axiom for the elements of `K` (`$a ∈ K`), the (K1)-(K9) of the mafi1 lecture with English names ("plus-commutative", "distributive", ...); theorems: the identities and inverses are unique, `0 · λ = 0`, no zero divisors, `x² = 1` only for `±1`; subtraction `λ - μ` with "minus-def", "minus-minus", "minus-of-plus", "minus-of-minus"; "zero-plus", "times-one", "minus-distributive" (`λa − μa = (λ − μ)a`), "difference-nonzero" (`a ≠ b ⇒ a − b ≠ 0`), "product-one-nonzero" (`a · b = 1 ⇒ a ≠ 0`). Its own `+`: not together with numbers.kurt | `set` |
+| `field.kurt` | a field `K` with `+`, `·`, `-`, `inv`, `0`, `1` (`+` flat and sym, `·` flat): every axiom for the elements of `K` (`$a ∈ K`), the (K1)-(K9) of the mafi1 lecture with English names ("plus-commutative", "distributive", ...); theorems: the identities and inverses are unique, `0 · λ = 0`, no zero divisors, `x² = 1` only for `±1`; subtraction `λ - μ` with "minus-def", "minus-minus", "minus-of-plus", "minus-of-minus"; "zero-plus", "times-one", "minus-distributive" (`λa − μa = (λ − μ)a`), "difference-nonzero" (`a ≠ b ⇒ a − b ≠ 0`), "product-one-nonzero" (`a · b = 1 ⇒ a ≠ 0`). Its own `+`: not together with number.kurt | `set` |
 | `vectorspace.kurt` | vector spaces over `K`: `vectorspace($V)`, the (V1)-(V8) for the elements of `$V`; `+`, `·`, `-`, `0` shared with the scalars; theorems: the zero vector and the inverse are unique, `0 · x = 0`, `(-1) · x = - x` | `field` |
-| `matrix.kurt` | vectors and matrices as literals (`[1, 2]`, `[[1, 2], [3, 4]]`, one row per line), computed exactly with `calc on`: `+`, `-`, `·`, `transpose`, `det`, `=`, `≠` (and `/` of numbers). Its own `+`: not together with numbers.kurt | `equality` |
+| `matrix.kurt` | vectors and matrices as literals (`[1, 2]`, `[[1, 2], [3, 4]]`, one row per line), computed exactly with `calc on`: `+`, `-`, `·`, `transpose`, `det`, `=`, `≠` (and `/` of numbers). Its own `+`: not together with number.kurt | `equality` |
 | `analysis.kurt` | subtraction for ε/2 arguments ("sub-def": `a - b = a + (-b)`, "sub-split", "sub-add", "sub-mul", "sub-zero", "double", "halves", "le-mul-nonneg"), `abs`, finite sums `sum i (a, b) T`, `max`/`min` and `sup`/`inf` of `T` over the `v` with a condition, `argmax`/`argmin` over a set (*some* place of the maximum, `argmax $v ∈ A T`), limits `lim v a T` (also with a condition, `lim $v > 0 0 T`) by ε and δ; only introduction rules, since these functions give a value also where the maximum, supremum, or limit doesn't exist; `tends v a L T` ("T tends to L for v → a": the limit exists), "tends-def", "tends-lim", "tends-unique" and the limit laws ("tends-add", "tends-mul", ...) | `natural` |
 | `continuity.kurt` | only the definitions of `cont x a T`, `diff x a T`, `deriv x a T` by ε and δ ("cont-def", "diff-def", "deriv-intro"), which derivative.kurt loads -- without the rules, a proof goes through ε and δ; "cont-tends": continuity by `tends` | `analysis` |
 | `sequences.kurt` | sequences and series: `converges n L T` (by ε and N), its value `seqlim n T`, "converges-unique", the limit laws, "archimedes"; `series i a T` (the limit of the partial sums, "series-def", "series-intro"), the geometric series ("geometric") | `analysis` |
@@ -2147,14 +2358,27 @@ without extending the language. See `tutorial/27-type-and-reduce-lambda-terms.ku
 
 #### What gets exported
 
-Not everything a loaded file declares becomes visible to whoever loads it.
+Not everything a loaded file declares becomes visible to whoever loads it. In short:
+
+| A `load` brings | Stays in the file that wrote it |
+|---|---|
+| its facts (`use`, `def`, proved theorems) that carry a label not marked `local` | a fact without a label, or labelled `local` |
+| the symbols those facts mention, with everything known about each: fixity, arity and shape, `prop` places, sorts, `binder`, `flat`, `sym`, `alias`, `tex`, `lean` | a symbol that only local facts mention and the file doesn't declare at its top level (its name is free again for the loader) |
+| the symbols the file declares at its top level without `local` (`const`, `prop`, `infix`, `prefix`, `postfix`, `brackets`, `arity`, `binder`, `flat`, `sym`, `alias`, `chain`, a sort's signature): its vocabulary | a declaration with `local` at its end (`const helper local`), a declaration inside a block |
+| the symbols bound to the calculator (`builtin`), `inline`, `tex` and `lean` symbols | `var` (a loaded `var n` never makes the loader's `n` a variable; the exported schemas arrive with internal variables) |
+| its sorts, subsorts and the sorts of the elements of its sets; its chains whose relations are all exported; its open `todo`s | the constants Kurt added at a first use (`; added constant`), `calc on`, `default` |
+| | a `def` written inside a block (§6.2): it is local to the block |
+
+An exported fact that needs a symbol declared `local`, or a `local` definition, is an error when the file is
+loaded (drop the `local`, or mark the fact `local` too). The details:
+
 A `use`/`def` axiom or a proved (`show`/`proof`/`qed`) theorem is
 **exported** exactly when it carries a label and that label isn't marked
 `local` (§6.2) — an unlabelled fact, or one labelled `EXPR local "..."`,
 stays entirely inside the file that wrote it. A symbol is exported when an
 exported fact mentions it, or when the file declares it at its top level:
 a declaration written out there (`const`, `prop`, `infix`, `prefix`,
-`postfix`, `brackets`, `arity`, `bindop`, `flat`, `sym`, `chain`, `alias`,
+`postfix`, `brackets`, `arity`, `binder`, `flat`, `sym`, `chain`, `alias`,
 `tex`, `lean`, a sort's signature) is the file's vocabulary. Either way, all that is
 known about the symbol travels along (its arity and shape, fixity, statement
 places, `tex`, `lean`, ...), so it can still be parsed and type-checked
@@ -2165,9 +2389,9 @@ declaration inside a block, `var` (a loaded `var x` would make the loader's
 use (`; added constant`). So a symbol that only ever appears in local facts
 and isn't declared at the top level (or only with `local`) is invisible
 from outside, freeing up its name for something else entirely unrelated in
-whatever file loads this one; a `local` declaration of a symbol that an
-exported fact needs still goes along with that fact. (Before 0.9, a
-declaration alone exported nothing.) A symbol bound to the calculator (`builtin + add`, §10) is exported too, even
+whatever file loads this one; a symbol that an exported fact needs but that
+is declared `local` is an error (drop the `local`, or mark the fact `local`
+too). (Before 0.9, a declaration alone exported nothing.) A symbol bound to the calculator (`builtin + add`, §10) is exported too, even
 without a fact that mentions it: the binding is an axiom about it (`1 + 1 =
 2`, ...) -- e.g. matrix.kurt's literals `[ ]`, `det`, `transpose`. An
 alias (`alias`) travels automatically with whatever symbol it names, since
@@ -2214,7 +2438,7 @@ Example:
 
 #### `save`: keep a shell session as a file
 
-    save "path/to/file.kurt"
+    save path/to/file.kurt        ; the quotes are optional, as for `load` (needed for a name with spaces)
 
 Writes the input lines that were accepted so far to `path` (relative to the current working
 directory): in the shell, the session without the lines that failed, and without the ones that
@@ -2313,7 +2537,8 @@ blocks (0.4 s for n = 128).
         ...
 
 Introduces one or more brand-new constants (each must not already be a
-declared constant). A condition (`let x>0`) also `use`s the condition as a
+declared constant, nor fixed by an enclosing `assume`; a `$` or `%` name is refused:
+the free `$`-variables of a claim need no `let`, they are one arbitrary object in its proof). A condition (`let x>0`) also `use`s the condition as a
 local axiom, in one step. Closing the block derives "forall-intro": the
 last thing proven inside becomes universally quantified over each new
 constant, in reverse declaration order, skipping any that turn out to be
@@ -2346,6 +2571,18 @@ From an existential with a condition, `exists $x > 0 P($x)` (§4.4), `FACT` is t
 the body for the witness: `pick c with c > 0 ∧ P c` -- as logic.kurt's "exists-cond-def" says,
 `∃ (sub $x $v %C) %P` is `∃ $w ((sub $x $w %C) ∧ (sub $v $w %P))`, so no detour through that
 rule is needed.
+
+Several witnesses at once: `pick x, y, z with F` is `pick x with ∃ y ∃ z F`, `pick y with ∃ z F`
+and `pick z with F`, one inside the other -- three blocks, but the lines indent once, and a
+dedent closes all three (the existential `∃ x ∃ y ∃ z F`, or one step to it, must be known).
+The names are distinct, and only the last carries `with F`. A `break` gives up all the blocks
+the `pick` line opened (they share one indentation), not only the innermost.
+
+The formula side has the same list: `∃ x, y, z P` is `∃ x ∃ y ∃ z P`, and `∀ x, y P` is `∀ x ∀ y P` (the parser
+writes the binder once for each name, for the binders that are `nested`, §4.4; proofs/debug/exists-several-variables.kurt). Each name can have
+its own condition, `∀ x > 0, y > 0 P` (`∀ x > 0 ∀ y > 0 P`); a condition after a list of plain names
+belongs to one variable, so `∃ x, y > 0 P` is a `ParseError` (write `∃ x, y > 0 P` as `∃ x > 0, y > 0 P` or `∃ x ∃ y > 0 P`). Only the
+two quantifiers take a list, not `sum`, `lim`, ... (their body or range is not repeatable).
 
 `SYMBOL` must be a bare new-or-existing name, unlike `let`'s otherwise
 similar `let SYMBOL` / `let SYMBOL>0` (§9.2) — a `pick`ed witness can never
@@ -2461,7 +2698,7 @@ should use structured API/LSP data when they need positions rather than parsing 
 **What `calc` computes** is said by the theories: they bind their symbols to
 Kurt's built-in calculator, whose operations are `add`, `subtract`, `negate`,
 `multiply`, `divide`, `power` and the comparisons `eq`, `ne`, `lt`, `le`, `gt`,
-`ge`. numbers.kurt does
+`ge`. number.kurt does
 
     builtin + add, - subtract, - negate, * multiply, / divide, ^ power
     builtin = eq, < lt, <= le
@@ -2471,7 +2708,7 @@ negation of a computed comparison holds by calc, `¬(2 = 3)`)
 
 and a symbol that isn't bound is never computed. Sets of numbers, too: the
 calculator knows `naturals`, `integers` and `rationals`, natural.kurt does
-`builtin Nat naturals` (integer.kurt and rational.kurt likewise for `Int` and
+`builtin Nat naturals` (number.kurt likewise for `Int` and
 `Rat`), and set.kurt `builtin in element`; then `calc on` proves `3 ∈ Nat` and
 `-3 ∈ Int`, but not `-3 ∈ Nat`. complex.kurt binds `i` to `imaginary`: an expression of numbers, `i` and the operations is
 computed exactly with rational real and imaginary parts, `calc on` proves `(1 + 2 * i) * (3 - i) = 5 + 5 * i`, `i * i = -1`, `(1 + i) ^ 2 = 2 * i` (a power with a natural-number exponent up to 64) and `i ≠ 0`.
@@ -2514,7 +2751,7 @@ counts for the terms, `{a, b} = {b, a}` follows from "extensionality". About
 15 elements take a second or two; a disjunction of twenty or more is slow to
 find (dev/todo.md, speed).
 
-With natural.kurt, `...` lists numbers: `{a, ..., c}` in steps of one
+With interval.kurt, `...` lists numbers: `{a, ..., c}` in steps of one
 ("range"), `{a, b, ..., c}` and `{a, b, ...}` in steps of `b - a`, for `a < b`
 ("progression", "progression-intro", "progression-infinite", ...) -- each
 membership is an `∃ k ∈ Nat` (proofs/natural-numbers/progressions.kurt). One
@@ -2558,7 +2795,7 @@ entered for a stored formula.
 (a line break inside a bracket pair bound to `matrixbrackets` -- `builtin [ ] matrixbrackets` --
 without another one in it ends a row; elsewhere it is a space, also inside a
 `[ ]` that isn't bound: the theory makes the brackets special, not Kurt). matrix.kurt has its own `+`, `-`, `·`, so it isn't loaded together
-with numbers.kurt (§8.2); it computes with literals and has no laws for
+with number.kurt (§8.2); it computes with literals and has no laws for
 matrices written with variables (for those: proofs/mafi1/matrices.kurt, over
 a field). As everywhere with `calc on`, a name defined as a matrix
 (`def A = ...`) isn't computed in the same line: replace it first, one step
@@ -2573,9 +2810,9 @@ operator cannot also be calculator-bound. Numbers are exact: integers, decimals 
 exactly one tenth, so `0.1 + 0.2 =
 0.3` holds), and fractions, which stay fractions (`1 / 3 + 1 / 3` is `2 / 3`).
 What has no exact value isn't computed: `1 / 0`, `0 ^ -1`, `2 ^ 0.5`, and
-`0 ^ 0` (which numbers.kurt leaves open). Neither is a result with more than
+`0 ^ 0` (which number.kurt leaves open). Neither is a result with more than
 1000 digits, and a longer number literal is a `ScanError`.
-`0 + x` and `1 * x` are `x`, `0 * x` is `0`. In numbers.kurt, `^` is
+`0 + x` and `1 * x` are `x`, `0 * x` is `0`. In number.kurt, `^` is
 right-associative and binds more tightly than the prefix `-`: `- 2 ^ 2` is
 `- 4`, and `2 ^ 3 ^ 2` is `2 ^ 9`. A decimal with an integer value is that
 integer: `1.0` is `1`.
@@ -2657,7 +2894,7 @@ Features that were considered and left out, at least until after 1.0 -- some on 
   `def f (s $n) = f (s $n) + 1` gives `0 = 1`), and `constructors` is itself
   a claim about `Nat` (to be proven, or allowed only in trusted theories).
   Until then, recursive definitions are `use` axioms with a label (like
-  "factorial-step" in numbers.kurt).
+  "factorial-step" in number.kurt).
 - **A normalizer for ring expressions** (like Lean's `ring`): a line "by
   ring" holding if both sides are equal as polynomials, e.g. the `ad - bc`
   computations of 2×2 determinants in one line. It would need a declaration
@@ -2668,7 +2905,7 @@ Features that were considered and left out, at least until after 1.0 -- some on 
   `$a - ($b - $c) = $a - $b + $c`, belong into the theory.
 - **`calc`/`eval` that unfolds a user's own recursive function**: print the
   value of e.g. `fact(3)` by repeatedly applying a function's own axioms
-  (`fact-zero`, `fact-step` in numbers.kurt) until none apply, instead of
+  (`fact-zero`, `fact-step` in number.kurt) until none apply, instead of
   only folding the small set of built-in arithmetic operations `calc on`
   already folds. On purpose, for now: those built-ins are hand-coded,
   trusted, and provably terminating; a user's recursive axioms carry no
@@ -2709,7 +2946,7 @@ Features that were considered and left out, at least until after 1.0 -- some on 
 ### 11.2 Why no namespaces (yet)
 
 Two theories loading symbols with the same name can't collide the way `import` does in most
-languages: "a symbol is declared by one file only" (§8.2) -- `load numbers, field` simply can't
+languages: "a symbol is declared by one file only" (§8.2) -- `load number, field` simply can't
 both declare `+`. Where you would expect to need a namespace -- `group.kurt`, `field.kurt`,
 `vectorspace.kurt` each wanting their own `+`/`∘` -- Kurt uses an **operator variable** instead:
 their theorems are stated over a schematic `$op` (`var ∘`, `infix ∘`), instantiated at a concrete
@@ -2721,8 +2958,8 @@ The one real collision in the bundled theories is `⊢`: `modal.kurt`'s "A is a 
 a glyph, and only matter if one file loads both. A general lexically-scoped namespace ("open a
 block, use a theory's notation inside it, close it, the notation is gone") sounds like the fix,
 and the *infrastructure* for it already exists: `KnowledgeBase` is a stack of levels, and a
-declaration (`infix`, `bindop`, `arity`, ...) is visible only from the level that made it and its
-descendants -- a lookup (`is_infix`, `is_bindop`, ...) walks up `parent`, never sideways or down.
+declaration (`infix`, `binder`, `arity`, ...) is visible only from the level that made it and its
+descendants -- a lookup (`is_infix`, `is_binder`, ...) walks up `parent`, never sideways or down.
 
 But there's a catch that makes this harder than it looks. When a block closes and one of its
 formulas escapes to the surviving level (`assume`'s "impl-intro", `let`'s "forall-intro", ...),
@@ -2744,8 +2981,10 @@ only the colliding pair needs one explicit line -- see `dev/todo.md` #21.
 
 Since a grammar declaration inside `assume`/`case`/`let`/`pick`/`proof` was never actually scoped
 to the block for the reason above, it is now rejected there outright (§4.1, §6.2), the same way
-`use`/`load`/`def`/`chain`/`inline` already were: `infix`, `prefix`, `postfix`, `brackets`,
-`arity`, `bindop`, `flat`, `sym`, `alias` and `sort` must be declared at the top level, or inside a
+`use`/`load`/`chain`/`inline` already were (a `def` is allowed in a block since 2026-10-27: its
+symbol is a constant of the block, gone when it closes, and no result may mention it -- so nothing
+of it escapes, §6.2): `infix`, `prefix`, `postfix`, `brackets`,
+`arity`, `binder`, `flat`, `sym`, `alias` and `sort` must be declared at the top level, or inside a
 `sandbox`/`expect` whose content is discarded anyway. This closes the one case that used to look
 like it worked (nothing escaped the block in the test files that tried it) but was never actually
 safe in general.

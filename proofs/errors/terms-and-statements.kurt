@@ -1,5 +1,5 @@
 ; a symbol is a term or a statement (2026-10-15, from the second bug hunt)
-load equality, numbers
+load equality, number
 
 ; a constant used in a term doesn't become a statement at a later use (before: `prop a 0 ; added
 ; statement places`)

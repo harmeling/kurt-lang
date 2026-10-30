@@ -56,6 +56,15 @@ class TestSaveCommand(unittest.TestCase):
             labels = {f.label for f in load(saved).theory}
             self.assertIn('mp', labels)
 
+    def test_save_takes_a_file_name_without_quotes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, 'source.kurt')
+            saved = os.path.join(tmp, 'foo-bar.kurt')
+            with open(source, 'w') as fh:
+                fh.write(f'load propositional\nprop A\nuse A\nsave {saved}\n')
+            load(source)
+            self.assertTrue(os.path.exists(saved))
+
     def test_save_in_the_shell_leaves_out_what_failed(self):
         with tempfile.TemporaryDirectory() as tmp:
             saved = os.path.join(tmp, 'session.kurt')

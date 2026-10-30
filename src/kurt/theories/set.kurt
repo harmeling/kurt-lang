@@ -15,7 +15,15 @@
 ; mappings are ZF-style sets of ordered pairs (their graphs), applied with kurt's ordinary
 ; space-application `$f $a` -- see the comment further down, right above "function-space".
 load propositional, equality, logic
-load objects             ; the sorts: `set`, and `real ⊂ set` -- every number is a set
+; the sorts of the objects: `real ⊂ set` -- a number fits wherever a set is required (`3 ∈ Nat`, `{1, 2}`), but a
+; set doesn't fit where a number is required (`{1, 2} + 0` is a type error). The rules below are written once, with
+; `set` variables, and hold for numbers too; number.kurt's rules are about numbers only. number.kurt loads this
+; file, so the two sorts are declared in one place (doc/kurt-ref.md §5.2).
+sort set real
+; `kurt --lean` (doc/kurt-ref.md, `--lean`): the objects are the sets of Mathlib's model of ZFC, and a
+; sort with a type of its own (number.kurt's `lean real ℝ`) is embedded into them -- so a proof that
+; mixes sets and numbers is checked by Lean in one model of both
+lean Obj ZFSet
                          ; -- a set, a number, or one of no sort (`term`); every place that must be a set is
                          ; declared below (`set ∈ 2`). The default doesn't cross `load`: a student's `∀ x` is over
                          ; `term`; with `any x` (or `default any`) it is over all objects, as here (todo 35)
@@ -23,7 +31,7 @@ load objects             ; the sorts: `set`, and `real ⊂ set` -- every number 
 ; syntax
 infix    in 25 25        ; element
 infix    |  10 10        ; separator for set comprehension
-bindop   |               ; `{ $z ∈ $A | P $z }` binds `$z`, like `∀ $z ∈ $A ...`
+binder   |               ; `{ $z ∈ $A | P $z }` binds `$z`, like `∀ $z ∈ $A ...`
 infix    subset    18 18     ; subset
 infix    superset  18 18     ; superset: `A ⊃ B` is read as `B ⊂ A` (the `inline` below)
 infix    notin     25 25     ; not an element: `x ∉ A` is read as `not (x ∈ A)`
@@ -74,7 +82,7 @@ set      ( 0             ; the pair `(a, b)`: a set (Kuratowski), its components
 ; an element (todo 35): a proof that needs `c ∈ Pow(A)` as a set says so, `set c`
 
 ; how `kurt --lean` writes them (doc/kurt-ref.md, `--lean`): in the sets of Mathlib's model of ZFC
-; (`ZFSet`, objects.kurt's `lean Obj ZFSet`) -- `∈` is its membership, `{z ∈ A | P}` its separation
+; (`ZFSet`, set.kurt's `lean Obj ZFSet`) -- `∈` is its membership, `{z ∈ A | P}` its separation
 ; (`ZFSet.sep`), `{a, b, c}` Lean's own, `(a, b)` the Kuratowski pair, `A → B` the set of the
 ; mappings (`ZFSet.funs`), and a mapping applied, `f a`, the `b` with `(a, b) ∈ f` (`k_apply`). Each
 ; rule below is a theorem of Mathlib: its proof is the `lean "label" ...` at the end of the file

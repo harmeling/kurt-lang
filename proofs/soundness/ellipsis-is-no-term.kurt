@@ -3,7 +3,7 @@
 ; `$y2 := ...`: `... ∈ {1, ..., 3}` and `... ∈ {5, ..., 7}` followed, and with "range" `... <= 3`
 ; and `5 <= ...` -- `false` (found while looking into a slow search, 2026-10-14). Now no variable
 ; takes `...` as its value, in the search (`unify_exprs_with_patterns`) and in the kernel.
-load natural
+load natural, interval
 2 ∈ {1, 2, 3}                 ; (the rules for sets of three)
 expect "ProofError"
     ... ∈ {1, ..., 3}

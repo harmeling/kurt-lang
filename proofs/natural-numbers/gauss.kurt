@@ -14,6 +14,8 @@ proof
         let k ∈ Nat
             assume (sum x (0, k) x) = k * (k + 1) / 2
                 ; the two arithmetic facts needed below
+                k + 1 ∈ Nat
+                0 <= k + 1                                                ; "sum-last" needs `0 <= k + 1`
                 ((k + 1) * 2) / 2 = k + 1
                 ((k + 1) * 2) / 2 + k * (k + 1) / 2 = ((k + 1) * 2 + k * (k + 1)) / 2
                 (sum x (0, k + 1) x) = (k + 1) + (sum x (0, k) x)      ; by sum-last

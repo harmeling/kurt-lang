@@ -1,0 +1,119 @@
+; 09a-prove-an-existential-statement.kurt
+;
+; Prove an existential statement
+;
+; To prove `∃ x P(x)`, give a witness: an object `t` for which `P(t)` holds. Prove `P(t)` for it,
+; then write the existential. Kurt closes the step with "exists-intro" of logic.kurt: from an
+; statement about `t`, `t` may be replaced by a bound variable. (Lesson 09 is the other direction:
+; to *use* an existential you have, `pick` a witness.)
+
+load logic, number
+calc on              ; for evaluating `3 > 2` and `3 * 3` below
+
+; 1. The witness is known to have the property: a fact about it, then the existential.
+
+prop P
+const c
+use P(c)
+
+∃ x P(x)                          ; by exists-intro: `c` is the witness
+
+; 2. Find the witness first, on scratch paper: is there a number between 2 and 4? Yes, 3. The proof
+; is the check that it has the property, and then the existential.
+
+show ∃ x (x > 2 ∧ x < 4)
+proof
+    3 > 2 ∧ 3 < 4                ; the witness 3 has both properties
+    ∃ x (x > 2 ∧ x < 4)          ; so there is such an x
+qed
+
+; 3. The witness may be a computed term, here `3` is found as the number whose square is 9.
+
+show ∃ x (x * x = 9)
+proof
+    3 * 3 = 9
+    ∃ x (x * x = 9)
+qed
+
+; The witness can get a name with `def`, inside the proof. The name is local to the proof: it is
+; gone when the proof closes, and the claim may not mention it (it doesn't: `∃ x` hides the witness).
+
+show ∃ x (x * x = 16)
+proof
+    def t = 4                    ; `t` names the witness, in this proof only
+    t * t = 4 * 4
+    t * t = 16
+    ∃ x (x * x = 16)             ; `t` is the witness
+qed
+
+; A named witness helps when it is a term about an object of the proof. For every `a` there is a
+; number larger than `a * a`, for example `a * a + 1` -- it depends on `a`, the arbitrary object of a
+; `let` (lesson 08), so its `def` stands inside the `let`:
+
+show ∀ $a ∃ x (x > $a * $a)
+proof
+    let a
+        def w = a * a + 1        ; the witness, a term about `a`
+        0 < 1
+        0 + a * a < 1 + a * a
+        a * a < a * a + 1
+        a * a < w
+        ∃ x (x > a * a)          ; `w` is the witness
+qed
+
+; 4. With a condition: `∃ x > 2 (x < 4)` means `∃ x (x > 2 ∧ x < 4)`. Kurt wants the condition and
+; the body for the witness, as one statement:
+
+show ∃ x > 2 (x < 4)
+proof
+    3 > 2 ∧ 3 < 4
+    ∃ x > 2 (x < 4)
+qed
+
+; 5. Two quantifiers: one witness for each, the inner one first.
+
+show ∃ x ∃ y (x + y = 5)
+proof
+    2 + 3 = 5                     ; x = 2, y = 3
+    ∃ y (2 + y = 5)               ; the witness for y
+    ∃ x ∃ y (x + y = 5)           ; the witness for x
+qed
+
+; 6. The witness can be an object of the proof itself, for example one from a `pick`: from an
+; object with `P` and `Q`, there is an object with `P`.
+
+prop Q
+use ∃ y (P(y) ∧ Q)
+
+show ∃ z P(z)
+proof
+    pick b with P(b) ∧ Q
+        P(b)
+        ∃ z P(z)                  ; `b` is the witness
+qed
+
+; The `pick` block is left with `∃ z P(z)`, which does not mention `b`; so it is fine (lesson 09).
+
+; 7. A witness that does not work is rejected. `3` is not larger than 5:
+
+expect "ProofError"
+    show ∃ x (x > 5 ∧ x < 4)
+    proof
+        3 > 5 ∧ 3 < 4
+    qed
+
+; Nothing says which witness is the right one: Kurt only checks the one you give. And there is
+; nothing to prove about `x` itself: `∃ x P(x)` follows from one `P(t)`. To prove that *every* x
+; has a property, a `let` is needed instead (lesson 08).
+
+; 8. Several variables are written as a list: `∃ x, y P` is `∃ x ∃ y P`, and each name may have its own
+; condition (`∀ x > 0, y > 0 P` is `∀ x > 0 ∀ y > 0 P`). The witnesses are two, the proof is the same:
+
+show ∃ a, b (a < b)
+proof
+    1 < 2
+    ∃ b (1 < b)                  ; (witness 2 for b)
+    ∃ a, b (a < b)               ; (witness 1 for a)
+qed
+
+; The other direction, lesson 09, takes the witnesses apart with one `pick`: `pick x, y with F`.

@@ -61,7 +61,7 @@ class TestUnusedLines(unittest.TestCase):
     def test_what_is_never_reported(self):
         # the top level; `expect` and `sandbox` blocks; restating an assumption; a proof's last line
         # that is its goal, also when `qed` proves the goal again without citing it
-        text = ('load numbers, logic\nuse A\nA\nshow A\nproof\n    expect "ProofError"\n        B\n    A\nqed\n'
+        text = ('load number, logic\nuse A\nA\nshow A\nproof\n    expect "ProofError"\n        B\n    A\nqed\n'
                 'sandbox\n    use false\n    A\nuse ∃ $x P($x)\nuse P($x) ⇒ A\nshow A\nproof\n    pick c with P(c)\n'
                 '        P(c)\n        A\nqed\ncalc on\nshow 2 + 3 = 5\nproof\n    2 + 3 = 5\nqed\n')
         lines, restates = unused(text)

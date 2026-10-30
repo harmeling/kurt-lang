@@ -9,7 +9,7 @@
 ; them -- shapes that don't fit give no value. The entries are numbers; the calculator is trusted
 ; code that comes with Kurt (doc/kurt-ref.md, `calc`).
 ;
-; A structure with its own operators: not together with numbers.kurt (a symbol is declared by one
+; A structure with its own operators: not together with number.kurt (a symbol is declared by one
 ; file only). This theory computes with literals and has no laws for matrices written with
 ; variables; for those, see proofs/mafi1/matrices.kurt (matrices over a field).
 load equality

@@ -1,6 +1,6 @@
 ; `pick` with a comma inside its formula (a function with two arguments, a pair): `pick` isn't
 ; parsed as one expression, its tokens are split at commas -- which used to split inside brackets
-; too ("one `pick` per line")
+; too (several witnesses are `pick x, y with F`)
 load set
 arity P (_, _)
 const Q

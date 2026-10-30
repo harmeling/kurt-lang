@@ -3,7 +3,7 @@
 ; `plus` bound to the calculator's `add`, `def c plus $x = 0` was accepted, and then
 ;     c plus 0 = 0,  c plus 1 = 0,  c = 0 (calc),  0 plus 1 = 0,  1 = 0 (calc),  false
 ; -- a complete proof of `false` without `use` or `todo`. Now the `def` is refused.
-load numbers
+load number
 const plus
 infix plus 60 60
 builtin plus add

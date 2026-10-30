@@ -109,7 +109,7 @@ class TestCannotUnify(unittest.TestCase):
         self.kb.add_infix("eq", 20, 20)
         self.kb.add_sym("eq")
         self.kb.add_arity("all", 2)
-        self.kb.add_bindop("all")
+        self.kb.add_binder("all")
         leaves: list[Expr] = [sym("a"), sym("b"), real(1), real(2), Token(label="STRING", value="s"), sym("$x"), sym("$y")]
         def terms(depth: int) -> list[Expr]:
             if depth == 0:

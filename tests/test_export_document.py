@@ -85,7 +85,7 @@ class TestTuples(unittest.TestCase):
 class TestChains(unittest.TestCase):
     def test_a_chain_without_its_first_term_on_the_continuation_lines(self):
         # until 2026-10-14 each continuation line repeated the left side (`e < g`, `e < h`)
-        doc = export('load numbers\nconst e, f, g, h\nuse e = f\nuse f < g\nuse g = h\ne = f\n  < g\n  = h\ncalc on\n- 1 < 0\n', 'markdown')
+        doc = export('load number\nconst e, f, g, h\nuse e = f\nuse f < g\nuse g = h\ne = f\n  < g\n  = h\ncalc on\n- 1 < 0\n', 'markdown')
         self.assertIn('| 6 | $e = f$ |', doc)
         self.assertIn('| 7 | $< g$ |', doc)
         self.assertIn('| 8 | $= h$ |', doc)
@@ -93,7 +93,7 @@ class TestChains(unittest.TestCase):
 
     def test_a_proof_that_does_not_check_keeps_its_notation(self):
         # until 2026-10-14 the document of a failed check was written without the theories' notation (`e\left(=, f\right)`)
-        doc = export('load numbers\nconst e, f\nuse e = f\nf < e\n', 'markdown')
+        doc = export('load number\nconst e, f\nuse e = f\nf < e\n', 'markdown')
         self.assertIn('not checked', doc)
         self.assertIn('$\\textbf{use} \\; e = f$', doc)
 

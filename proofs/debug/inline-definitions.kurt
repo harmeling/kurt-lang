@@ -1,7 +1,7 @@
 ; `inline`: a definition applied while reading (since 2026-10-12) -- `x > 0` is the term `0 < x`,
 ; so nothing is to be switched; before, `>`, `≠`, `⊃` were symbols of their own, and a
 ; line went from one to the other
-load numbers, logic, set
+load number, logic, set
 const x, y, A, B
 
 use 0 < x

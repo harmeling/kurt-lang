@@ -59,14 +59,14 @@ sym   and                                    ; `A and B` is the same as `B and A
 ;
 ; nothing has such a meaning by its name: a trusted theory assigns it with `builtin` (doc/kurt-
 ; doc.md §10) -- propositional.kurt `builtin iff equivalence, or disjunction, not negation, false falsum`,
-; equality.kurt `builtin = equality`, and the calculator's operations, e.g. numbers.kurt `builtin
+; equality.kurt `builtin = equality`, and the calculator's operations, e.g. number.kurt `builtin
 ; + add, * multiply, ...` and matrix.kurt `builtin [ ] matrixbrackets` (computed with `calc on`). The
 ; quantifiers too: logic.kurt declares `forall`/`exists` with `builtin forall universal, exists
 ; existential` -- without `load logic` there are no quantifiers, and no `let`/`pick`.
 
 ;; substitution operator
 arity  sub 3                                 ; operator for substitutions
-bindop sub                                   ; first arg must be a variable that is bound
+binder sub                                   ; first arg must be a variable that is bound
 
 ; The minimal core deliberately has no aliases. `propositional.kurt` supplies the familiar aliases for
 ; propositional syntax (`⊤`, `⇒`, `∧`, ...), and `logic.kurt` the quantifiers with `∀` and `∃`.

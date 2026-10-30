@@ -108,7 +108,7 @@ class TestLanguageServer(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             uri = 'file://' + os.path.join(tmp, 'd.kurt')
             text = ('var a, b\nconst pi    ; a comment\ninfix ++ 50 50\ninfix ^^ 75 74\narity f 2\narity g (_, _)\n'
-                    'load numbers\ncalc on\ntex pi \\pi\n; only a comment\n')
+                    'load number\ncalc on\ntex pi \\pi\n; only a comment\n')
             server = kurt.LanguageServer(io.BytesIO(), io.BytesIO())
             server.texts[uri], server.versions[uri] = text, 1
             server.check(uri)
@@ -148,6 +148,57 @@ class TestLanguageServer(unittest.TestCase):
         self.assertEqual(diagnostics[0]['range']['start']['line'], load_line)
         self.assertTrue(diagnostics[0]['message'].startswith('in equality.kurt, line '))
         self.assertIn('unsaved in the editor', diagnostics[0]['message'])
+
+    def test_heat_notifications_only_for_an_editor_that_asks(self):
+        # `kurt/progress` (the line being checked) and `kurt/profile` (time and steps per line) for an editor that tints the
+        # lines: the option `heat`; no other client gets them (plan step 10, slice 2)
+        for heat in (False, True):
+            with self.subTest(heat=heat), tempfile.TemporaryDirectory() as tmp:
+                uri = 'file://' + os.path.join(tmp, 'proof.kurt')
+                client = Client(tmp)
+                try:
+                    client.request('initialize', {'processId': None, 'rootUri': None, 'capabilities': {},
+                                                  'initializationOptions': {'heat': heat}})
+                    client.send('initialized', {}, request=False)
+                    client.send('textDocument/didOpen', {'textDocument': {
+                        'uri': uri, 'languageId': 'kurt', 'version': 1, 'text': 'load logic\nprop A, B\nuse A implies B\nuse A\nB\n'}}, request=False)
+                    client.notification('textDocument/publishDiagnostics')
+                    if heat:
+                        profile = client.notification('kurt/profile')
+                        self.assertEqual(profile['uri'], uri)
+                        self.assertIn(5, [entry['line'] for entry in profile['lines']])
+                        self.assertTrue(all({'line', 'seconds', 'steps'} <= set(entry) for entry in profile['lines']))
+                finally:
+                    client.close()
+
+    def test_the_editor_can_cancel_a_check_that_runs(self):
+        # `kurt/cancel` (the status menu of the VS Code extension) stops the check at its next step; the editor is told (`kurt/progress`)
+        n = 10
+        alts = [f'A{i}' for i in range(n - 1)]
+        lines = ['load propositional', f'prop {", ".join(alts + ["G"])}', f'use {" or ".join(alts + [alts[-1]])}']
+        lines += [f'use {a} implies G' for a in alts[:-1]] + ['G']          # (a false goal: a long search)
+        with tempfile.TemporaryDirectory() as tmp:
+            uri = 'file://' + os.path.join(tmp, 'proof.kurt')
+            client = Client(tmp)
+            try:
+                client.request('initialize', {'processId': None, 'rootUri': None, 'capabilities': {},
+                                              'initializationOptions': {'heat': True, 'budget': 0}})
+                client.send('initialized', {}, request=False)
+                client.send('textDocument/didOpen', {'textDocument': {
+                    'uri': uri, 'languageId': 'kurt', 'version': 1, 'text': '\n'.join(lines) + '\n'}}, request=False)
+                started = time.monotonic()
+                while True:                                  # (the check has begun: its first progress)
+                    message = client.receive()
+                    if message.get('method') == 'kurt/progress' and message['params']['line'] >= len(lines):
+                        break
+                client.send('kurt/cancel', {'uri': uri}, request=False)
+                while True:
+                    message = client.receive()
+                    if message.get('method') == 'kurt/progress' and message['params'].get('cancelled'):
+                        break
+                self.assertLess(time.monotonic() - started, 60)
+            finally:
+                client.close()
 
     def test_protocol_position_and_uri_conversions(self):
         self.assertEqual(kurt.lsp_uri_path('file:///tmp/a%20b.kurt'), '/tmp/a b.kurt')

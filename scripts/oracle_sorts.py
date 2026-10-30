@@ -63,6 +63,9 @@ class Model:
         # contain them -- infinitely many, so they are sampled, never enumerated)
         self.arithmetic = arithmetic
         self.num_sort = kb.pos_sort(k.NUMBERS_KEY, 0) if arithmetic else None
+        # (the sort of the complex numbers, where there is an imaginary unit: not modelled, see `sample`)
+        imaginary = kb.builtin_symbol(k.IMAGINARY_UNIT) if arithmetic else None
+        self.complex_sort = kb.pos_sort(imaginary, 0) if imaginary else None
 
     def has_numbers(self, sorts) -> bool:
         if not self.arithmetic:
@@ -73,6 +76,10 @@ class Model:
 
     def sample(self, sorts) -> list:
         # the values a variable of these sorts takes in a check: its objects, and numbers if it has them
+        if self.complex_sort is not None and self.complex_sort in (sorts or ()):
+            # a variable or constant of the sort `complex` would take an object of the model, on which the calculator's
+            # `*` and `+` are some total function, not the field's (`1 * z = z` failed): the models have no complex numbers
+            raise Unsupported('complex numbers')
         objects = sorted(self.sorts_set(sorts)) if not (self.arithmetic and sorts and self.num_sort in sorts) else []
         return objects + (NUMBER_POOL if self.has_numbers(sorts) else [])
 
@@ -235,7 +242,7 @@ def evaluate(e: k.Expr, m: Model, env: dict, kb) -> object:
             r = role(kb, op)
             if r in ('universal', 'existential', 'unique'):
                 return quantify(r, e, m, env, kb)
-            if kb.is_bindop(op):
+            if kb.is_binder(op):
                 raise Unsupported(f'the binder `{op}`')
             vals = [evaluate(a, m, env, kb) for a in args]
             if r == 'negation':
