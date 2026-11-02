@@ -1,0 +1,8 @@
+; An operator of a loaded theory at an operator parameter, `(∘)` of `group`, is no new constant: a second
+; such line used to fail (the first had made `∘` a constant: "`∘` is an operator without its arguments").
+load group
+const G, H, e, f
+arity inv 1
+use group(G, (∘), e, inv)
+use group(H, (∘), f, inv)
+use group(G, (∘), e, inv)

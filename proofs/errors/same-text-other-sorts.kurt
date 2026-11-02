@@ -1,0 +1,17 @@
+; A line that reads like a known fact but is another one: the `default real` made the `A` of
+; `let A ∈ Pow(Nat)` a number, so the binder of the fact ranges over the numbers, the binder of the
+; claim over sets. The error used to show the same formula twice and no reason (bug hunt, 2026-10-30);
+; it now names the fact of the same text. `set A` before it is the fix (natural-numbers/induction-for-sets.kurt).
+load logic, number, natural, set
+default real
+let A ∈ Pow(Nat)
+    assume 0 ∈ A ∧ ∀ n ∈ A (n + 1 ∈ A)
+        0 ∈ A
+        ∀ n ∈ A (n + 1 ∈ A)
+        let n ∈ Nat
+            assume n ∈ A
+                n + 1 ∈ A
+        ∀ n ∈ Nat (n ∈ A ⇒ n + 1 ∈ A)
+        ∀ n ∈ Nat (n ∈ A)
+expect "ProofError" "reads the same"
+    ∀ A ∈ Pow(Nat) ((0 ∈ A ∧ ∀ n ∈ A (n + 1 ∈ A)) ⇒ ∀ n ∈ Nat (n ∈ A))

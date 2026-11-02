@@ -149,7 +149,7 @@ class TestFoundation(unittest.TestCase):
         self.assertIn(('use', 'propositional.kurt', 'iff-subst'), rests_on(entry))
         self.assertTrue(any(p['file'].startswith('<chain transitivity') for p in entry['rests_on']))   # the rules of its `chain`
         report = kurt.foundation_report('contraposition.kurt', result.foundations)
-        self.assertIn('the rules of `chain iff invimplies`: "chain-trans-0-0" (line 1)', report)
+        self.assertIn('the rules of `chain iff implies`: "chain-trans-iff/iff" (line 1)', report)
         self.assertIn('each postulate, and the facts above that rest on it:', report)
 
     def test_without_foundation_nothing_is_computed(self):
@@ -291,7 +291,7 @@ class TestFoundationLeftovers(unittest.TestCase):
             self.assertNotIn('rests on', hover(9))                            # (a line inside a proof)
 
     def test_the_hover_names_the_rules_of_a_chain(self):
-        entry = {'class': 'theorem', 'rests_on': [{'kind': 'use', 'file': "<chain transitivity for ['=', '<']>", 'line': '1', 'label': 'chain-trans-0-0', 'text': ''},
+        entry = {'class': 'theorem', 'rests_on': [{'kind': 'use', 'file': "<chain transitivity for ['=', '<']>", 'line': '1', 'label': 'chain-trans-=/<', 'text': ''},
                                                   {'kind': 'admitted', 'file': 'f.kurt', 'line': '3', 'label': '', 'text': ''}]}
         self.assertEqual(kurt.foundation_in_short(entry), 'rests on: 1 rule of `chain = <`, no todo, 1 line admitted after an error')
 

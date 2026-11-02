@@ -1,4 +1,4 @@
-; 44-sort.kurt
+; 45-sort.kurt
 
 ; Kurt's sorts are kinds of objects -- of terms: `any` (every object) is in every file, and a theory
 ; declares its own below `any` (they may form a DAG). Statements (`prop`, lesson 01) are no sort and

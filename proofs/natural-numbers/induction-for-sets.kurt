@@ -1,0 +1,21 @@
+; Induction as one sentence about sets. natural.kurt states induction as a schema, for a property %A;
+; in the full (second-order) semantics it is one statement about every subset of the natural numbers,
+; and in Kurt a quantifier over the subsets needs only `Pow` (the idea of logic-encodings/second-order-leibniz.kurt):
+; if A contains 0 and is closed under the successor, A contains every natural number. The schema gives it
+; for the property "is in A"; nothing second-order is needed beyond a set A that is an object.
+load logic, number, natural, set
+default real                  ; the n of `∀ n ∈ Nat` is a number: induction is about the numbers
+set A                         ; ... but a subset of Nat is a set, not a number
+
+show ∀ A ∈ Pow(Nat) ((0 ∈ A ∧ ∀ n ∈ A (n + 1 ∈ A)) ⇒ ∀ n ∈ Nat (n ∈ A))      "induction-for-sets"
+proof
+    let A ∈ Pow(Nat)
+        assume 0 ∈ A ∧ ∀ n ∈ A (n + 1 ∈ A)
+            0 ∈ A
+            ∀ n ∈ A (n + 1 ∈ A)
+            let n ∈ Nat
+                assume n ∈ A
+                    n + 1 ∈ A
+            ∀ n ∈ Nat (n ∈ A ⇒ n + 1 ∈ A)
+            ∀ n ∈ Nat (n ∈ A)
+qed

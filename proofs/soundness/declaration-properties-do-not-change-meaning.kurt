@@ -38,4 +38,4 @@ expect "EvalError" "a term as its result"
 expect "EvalError" "first position"
     prop binderop 0 1
     arity binderop 2
-    binder binderop
+    binder binderop 90

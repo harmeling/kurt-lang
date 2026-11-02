@@ -1,0 +1,40 @@
+; an operator written with its holes: `_+_` (infix), `-_` (prefix), `_!` (postfix), also `_∧_` and `_implies_`.
+; It is the operator itself as a term, like `(+)`, and applied to its arguments it is the same term as the operator
+; between them: `_+_(a, b)` is `a + b`.
+load number
+const a, b
+
+show a + b = _+_(a, b)
+proof
+    a + b = a + b
+
+show a + b = _+_ a b                   ; with spaces, as `f a b`
+proof
+    a + b = a + b
+
+show - a = -_(a)
+proof
+    - a = - a
+
+show - a = -_ a
+proof
+    - a = - a
+
+show a - b = _-_(a, b)                 ; `-` is both: `_-_` is the infix one
+proof
+    a - b = a - b
+
+; the operator as a term, at the operator parameter of `group`
+load group
+use group(ℝ, _+_, 0, -_)
+
+; the wrong shape, and the wrong number of arguments, are errors
+expect "ParseError" "`_not_` is the infix operator `not` with its holes, but `not` is a prefix operator (write `not_`)"
+    show _not_(a, b)
+
+expect "EvalError" "takes 2 arguments"
+    show a + b = _+_(a)
+
+; an operator that is declared nowhere is no operator: not a new constant of that name
+expect "ParseError" "`_<+>_` is `<+>` with its holes, but `<+>` is no operator here"
+    use group(ℝ, _<+>_, 0, -_)

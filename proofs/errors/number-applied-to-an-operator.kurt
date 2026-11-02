@@ -1,0 +1,9 @@
+; A number applied to an operator: `3 (+)` passed the check (the head is no symbol), although `g (+)` is an
+; error: an operator is no object. (`3 x` stays an application of the object `3`: `0 a` of
+; proofs/soundness/function-extensionality-needs-pairs.kurt.)
+load number
+const x
+expect "TypeError" "`3` applied to `+`, an operator without its arguments"
+    use 3 (+) = 1
+
+use 3 * x = 3 * x

@@ -47,6 +47,11 @@ def build() -> list[Path]:
         if not kurtc.is_file():
             sys.exit(f"no certificates written for {theory.name}")
         written.append(kurtc)
+    for orphan in sorted(THEORIES_DIR.glob("*.kurtc")):
+        # the certificates of a theory that no longer exists (renamed or removed) would be shipped with the package
+        if not orphan.with_suffix(".kurt").is_file():
+            orphan.unlink()
+            print(f"removed {orphan.name}: its theory is gone")
     return written
 
 

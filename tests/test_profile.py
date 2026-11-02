@@ -23,6 +23,20 @@ class TestProfile(unittest.TestCase):
         self.assertTrue(all(e['seconds'] >= 0 and e['steps'] >= 0 for e in mine.values()))
         self.assertGreater(mine[5]['steps'], 0)        # the line `B` is a search
 
+    def test_the_kernel_time_is_a_part_of_the_time_of_the_line(self):
+        result = kurt.Session(kurt.RunConfig(profile=True)).check_text(TEXT, 'p.kurt')
+        mine = {entry['line']: entry for entry in result.profile if entry['file'] == 'p.kurt'}
+        self.assertTrue(all(0 <= e['kernel'] <= e['seconds'] for e in mine.values()))
+        self.assertGreater(mine[5]['kernel'], 0)       # the kernel checked the step of `B`
+        self.assertEqual(mine[2]['kernel'], 0)         # a declaration has no certificate
+
+    def test_a_failing_line_is_in_the_profile_with_its_steps(self):
+        # the explanation of a failure is a search too (the slow case of dev/bug-hunt-2026-10-30): its time and steps are the line's
+        result = kurt.Session(kurt.RunConfig(profile=True)).check_text(TEXT + 'A implies A and B\n', 'p.kurt')
+        self.assertFalse(result.ok)
+        entry = next(e for e in result.profile if e['file'] == 'p.kurt' and e['line'] == 6)
+        self.assertGreater(entry['steps'], 0)
+
     def test_the_json_has_the_profile(self):
         result = kurt.Session(kurt.RunConfig(profile=True)).check_text(TEXT, 'p.kurt')
         self.assertIn('"profile"', result.to_json())
@@ -44,5 +58,6 @@ class TestProfile(unittest.TestCase):
             run = subprocess.run([sys.executable, '-m', 'kurt', '--profile', path], capture_output=True, text=True, encoding='utf-8', env=env)
             self.assertIn('the slowest lines of', run.stderr)
             self.assertIn('steps', run.stderr)
+            self.assertIn('kernel', run.stderr)
             plain = subprocess.run([sys.executable, '-m', 'kurt', path], capture_output=True, text=True, encoding='utf-8', env=env)
             self.assertNotIn('the slowest lines', plain.stderr)

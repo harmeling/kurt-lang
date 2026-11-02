@@ -158,7 +158,7 @@ use $a >= $b  ⇒  ¬($a < $b)   "ge-not-lt"
 
 ;; transitivity: genuinely automatic now, not hand-written -- `chain = <= <` and
 ;; `chain = >= >` above make kurt itself generate every combined-transitivity fact
-;; ("chain-trans-I-J", by the positions of the two relations in the chain, one per ordered pair) as a
+;; ("chain-trans-R/S", named after the two relations, one per ordered pair) as a
 ;; real, directly-usable axiom. See `generate_chain_transitivity` in kurt.py and
 ;; doc/kurt-soundness.md for how and why.
 
@@ -420,7 +420,7 @@ tex Int \mathbb{Z}
 ; among them (as `Nat` in natural.kurt)
 lean Int member $1 ∈ Set.range (fun n : ℤ => (n : ℝ))
 alias ℤ Int
-use Int ⊂ Real  "int-sub-real"      ; a set of numbers (natural.kurt's "ext-real")
+use Int ⊂ Real  "int-sub-real"      ; a set of numbers ("ext-real" above)
 
 use $a ∈ Int ∧ $b ∈ Int  ⇒  $a + $b ∈ Int         "int-add"
 
@@ -436,7 +436,7 @@ tex Rat \mathbb{Q}
 ; among them (as `Nat` in natural.kurt)
 lean Rat member $1 ∈ Set.range (fun q : ℚ => (q : ℝ))
 alias ℚ Rat
-use Rat ⊂ Real  "rat-sub-real"      ; a set of numbers (natural.kurt's "ext-real")
+use Rat ⊂ Real  "rat-sub-real"      ; a set of numbers ("ext-real" above)
 
 use $a ∈ Rat ∧ $b ∈ Rat  ⇒  $a + $b ∈ Rat                          "rat-add"
 

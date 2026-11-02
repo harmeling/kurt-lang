@@ -1,4 +1,4 @@
-; 40-calc.kurt
+; 41-calc.kurt
 
 ; `calc` computes with numbers. A theory says which of its symbols mean
 ; which operation of Kurt's built-in calculator -- number.kurt does it for
@@ -7,9 +7,9 @@
 ;     builtin + add, - subtract, - negate, * multiply, / divide, ^ power
 ;     builtin = eq, < lt, <= le
 ;
-; (`>`, `>=` and `≠` are read as `<`, `<=` and `¬(... = ...)` there, by
-; `inline`, 46-inline.kurt) and `calc on` / `calc off` switches computing on
-; and off. `builtin` itself is the topic of 45-builtin.kurt; used here a
+; (`>` and `>=` are read as `<` and `<=` there, and equality.kurt's `≠` as
+; `¬(... = ...)`, by `inline`, 47-inline.kurt) and `calc on` / `calc off` switches computing on
+; and off. `builtin` itself is the topic of 40-builtin.kurt; used here a
 ; little early. Here, without number.kurt, with a `+` of our own:
 
 load equality

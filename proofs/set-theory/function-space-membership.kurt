@@ -1,5 +1,5 @@
 ; coverage test for set.kurt's mappings: a mapping f ∈ (A → B) is a set of pairs, f ⊂ A × B, with
-; exactly one pair (a, b) for each a ∈ A ("function-space"), and `f a` is that b ("apply")
+; exactly one pair (a, b) for each a ∈ A ("function-space"), and `f(a)` is that b ("apply")
 load set
 const A, B, f, g, a
 set f, g                     ; mappings are sets: `f ∈ (A → B)` gives `f` no sort
@@ -7,11 +7,11 @@ set f, g                     ; mappings are sets: `f ∈ (A → B)` gives `f` no
 use f ∈ (A → B)
 use g : A → B
 use a ∈ A
-(a, f a) ∈ f ∧ f a ∈ B                ; apply-in
-f a ∈ B
+(a, f(a)) ∈ f ∧ f(a) ∈ B                ; apply-in
+f(a) ∈ B
 
 ; function extensionality: mappings from A that agree on A are equal
-use ∀ $x ∈ A (f $x = g $x)
+use ∀ $x ∈ A (f($x) = g($x))
 f = g
 
 ; the empty mapping is the only mapping from ∅

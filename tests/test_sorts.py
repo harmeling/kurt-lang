@@ -161,14 +161,14 @@ class TestOptionalSorts(unittest.TestCase):
 
     def test_binding_operator_propagates_sort_to_bound_variable(self):
         good = kurt.check_text(
-            'sort item\narity λ 2\nbinder λ\nitem λ 0 1 2\n'
+            'sort item\narity λ 2\nbinder λ 90\nitem λ 0 1 2\n'
             'prop P 0\narity P 1\nuse P (λ x x)\n'
         )
         self.assertTrue(good.ok, good.error)
 
         # (a constant of another sort is refused; one without a sort takes it, todo 34)
         bad = kurt.check_text(
-            'sort item, other\narity λ 2\nbinder λ\nitem λ 0 1 2\n'
+            'sort item, other\narity λ 2\nbinder λ 90\nitem λ 0 1 2\n'
             'other c\nconst c\nprop P 0\narity P 1\nuse P (λ x c)\n'
         )
         self.assertFalse(bad.ok)
@@ -523,6 +523,10 @@ class TestInhabitedSorts(unittest.TestCase):
         found = self.warnings('load logic, equality\nsort vec, nat\nnat zero\nvar v\nvec v\nuse ∀ v (v = v)\n')
         self.assertEqual(len(found), 1)
         self.assertIn('the sort `vec` (declared at inhabited.kurt:2) has no constant', found[0])
+
+    def test_a_sort_of_a_theory_of_kurt_is_not_warned_about(self):
+        # set.kurt declares `real`: a file that loads only `set` is not warned (2026-11-02; the numerals stay without a sort)
+        self.assertEqual(self.warnings('load set\nconst A\n'), [])
 
     def test_a_constant_of_a_subsort_inhabits_the_sort(self):
         self.assertEqual(self.warnings('load natural\nsort big small\nsmall s\n'), [])

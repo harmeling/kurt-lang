@@ -1,9 +1,9 @@
-; 45-builtin.kurt
+; 40-builtin.kurt
 
 ; `builtin` gives a symbol a meaning that Kurt itself implements -- nothing has
 ; such a meaning by its name alone.  Two kinds:
 ;
-; - an operation of the calculator (40-calc.kurt): `builtin + add` makes `+`
+; - an operation of the calculator (41-calc.kurt): `builtin + add` makes `+`
 ;   the calculator's addition, computed with `calc on`
 ; - a role of the engine: propositional.kurt says `builtin iff equivalence, or
 ;   disjunction, not negation, false falsum`, equality.kurt `builtin =

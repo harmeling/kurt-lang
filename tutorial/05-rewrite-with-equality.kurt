@@ -28,12 +28,12 @@ f(a) = b
 ;
 ; A rule with conditions works for rewriting too, if the conditions are facts: with
 ; `$a ∈ K ⇒ $a · 1 = $a` and `b ∈ K`, the step from `c · (b · 1) = a` to `c · b = a` is
-; accepted -- Kurt derives the instance `b · 1 = b` and shows it as a step of its own (line `33a`
-; before line 33):
+; accepted -- Kurt derives the instance `b · 1 = b` and shows it as a step of its own (line `40a`
+; before line 40):
 
 load set
 const K, c
-infix · 70 70                   ; `·` is written between its arguments (lesson 27)
+infix · 70 70                   ; `·` is written between its arguments (keywords/27-infix.kurt)
 use $x ∈ K  ⇒  $x · 1 = $x      "one-right"
 use b ∈ K
 use c · (b · 1) = a

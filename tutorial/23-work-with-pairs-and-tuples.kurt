@@ -31,7 +31,8 @@ use d ∈ A × B
 d = (fst d, snd d)               ; by product-pairs
 
 ; a function of a pair: `f(a, b)` is `f` applied to the pair `(a, b)` -- `arity f (_, _)` says
-; so, and Kurt checks each use (`f a b`, with spaces, would be `f` applied to `a`, then to `b`)
+; so, and Kurt checks each use (`f a b`, with spaces, is `f` applied to `a`, then to `b` -- with
+; this `arity`, an error: `a` is no pair)
 arity f (_, _)
 use f(a, b) = c
 f(a, b) = c

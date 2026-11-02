@@ -15,7 +15,7 @@ default real              ; every symbol of this file is a number, except where 
 
 const converges, seqlim, series
 arity converges 3, seqlim 2, series 3
-binder converges, seqlim, series      ; the variable, then (outside) the limit or the start, then the body
+binder converges 90, seqlim 90, series 90 ; the variable, then (outside) the limit or the start, then the body
 prop converges 0
 tex converges $3 \underset{$1 \to \infty}{\longrightarrow} $2
 tex seqlim \lim_{$1 \to \infty} $2

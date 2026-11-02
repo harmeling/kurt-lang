@@ -194,7 +194,7 @@ class TestTheoryIndex(unittest.TestCase):
         # (and a condition of the wrong shape, below other terms: a number where the variable goes)
         kb = copy.deepcopy(kurt.initial_kb)
         kb.add_arity('all', 2)
-        kb.add_binder('all')
+        kb.add_binder('all', 90)
         sym, one = (lambda v: kurt.Token('SYMBOL', v)), kurt.Token('INT', '1')
         cases: list[kurt.Expr] = [[sym('all'), one, sym('P')], [sym('f'), sym('a'), [sym('all'), one, sym('P')]],
                                   [sym('all'), sym('y'), [sym('all'), one, sym('y')]], [sym('all'), sym('y'), [sym('f'), sym('y')]]]

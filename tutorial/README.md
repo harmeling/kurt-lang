@@ -52,4 +52,7 @@ The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one
 - `proofs/lambda-calculus/`: typing, evaluation, preservation, and confluence of lambda terms.
 - `proofs/modal-logic/`: necessitation, K, T, and the dualities of `□` and `◇`.
 - `proofs/logic-encodings/`: logics written as object terms: a sequent calculus, ordered resources.
+- `proofs/complex/`: the complex numbers, powers and the modulus.
+- `proofs/classics/`: Cantor, infinitely many primes, the intermediate value theorem, Knaster-Tarski,
+  Lagrange, Church-Rosser.
 - `proofs/soundness/`: adversarial examples showing what Kurt must reject.

@@ -129,7 +129,7 @@ use (∀ $d > 0 ∃ $y ((sub $x $y %C) ∧ 0 < abs($y - $a) ∧ abs($y - $a) < $
 ;; Mathlib's limits (`lean "label" ...` at the end of this file).
 const tends
 arity tends 4
-binder tends                    ; the variable, the point and the limit (outside), then the body
+binder tends 90                 ; the variable, the point and the limit (outside), then the body
 prop tends 0
 tex tends $4 \underset{$1 \to $2}{\longrightarrow} $3
 lean tends (Filter.Tendsto $3 (nhdsWithin $1 {$1}ᶜ) (nhds $2))

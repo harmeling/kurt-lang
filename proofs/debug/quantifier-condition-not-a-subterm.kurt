@@ -3,7 +3,7 @@
 load natural
 const sum
 arity sum 3
-binder sum
+binder sum 90
 use (sum x (0, 0) x) = 0
 use ∀ $k ∈ Nat  ($k = $k)
 ((sum x (0, 0) x) = 0) ∧ (∀ $k ∈ Nat  ($k = $k))

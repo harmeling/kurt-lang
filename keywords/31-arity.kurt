@@ -32,7 +32,7 @@ expect "EvalError" "got `mysum i 1 (i * i)`"
 ; `(h a) b`, stored as one call
 parse h a b              ; (h a b)
 
-; Compare `arity` with `prefix` (28-prefix.kurt; doc/dev-notes.md has the history): `arity`
+; Compare `arity` with `prefix` (28-prefix.kurt; dev/dev-notes.md has the history): `arity`
 ; fixes both how many arguments a symbol takes *and* the binding power used
 ; to grab them (space's), while `prefix` lets you pick a custom binding
 ; power for a single argument instead.

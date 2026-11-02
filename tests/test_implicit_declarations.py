@@ -17,6 +17,13 @@ class TestImplicitDeclarations(unittest.TestCase):
         declaration = next(event for event in result.events if event['text'] == 'const ∘')
         self.assertEqual((declaration['kind'], declaration['reason']), ('declaration', 'added constant'))
 
+    def test_a_declared_sort_is_echoed(self):
+        # `var x` shows `added variable`; `set x` shows the sort that was declared (it printed nothing)
+        result = kurt.check_text('load set\nvar x\nset x\nconst A\nset A\n')
+        self.assertTrue(result.ok, result.error)
+        declared = [(event['text'], event['reason']) for event in result.events if 'sort declared' in event.get('reason', '')]
+        self.assertEqual(declared, [('set x', '3 sort declared'), ('set A', '5 sort declared')])
+
     def test_first_use_reports_all_inferred_declarations(self):
         result = kurt.check_text('use P a\n')
 

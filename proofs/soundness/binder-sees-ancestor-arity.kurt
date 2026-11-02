@@ -10,6 +10,6 @@
 ; `get_arity` instead of raw dict access. See doc/kurt-soundness.md #4.1.
 arity myforall 2
 sandbox
-    binder myforall
+    binder myforall 90
     true
 true

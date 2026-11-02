@@ -65,3 +65,11 @@ class TestPickSeveral(unittest.TestCase):
         result = kurt.Session().check_text(TEXT.split('show')[0] + 'show ∃ a ∃ b (a < b)\nproof\n    pick x, y with x < y\n        break\n    ∃ a ∃ b (a < b)\nqed\n')
         self.assertTrue(result.ok, result.error)
         self.assertIn('discarded the 2 blocks of the `pick`', result.output)
+
+    def test_a_fact_in_glued_brackets_is_read_again_for_each_witness(self):
+        # (before 2026-11-01 the steps shared the tokens of `R(a, b)`, the first parse changed them, and the
+        # next line was read as a further argument of `R(a, b)`)
+        text = ('load logic\nprop R\narity R (_, _)\nuse ∃ x ∃ y R(x, y)\n'
+                'show ∃ s ∃ t R(s, t)\nproof\n    pick a, b with R(a, b)\n        R(a, b)\n        ∃ u ∃ v R(u, v)\nqed\n')
+        result = kurt.Session().check_text(text)
+        self.assertTrue(result.ok, result.error)

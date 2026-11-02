@@ -62,7 +62,7 @@ false
         for declaration in ('flat f', 'sym f', 'chain f'):
             with self.subTest(declaration=declaration):
                 self.assert_rejected(f'var f\ninfix f 20 20\n{declaration}\n', 'variable operator')
-        self.assert_rejected('var f\narity f 2\nbinder f\n', 'fixed binding scope')
+        self.assert_rejected('var f\narity f 2\nbinder f 90\n', 'fixed binding scope')
         self.assert_rejected('infix f 20 20\nsym f\nvar f\n', 'already used as a constant')
 
     def test_bool_positions_fit_declared_arity(self):
@@ -70,7 +70,7 @@ false
         self.assert_rejected('arity f 1\nprop f 0 2\n', 'between 0 and its arity 1')
         self.assert_rejected('prop f 0 2\narity f 1\n', 'more than 1 arg')
         self.assert_rejected('arity f 2\nprop f 0 1 1\n', 'must be different')
-        self.assert_rejected('prop f 0 1\narity f 2\nbinder f\n', 'first position')
+        self.assert_rejected('prop f 0 1\narity f 2\nbinder f 90\n', 'first position')
 
     def test_calculator_result_type_is_fixed(self):
         self.assert_rejected('builtin f add\nprop f 0\n', 'a term as its result')

@@ -1,0 +1,9 @@
+; `load` needs a space before its file names: `load-a` and `load(a)` once crashed with an
+; assertion ("BUG: `load` expects [[fname1], [fname2]]"), found by a mutation fuzzer on 2026-10-30
+expect "EvalError" "separated by commas"
+    load-a
+expect "EvalError" "separated by commas"
+    load(propositional)
+; a `load` that names no file used to suggest an empty `load `
+expect "ScanError" "names no file"
+    load ,

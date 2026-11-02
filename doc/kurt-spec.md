@@ -379,7 +379,7 @@ admits the next line (§5.8). Both make the file incomplete.
 
 **7.4 `chain R0 R1 ... Rk` (k ≤ 2).** Each `Ri` is a constant, non-binding infix relation with
 a statement as its result (`chain` adds `const` and `prop Ri 0`). The declaration adds, for every ordered pair
-(i, j), the axiom `($a Ri $b) ∧ ($b Rj $c) ⇒ ($a Rmax(i,j) $c)` ("chain-trans-i-j"; with
+(i, j), the axiom `($a Ri $b) ∧ ($b Rj $c) ⇒ ($a Rmax(i,j) $c)` ("chain-trans-Ri/Rj", named after the two relations; with
 `%`-variables if the relations take formulas): the later relation absorbs the earlier, so `chain =
 <` is a different claim than `chain < =`. All chains together form a DAG. Notation that a `chain`
 enables: a continuation line `  R t` indented under a line `s R' u` is the line `s R'' t` with `R''`

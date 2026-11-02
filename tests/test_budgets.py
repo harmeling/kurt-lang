@@ -288,6 +288,30 @@ class TestBudgets(unittest.TestCase):
             self.assertEqual(done.returncode, 1)
             self.assertIn(f'ResourceError: the search for this line stopped after {COLD_BUDGET:g} s', done.stderr)
 
+    def test_the_budget_holds_inside_one_match_of_a_disjunction_of_30(self):
+        # the time of a line was checked between two steps of the search only, but one match of a disjunction of 30
+        # against a pattern (the permutations of the arguments of a `sym` operator) took many minutes: a mutated copy
+        # of the proof of "a disjunction of 30 alternatives is derived at once" ran for over 5 minutes with `--budget 5`
+        # (the mutation fuzzer of the bug hunt of 2026-10-30). `unify_exprs_with_patterns` checks the time now.
+        alts = ', '.join(f'a{i}' for i in range(30))
+        disjunction = ' ∨ '.join(f'x = a{i}' for i in range(30))
+        text = f'load set\nconst {alts}\nuse x ∈ {{{alts}}}\n{disjunction}\nuse P ⇒ ({disjunction})\nuse\n"l" %A %A\n{disjunction}\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'disjunction30.kurt')
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(text)
+            done = subprocess.run([sys.executable, str(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'), '--no-kurtc', '--budget', '2', path],
+                                  capture_output=True, text=True, cwd=tmp, timeout=180)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('ResourceError: the search for this line stopped after 2 s', done.stderr)
+
+    def test_the_command_line_has_a_default_budget(self):
+        # not unlimited: a garbled statement once kept the search busy for about 35 s (bug hunt of 2026-10-30,
+        # dev/bug-hunt-2026-10-30/slow-explanation.kurt); `--budget 0` is no limit
+        self.assertEqual(kurt.CLI_BUDGET, 60.0)
+        done = subprocess.run([sys.executable, str(PROJECT_ROOT / 'src' / 'kurt' / 'kurt.py'), '--help'], capture_output=True, text=True)
+        self.assertIn('by default 60 s', ' '.join(done.stdout.split()))
+
     def test_the_language_server_names_the_budget(self):
         # the editors: a diagnostic at the line, saying it is the budget (the option `budget`,
         # 30 s by default)
@@ -375,6 +399,13 @@ class TestBudgets(unittest.TestCase):
                                   capture_output=True, text=True, cwd=tmp)
             self.assertEqual(done.returncode, 1, done.stderr)
             self.assertIn('not decided', done.stdout)
+
+    def test_the_library_has_the_default_budget_too(self):
+        # `check_text` without a `RunConfig` had no budget (a garbled statement could keep the search busy
+        # for minutes: dev/bug-hunt-2026-10-30.md); the default is the command line's, `None` is none
+        self.assertEqual(kurt.RunConfig().time_limit, kurt.CLI_BUDGET)
+        self.assertEqual(kurt.Session().config.time_limit, kurt.CLI_BUDGET)
+        self.assertIsNone(kurt.RunConfig(time_limit=None).time_limit)
 
 
 if __name__ == '__main__':

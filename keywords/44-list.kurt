@@ -1,4 +1,4 @@
-; 43-list.kurt
+; 44-list.kurt
 
 ; `list` inspects the exported content retained from loaded theories. With no
 ; argument, or with `files`, it shows which files are loaded.

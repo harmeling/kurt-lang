@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.13.0 (2026-11-02)
+
+- Messages (found while repairing the lecture proofs): a line that follows from a conditioned implication `∀ x ∈ A (P x ⇒ Q x)` in two steps ("forall-cond-elim", then "impl-elim") says so and which line to write; `def sub(U, V) ≡ ...` says that `sub` is Kurt's own name (three arguments); the sort-mismatch hint at a `qed` names the usual reason, a sort inferred inside the proof (`set U ; sort inferred`) after the claim used the symbol.
+
+- `binder NAME POWER`: the binding power of the body is always given, as `infix` gives its powers; `binder NAME` alone is an error (only an infix binder, set.kurt's `|`, takes its power from `infix`). Any positive number is accepted (before: 1 to 89); 90, the power of an application, is the old default, one tight argument. The theories, lessons and proofs say `90` where they relied on it (minimal, lambda, sequences, continuity, set).
+
+- A repeated `var x` on the same level is an error (as `const x` twice is). A listing (`list binder`, `syntax`) prints the binder's power (`binder forall 17`) and no trailing blank after an empty signature, so it reads back as the declaration. ref §5.4 rule 4: the parse error is for infix operators, a prefix function with an arity stays accepted bare at an operator parameter.
+
+- Keyword lessons: `40-builtin` comes before `41-calc` (which uses it), `46-default` next to `45-sort`, `47-inline` after them; new lessons `49-info`, `50-tex`, `51-lean`, one per keyword.
+
+- A symbol that Kurt would declare by its first use but that is a notation of another language (`!=`, `->`, `=>`, `<->`, `<=>`, `/\`, `\/`, `~`, `:=`, `.`, `by`) or one that a
+  theory of Kurt declares (`≤`: `load number`, `coprime`: `load divisibility`) gets a warning that says the Kurt spelling or the theory (an error with `--strict`).
+  `set.kurt` has `⊆` and `⊇` (aliases of `⊂` and `⊃`, which mean subset or equal). A failure of a line with a number applied to something (`3 x`, a product written without `*`)
+  adds "for a product write `3 * x`".
+- No warning "the sort `real` has no constant in this file" for a sort that a theory of Kurt declares (a file that loads only `set`, `lambda`, `group`).
+- The step of a `chain` is named after the two relations, "chain-trans-<=/<" (it was "chain-trans-1-2"), and a pair that two chains share is generated once ("chain-trans-=/=").
+  **Breaking** for a text that cites a rule by its old label.
+- The printed line keeps what you wrote: the order of the operands of a symmetric operator (`b + a` stays `b + a`, it was shown as `a + b`) and the symbol of an alias with its holes (`_∧_(A, B)` shows `A ∧ B`).
+- Failure explanations: with `calc on`, a false claim between numbers says what the calculator computed ("`1 + 1` is 2", "a division by zero") instead of listing the rules that fit every goal; a
+  failure whose only rules are those (`bottom-elim`, `forall-elim`) next to a sort problem lists the sort problem alone.
+- Messages: `max(a, b)` and `coprime a b` say the right form (`max a b`, `coprime(a, b)`) and do not offer to declare the arity of a theory's symbol; a capitalised keyword (`Show A`) says "did you mean `show`?" --
+  `load` is lower case only (`Load` was accepted); the errors at the end of a file (a `show` without proof, an unclosed statement) have the `File ..., line N:` header; `F "label" local` is accepted
+  (it was a ParseError; `F local "label"` as before); a declared sort is echoed (`set x ; sort declared`).
+
+- Fixed (found by the documentation check of 2026-11-01): `pick a, b with R(a, b)` (glued brackets, several witnesses) read the next line as a further argument of `R(a, b)`;
+  a second `use group(G, (∘), e, inv)` failed (the first had made the operator `∘` of a loaded theory a constant); the caret of an error in an indented line stood at column 0
+  (or at a column of another file's text); `_+_` of an operator that is declared nowhere was a new constant (now a ParseError that says so).
+- `3 (+)` (a number applied to an operator) is a `TypeError`, as `g (+)` was: an operator is no object.
+- Messages: `load propostional` says "did you mean `propositional`?" and lists the search path once, in plain text; a forgotten closing quote and `\/` are named; an indented line after `show F` says "write `proof` first";
+  `def f x = x` says what to write; "already exists as"; the `--help` of `-s`, `-p`, `--lean`, and `kurt` as the program name. `python3` older than 3.10 exits with status 1.
+- Removed: the undocumented single-dash options `-latex`, `-markdown`, `-lean` (use `--latex`, `--markdown`, `--lean`).
+- An operator can be written with its holes: `_+_`, `-_`, `_!`, `_∧_`: the operator itself as a term (like `(+)`, but with its shape: `group(R, _+_, 0, -_)`), and applied, `_+_(a, b)` or `_+_ a b`, the same term as `a + b`. The first step of the mixfix idea (todo 73); reference, "An operator with its holes".
+- `kurt --profile`, `CheckResult.profile` and `kurt/profile` give the seconds of the kernel in each line (`kernel`), next to the time and the search steps.
+- The mappings of `set.kurt` are written `f(a)`: the rules "apply", "apply-in", "function-extensionality", `finite.kurt`, the proofs and the exercises of mappings (`f a` is the same term and stays accepted). The reference warns that `f(a)(b)` is `f (a b)`; for a mapping that returns a mapping write `(F f) a`.
+- The command line allows 60 s of search per line by default (`kurt --budget SECONDS`; `--budget 0`: no limit; the editors had 30 s). A garbled
+  statement can keep the search busy for a minute or more; now the line fails with the `ResourceError`. Reference, "Budgets".
+- From Python, `RunConfig()` (so `check_text`, `check_file` and a `Session` without a config) has the same 60 s per line; `RunConfig(time_limit=None)` is none.
+- Fixed: a `pick` whose condition goes on in the next line (`pick y with (P y ∧` / `y = c)`), right after a dedent, was an error ("the indentation closes more blocks than are open"):
+  the dedent had closed the blocks, and the line was read again against them. Found through the layout error of the fuzzer.
+- `load-a` and `load(a)` (no space after `load`) are an `EvalError`, not an internal assertion; `load ,` says that it names no file. Found by a
+  mutation fuzzer (dev/bug-hunt-2026-10-30.md).
+- A failure whose goal reads exactly like a known fact now says so: "the fact of line 3-11 reads the same, but it is not this one: the sorts of a
+  symbol or of a bound variable differ" (the usual cause: `default real` made the `A` of `let A ∈ Pow(Nat)` a number; `set A` before it).
+- The budget holds inside one match too: `unify_exprs_with_patterns` checks the time of the line (a mutated disjunction of 30 ran for minutes with
+  `--budget 5`; it stops after the budget now). A layout that an earlier mistake left out of step with the open blocks is an error, not a Python
+  assertion ("fix the errors above first").
+- `scripts/build_certificates.py` removes the certificates of a theory that is gone, so the package does not ship them.
+- New proofs: `logic-encodings/hol.kurt` (simple type theory as an object theory of Kurt, combinators, `⊢ ∀p. p → p`) and
+  `natural-numbers/induction-for-sets.kurt` (induction as one sentence about the subsets of `Nat`).
+
 ## 0.12.0 (2026-10-30)
 
 **Breaking, for 0.11 to 0.12** (each one below too): `numbers.kurt` is `number.kurt` (`load number`); `integer.kurt`, `rational.kurt`,
@@ -16,7 +66,7 @@ whose first line is a term, `nested` and `binder SYMBOL POWER`, the intervals, a
 - A term on its own line continues on the next line (todo 80): `(a + b) * c` and, indented, `= a * c + b * c` are one statement `(a + b) * c =
   a * c + b * c` -- the usual way to write an equation in two lines, with further lines `  = ...` as in a chain (only the relations of a `chain`
   continue a term). A term line that nothing continues is the same error as before, "must be a statement", at its own line (also with all errors
-  and in the editors); the shell waits for the next line, so a pasted file works. Reference §6.2.
+  and in the editors); the shell waits for the next line, so a pasted file works. Reference §4.6.
 
 - `binder SYMBOL POWER` (`binder sum 65`): the binding power of the body of a binder; without it the body stays one tight argument.
   `nested forall, exists` (in logic.kurt) declares the binders whose variable may be a list, `forall x > 0, y > 0 P`: the quantifiers

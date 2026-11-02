@@ -5,7 +5,7 @@
 load logic, equality
 const Q
 arity Q 3
-binder Q
+binder Q 90
 use (Q $v $a $c) = $c     "q-const"
 let c
     (Q x 0 c) = c

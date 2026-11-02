@@ -25,7 +25,7 @@ def parsed(declaration: str, *lines: str) -> list[str]:
 
 class TestBinderPower(unittest.TestCase):
     def test_without_a_power_the_body_is_one_tight_argument(self):
-        self.assertEqual(parsed('binder Q', 'Q x x < 5 and R x'), ['(and (< (Q x x) 5) (R x))'])
+        self.assertEqual(parsed('binder Q 90', 'Q x x < 5 and R x'), ['(and (< (Q x x) 5) (R x))'])
 
     def test_with_a_power_the_tighter_operators_are_in_the_body(self):
         self.assertEqual(parsed('binder Q 17', 'Q x x < 5 and R x', 'Q x x + 1 < 5'),
@@ -35,7 +35,7 @@ class TestBinderPower(unittest.TestCase):
         self.assertEqual(parsed('binder Q 17', 'Q x P x and R x'), ['(and (Q x (P x)) (R x))'])
 
     def test_a_power_for_one_of_a_list(self):
-        self.assertEqual(parsed('const S\narity S 2\nbinder Q 17, S', 'S x x < 5', 'Q x x < 5'), ['(< (S x x) 5)', '(Q x (< x 5))'])
+        self.assertEqual(parsed('const S\narity S 2\nbinder Q 17, S 90', 'S x x < 5', 'Q x x < 5'), ['(< (S x x) 5)', '(Q x (< x 5))'])
 
     def test_the_power_goes_with_the_declaration_into_a_loader(self):
         with tempfile.TemporaryDirectory() as d:
@@ -46,10 +46,22 @@ class TestBinderPower(unittest.TestCase):
             self.assertTrue(result.ok, result.error)
             self.assertIn('(and (Q x (< x 5)) (R x))', result.output)
 
-    def test_a_power_is_a_number_below_the_application(self):
-        for power in (0, 90, 100):
+    def test_a_power_is_a_positive_number(self):
+        # (2026-11-02: any number, as `infix` takes any; before, 1 to 89)
+        for power in (90, 100):
             result = kurt.Session().check_text(HEAD + f'binder Q {power}\n')
-            self.assertEqual(result.error_kind, 'EvalError', power)
+            self.assertTrue(result.ok, (power, result.error))
+        result = kurt.Session().check_text(HEAD + 'binder Q 0\n')
+        self.assertEqual(result.error_kind, 'EvalError')
+
+    def test_a_binder_without_a_power_is_an_error(self):
+        # (2026-11-02: before, `binder Q` made the body one tight argument)
+        result = kurt.Session().check_text(HEAD + 'binder Q\n')
+        self.assertEqual(result.error_kind, 'EvalError')
+        self.assertIn('needs the binding power', result.error or '')
+
+    def test_the_power_90_is_the_tight_argument(self):
+        self.assertEqual(parsed('binder Q 90', 'Q x x < 5 and R x'), ['(and (< (Q x x) 5) (R x))'])
 
     def test_an_infix_binder_has_no_power(self):
         result = kurt.Session().check_text(HEAD + 'infix | 10 10\nbinder | 17\n')
@@ -62,7 +74,7 @@ class TestNested(unittest.TestCase):
         self.assertEqual(parsed('binder Q 17\nnested Q', 'Q x, y x < y'), ['(Q x (Q y (< x y)))'])
 
     def test_a_binder_that_is_not_nested_refuses_a_list(self):
-        result = kurt.Session().check_text(HEAD + 'binder Q\nparse Q x, y x < y\n')
+        result = kurt.Session().check_text(HEAD + 'binder Q 90\nparse Q x, y x < y\n')
         self.assertFalse(result.ok)
 
     def test_only_a_binder_can_be_nested(self):

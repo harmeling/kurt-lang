@@ -1,4 +1,4 @@
-; 47-default.kurt
+; 46-default.kurt
 
 ; `default SORT` gives the new symbols of a file a sort: a symbol without a declared sort and
 ; without a sorted place gets it at its first appearance -- as if it were declared there. A file

@@ -14,7 +14,7 @@ default real              ; every symbol of this file is a number, except where 
 ;; syntax
 const cont, diff, deriv
 arity cont 3, diff 3, deriv 3
-binder cont, diff, deriv        ; the variable, then the point (outside of the scope), then the body
+binder cont 90, diff 90, deriv 90 ; the variable, then the point (outside of the scope), then the body
 prop cont 0, diff 0
 tex cont \operatorname{cont}_{$1=$2} $3
 tex diff \operatorname{diff}_{$1=$2} $3

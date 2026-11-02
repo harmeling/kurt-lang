@@ -7,14 +7,14 @@
 ; next to their axioms ("forall-elim" etc.):
 ;
 ;     arity  forall 2, exists 2
-;     binder forall, exists
+;     binder forall 17, exists 17
 ;
 ; A symbol needs an `arity` (31-arity.kurt), or an `infix` (set.kurt's `|`),
 ; before it can be declared a `binder`. The binding scope is fixed semantics, so `binder` also makes the
 ; symbol a constant and prints that implied declaration. Here is a minimal binder of our own:
 
 arity myforall 2
-binder myforall
+binder myforall 90
 
 prop P
 const P
@@ -41,11 +41,11 @@ expect "TypeError" "no variable to bind"
 ; reasoning rules ("forall-elim" etc.) are ordinary `use` axioms, exactly
 ; like the ones in `logic.kurt`.
 
-; The body of a binder is one tight argument, as the argument of `f x` is: `myforall x x < 5` is `(myforall x x) < 5`.
-; With a power, `binder NAME POWER` (a number below 90), the body is read with it -- the operators that bind tighter
-; than the power are inside the body, the others outside. `*` binds with 70 and `+` with 60, so a binder with the power 65
-; takes a product and not a sum (this is how `sum` of analysis.kurt is declared), and one with 17 takes a comparison (20),
-; like `forall` and `exists` of logic.kurt:
+; Every binder says how far its body reaches, as `infix` says its powers: `binder NAME POWER`. The operators that bind
+; tighter than the power are inside the body, the others outside. `*` binds with 70 and `+` with 60, so a binder with the
+; power 65 takes a product and not a sum (this is how `sum` of analysis.kurt is declared), and one with 17 takes a
+; comparison (20), like `forall` and `exists` of logic.kurt. The power 90 of an application (`f x`) makes the body one
+; tight argument: `myforall x x < 5` is `(myforall x x) < 5` with `binder myforall 90`, as above.
 arity mysum 2
 binder mysum 65
 parse mysum i i * 2 + 1      ; (+ 1 (mysum i (* 2 i))): the product is the body, the sum is outside

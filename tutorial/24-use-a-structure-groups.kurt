@@ -7,7 +7,7 @@
 ; `group(G, (∘), e, inv)`: a set `G`, an operation `∘` on it, the identity `e`, and the inverse
 ; `inv`. There, `∘` is an *operator variable* -- declared with `var ∘` and `infix ∘` -- so its
 ; rules and theorems hold for every operation. To pass an operator as an argument, put it into
-; parentheses: `(∘)`, `(+)`, `(-)`.
+; parentheses: `(∘)`, `(+)`, `(-)`, or with their holes, `_∘_`, `_+_`, `-_` (the hole form says the shape; both are valid).
 ;
 ; A structure like this takes its operation as an argument, so it goes together with number.kurt
 ; (`(+)` here). A structure that declares its own `+` (a field, a vector space) does not: a symbol is

@@ -1,0 +1,13 @@
+; 49-info.kurt
+
+; `info SYMBOL` asks about one symbol: its declarations, its `def` if it has one, and every
+; retained fact that mentions it. (`list` is about files, `info` about symbols: `info four` is
+; always the symbol, even when a file `four.kurt` is loaded.)
+
+load number
+calc on
+
+def four = 2 + 2       "four"
+four = 4
+
+info four

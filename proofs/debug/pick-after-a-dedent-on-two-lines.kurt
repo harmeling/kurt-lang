@@ -1,0 +1,12 @@
+; a `pick` whose condition goes on in the next line, right after a dedent: the dedent closed the two blocks before the tail of the `pick` showed that it needs more input
+; (the line was then read again against the blocks that were closed already, "the indentation closes more blocks than are open"; todo 90 a)
+load logic, equality
+use P c
+use ∃ y (P y ∧ y = c)
+show A ⇒ A
+proof
+    assume A
+        A
+pick y with (P y ∧
+        y = c)
+    P c

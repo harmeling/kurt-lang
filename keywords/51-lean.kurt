@@ -1,0 +1,15 @@
+; 51-lean.kurt
+
+; `lean SYMBOL TEXT` says how a symbol is written in Lean, and `lean "label" TACTIC` gives a Lean
+; proof of the fact with that label (to the end of the line). Like `tex`, it changes nothing in
+; the proof: `kurt --lean FILE` writes the checked proof as a Lean file, where a fact with a
+; `lean "label" ...` line is a `theorem` and any other `use` is an `axiom`.
+
+load logic
+const a, b
+use a = b implies b = a  "swap"
+lean "swap" intro h; exact h.symm
+
+b = a implies a = b     ; a step of the proof, checked by Kurt
+
+; try: kurt --lean keywords/51-lean.kurt && lean keywords/51-lean.lean

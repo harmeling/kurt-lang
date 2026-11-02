@@ -19,7 +19,7 @@ use y < z
 
 ; an indented line starting with a chainable operator continues from the
 ; previous line's right-hand side -- so this desugars to `x < z`, which
-; Kurt logs as `25 by chain-trans-0-1(18, 24)`: a transitivity rule that
+; Kurt logs as `25 by chain-trans-=/<(18, 24)`: a transitivity rule that
 ; `chain = <` generated, applied to `y < z` (18) and `x = y` (24):
 x = y                   ; the first step, as always
   < z                   ; continuing the chain
@@ -28,7 +28,7 @@ x = y                   ; the first step, as always
 ; `x = y and y < z` (parentheses, `(x = y) < z`, switch that off):
 x = y < z
 
-; A chain must be indented to continue (see `doc/dev-notes.md`, "chains");
+; A chain must be indented to continue (see `dev/dev-notes.md`, "chains");
 ; writing the continuation at the same indentation as the first line is a
 ; `ParseError`, not a chain.
 

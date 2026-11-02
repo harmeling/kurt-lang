@@ -33,7 +33,7 @@ real $n, $k, $i, $j   ; numbers (the sizes)
 ; a natural number is a number (see above)
 use $x ∈ Nat  ⇒  ∃ $k ($k = $x)                                          "nat-number"
 
-; injective, surjective and bijective mappings (of set.kurt: `f ∈ (A → B)`, applied `f x`) -- each
+; injective, surjective and bijective mappings (of set.kurt: `f ∈ (A → B)`, applied `f(x)`) -- each
 ; of a tuple (`arity`: in Lean a function of its components)
 arity injective (_, _), surjective (_, _, _), bijection (_, _, _), hassize (_, _), below 1, finite 1
 def injective($m, $A)  ⇔  ∀ x ∈ $A ∀ y ∈ $A ($m x = $m y  ⇒  x = y)                 "injective"
@@ -346,11 +346,11 @@ proof
         pick f with bijection(f, below(0), $X)
             f ∈ (below(0) → $X) ∧ injective(f, below(0)) ∧ surjective(f, below(0), $X)
             surjective(f, below(0), $X)
-            ∀ y ∈ $X ∃ x ∈ below(0) (f x = y)
+            ∀ y ∈ $X ∃ x ∈ below(0) (f(x) = y)
             let c
                 assume c ∈ $X
-                    ∃ x ∈ below(0) (f x = c)
-                    pick x with x ∈ below(0) ∧ f x = c
+                    ∃ x ∈ below(0) (f(x) = c)
+                    pick x with x ∈ below(0) ∧ f(x) = c
                         x ∈ below(0)
                         ¬(x ∈ below(0))                ; below-zero
                         ⊥
@@ -380,8 +380,8 @@ proof
             0 ∈ Nat                                    ; nat-zero
             0 ∈ Nat ∧ 0 < $n
             0 ∈ below($n)                              ; in-below
-            (0, f 0) ∈ f ∧ f 0 ∈ $X                    ; apply-in
-            f 0 ∈ $X
+            (0, f(0)) ∈ f ∧ f(0) ∈ $X                    ; apply-in
+            f(0) ∈ $X
             ∃ x (x ∈ $X)
 qed
 
@@ -437,7 +437,7 @@ proof
             f ∈ (below($n) → $X)
             injective(f, below($n))
             surjective(f, below($n), $X)
-            ∀ x ∈ below($n) ∀ y ∈ below($n) (f x = f y  ⇒  x = y)      ; injective
+            ∀ x ∈ below($n) ∀ y ∈ below($n) (f(x) = f(y)  ⇒  x = y)      ; injective
             f ⊂ below($n) × $X ∧ (∀ x ∈ below($n) ∃ y ((x, y) ∈ f)) ∧ ∀ x ∀ y ∀ z ((x, y) ∈ f ∧ (x, z) ∈ f  ⇒  y = z)   ; function-space
             f ⊂ below($n) × $X
             ∀ c (c ∈ f  ⇒  c ∈ below($n) × $X)         ; subset
@@ -474,15 +474,15 @@ proof
             ($n, $a) ∈ f ∪ {($n, $a)}                  ; union
             ; g x = f x below n, g n = a
             let x ∈ below($n)
-                (x, f x) ∈ f ∧ f x ∈ $X                ; apply-in
-                (x, f x) ∈ f
-                (x, f x) ∈ f ∨ (x, f x) ∈ {($n, $a)}
-                (x, f x) ∈ f ∪ {($n, $a)}              ; union
-            ∀ x ∈ below($n) ((x, f x) ∈ f ∪ {($n, $a)})
+                (x, f(x)) ∈ f ∧ f(x) ∈ $X                ; apply-in
+                (x, f(x)) ∈ f
+                (x, f(x)) ∈ f ∨ (x, f(x)) ∈ {($n, $a)}
+                (x, f(x)) ∈ f ∪ {($n, $a)}              ; union
+            ∀ x ∈ below($n) ((x, f(x)) ∈ f ∪ {($n, $a)})
             let x ∈ below($n + 1)
                 x ∈ below($n) ∨ x = $n                 ; below-succ
                 case x ∈ below($n)
-                    (x, f x) ∈ f ∪ {($n, $a)}
+                    (x, f(x)) ∈ f ∪ {($n, $a)}
                     ∃ y ((x, y) ∈ f ∪ {($n, $a)})
                 case x = $n
                     (x, $a) ∈ f ∪ {($n, $a)}
@@ -544,9 +544,9 @@ proof
             f ∪ {($n, $a)} ∈ (below($n + 1) → ($X ∪ {$a}))       ; function-space
             ; its values
             let x ∈ below($n)
-                (x, f x) ∈ f ∪ {($n, $a)}
-                (f ∪ {($n, $a)}) x = f x               ; apply
-            ∀ x ∈ below($n) ((f ∪ {($n, $a)}) x = f x)
+                (x, f(x)) ∈ f ∪ {($n, $a)}
+                (f ∪ {($n, $a)}) x = f(x)               ; apply
+            ∀ x ∈ below($n) ((f ∪ {($n, $a)}) x = f(x))
             (f ∪ {($n, $a)}) $n = $a                   ; apply
             ; injective
             let x ∈ below($n + 1)
@@ -555,18 +555,18 @@ proof
                         x ∈ below($n) ∨ x = $n         ; below-succ
                         y ∈ below($n) ∨ y = $n         ; below-succ
                         case x ∈ below($n)
-                            (f ∪ {($n, $a)}) x = f x
-                            (x, f x) ∈ f ∧ f x ∈ $X    ; apply-in
-                            f x ∈ $X
+                            (f ∪ {($n, $a)}) x = f(x)
+                            (x, f(x)) ∈ f ∧ f(x) ∈ $X    ; apply-in
+                            f(x) ∈ $X
                             case y ∈ below($n)
-                                (f ∪ {($n, $a)}) y = f y
-                                f x = f y
-                                ∀ w ∈ below($n) (f x = f w  ⇒  x = w)
-                                f x = f y  ⇒  x = y
+                                (f ∪ {($n, $a)}) y = f(y)
+                                f(x) = f(y)
+                                ∀ w ∈ below($n) (f(x) = f(w)  ⇒  x = w)
+                                f(x) = f(y)  ⇒  x = y
                                 x = y
                             case y = $n
                                 (f ∪ {($n, $a)}) y = $a
-                                f x = $a
+                                f(x) = $a
                                 $a ∈ $X
                                 ⊥
                                 x = y
@@ -574,10 +574,10 @@ proof
                         case x = $n
                             (f ∪ {($n, $a)}) x = $a
                             case y ∈ below($n)
-                                (f ∪ {($n, $a)}) y = f y
-                                (y, f y) ∈ f ∧ f y ∈ $X    ; apply-in
-                                f y ∈ $X
-                                f y = $a
+                                (f ∪ {($n, $a)}) y = f(y)
+                                (y, f(y)) ∈ f ∧ f(y) ∈ $X    ; apply-in
+                                f(y) ∈ $X
+                                f(y) = $a
                                 $a ∈ $X
                                 ⊥
                                 x = y
@@ -588,14 +588,14 @@ proof
             ∀ x ∈ below($n + 1) ∀ y ∈ below($n + 1) ((f ∪ {($n, $a)}) x = (f ∪ {($n, $a)}) y  ⇒  x = y)
             injective(f ∪ {($n, $a)}, below($n + 1))
             ; surjective
-            ∀ y ∈ $X ∃ x ∈ below($n) (f x = y)
+            ∀ y ∈ $X ∃ x ∈ below($n) (f(x) = y)
             let y ∈ $X ∪ {$a}
                 y ∈ $X ∨ y ∈ {$a}                      ; union
                 case y ∈ $X
-                    ∃ x ∈ below($n) (f x = y)
-                    pick x with x ∈ below($n) ∧ f x = y
+                    ∃ x ∈ below($n) (f(x) = y)
+                    pick x with x ∈ below($n) ∧ f(x) = y
                         x ∈ below($n + 1)              ; below-mono
-                        (f ∪ {($n, $a)}) x = f x
+                        (f ∪ {($n, $a)}) x = f(x)
                         (f ∪ {($n, $a)}) x = y
                         ∃ w ∈ below($n + 1) ((f ∪ {($n, $a)}) w = y)
                     ∃ w ∈ below($n + 1) ((f ∪ {($n, $a)}) w = y)
@@ -672,95 +672,95 @@ proof
             f ∈ (below($n + 1) → $X)
             injective(f, below($n + 1))
             surjective(f, below($n + 1), $X)
-            ∀ x ∈ below($n + 1) ∀ y ∈ below($n + 1) (f x = f y  ⇒  x = y)      ; injective
-            ∀ y ∈ $X ∃ x ∈ below($n + 1) (f x = y)                             ; surjective
-            ($n, f $n) ∈ f ∧ f $n ∈ $X                 ; apply-in
-            f $n ∈ $X
-            ∃ x ∈ below($n + 1) (f x = $a)
-            pick j with j ∈ below($n + 1) ∧ f j = $a
+            ∀ x ∈ below($n + 1) ∀ y ∈ below($n + 1) (f(x) = f(y)  ⇒  x = y)      ; injective
+            ∀ y ∈ $X ∃ x ∈ below($n + 1) (f(x) = y)                             ; surjective
+            ($n, f($n)) ∈ f ∧ f($n) ∈ $X                 ; apply-in
+            f($n) ∈ $X
+            ∃ x ∈ below($n + 1) (f(x) = $a)
+            pick j with j ∈ below($n + 1) ∧ f(j) = $a
                 j ∈ below($n + 1)
-                f j = $a
+                f(j) = $a
                 ; (1) below n, other than j: (x, f x) is a pair of cut
                 let x ∈ below($n)
                     assume x ≠ j
                         x ∈ below($n + 1)              ; below-mono
-                        (x, f x) ∈ f ∧ f x ∈ $X        ; apply-in
-                        (x, f x) ∈ f
-                        f x ∈ $X
-                        assume f x = $a
-                            f x = f j
-                            ∀ y ∈ below($n + 1) (f x = f y  ⇒  x = y)
-                            f x = f j  ⇒  x = j
+                        (x, f(x)) ∈ f ∧ f(x) ∈ $X        ; apply-in
+                        (x, f(x)) ∈ f
+                        f(x) ∈ $X
+                        assume f(x) = $a
+                            f(x) = f(j)
+                            ∀ y ∈ below($n + 1) (f(x) = f(y)  ⇒  x = y)
+                            f(x) = f(j)  ⇒  x = j
                             x = j
                             ⊥
-                        f x ≠ $a
-                        f x ∈ $X ∧ f x ≠ $a
-                        f x ∈ $X ∖ {$a}                ; in-remove
-                        (x, f x) ∈ below($n) × ($X ∖ {$a})          ; product
-                        (x, f x) ∈ f ∨ (x, f x) = (j, f $n)
-                        (x, f x) ∈ below($n) × ($X ∖ {$a}) ∧ ((x, f x) ∈ f ∨ (x, f x) = (j, f $n))
-                        (x, f x) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}    ; separation
-                        (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
-                ∀ x ∈ below($n) (x ≠ j  ⇒  (x, f x) ∈ cut(f, j, $n, $X ∖ {$a}))
+                        f(x) ≠ $a
+                        f(x) ∈ $X ∧ f(x) ≠ $a
+                        f(x) ∈ $X ∖ {$a}                ; in-remove
+                        (x, f(x)) ∈ below($n) × ($X ∖ {$a})          ; product
+                        (x, f(x)) ∈ f ∨ (x, f(x)) = (j, f($n))
+                        (x, f(x)) ∈ below($n) × ($X ∖ {$a}) ∧ ((x, f(x)) ∈ f ∨ (x, f(x)) = (j, f($n)))
+                        (x, f(x)) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f($n))}    ; separation
+                        (x, f(x)) ∈ cut(f, j, $n, $X ∖ {$a})
+                ∀ x ∈ below($n) (x ≠ j  ⇒  (x, f(x)) ∈ cut(f, j, $n, $X ∖ {$a}))
                 ; (2) j below n: (j, f n) is a pair of cut
                 assume j ∈ below($n)
-                    assume f $n = $a
-                        f $n = f j
-                        ∀ y ∈ below($n + 1) (f $n = f y  ⇒  $n = y)
-                        f $n = f j  ⇒  $n = j
+                    assume f($n) = $a
+                        f($n) = f(j)
+                        ∀ y ∈ below($n + 1) (f($n) = f(y)  ⇒  $n = y)
+                        f($n) = f(j)  ⇒  $n = j
                         $n = j
                         $n ∈ below($n)
                         ⊥
-                    f $n ≠ $a
-                    f $n ∈ $X ∧ f $n ≠ $a
-                    f $n ∈ $X ∖ {$a}                   ; in-remove
-                    (j, f $n) ∈ below($n) × ($X ∖ {$a})             ; product
-                    (j, f $n) = (j, f $n)
-                    (j, f $n) ∈ f ∨ (j, f $n) = (j, f $n)
-                    (j, f $n) ∈ below($n) × ($X ∖ {$a}) ∧ ((j, f $n) ∈ f ∨ (j, f $n) = (j, f $n))
-                    (j, f $n) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}    ; separation
-                    (j, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
+                    f($n) ≠ $a
+                    f($n) ∈ $X ∧ f($n) ≠ $a
+                    f($n) ∈ $X ∖ {$a}                   ; in-remove
+                    (j, f($n)) ∈ below($n) × ($X ∖ {$a})             ; product
+                    (j, f($n)) = (j, f($n))
+                    (j, f($n)) ∈ f ∨ (j, f($n)) = (j, f($n))
+                    (j, f($n)) ∈ below($n) × ($X ∖ {$a}) ∧ ((j, f($n)) ∈ f ∨ (j, f($n)) = (j, f($n)))
+                    (j, f($n)) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f($n))}    ; separation
+                    (j, f($n)) ∈ cut(f, j, $n, $X ∖ {$a})
                 ; (3) the pairs of cut: (j, f n), or (x, f x) with x ≠ j
                 let x, y
                     assume (x, y) ∈ cut(f, j, $n, $X ∖ {$a})
-                        (x, y) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}
-                        (x, y) ∈ below($n) × ($X ∖ {$a}) ∧ ((x, y) ∈ f ∨ (x, y) = (j, f $n))   ; separation
+                        (x, y) ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f($n))}
+                        (x, y) ∈ below($n) × ($X ∖ {$a}) ∧ ((x, y) ∈ f ∨ (x, y) = (j, f($n)))   ; separation
                         (x, y) ∈ below($n) × ($X ∖ {$a})
                         x ∈ below($n) ∧ y ∈ $X ∖ {$a}  ; product
                         x ∈ below($n)
                         y ∈ $X ∖ {$a}
                         y ∈ $X ∧ y ≠ $a                ; in-remove-elim
                         y ≠ $a
-                        (x, y) ∈ f ∨ (x, y) = (j, f $n)
+                        (x, y) ∈ f ∨ (x, y) = (j, f($n))
                         case (x, y) ∈ f
-                            f x = y                    ; apply
+                            f(x) = y                    ; apply
                             assume x = j
-                                f j = y
+                                f(j) = y
                                 y = $a
                                 ⊥
                             x ≠ j
-                            (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
-                        case (x, y) = (j, f $n)
-                            x = j ∧ y = f $n           ; pair-eq
-                            (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
-                        (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
-                ∀ x ∀ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a})  ⇒  (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x))
+                            (x = j ∧ y = f($n)) ∨ (x ≠ j ∧ y = f(x))
+                        case (x, y) = (j, f($n))
+                            x = j ∧ y = f($n)           ; pair-eq
+                            (x = j ∧ y = f($n)) ∨ (x ≠ j ∧ y = f(x))
+                        (x = j ∧ y = f($n)) ∨ (x ≠ j ∧ y = f(x))
+                ∀ x ∀ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a})  ⇒  (x = j ∧ y = f($n)) ∨ (x ≠ j ∧ y = f(x)))
                 ; (4) cut is a mapping from below(n) to X ∖ {a}
                 let c
                     assume c ∈ cut(f, j, $n, $X ∖ {$a})
-                        c ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f $n)}
+                        c ∈ {p ∈ below($n) × ($X ∖ {$a}) | p ∈ f ∨ p = (j, f($n))}
                         c ∈ below($n) × ($X ∖ {$a})    ; separation-in
                 cut(f, j, $n, $X ∖ {$a}) ⊂ below($n) × ($X ∖ {$a})
                 let x ∈ below($n)
                     x = j ∨ x ≠ j                      ; excluded-middle
                     case x = j
                         j ∈ below($n)
-                        (j, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
-                        (x, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (j, f($n)) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, f($n)) ∈ cut(f, j, $n, $X ∖ {$a})
                         ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
                     case x ≠ j
-                        x ≠ j  ⇒  (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
-                        (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
+                        x ≠ j  ⇒  (x, f(x)) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, f(x)) ∈ cut(f, j, $n, $X ∖ {$a})
                         ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
                     ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
                 ∀ x ∈ below($n) ∃ y ((x, y) ∈ cut(f, j, $n, $X ∖ {$a}))
@@ -768,28 +768,28 @@ proof
                     assume (x, y) ∈ cut(f, j, $n, $X ∖ {$a}) ∧ (x, z) ∈ cut(f, j, $n, $X ∖ {$a})
                         (x, y) ∈ cut(f, j, $n, $X ∖ {$a})
                         (x, z) ∈ cut(f, j, $n, $X ∖ {$a})
-                        (x = j ∧ y = f $n) ∨ (x ≠ j ∧ y = f x)
-                        (x = j ∧ z = f $n) ∨ (x ≠ j ∧ z = f x)
-                        case x = j ∧ y = f $n
+                        (x = j ∧ y = f($n)) ∨ (x ≠ j ∧ y = f(x))
+                        (x = j ∧ z = f($n)) ∨ (x ≠ j ∧ z = f(x))
+                        case x = j ∧ y = f($n)
                             x = j
-                            y = f $n
-                            case x = j ∧ z = f $n
-                                z = f $n
+                            y = f($n)
+                            case x = j ∧ z = f($n)
+                                z = f($n)
                                 y = z
-                            case x ≠ j ∧ z = f x
+                            case x ≠ j ∧ z = f(x)
                                 x ≠ j
                                 ⊥
                                 y = z
                             y = z
-                        case x ≠ j ∧ y = f x
+                        case x ≠ j ∧ y = f(x)
                             x ≠ j
-                            y = f x
-                            case x = j ∧ z = f $n
+                            y = f(x)
+                            case x = j ∧ z = f($n)
                                 x = j
                                 ⊥
                                 y = z
-                            case x ≠ j ∧ z = f x
-                                z = f x
+                            case x ≠ j ∧ z = f(x)
+                                z = f(x)
                                 y = z
                             y = z
                         y = z
@@ -799,13 +799,13 @@ proof
                 ; (5) its values
                 let x ∈ below($n)
                     assume x ≠ j
-                        x ≠ j  ⇒  (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
-                        (x, f x) ∈ cut(f, j, $n, $X ∖ {$a})
-                        cut(f, j, $n, $X ∖ {$a}) x = f x     ; apply
-                ∀ x ∈ below($n) (x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f x)
+                        x ≠ j  ⇒  (x, f(x)) ∈ cut(f, j, $n, $X ∖ {$a})
+                        (x, f(x)) ∈ cut(f, j, $n, $X ∖ {$a})
+                        cut(f, j, $n, $X ∖ {$a}) x = f(x)     ; apply
+                ∀ x ∈ below($n) (x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f(x))
                 assume j ∈ below($n)
-                    (j, f $n) ∈ cut(f, j, $n, $X ∖ {$a})
-                    cut(f, j, $n, $X ∖ {$a}) j = f $n        ; apply
+                    (j, f($n)) ∈ cut(f, j, $n, $X ∖ {$a})
+                    cut(f, j, $n, $X ∖ {$a}) j = f($n)        ; apply
                 ; (6) injective
                 let x ∈ below($n)
                     let y ∈ below($n)
@@ -816,41 +816,41 @@ proof
                             y = j ∨ y ≠ j              ; excluded-middle
                             case x = j
                                 j ∈ below($n)
-                                cut(f, j, $n, $X ∖ {$a}) j = f $n
-                                cut(f, j, $n, $X ∖ {$a}) x = f $n
+                                cut(f, j, $n, $X ∖ {$a}) j = f($n)
+                                cut(f, j, $n, $X ∖ {$a}) x = f($n)
                                 case y = j
                                     x = y
                                 case y ≠ j
-                                    y ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) y = f y
-                                    cut(f, j, $n, $X ∖ {$a}) y = f y
-                                    f $n = f y
-                                    ∀ w ∈ below($n + 1) (f $n = f w  ⇒  $n = w)
-                                    f $n = f y  ⇒  $n = y
+                                    y ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) y = f(y)
+                                    cut(f, j, $n, $X ∖ {$a}) y = f(y)
+                                    f($n) = f(y)
+                                    ∀ w ∈ below($n + 1) (f($n) = f(w)  ⇒  $n = w)
+                                    f($n) = f(y)  ⇒  $n = y
                                     $n = y
                                     $n ∈ below($n)
                                     ⊥
                                     x = y
                                 x = y
                             case x ≠ j
-                                x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f x
-                                cut(f, j, $n, $X ∖ {$a}) x = f x
+                                x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f(x)
+                                cut(f, j, $n, $X ∖ {$a}) x = f(x)
                                 case y = j
                                     j ∈ below($n)
-                                    cut(f, j, $n, $X ∖ {$a}) j = f $n
-                                    cut(f, j, $n, $X ∖ {$a}) y = f $n
-                                    f x = f $n
-                                    ∀ w ∈ below($n + 1) (f x = f w  ⇒  x = w)
-                                    f x = f $n  ⇒  x = $n
+                                    cut(f, j, $n, $X ∖ {$a}) j = f($n)
+                                    cut(f, j, $n, $X ∖ {$a}) y = f($n)
+                                    f(x) = f($n)
+                                    ∀ w ∈ below($n + 1) (f(x) = f(w)  ⇒  x = w)
+                                    f(x) = f($n)  ⇒  x = $n
                                     x = $n
                                     $n ∈ below($n)
                                     ⊥
                                     x = y
                                 case y ≠ j
-                                    y ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) y = f y
-                                    cut(f, j, $n, $X ∖ {$a}) y = f y
-                                    f x = f y
-                                    ∀ w ∈ below($n + 1) (f x = f w  ⇒  x = w)
-                                    f x = f y  ⇒  x = y
+                                    y ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) y = f(y)
+                                    cut(f, j, $n, $X ∖ {$a}) y = f(y)
+                                    f(x) = f(y)
+                                    ∀ w ∈ below($n + 1) (f(x) = f(w)  ⇒  x = w)
+                                    f(x) = f(y)  ⇒  x = y
                                     x = y
                                 x = y
                             x = y
@@ -861,23 +861,23 @@ proof
                     y ∈ $X ∧ y ≠ $a                    ; in-remove-elim
                     y ∈ $X
                     y ≠ $a
-                    ∃ x ∈ below($n + 1) (f x = y)
-                    pick x with x ∈ below($n + 1) ∧ f x = y
+                    ∃ x ∈ below($n + 1) (f(x) = y)
+                    pick x with x ∈ below($n + 1) ∧ f(x) = y
                         x ∈ below($n) ∨ x = $n         ; below-succ
                         case x ∈ below($n)
                             assume x = j
-                                f j = y
+                                f(j) = y
                                 y = $a
                                 ⊥
                             x ≠ j
-                            x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f x
-                            cut(f, j, $n, $X ∖ {$a}) x = f x
+                            x ≠ j  ⇒  cut(f, j, $n, $X ∖ {$a}) x = f(x)
+                            cut(f, j, $n, $X ∖ {$a}) x = f(x)
                             cut(f, j, $n, $X ∖ {$a}) x = y
                             ∃ w ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) w = y)
                         case x = $n
-                            f $n = y
+                            f($n) = y
                             assume j = $n
-                                f $n = $a
+                                f($n) = $a
                                 y = $a
                                 ⊥
                             j ≠ $n
@@ -888,7 +888,7 @@ proof
                                 ⊥
                                 j ∈ below($n)
                             j ∈ below($n)
-                            cut(f, j, $n, $X ∖ {$a}) j = f $n
+                            cut(f, j, $n, $X ∖ {$a}) j = f($n)
                             cut(f, j, $n, $X ∖ {$a}) j = y
                             ∃ w ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) w = y)
                         ∃ w ∈ below($n) (cut(f, j, $n, $X ∖ {$a}) w = y)

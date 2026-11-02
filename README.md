@@ -39,7 +39,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.12.0 (made by Stefan Harmeling, 2016-2026), 5f8589f91871 (SHA-256 of kurt.py)
+    This is Kurt, v0.13.0 (made by Stefan Harmeling, 2016-2026), 8edd0ad5d97e (SHA-256 of kurt.py)
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -118,7 +118,7 @@ copy `src/kurt/kurt.py` together with the directory `src/kurt/theories/`.
 **From Python**, e.g. for a grader or an editor:
 
     import kurt
-    result = kurt.check_text('load propositional\nbool A, B\nuse A implies B\nuse A\nB\n')
+    result = kurt.check_text('load propositional\nprop A, B\nuse A implies B\nuse A\nB\n')
     result.ok, result.complete, result.error, result.output     # complete: also no `todo` left
     result.events      # each line: its id, kind, rule, the lines it uses (also `kurt --json FILE`)
 
@@ -131,10 +131,10 @@ in parallel, use processes.
 
 ## Documentation
 
-- [`tutorial/`](tutorial/): the tutorial, 30 lessons (00 to 29), task by task: prove an implication, argue by
+- [`tutorial/`](tutorial/): the tutorial, 30 lessons (00 to 29), with 09a and 29a besides,, task by task: prove an implication, argue by
   contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
   derive". Each one is a Kurt file you can run and change.
-- [`keywords/`](keywords/): 49 short lessons (00 to 48), one keyword or idea each
+- [`keywords/`](keywords/): 52 short lessons (00 to 51), one keyword or idea each
   ([plan](keywords/plan.md)).
 - [`exercises/`](exercises/): exercises for students, by topic (logic puzzles, quantifiers, sets,
   functions, relations, groups, induction, limits, calculus): each loads the scene of its topic

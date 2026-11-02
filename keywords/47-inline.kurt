@@ -1,4 +1,4 @@
-; 46-inline.kurt
+; 47-inline.kurt
 
 ; `inline` defines a new symbol by what it is *read as*: each use is replaced by
 ; the right-hand side while the line is read, so the symbol is in no stored

@@ -133,4 +133,6 @@
     "files.associations": {
         "*.kurtc": "json"
     },
+    "kurt.hover.enabled": true,
+    "kurt.heat.enabled": true,
 }

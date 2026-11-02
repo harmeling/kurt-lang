@@ -3,7 +3,7 @@
 ; Prove an existential statement
 ;
 ; To prove `∃ x P(x)`, give a witness: an object `t` for which `P(t)` holds. Prove `P(t)` for it,
-; then write the existential. Kurt closes the step with "exists-intro" of logic.kurt: from an
+; then write the existential. Kurt closes the step with "exists-intro" of logic.kurt: from a
 ; statement about `t`, `t` may be replaced by a bound variable. (Lesson 09 is the other direction:
 ; to *use* an existential you have, `pick` a witness.)
 
@@ -50,7 +50,7 @@ qed
 ; number larger than `a * a`, for example `a * a + 1` -- it depends on `a`, the arbitrary object of a
 ; `let` (lesson 08), so its `def` stands inside the `let`:
 
-show ∀ $a ∃ x (x > $a * $a)
+show ∀ a ∃ x (x > a * a)
 proof
     let a
         def w = a * a + 1        ; the witness, a term about `a`
@@ -61,13 +61,13 @@ proof
         ∃ x (x > a * a)          ; `w` is the witness
 qed
 
-; 4. With a condition: `∃ x > 2 (x < 4)` means `∃ x (x > 2 ∧ x < 4)`. Kurt wants the condition and
+; 4. With a condition: `∃ x > 5 (x < 7)` means `∃ x (x > 5 ∧ x < 7)`. Kurt wants the condition and
 ; the body for the witness, as one statement:
 
-show ∃ x > 2 (x < 4)
+show ∃ x > 5 (x < 7)
 proof
-    3 > 2 ∧ 3 < 4
-    ∃ x > 2 (x < 4)
+    6 > 5 ∧ 6 < 7
+    ∃ x > 5 (x < 7)
 qed
 
 ; 5. Two quantifiers: one witness for each, the inner one first.
@@ -80,19 +80,19 @@ proof
 qed
 
 ; 6. The witness can be an object of the proof itself, for example one from a `pick`: from an
-; object with `P` and `Q`, there is an object with `P`.
+; object with `S` and `T`, there is an object with `S`.
 
-prop Q
-use ∃ y (P(y) ∧ Q)
+prop S, T
+use ∃ y (S(y) ∧ T)
 
-show ∃ z P(z)
+show ∃ z S(z)
 proof
-    pick b with P(b) ∧ Q
-        P(b)
-        ∃ z P(z)                  ; `b` is the witness
+    pick b with S(b) ∧ T
+        S(b)
+        ∃ z S(z)                  ; `b` is the witness
 qed
 
-; The `pick` block is left with `∃ z P(z)`, which does not mention `b`; so it is fine (lesson 09).
+; The `pick` block is left with `∃ z S(z)`, which does not mention `b`; so it is fine (lesson 09).
 
 ; 7. A witness that does not work is rejected. `3` is not larger than 5:
 

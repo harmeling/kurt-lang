@@ -798,13 +798,13 @@ disable them. `main()` now refuses to run at all under `-O`/`-OO`
   its name doesn't match the sub-marker's own freshly-renamed name — a
   bound-variable-identity problem, not a missing decomposition candidate).
   This also restores behavior an old, still-present test file
-  (`tests/test_gen_all_combinations.py`'s `old_examples`) already expected
+  (`tests/test_generate_all_combinations.py`'s `old_examples`) already expected
   before an earlier "allow only one subterm to be replaced, much more
   efficient" simplification silently dropped it; the *other* difference
   between `old_examples` and today's behavior (multi-occurrence
   decompositions, replacing more than one identical node at once) was a
   deliberate performance simplification, not a bug, and is not restored.
-  Regression coverage: `tests/test_gen_all_combinations.py` and
+  Regression coverage: `tests/test_generate_all_combinations.py` and
   `tests/test_generate_all_combinations.py` (unit-level, exact candidate
   sets) and `proofs/set-theory/power-set-membership.kurt`'s new
   empty-set-case lines (proof-level, the original motivating example).

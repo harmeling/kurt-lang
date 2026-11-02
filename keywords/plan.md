@@ -9,6 +9,9 @@ already introduced in an earlier lesson (plus whatever `minimal.kurt`
 hard-codes for free: `true`, `implies`, `and`, brackets, comma, space),
 except where the lesson says so (07-show uses `proof`/`qed`, 08-proof `qed`).
 
+House style of the lessons: a mapping is applied as `f(a)`, an operator passed as an argument is written with its holes (`_+_`, `-_`;
+`(+)` stays valid), a label names the law (`"add-identity"`) -- the lessons are changed to it when they are edited anyway.
+
 Run a lesson with:
 
     kurt keywords/00-true.kurt
@@ -70,31 +73,40 @@ MISC -- REPL/output behaviour and self-documentation
     37-format    how formulas are printed (`normal`, `sexpr`, `source`)
     38-help      list of all keywords, straight from Kurt itself
     39-hint      toggle: hints for the next input (shell only)
-    40-calc      computing with numbers: `builtin + add`, `builtin < lt`, ...; `calc on`/`off`
+
+MEANINGS BUILT INTO KURT
+------------------------
+    40-builtin   a calculator operation (`builtin + add`) or a role of the engine (`builtin iff equivalence`)
+    41-calc      computing with numbers: `builtin + add`, `builtin < lt`, ...; `calc on`/`off`
 
 TRUST -- certificates
 ---------------------
-    41-cert      `cert N`: the certificate of a line, checked by the kernel;
+    42-cert      `cert N`: the certificate of a line, checked by the kernel;
                  `.kurtc` files and `kurt --deps`
 
 DEBUGGING
 ---------
-    42-breakpoint  stop in a file and continue in the shell with its state
-    43-list        which theories are loaded, and what each one exports
+    43-breakpoint  stop in a file and continue in the shell with its state
+    44-list        which theories are loaded, and what each one exports
 
 OPTIONAL SORTS
 --------------
-    44-sort        sorts: kinds of objects below `any`, subsorts, the first sorted use is final, `default`
-    47-default     the sort of the new symbols of a file: at the first appearance, unless the line says otherwise
-    48-profile     `kurt --profile`: where a proof is slow (the slowest lines; the heat map in the editor)
-
-MEANINGS BUILT INTO KURT
-------------------------
-    45-builtin     a calculator operation (`builtin + add`) or a role of the engine (`builtin iff equivalence`)
+    45-sort        sorts: kinds of objects below `any`, subsorts, the first sorted use is final
+    46-default     the sort of the new symbols of a file: at the first appearance, unless the line says otherwise
 
 NOTATION
 --------
-    46-inline      a definition applied while reading (`x > 0` is `0 < x`), and why not every `def` is one
+    47-inline      a definition applied while reading (`x > 0` is `0 < x`), and why not every `def` is one
+
+SPEED
+-----
+    48-profile     `kurt --profile`: where a proof is slow (the slowest lines; the heat map in the editor)
+
+ABOUT SYMBOLS AND THE OUTPUT FORMATS
+------------------------------------
+    49-info        `info SYMBOL`: its declarations, its `def`, every fact that mentions it
+    50-tex         `tex`: how a symbol is written in LaTeX (`kurt --latex`, `--markdown`)
+    51-lean        `lean`: how a symbol is written in Lean, a Lean proof of a fact (`kurt --lean`)
 
 File and shell are handled identically
 ----------------------------------------------

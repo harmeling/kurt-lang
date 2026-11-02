@@ -13,6 +13,41 @@ def failure_of(result: kurt.CheckResult) -> dict:
 
 
 class TestFailureExplanations(unittest.TestCase):
+    def test_a_false_number_claim_says_what_the_calculator_computed(self):
+        # with `calc on`: no list of the rules that fit every goal (`bottom-elim`, `forall-elim`), the sentence instead
+        result = kurt.check_text('load number\ncalc on\n1 + 1 = 3\n')
+        self.assertFalse(result.ok)
+        failure = failure_of(result)
+        self.assertEqual(failure['candidates'], [])
+        self.assertEqual(failure['calc'], 'calc is on: `1 + 1` is 2')
+        self.assertNotIn('bottom-elim', result.error or '')
+
+    def test_a_conditioned_implication_says_it_takes_two_steps(self):
+        # (2026-11-02: `∀ x ∈ A (P x ⇒ Q x)`, `a ∈ A`, `P a` and the line `Q a`: only rules that fit every goal were listed)
+        result = kurt.check_text('load set\nconst A, a\nprop P, Q\narity P 1\narity Q 1\n'
+                                 'use ∀ x ∈ A (P(x) ⇒ Q(x))\nuse a ∈ A\nuse P(a)\nQ(a)\n')
+        self.assertFalse(result.ok)
+        two = failure_of(result)['two_steps']
+        self.assertIn('"forall-cond-elim" and then "impl-elim"', two)
+        self.assertIn('`(P a) ⇒ (Q a)`', two)
+
+    def test_a_sort_inferred_inside_the_proof_is_named_as_the_reason(self):
+        # (2026-11-02: a `def incl(U, V) ≡ U ⊂ V` has no sorts at its places, so `show incl(U, V) ...` leaves `U` unsorted
+        # and the proof infers `set U`; the message only said that "the sorts differ")
+        result = kurt.check_text('load set\nvar U, V\nset V\ndef incl(U, V) ≡ U ⊂ V "incl"\ndef ne(U) ≡ U ≠ ∅ "ne"\n'
+                                 'show incl(U, V) ⇒ ne(U) or not ne(U)\nproof\n    assume incl(U, V)\n'
+                                 '        U ⊂ V\n        ne(U) or not ne(U)\nqed\n')
+        self.assertFalse(result.ok)
+        self.assertIn('`set U ; sort inferred`', result.error or '')
+        fixed = kurt.check_text('load set\nvar U, V\nset U, V\ndef incl(U, V) ≡ U ⊂ V "incl"\ndef ne(U) ≡ U ≠ ∅ "ne"\n'
+                                'show incl(U, V) ⇒ ne(U) or not ne(U)\nproof\n    assume incl(U, V)\n'
+                                '        U ⊂ V\n        ne(U) or not ne(U)\nqed\n')
+        self.assertTrue(fixed.ok, fixed.error)
+
+    def test_a_division_by_zero_is_named(self):
+        result = kurt.check_text('load number\ncalc on\n2 / 0 = 1\n')
+        self.assertIn('`2 / 0` has no value (a division by zero)', result.error or '')
+
     def test_missing_premise_is_structured_and_rendered(self):
         result = kurt.check_text('prop A, B\nuse A implies B "mp"\nB\n')
         self.assertFalse(result.ok)

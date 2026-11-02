@@ -301,7 +301,7 @@ no-confusion axioms, this checks:
 
     load logic, equality
     arity lam 2
-    binder lam
+    binder lam 90
     const leaf
     use (sub $subj leaf %A) ∧ (∀ $x ∀ M ((sub $subj M %A) ⇒ (sub $subj (lam $x M) %A))) ⇒ ∀ $s (sub $subj $s %A)   "ind"
     use ¬(lam x x = lam x $c)            "identity-not-constant"

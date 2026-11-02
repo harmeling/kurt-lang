@@ -35,14 +35,14 @@ expect "EvalError"
 
 ; a binder needs an arity of at least two, first, and isn't an operator
 expect "EvalError"
-    binder g
+    binder g 90
 arity h 1
 expect "EvalError"
-    binder h
+    binder h 90
 expect "EvalError"
     binder neg                      ; (an infix operator can be a binder, like set.kurt's `|`)
 arity b 2
-binder b
+binder b 90
 expect "EvalError"
     prop b 0 1
 
@@ -114,7 +114,7 @@ use u = u plus w
 expect "EvalError"
     arity u 2
 expect "EvalError"
-    binder u
+    binder u 90
 expect "EvalError"
     brackets u w2
 expect "EvalError"

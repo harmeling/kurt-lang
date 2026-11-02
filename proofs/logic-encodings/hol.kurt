@@ -1,0 +1,100 @@
+; hol.kurt -- simple type theory (higher-order logic) as an object theory in Kurt.
+;
+; Kurt is the meta-language: types and terms of the object logic are Kurt terms (of the sorts `ty` and
+; `tm`), `has M A` says that the object term M has the object type A, and `thm P` that the object
+; formula P is derivable. The object logic is Church's simple type theory in a Hilbert style with
+; combinators (S, K, I), so it needs no binder of its own: `Imp : o -> o -> o` and
+; `All : (A -> o) -> o` are constants, `ap M N` is application. Conversion is Kurt's equality.
+;
+; What this prototype is and is not (2026-10-30). It has the typing of simple type theory with the
+; types as terms (`has`), the connective and the quantifier of every type, derivability by modus ponens, the
+; axioms K and S, instantiation and generalization, and combinators in place of lambda terms, so no binder of
+; the object logic is needed (a named lambda would need induction over a binder borrowed from Kurt, see
+; doc/kurt-current-limits.md section 2). It lacks equality, extensionality, infinity and choice, and the
+; rules for the other connectives, which are defined as in Church's system. "all-intro" has Kurt's own
+; quantifier over the object terms in its premise (an omega-rule): a Kurt proof of the premise is a `let`
+; block, which is uniform in the arbitrary term, so every theorem Kurt derives is derivable in the object
+; logic -- the converse direction (that `thm` is *exactly* derivability) would need the least relation
+; closed under the rules, which Kurt cannot state (no inductive definitions).
+load propositional, equality, logic
+
+sort ty, tm
+arity fn 2, ap 2, has 2, thm 1
+prop has 0, thm 0
+const o, i, fn, ap, Imp, All, K, S, I, has, thm
+ty o, i
+ty fn 0 1 2
+tm ap 0 1 2, Imp, All, K, S, I
+tm has 1, thm 1
+ty has 2
+var A, B, C
+ty A, B, C
+var P, Q, R, M, N, F, G
+tm P, Q, R, M, N, F, G
+
+; the types of the constants and of an application
+use has Imp (fn o (fn o o))                                   "t-imp"
+use has All (fn (fn A o) o)                                   "t-all"
+use has K (fn A (fn B A))                                     "t-K"
+use has S (fn (fn A (fn B C)) (fn (fn A B) (fn A C)))         "t-S"
+use has I (fn A A)                                            "t-I"
+use has M (fn A B) and has N A implies has (ap M N) B         "t-ap"
+
+; the implication of the object logic, written hImp(P, Q)
+inline hImp($P, $Q) = ap (ap Imp $P) $Q
+
+; conversion: the reductions of the combinators are equations, Kurt's own equality rewrites with them
+use ap I M = M                                                "red-I"
+use ap (ap K M) N = M                                         "red-K"
+use ap (ap (ap S F) G) M = ap (ap F M) (ap G M)               "red-S"
+
+; derivability, Hilbert style
+use has P o and has Q o implies thm (hImp(P, hImp(Q, P)))                                                  "ax-K"
+use has P o and has Q o and has R o implies thm (hImp(hImp(P, hImp(Q, R)), hImp(hImp(P, Q), hImp(P, R))))   "ax-S"
+use thm (hImp(P, Q)) and thm P implies thm Q                                                              "mp"
+use thm (ap All F) and has F (fn A o) and has N A implies thm (ap F N)                                    "all-elim"
+use has F (fn A o) and (forall (has M A) thm (ap F M)) implies thm (ap All F)                             "all-intro"
+
+; ---- derived rules and a theorem ----
+; an implication of two formulas is a formula
+show has P o and has Q o implies has (hImp(P, Q)) o                                         "t-hImp"
+proof
+    assume has P o and has Q o
+        has Imp (fn o (fn o o))
+        has (ap Imp P) (fn o o)
+        has (ap (ap Imp P) Q) o
+qed
+
+; |- P -> P, from S and K
+show has P o implies thm (hImp(P, P))                                                       "hol-identity"
+proof
+    assume has P o
+        has (hImp(P, P)) o
+        has (hImp(P, hImp(P, P))) o
+        has (hImp(hImp(P, P), P)) o
+        thm (hImp(hImp(P, hImp(hImp(P, P), P)), hImp(hImp(P, hImp(P, P)), hImp(P, P))))
+        thm (hImp(P, hImp(hImp(P, P), P)))
+        thm (hImp(hImp(P, hImp(P, P)), hImp(P, P)))
+        thm (hImp(P, hImp(P, P)))
+        thm (hImp(P, P))
+qed
+
+; |- forall p. p -> p, with the predicate (S Imp) I, that is  p |-> Imp p (I p):  the quantifier
+show thm (ap All (ap (ap S Imp) I))                                                         "hol-forall-identity"
+proof
+    has S (fn (fn o (fn o o)) (fn (fn o o) (fn o o)))
+    has (ap S Imp) (fn (fn o o) (fn o o))
+    has I (fn o o)
+    has (ap (ap S Imp) I) (fn o o)
+    let x with has x o
+        thm (hImp(x, x))
+        ap (ap (ap S Imp) I) x = ap (ap Imp x) (ap I x)
+        ap I x = x
+        ap (ap (ap S Imp) I) x = ap (ap Imp x) x
+        thm (ap (ap (ap S Imp) I) x)
+    thm (ap All (ap (ap S Imp) I))
+qed
+
+; the quantifier has the type of every kind of predicate, also of predicates of predicates (second order)
+has All (fn (fn (fn i o) o) o)
+has All (fn (fn (fn (fn i o) o) o) o)

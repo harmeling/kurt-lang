@@ -1,16 +1,16 @@
 ; 48-profile.kurt
 
-; `kurt --profile FILE` checks the file as usual and then prints, on stderr, its ten slowest lines with the time and the number
-; of search steps of each -- where a proof is slow:
+; `kurt --profile FILE` checks the file as usual and then prints, on stderr, its ten slowest lines with the time, the number
+; of search steps and the kernel's part of the time of each -- where a proof is slow:
 ;
-;     the slowest lines of proof.kurt (1.37 s in all, seconds and search steps):
-;         0.85 s        0 steps      1  load logic, number
-;         0.40 s     1200 steps     14  x + y = y + x
+;     the slowest lines of proof.kurt (1.37 s in all; seconds, search steps, and the seconds of the kernel in them):
+;         0.85 s        0 steps   0.00 s kernel      1  load logic, number
+;         0.40 s     1200 steps   0.02 s kernel     14  x + y = y + x
 ;
 ; (a `load` line has the time of the files it loads; a file checked before costs nothing). A line that takes seconds is
 ; usually a goal that doesn't follow in one step, so the search tries every rule and fact: split it into steps, or give
 ; the fact it needs. From Python, `kurt.RunConfig(profile=True)` fills `CheckResult.profile` (and `--json`): a record
-; `file`, `line`, `seconds`, `steps` for each line.
+; `file`, `line`, `seconds`, `steps`, `kernel` for each line.
 ;
 ; In an editor with the language server (VS Code: the extension), the same shows while you write: the line
 ; being checked is tinted while a check runs, and afterwards every line gets an orange to red background, the slower the

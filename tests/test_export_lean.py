@@ -55,7 +55,8 @@ PROOFS = ['proofs/readme/contrapositive.kurt', 'proofs/natural-deduction/neg-for
           'proofs/natural-deduction/lemma.kurt',
           'proofs/natural-deduction/de-morgan.kurt',          # `case-elim`: the cases of a disjunction
           'proofs/natural-deduction/existsunique.kurt',       # `∃!` and a user's binder: higher-order constants
-          'proofs/debug/def-in-a-block-logic.kurt']           # a `def` in a block (todo 77): an `obtain` in the proof
+          'proofs/debug/def-in-a-block-logic.kurt',           # a `def` in a block (todo 77): an `obtain` in the proof
+          'proofs/logic-encodings/hol.kurt']                  # simple type theory as an object theory (plain Lean, checked 2026-10-31)
 # the proofs with sets (set.kurt, so Lean with Mathlib: the sets of `ZFSet`) checked completely, with
 # no `sorry` in the text either
 SET_PROOFS = ['proofs/mafi1/07-groups.kurt',                      # `∃ $b ∈ G`, `pick` from it, a chain, `flat`
@@ -72,7 +73,8 @@ SET_PROOFS = ['proofs/mafi1/07-groups.kurt',                      # `∃ $b ∈ 
 
 # the proofs about numbers that Lean with Mathlib checks completely (no `sorry`, not even one of a
 # calculation the tactics don't close), each for what it needs
-MATHLIB_PROOFS = ['proofs/arithmetic/algebraic-identities.kurt',     # numerals, `+ - * /` of ℝ, `flat`/`sym` `+` as theorems
+MATHLIB_PROOFS = ['proofs/natural-numbers/induction-for-sets.kurt',  # checked 2026-10-31 (the rules of natural.kurt as theorems)
+                  'proofs/arithmetic/algebraic-identities.kurt',     # numerals, `+ - * /` of ℝ, `flat`/`sym` `+` as theorems
                   'proofs/arithmetic/chains.kurt',                   # `calc` by `norm_num`, a link of a chain `5 = 2 + 3 ≤ 7`
                   'proofs/arithmetic/factorial-with-calc.kurt',      # a fact that computes to the goal (`calc-fact`)
                   'proofs/arithmetic/exponent-laws.kurt',            # `^` as `Real.rpow`
@@ -301,7 +303,7 @@ class TestExportLean(unittest.TestCase):
         self.assertIn('theorem k_calc_Nat', text)
         self.assertNotIn('axiom k_calc_Nat', text)
         text = export_text('load number\nconst a, b, c\nuse a < b "ab"\nuse b <= c "bc"\na < c\n')
-        self.assertRegex(text, r'"chain-trans-\d-\d": proved in Lean\ntheorem')
+        self.assertRegex(text, r'"chain-trans-\S+": proved in Lean\ntheorem')
         self.assertNotRegex(text, r'axiom f\d+ : .*"chain-trans')
         # a `def` of a loaded file, as one of the file's own: a Lean `def`
         text = export_text('load natural, divisibility\nconst m\nuse m = 2 * 3 "m"\nuse 3 ∈ Nat "three"\nm = 2 * 3 ∧ 3 ∈ Nat\n3 ∈ Nat ∧ m = 2 * 3\n∃ $k ($k ∈ Nat ∧ m = 2 * $k)\neven m\n')
@@ -388,7 +390,7 @@ class TestExportLean(unittest.TestCase):
                            'a = c\nP ∨ ¬P\n¬¬P\n∃ $x ($x = a)\n')
         self.assertNotRegex(text, r'^axiom f\d+ : .*-- axiom (propositional|logic|equality)\.kurt', )
         self.assertRegex(text, r'"excluded-middle": proved in Lean')
-        self.assertRegex(text, r'"chain-trans-0-0": proved in Lean \(`lean|"chain-trans-0-0": proved in Lean\n')
+        self.assertRegex(text, r'"chain-trans-=/=": proved in Lean \(`lean|"chain-trans-=/=": proved in Lean\n')
         self.assertNotRegex(text, r'axiom f\d+ : .*"chain-trans')
         self.assertIn('axiom Obj : Type', text)
 

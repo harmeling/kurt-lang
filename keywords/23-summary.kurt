@@ -2,7 +2,7 @@
 
 ; `summary` prints where the proof is: the open blocks with what opened them,
 ; the claims still to prove, the latest facts, and what could come next.  It
-; is the same view that `breakpoint` (42-breakpoint.kurt) and `kurt -i` after
+; is the same view that `breakpoint` (43-breakpoint.kurt) and `kurt -i` after
 ; an error show, and that the playground and the editors use.
 
 load propositional

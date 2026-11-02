@@ -38,7 +38,7 @@ def reasons(text: str) -> dict[str, str]:
 
 class TestReasons(unittest.TestCase):
     def test_reflexivity_is_equal_intro(self):
-        # it was "by chain-trans-0-0(pow-identity, pow-identity)" with number.kurt, and
+        # it was "by chain-trans-=/=(pow-identity, pow-identity)" with number.kurt, and
         # "by equal-elim(equal-intro, equal-intro)" with equality.kurt
         for theory in ('equality', 'number'):
             with self.subTest(theory=theory):
@@ -50,7 +50,7 @@ class TestReasons(unittest.TestCase):
         self.assertEqual(r['A and A'], '4 by and-intro(3, 3)')
 
     def test_qed_cites_its_proof(self):
-        # `qed` tries the proof's own last line first: it was "by chain-trans-1-1(iff-elim-backward,
+        # `qed` tries the proof's own last line first: it was "by chain-trans-iff/iff(iff-elim-backward,
         # top-elim)" for the proof of "iff-true-elim" in propositional.kurt, whose lines then
         # counted as unused (2026-10-20)
         r = reasons('load propositional\nshow (%A iff true) implies %A\nproof\n    assume %A iff true\n'

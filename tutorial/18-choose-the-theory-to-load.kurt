@@ -7,12 +7,13 @@
 ; | `propositional`        | `not`, `or`, `iff`, contradiction, propositional introduction/elimination rules                       |
 ; | `logic`       | `forall`, `exists`, conditioned quantifier rules; loads `propositional`                                        |
 ; | `equality`    | `=`, `≠` (`\ne`), reflexivity and substitution; loads `propositional`                                          |
-; | `tuple`       | pairs and tuples `(a, b)`: `fst`, `snd`                                                               |
-; | `set`         | membership, subsets, separation, union/intersection, products, mappings; loads `tuple`               |
+; | `set`         | membership, subsets, separation, union/intersection, pairs and tuples (`fst`, `snd`), products, mappings; the sorts `set ⊃ real` |
 ; | `number`      | exact calculation bindings, algebraic laws, order, powers, factorial; the sets `Real`, `Int`, `Rat`  |
 ; | `natural`     | natural numbers: induction, the predecessor, well-ordering; how `Nat` sits in `Int`, `Rat`            |
 ; | `divisibility`| even and odd, divisibility `∣`, `coprime`, every positive rational in lowest terms                    |
 ; | `interval`    | the intervals `Icc a b`, `Ico a b`, ..., and the sets `{a, ..., c}`                                   |
+; | `finite`      | finite sets: `hassize(A, n)`, `finite(A)`, bijections; loads `interval`                               |
+; | `complex`     | the complex numbers, `real ⊂ complex`, the unit `i`; `+ - * /` also on `complex`                      |
 ; | `analysis`    | absolute value, finite sums, extrema, suprema/infima, limits                                          |
 ; | `continuity`  | continuity, differentiability and the derivative by their definitions; loads `analysis`               |
 ; | `derivative`  | the rules for derivatives; loads `continuity`                                                         |

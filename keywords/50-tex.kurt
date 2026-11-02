@@ -1,0 +1,19 @@
+; 50-tex.kurt
+
+; `tex SYMBOL TEXT` says how a symbol is written in LaTeX. It changes nothing in the proof:
+; it is only used by `kurt --latex FILE` and `kurt --markdown FILE`, which write the checked
+; proof as a document. `$1`, `$2`, ... are the places of the arguments.
+
+load logic
+const alpha, beta
+tex alpha \alpha
+tex beta \beta
+
+prop P
+arity P 2
+tex P \mathrm{P}($1, $2)
+
+alpha = alpha
+P alpha beta implies P alpha beta
+
+; try: kurt --latex keywords/50-tex.kurt    (writes keywords/50-tex.tex)

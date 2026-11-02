@@ -22,8 +22,8 @@ forall n (n in Nat implies P(n))
 ; still proves a fact about all of it at once -- here, that it always produces a natural number.
 
 const fact
-use fact(0) = 1                                           "factorial-zero"
-use $n in Nat implies fact($n + 1) = ($n + 1) * fact($n)  "factorial-step"
+use fact(0) = 1                                           "fact-zero"
+use $n in Nat implies fact($n + 1) = ($n + 1) * fact($n)  "fact-step"
 
 1 in Nat
 fact(0) in Nat                                    ; base case

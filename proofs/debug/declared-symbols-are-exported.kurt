@@ -5,7 +5,7 @@ load "helpers/vocabulary.kurt"
 load equality
 expect "EvalError" "already a constant"
     const pi                  ; `pi` came along
-expect "EvalError" "already exist as infix"
+expect "EvalError" "already exists as infix"
     infix ++ 50 50            ; `++` is an infix operator here (the line below checks without it too)
 1 ++ 2 = 1 ++ 2
 

@@ -30,10 +30,12 @@ and `todo` all end here.
 ```python
 def record_certificate(cert: Certificate, kb: KnowledgeBase) -> Certificate:
     # the kernel checks every step; `cert` shows the certificates of a line
+    began = time.monotonic()
     try:
         problem = kernel_verify(cert, kb)
     except Exception as e:      # a crash of the kernel counts as a rejection
         problem = f'the kernel failed: {type(e).__name__}: {e}'
+    run_state.line_kernel += time.monotonic() - began
     if problem is not None:
         raise KernelError(f'KernelError: the kernel rejects the step to `{expr_str(cert.goal, kb)}`: {problem} -- '
                           f'the search accepted it, so this is a bug in Kurt; please report it, with this file')
@@ -45,7 +47,8 @@ def record_certificate(cert: Certificate, kb: KnowledgeBase) -> Certificate:
 Three things to notice. The kernel is called *every* time, not only in a test or with an option.
 A crash of the kernel counts as a rejection (`except Exception`): a bug in the kernel can make Kurt
 refuse a proof, never accept one. And a rejection is a `KernelError`, whose text says what it is:
-a disagreement between the search and the kernel, a bug in one of them.
+a disagreement between the search and the kernel, a bug in one of them. (The two lines with `began` only time the
+kernel, for `kurt --profile`: its seconds on the line; they change no verdict.)
 
 <!-- cite: class KernelError -->
 ```python

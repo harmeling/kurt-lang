@@ -20,7 +20,8 @@ class TestFormat(unittest.TestCase):
         self.assertTrue(source.ok, source.error)
         self.assertIn('use B ∧ A', source.output)
         self.assertTrue(normal.ok, normal.error)
-        self.assertIn('use A ∧ B', normal.output)
+        # (2026-11-02, C5: the echo keeps the order the student wrote, in every format)
+        self.assertIn('use B ∧ A', normal.output)
 
     def test_without_argument_shows_the_value_and_the_others(self):
         # (2026-10-12: before, only `format normal`)

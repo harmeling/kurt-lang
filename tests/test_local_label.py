@@ -81,5 +81,26 @@ class TestFreeSymbols(unittest.TestCase):
         expr = app("and", forall("x", app("P", sym("x"))), app("Q", sym("x")))
         self.assertEqual(free_symbols(expr, self.kb), {"and", "forall", "P", "Q", "x"})
 
+class TestLocalAfterTheLabel(unittest.TestCase):
+    # `F "label" local` is the same as `F local "label"` (it was a ParseError, 2026-11-02)
+    def parse(self, line):
+        import kurt.kurt as kurt
+        kb = with_quantifiers(copy.deepcopy(initial_kb))
+        ts = kurt.PeekableGenerator(t for t in list(kurt.scan_string(line, kb)) + [kurt.end_token])
+        _, _, label, local = kurt.parse_tokenstream(ts, kb)
+        return label, local
+
+    def test_local_before_and_after_the_label_are_the_same(self):
+        self.assertEqual(self.parse('use P local "a"'), ('a', True))
+        self.assertEqual(self.parse('use P "a" local'), ('a', True))
+        self.assertEqual(self.parse('use P "a"'), ('a', False))
+
+    def test_local_without_a_label_says_where_it_goes(self):
+        import kurt.kurt as kurt
+        result = kurt.check_text('prop P\nuse P local\n')
+        self.assertFalse(result.ok)
+        self.assertIn('`F local "label"` or `F "label" local`', result.error or '')
+
+
 if __name__ == "__main__":
     unittest.main()
