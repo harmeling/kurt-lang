@@ -706,14 +706,18 @@ more physical lines (see §2.1 on indentation/continuation).
   swallows the closing brace). A run of characters from `.:=+-*/#&^'∈!<>|_~`
   (note: no brackets in this class) glues together into *one* symbol
   instead (so declaring `!=` gives you a single two-character operator, but
-  writing `!!` without spaces is one symbol `!!`, not two `!` tokens). A
-  fixed set of additional Unicode symbols is recognised one character at a
-  time — exactly the symbols that appear as *values* in Kurt's LaTeX-input
-  table (§2.2): the common logic/set-theory symbols (`∀ ∃ ∧ ∨ ⇒ ⇐ ⇔ ¬ ⊤ ⊥ ∈
-  ∉ ∋ ⊂ ⊆ ⊃ ⊇ ∩ ∪ ∖ ∁ ∅ ≡ ∘ ↦ ⇝ → ⊢ ∞ ≤ ≥ ≠ × · ∣ ⟨ ⟩ ⟂ ∼ ≈ ≺ ≼`), modal-logic
-  symbols (`□ ◇`), the Greek alphabet, and `ℕ ℤ ℚ ℝ ℂ`; `∃!` and `⁻¹` are one symbol each. **Any other non-ASCII character is a lexing error** — you
-  cannot declare an operator using an arbitrary Unicode symbol that isn't
-  already on this list.
+  writing `!!` without spaces is one symbol `!!`, not two `!` tokens). Other characters are symbols
+  one character at a time (decided 2026-11-11): every character of the Unicode categories `Sm` (mathematical symbols: `⋈ ⊗ ∮ ∈ ≤`),
+  `So` (other symbols: arrows, `⊕ ↪ ⊢`, also emoji), `Sc` and `Sk` (currency and modifier symbols), and the letters of the blocks of
+  the mathematics, the Letterlike Symbols (`ℝ ℂ ℓ`) and the Mathematical Alphanumeric Symbols (`𝒜 𝔸 𝐀`). Such a character means nothing until it is
+  declared: `infix ⋈ 50 50`, `alias`, `tex ⋈ \bowtie` (otherwise a first use makes it a constant, as any new name). The common ones have
+  a typing shortcut (§2.2: `\bowtie`, `\otimes`, `\oplus`, ...); any other is typed or pasted. **Letters of other scripts, digits, combining marks and
+  invisible characters are a lexing error**: a Cyrillic `а` must not be a second `a`, so names stay ASCII and Greek. Before a line is scanned
+  it is normalised to Unicode form NFC (a symbol typed as a base character and a combining mark is one character, `=` and U+0338 are `≠`);
+  not NFKC, which would turn `ℝ` into `R`. A character that looks like an ASCII one, `−` (U+2212, the minus sign), `∕`, `∶`, `∗` and the fullwidth
+  `＋ ＝ ＜ ＞ ｜ ～`, is a symbol of its own, and its first use as a new symbol gives a warning that says the ASCII spelling (an error with `--strict`,
+  as for the notations of other languages). In a LaTeX export a symbol without a `tex` declaration is written as the character itself, which needs
+  a Unicode engine (`xelatex`, `lualatex`): declare `tex`.
 - **`load` (and `save`, `list`, `tex`, `lean`) are special in the lexer.** A line starting with `load` (case
   insensitive) is scanned specially: everything after it up to a `;` or end
   of line is taken as a comma-separated list of filenames (quoted or bare),

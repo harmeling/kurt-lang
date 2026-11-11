@@ -37,6 +37,7 @@ a document that is gone.)
 - [`28-prove-with-modal-logic.kurt`](28-prove-with-modal-logic.kurt): Prove with modal logic
 - [`29-numbers-sets-and-sorts.kurt`](29-numbers-sets-and-sorts.kurt): Numbers and sets together: sorts
 - [`29a-intervals-and-progressions.kurt`](29a-intervals-and-progressions.kurt): The numbers between two numbers: `Icc a b`, `Ioo a b`, and `{a, ..., c}`
+- [`30-prove-in-a-category.kurt`](30-prove-in-a-category.kurt): Prove in a category: the axioms, and an inverse is unique
 
 The lessons of [`keywords/`](../keywords/) explain Kurt's keywords and ideas one by one, and
 [`doc/kurt-ref.md`](../doc/kurt-ref.md) is the complete language reference. More examples:

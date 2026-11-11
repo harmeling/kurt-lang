@@ -39,7 +39,7 @@ A file `modus-ponens.kurt`:
 Check it on the command line:
 
     $ kurt modus-ponens.kurt
-    This is Kurt, v0.13.0 (made by Stefan Harmeling, 2016-2026), 8edd0ad5d97e (SHA-256 of kurt.py)
+    This is Kurt, v0.13.1 (made by Stefan Harmeling, 2016-2026), 15e8adce3288 (SHA-256 of kurt.py)
        3  use A implies B                           ; without proof
           const A                                   ; added constant
           const B                                   ; added constant
@@ -131,7 +131,7 @@ in parallel, use processes.
 
 ## Documentation
 
-- [`tutorial/`](tutorial/): the tutorial, 30 lessons (00 to 29), with 09a and 29a besides,, task by task: prove an implication, argue by
+- [`tutorial/`](tutorial/): the tutorial, 31 lessons (00 to 30), with 09a and 29a besides,, task by task: prove an implication, argue by
   contradiction, split into cases, rewrite with equality, use induction, diagnose "can not
   derive". Each one is a Kurt file you can run and change.
 - [`keywords/`](keywords/): 52 short lessons (00 to 51), one keyword or idea each

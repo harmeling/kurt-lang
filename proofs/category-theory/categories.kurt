@@ -1,0 +1,107 @@
+; a first demo of category theory: the axioms of a category, and what follows from them.
+;
+; A category has objects, and for two objects A, B the morphisms f : A → B, written `hom(f, A, B)`;
+; every object has an identity `id A`, and morphisms compose, `g ∘ f` ("first f, then g"). The
+; axioms are the unit laws and associativity -- each only where the composition makes sense --
+; and are stated here with `use`, as a theory would. Everything below is proved from them:
+; identities are unique, an inverse is unique, a left and a right inverse agree, an isomorphism
+; has no other one-sided inverse, and monomorphisms compose.
+load propositional, equality, logic
+
+infix ∘ 70 70
+arity id 1
+arity hom (_, _, _)
+arity iso (_, _, _, _)
+arity mono (_, _, _)
+
+; how it reads as a document (`kurt --latex`): `f : A → B`, `id_A`, `g ∘ f`
+tex hom $1 \colon $2 \to $3
+tex id \mathrm{id}_{$1}
+tex iso $1 \colon $2 \xrightarrow{\cong} $3 \ (\text{inverse } $4)
+tex mono $1 \colon $2 \rightarrowtail $3
+tex ∘ \circ
+
+; the axioms (`$A` stands for any object, `$f` for any morphism: a schema, as in group.kurt)
+use hom(id $A, $A, $A)                                                                      "identity-morphism"
+use hom($f, $A, $B) ∧ hom($g, $B, $C)  ⇒  hom($g ∘ $f, $A, $C)                                     "composition-typed"
+use hom($f, $A, $B)  ⇒  id $B ∘ $f = $f                                                         "left-unit"
+use hom($f, $A, $B)  ⇒  $f ∘ id $A = $f                                                         "right-unit"
+use hom($f, $A, $B) ∧ hom($g, $B, $C) ∧ hom($h, $C, $D)  ⇒  ($h ∘ $g) ∘ $f = $h ∘ ($g ∘ $f)             "associative"
+use hom($f, $A, $B) ∧ hom($f, $C, $D)  ⇒  $A = $C ∧ $B = $D                                         "one-hom-set"
+
+; definitions: an isomorphism `$f : $A → $B` with inverse `$g`, and a monomorphism (left-cancellable)
+def iso($f, $A, $B, $g)  ⇔  hom($f, $A, $B) ∧ hom($g, $B, $A) ∧ $g ∘ $f = id $A ∧ $f ∘ $g = id $B          "iso"
+def mono($f, $A, $B)  ⇔  hom($f, $A, $B) ∧ ∀ $g ∀ $h ∀ $C (hom($g, $C, $A) ∧ hom($h, $C, $A) ∧ $f ∘ $g = $f ∘ $h  ⇒  $g = $h)   "mono"
+
+; 1. the identity of an object is unique: an `$e` that is a left unit on every morphism into `$A`
+;    and out of `$A` is `id $A`
+show hom($e, $A, $A) ∧ (∀ $f ∀ $B (hom($f, $B, $A)  ⇒  $e ∘ $f = $f))  ⇒  $e = id $A     "identity-unique"
+proof
+    assume hom($e, $A, $A) ∧ (∀ $f ∀ $B (hom($f, $B, $A)  ⇒  $e ∘ $f = $f))
+        hom(id $A, $A, $A)
+        $e ∘ id $A = id $A
+        $e ∘ id $A = $e                         ; "right-unit"
+        $e = id $A
+qed
+
+; 2. an inverse is unique: if `$g` and `$g'` both invert `$f`, they are equal
+show iso($f, $A, $B, $g) ∧ iso($f, $A, $B, $h)  ⇒  $g = $h     "inverse-unique"
+proof
+    assume iso($f, $A, $B, $g) ∧ iso($f, $A, $B, $h)
+        iso($f, $A, $B, $g)
+        iso($f, $A, $B, $h)
+        hom($f, $A, $B) ∧ hom($g, $B, $A) ∧ $g ∘ $f = id $A ∧ $f ∘ $g = id $B
+        hom($f, $A, $B) ∧ hom($h, $B, $A) ∧ $h ∘ $f = id $A ∧ $f ∘ $h = id $B
+        hom($g, $B, $A)
+        hom($h, $B, $A)
+        $g ∘ $f = id $A
+        $h ∘ $f = id $A
+        $f ∘ $g = id $B
+        $f ∘ $h = id $B
+        hom($f, $A, $B)
+        $g = id $A ∘ $g
+        $g = ($h ∘ $f) ∘ $g
+        $g = $h ∘ ($f ∘ $g)
+        $g = $h ∘ id $B
+        $g = $h
+qed
+
+; 3. a left inverse and a right inverse of the same morphism are equal: `$l ∘ $f = id $A` and
+;    `$f ∘ $r = id $B` give `$l = $r`
+show hom($f, $A, $B) ∧ hom($l, $B, $A) ∧ hom($r, $B, $A) ∧ $l ∘ $f = id $A ∧ $f ∘ $r = id $B  ⇒  $l = $r     "left-right-inverse"
+proof
+    assume hom($f, $A, $B) ∧ hom($l, $B, $A) ∧ hom($r, $B, $A) ∧ $l ∘ $f = id $A ∧ $f ∘ $r = id $B
+        hom($f, $A, $B)
+        hom($l, $B, $A)
+        hom($r, $B, $A)
+        $l ∘ $f = id $A
+        $f ∘ $r = id $B
+        $l = $l ∘ id $B                        ; "right-unit"
+        $l = $l ∘ ($f ∘ $r)
+        $l = ($l ∘ $f) ∘ $r                    ; "associative"
+        $l = id $A ∘ $r
+        $l = $r                                ; "left-unit"
+qed
+
+; 4. an isomorphism is a monomorphism: cancel it from the left with its inverse
+show iso($f, $A, $B, $g)  ⇒  mono($f, $A, $B)     "iso-is-mono"
+proof
+    assume iso($f, $A, $B, $g)
+        hom($f, $A, $B) ∧ hom($g, $B, $A) ∧ $g ∘ $f = id $A ∧ $f ∘ $g = id $B
+        hom($f, $A, $B)
+        hom($g, $B, $A)
+        $g ∘ $f = id $A
+        let k, m, C
+            assume hom(k, C, $A) ∧ hom(m, C, $A) ∧ $f ∘ k = $f ∘ m
+                hom(k, C, $A)
+                hom(m, C, $A)
+                $f ∘ k = $f ∘ m
+                $g ∘ ($f ∘ k) = $g ∘ ($f ∘ m)
+                ($g ∘ $f) ∘ k = $g ∘ ($f ∘ k)         ; "associative"
+                ($g ∘ $f) ∘ m = $g ∘ ($f ∘ m)
+                ($g ∘ $f) ∘ k = ($g ∘ $f) ∘ m
+                id $A ∘ k = id $A ∘ m
+                k = m
+        ∀ $g ∀ $h ∀ $C (hom($g, $C, $A) ∧ hom($h, $C, $A) ∧ $f ∘ $g = $f ∘ $h  ⇒  $g = $h)
+        mono($f, $A, $B)
+qed

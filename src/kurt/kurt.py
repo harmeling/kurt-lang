@@ -31,6 +31,7 @@ if sys.version_info < (3, 10):
 import os           # os.path.[isfile, dirname, abspath, join, basename, split, expanduser, exists]
 import io           # io.StringIO, for `EmbeddedTheories` (see `_EMBEDDED_THEORIES` below)
 import argparse     # argparse.ArgumentParser
+import unicodedata  # `unicodedata.[category, name, normalize]`, for the symbols the scanner accepts (`symbol_character`)
 import re           # re.[compile, sub, VERBOSE, MULTILINE]
 import difflib      # difflib.get_close_matches, `load propostional`: did you mean `propositional`?
 import shlex        # shlex.quote, for the command after `kurt --lean`
@@ -63,7 +64,7 @@ except ImportError:      # exotic/stripped-down Python builds lack the C extensi
     hashlib = None
 
 # config: general information
-version        = '0.13.0'     # the only place of the version (pyproject.toml reads it from here)
+version        = '0.13.1'     # the only place of the version (pyproject.toml reads it from here)
 made_by        = 'made by Stefan Harmeling, 2016-2026'
 
 def file_fingerprint() -> str:
@@ -491,6 +492,26 @@ REPLACEMENTS: dict[str, str] = {
     # set theory
     '\\infty':    '∞',     # infinity
     '\\in':       '∈',     # element of
+    '\\bowtie':   '⋈',     # more symbols, each one its own token: any symbol of Unicode is accepted (`symbol_character`), these have a shortcut
+    '\\otimes':   '⊗',
+    '\\oplus':    '⊕',
+    '\\odot':     '⊙',
+    '\\ominus':   '⊖',
+    '\\oslash':   '⊘',
+    '\\oint':     '∮',
+    '\\cong':     '≅',
+    '\\simeq':    '≃',
+    '\\models':   '⊨',
+    '\\star':     '⋆',
+    '\\uplus':    '⊎',
+    '\\sqcup':    '⊔',
+    '\\sqcap':    '⊓',
+    '\\succ':     '≻',
+    '\\lhd':      '⊲',
+    '\\rhd':      '⊳',
+    '\\hookrightarrow': '↪',
+    '\\twoheadrightarrow': '↠',
+    '\\rightarrowtail': '↣',
     '\\notin':    '∉',     # not element of
     '\\subset':   '⊂',     # proper subset
     '\\subseteq': '⊆',     # subset or equal
@@ -832,7 +853,7 @@ class Reason:
         fields: dict = {'id': self.id or None, 'kind': self.kind}
         if self.label:
             fields['label'] = self.label
-        if self.kind == 'step' and self.steps:
+        if self.kind in ('step', 'open') and self.steps:
             fields['rule'], fields['uses'] = self.steps[0][0], list(self.steps[0][1])
             if len(self.steps) > 1:
                 fields['steps'] = [{'rule': rule, 'uses': list(uses)} for rule, uses, _ in self.steps]
@@ -3744,6 +3765,27 @@ SPECIAL_SYMBOLS = ''.join(sorted(set(''.join(v for v in REPLACEMENTS.values() if
 # variables (`$Γ`, `%φ`, `$Γ2`), without making arbitrary operator glyphs valid identifiers.
 GREEK_VARIABLE_LETTERS = ''.join(c for c in SPECIAL_SYMBOLS if c.isalpha() and not c.isascii())
 
+# Which other characters are symbols. Letters stay ASCII and Greek: a Cyrillic `а` must not be a second `a`. But every
+# mathematical symbol (Unicode category `Sm`), every other symbol (`So`: arrows, `⋈`, `⊗`, ... and emoji), currency
+# and modifier symbols (`Sc`, `Sk`), and the letters of the blocks of the mathematics (the Letterlike Symbols `ℝ ℂ ℓ`,
+# the Mathematical Alphanumeric Symbols `𝒜 𝔸 𝐀`: a different look from an ASCII letter) is a symbol of its own, one character
+# each; it means nothing until a theory or a line declares it (`infix ⋈ 50 50`, `alias`, `tex`)
+def symbol_character(c: str) -> bool:
+    if len(c) != 1 or c.isascii():
+        return False
+    category = unicodedata.category(c)
+    if category in ('Sm', 'So', 'Sc', 'Sk'):
+        return True
+    return category.startswith('L') and ('\u2100' <= c <= '\u214f' or '\U0001d400' <= c <= '\U0001d7ff')
+
+# characters that look like an ASCII one and are symbols of their own: a warning at the first use says the ASCII spelling
+LOOKALIKES = {
+    '−': ('the minus sign U+2212', '-'), '∕': ('the division slash U+2215', '/'), '⁄': ('the fraction slash U+2044', '/'),
+    '∶': ('the ratio sign U+2236', ':'), '∗': ('the asterisk operator U+2217', '*'), '＋': ('the fullwidth plus U+FF0B', '+'),
+    '＝': ('the fullwidth equals sign U+FF1D', '='), '＜': ('the fullwidth less-than sign U+FF1C', '<'),
+    '＞': ('the fullwidth greater-than sign U+FF1E', '>'), '｜': ('the fullwidth bar U+FF5C', '|'), '～': ('the fullwidth tilde U+FF5E', '~'),
+}
+
 # scanner based on regular expressions (let's support unicode!)
 # note that the ordering of the expressions here is important
 scanner: re.Pattern = re.compile(fr'''
@@ -3878,6 +3920,8 @@ def scan_string(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
 
 def scan_string_symbols(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
 
+    if not input_line.isascii():
+        input_line = unicodedata.normalize('NFC', input_line)       # (`é` as one character or as `e` and an accent: the same text)
     # setup current location
     lastpos: int = 0        # for calculating the column number, update after a newline
     for match in scanner.finditer(input_line):
@@ -3958,6 +4002,10 @@ def scan_string_symbols(input_line: str, kb: KnowledgeBase) -> Iterator[Token]:
             yield Token('SYMBOL', 'list', column)
             for name in split_list_args(body):
                 yield Token('STRING', name, column + 5)
+        elif label == 'ERROR' and isinstance(value, str) and symbol_character(value):
+            alias = kb.get_alias(value)
+            yield Token('SYMBOL', alias if alias is not None else value, column, value if alias is not None else None,
+                        glued=pos > 0 and not input_line[pos - 1].isspace())
         elif label == 'ERROR':  # error
             assert isinstance(value, str)
             shown = ''.join(c if c.isprintable() else repr(c)[1:-1] for c in value)      # (a NUL byte as `\x00`)
@@ -4114,6 +4162,9 @@ def new_symbol_hints(names: list[str]) -> list[str]:
         theory = shipped_declaration(name)
         if name in FOREIGN_NOTATIONS:
             hints.append(f'`{name}` is not Kurt: write {FOREIGN_NOTATIONS[name]}')
+        elif name in LOOKALIKES:
+            what, ascii_character = LOOKALIKES[name]
+            hints.append(f'`{name}` is {what}, not the ASCII `{ascii_character}` that it looks like: write `{ascii_character}` (or declare `{name}` on purpose)')
         elif theory is not None:
             hints.append(f'`{name}` is declared in {theory}.kurt: `load {theory}`?')
     return hints
@@ -5476,9 +5527,13 @@ def pick_input_line(step: Expr) -> str:
     assert isinstance(step, list)
     return 'pick ' + ' '.join(str(t.value) if isinstance(t, Token) else '' for t in step)
 
-def log_pick(kb: KnowledgeBase, new_const: str, fact: Expr, line: int) -> None:
+def log_pick(kb: KnowledgeBase, new_const: str, fact: Expr, line: int, filename: str) -> None:
     if printing():
-        reason = Reason(str(line), f'open local scope with new constant `{new_const}`', 'open')
+        # the existential it picks from: "by 6" (as a step, so that the editors mark that line)
+        source = kb.pick_source
+        used = [line_ref(source, filename)] if source is not None else []
+        words = f'open local scope with new constant `{new_const}`' + (f', by {used[0]}' if used else '')
+        reason = Reason(str(line), words, 'open', [('pick', used, False)] if used else [])
         log(kb, f'pick {new_const} with {expr_str(fact, kb)}', reason, kb.level-1)  # log the new constants
 
 def eval_pick(kb: KnowledgeBase, new_const_expr: Expr, fact_expr: Expr, input_line, filename: str, line: int) -> tuple[KnowledgeBase, Expr]:
@@ -7013,7 +7068,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                         if kb.is_fixed_var(new_const):
                             raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `pick` needs a new name')
                         kb, fact = eval_pick(kb, new_const_expr, fact_expr, (pick_input_line(expr) if len(picks) > 1 else original_input_line), filename, line)
-                        log_pick(kb, new_const, fact, line)
+                        log_pick(kb, new_const, fact, line, filename)
                     case [*tail] if tail and not any(is_helper_keyword(t) for t in tail):
                         # `pick C`, like `let C`: the new constant is the one `C` is about
                         # (`unpack_condition`), and then it is `pick x with C`
@@ -7030,7 +7085,7 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                             raise KurtException(f'EvalError: `{new_const}` is fixed by the assumption of an enclosing block -- `pick` needs a new name')
                         new_const_expr = next(t for t in tail if isinstance(t, Token) and t.value == new_const)
                         kb, fact = eval_pick(kb, new_const_expr, tail, (pick_input_line(expr) if len(picks) > 1 else original_input_line), filename, line)
-                        log_pick(kb, new_const, fact, line)
+                        log_pick(kb, new_const, fact, line, filename)
                     case _:
                         raise KurtException(msg)
         except KurtException:
@@ -12932,8 +12987,11 @@ def conditioned_implication_hint(goal: Expr, kb: KnowledgeBase) -> Optional[str]
         condition = unpack_condition(layers[0][1][1], kb)[1]
         wanted = [('condition', apply_subst(condition, state, kb))] if condition is not None else []
         wanted.append(('premise', apply_subst(inner[1], state, kb)))
-        missing = [f'`{expr_str(e, kb)}`' for _, e in wanted if not any(equal_expr(e, g, kb) for g in known)]
         instance = apply_subst(inner, state, kb)
+        missing_exprs = [e for _, e in wanted if not any(equal_expr(e, g, kb) for g in known)]
+        names = readable_names([instance, *missing_exprs])        # (a bound variable of the conclusion is renamed inside: `∃ a ∈ A`, not `∃ $$07 ∈ A`)
+        missing = [f'`{expr_str(rename_for_display(e, names), kb)}`' for e in missing_exprs]
+        instance = rename_for_display(instance, names)
         name = f'`{f.label}`' if f.label else f'the fact of line {f.line}'
         where = f' (line {f.line})' if f.label and f.line else ''
         text = (f'{name}{where} gives this line in two steps, "forall-cond-elim" and then "impl-elim": write the line '
@@ -15914,7 +15972,7 @@ class LanguageServer:
                 links.append(f'[{os.path.basename(path)}]({Path(path).as_uri()})' if path else f'`{name}`')
             details = f'**theory:** {", ".join(links)} -- its exported facts and symbols are known from here on'
         if not details:
-            details = '  \n'.join(filter(None, (self.what_it_is(e) for e in events)))
+            details = '  \n'.join(filter(None, (self.what_it_is(e, uri) for e in events)))
         if not details:
             lines = self.texts.get(uri, '').split('\n')
             details = self.what_the_line_does(lines[n]) if n < len(lines) else ''
@@ -15961,10 +16019,17 @@ class LanguageServer:
                         'nothing new follows); it and its defining fact are gone when the block closes, and the block\'s '
                         'last line must not mention it')
 
-    def what_it_is(self, event: dict) -> str:
+    def what_it_is(self, event: dict, uri: str = '') -> str:
         words = event.get('text', '').split()
         if words and words[0] == 'def' and (event.get('level') or 0) > 0:
             return self.LOCAL_DEFINITION         # (a `def` inside a block, todo 77)
+        if words and words[0] == 'pick' and event.get('uses'):
+            # the existential it picks from, as a link to its line (`6a`: a line Kurt derived for it)
+            source = str(event['uses'][0])
+            number = re.match(r'\d+', source)
+            place = f'[line {source}]({uri}#L{number.group()})' if uri and number else f'line {source}'
+            return (f'**witness:** a new constant with the property of the existential fact of {place}; '
+                    'closing gives the last line')
         return self.WHAT_IT_IS.get(words[0], '') if words else ''
 
     @staticmethod

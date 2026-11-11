@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.1 (2026-11-11)
+
+- Symbols: every character of the Unicode categories Sm, So, Sc, Sk and the letters of the blocks of the mathematics (Letterlike Symbols, Mathematical Alphanumeric Symbols) is a symbol of its own, to be declared (`infix ⋈ 50 50`); it was a `ScanError` unless the character was in the table of shortcuts. Letters of other scripts, digits, combining marks and invisible characters stay errors. A line is normalised to NFC before it is scanned. A lookalike of an ASCII character (`−` U+2212, `∕`, `∶`, `∗`, the fullwidth `＋ ＝ ＜ ＞ ｜ ～`) used as a new symbol gives a warning that says the ASCII spelling. New shortcuts: `\bowtie`, `\otimes`, `\oplus`, `\odot`, `\ominus`, `\oslash`, `\oint`, `\cong`, `\simeq`, `\models`, `\star`, `\uplus`, `\sqcup`, `\sqcap`, `\succ`, `\lhd`, `\rhd`, `\hookrightarrow`, `\twoheadrightarrow`, `\rightarrowtail`. Reference §2.
+- Fixed: the two-step hint ("forall-cond-elim" then "impl-elim") showed a bound variable of the line to write with its internal name (`∃ ($$355 ∈ A) ...`); it is the name of the fact now (`∃ (a ∈ A) ...`).
+- A demo of category theory, `proofs/category-theory/categories.kurt` (with `tex` declarations: `kurt --latex` writes `f : A → B`, `id_A`, `g ∘ f`) a tutorial lesson, `tutorial/30-prove-in-a-category.kurt`, and the short five lemma by a diagram chase (`proofs/category-theory/short-five-lemma.kurt`, abelian groups, element by element): the axioms of a category (morphisms, identities, composition) and four theorems from them (identities and inverses are unique, a left and a right inverse agree, an isomorphism is a monomorphism).
+- The `pick` line names the existential it picks from: `pick a with P a   ; open local scope with new constant `a`, by 6` (the editors mark line 6; the event has `uses`), and its hover links that line.
+
 ## 0.13.0 (2026-11-02)
 
 - Messages (found while repairing the lecture proofs): a line that follows from a conditioned implication `∀ x ∈ A (P x ⇒ Q x)` in two steps ("forall-cond-elim", then "impl-elim") says so and which line to write; `def sub(U, V) ≡ ...` says that `sub` is Kurt's own name (three arguments); the sort-mismatch hint at a `qed` names the usual reason, a sort inferred inside the proof (`set U ; sort inferred`) after the claim used the symbol.

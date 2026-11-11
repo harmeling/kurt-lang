@@ -1,0 +1,194 @@
+; the short five lemma, by a diagram chase.
+;
+;       0 → A  --f-->  B  --g-->  C → 0
+;           |α         |β         |γ          two short exact sequences of abelian groups
+;       0 → A1 --f1--> B1 --g1--> C1 → 0     (the rows), and the squares commute
+;
+; If α and γ are isomorphisms, so is β. A group homomorphism is injective if and only if its
+; kernel is zero, so "injective" is stated as "only the zero goes to zero"; a chase picks elements
+; (`pick`), applies the maps, and uses the squares and the exactness one step at a time.
+; The six groups are sets of one universe with one `+`; each has its own zero, and the axioms
+; say what `+` does inside one group (`ab(G, z)`: an abelian group with zero z). They are
+; stated with `use`, as a theory would; the lemma at the end is proved from them.
+load propositional, equality, logic, set
+
+infix + 65 65
+arity ab (_, _)
+const A, B, C, A1, B1, C1               ; the groups of the diagram
+const zA, zB, zC, zA1, zB1, zC1         ; their zeros
+arity f 1, g 1, f1 1, g1 1, α 1, β 1, γ 1    ; the maps
+
+def ab($G, $z)  ⇔  ($z ∈ $G  ∧  (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G))  ∧  (∀ $x ∈ $G ($x + $z = $x))
+                   ∧  (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x))
+                   ∧  (∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x))
+                   ∧  (∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y)))     "ab"
+
+; the diagram: six abelian groups
+use ab(A, zA)
+use ab(B, zB)
+use ab(C, zC)
+use ab(A1, zA1)
+use ab(B1, zB1)
+use ab(C1, zC1)
+; the maps go where the arrows go
+use ∀ x ∈ A (f x ∈ B)
+use ∀ x ∈ B (g x ∈ C)
+use ∀ x ∈ A1 (f1 x ∈ B1)
+use ∀ x ∈ B1 (g1 x ∈ C1)
+use ∀ x ∈ A (α x ∈ A1)
+use ∀ x ∈ B (β x ∈ B1)
+use ∀ x ∈ C (γ x ∈ C1)
+; they are homomorphisms: zero goes to zero, and sums to sums (all that the chase uses)
+use f zA = zB
+use g zB = zC
+use f1 zA1 = zB1
+use g1 zB1 = zC1
+use α zA = zA1
+use β zB = zB1
+use γ zC = zC1
+use ∀ x ∈ B ∀ y ∈ B (β (x + y) = β x + β y)                                                      "beta-additive"
+use ∀ x ∈ B1 ∀ y ∈ B1 (g1 (x + y) = g1 x + g1 y)                                                 "g1-additive"
+; the squares commute
+use ∀ a ∈ A (β (f a) = f1 (α a))                                                                  "left-square"
+use ∀ b ∈ B (γ (g b) = g1 (β b))                                                                  "right-square"
+; the rows are exact: `f`, `f1` are injective (the kernel is zero), `g` is onto, and what `g`, `g1`
+; send to zero comes from the left (the other half of exactness, "the image is in the kernel",
+; is not needed)
+use ∀ a ∈ A (f a = zB ⇒ a = zA)                                                                   "f-injective"
+use ∀ a ∈ A1 (f1 a = zB1 ⇒ a = zA1)                                                               "f1-injective"
+use ∀ c ∈ C ∃ b ∈ B (g b = c)                                                                     "g-onto"
+use ∀ b ∈ B (g b = zC  ⇒  ∃ a ∈ A (b = f a))                                                      "exact-at-B"
+use ∀ b ∈ B1 (g1 b = zC1  ⇒  ∃ a ∈ A1 (b = f1 a))                                                 "exact-at-B1"
+; α and γ are isomorphisms
+use ∀ a ∈ A (α a = zA1 ⇒ a = zA)                                                                  "alpha-injective"
+use ∀ c ∈ C (γ c = zC1 ⇒ c = zC)                                                                  "gamma-injective"
+use ∀ a1 ∈ A1 ∃ a ∈ A (α a = a1)                                                                  "alpha-onto"
+use ∀ c1 ∈ C1 ∃ c ∈ C (γ c = c1)                                                                  "gamma-onto"
+
+; the parts of `ab`, one by one (the chase below uses them as facts about the groups of the diagram)
+show ab($G, $z)  ⇒  $z ∈ $G     "ab-has-zero"
+proof
+    assume ab($G, $z)
+        $z ∈ $G ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)) ∧ (∀ $x ∈ $G ($x + $z = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y))
+        $z ∈ $G
+qed
+
+show ab($G, $z)  ⇒  ∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)     "ab-closed"
+proof
+    assume ab($G, $z)
+        $z ∈ $G ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)) ∧ (∀ $x ∈ $G ($x + $z = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y))
+        ∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)
+qed
+
+show ab($G, $z)  ⇒  ∀ $x ∈ $G ($x + $z = $x)     "ab-zero"
+proof
+    assume ab($G, $z)
+        $z ∈ $G ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)) ∧ (∀ $x ∈ $G ($x + $z = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y))
+        ∀ $x ∈ $G ($x + $z = $x)
+qed
+
+show ab($G, $z)  ⇒  ∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)     "ab-commutative"
+proof
+    assume ab($G, $z)
+        $z ∈ $G ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)) ∧ (∀ $x ∈ $G ($x + $z = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y))
+        ∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)
+qed
+
+show ab($G, $z)  ⇒  ∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)     "ab-solvable"
+proof
+    assume ab($G, $z)
+        $z ∈ $G ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)) ∧ (∀ $x ∈ $G ($x + $z = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y))
+        ∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)
+qed
+
+show ab($G, $z)  ⇒  ∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y)     "ab-cancel"
+proof
+    assume ab($G, $z)
+        $z ∈ $G ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y ∈ $G)) ∧ (∀ $x ∈ $G ($x + $z = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ($x + $y = $y + $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∃ $d ∈ $G ($d + $y = $x)) ∧ (∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y))
+        ∀ $x ∈ $G ∀ $y ∈ $G ∀ $w ∈ $G ($x + $w = $y + $w  ⇒  $x = $y)
+qed
+
+; 1. β is injective: a `b` that goes to zero is zero. The chase goes B → B1 → C1, back to C, to B
+;    again as `f a`, and down to A1 and A:
+;        β b = 0  ⇒  γ(g b) = g1(β b) = 0  ⇒  g b = 0  ⇒  b = f a  ⇒  f1(α a) = β(f a) = 0  ⇒  α a = 0  ⇒  a = 0
+show ∀ b ∈ B (β b = zB1  ⇒  b = zB)     "beta-injective"
+proof
+    let b ∈ B
+        assume β b = zB1
+            g b ∈ C                                   ; the maps go where the arrows go
+            γ (g b) = g1 (β b)                        ; the right square commutes
+            g1 (β b) = zC1                            ; `β b = 0` and `g1` sends 0 to 0
+            γ (g b) = zC1
+            γ (g b) = zC1  ⇒  g b = zC                ; `γ` is injective, for `g b`
+            g b = zC
+            g b = zC  ⇒  ∃ a ∈ A (b = f a)            ; exact at B, for `b`
+            ∃ a ∈ A (b = f a)                         ; what `g` sends to 0 is an `f a`
+            pick a with a ∈ A ∧ b = f a
+                a ∈ A
+                β (f a) = f1 (α a)                    ; the left square commutes
+                β (f a) = zB1                         ; `β b = 0` with `b = f a`
+                f1 (α a) = zB1
+                α a ∈ A1
+                f1 (α a) = zB1  ⇒  α a = zA1
+                α a = zA1                             ; `f1` is injective
+                α a = zA1  ⇒  a = zA
+                a = zA                                ; `α` is injective
+                b = f zA                              ; `b = f a` with `a = 0`
+                b = zB                                ; `f` sends 0 to 0
+qed
+
+; what the chase needs of the groups of the diagram: `ab-...` for B, B1 and C1
+∀ x ∈ B ∀ y ∈ B (x + y ∈ B)                                      ; B is closed under +
+∀ x ∈ B1 ∀ y ∈ B1 ∃ d ∈ B1 (d + y = x)                           ; in B1, `x` is something plus `y`
+zC1 ∈ C1
+∀ x ∈ C1 (x + zC1 = x)                                           ; zero of C1
+∀ x ∈ C1 ∀ y ∈ C1 (x + y = y + x)                                ; C1 is commutative
+∀ x ∈ C1 ∀ y ∈ C1 ∀ w ∈ C1 (x + w = y + w  ⇒  x = y)            ; and cancels
+
+; 2. β is onto: for a `b1` in B1, the chase goes up to C1, back to B, and corrects the error in B1
+;    by something that comes from A1:
+;        c1 = g1 b1 = γ c,  c = g b,  d + β b = b1  ⇒  g1 d = 0  ⇒  d = f1 a1,  a1 = α a  ⇒  b1 = β(f a + b)
+show ∀ b1 ∈ B1 ∃ b ∈ B (β b = b1)     "beta-onto"
+proof
+    let b1 ∈ B1
+        g1 b1 ∈ C1
+        ∃ c ∈ C (γ c = g1 b1)                         ; `γ` is onto
+        pick c with c ∈ C ∧ γ c = g1 b1
+            ∃ b ∈ B (g b = c)                         ; `g` is onto
+            pick b with b ∈ B ∧ g b = c
+                β b ∈ B1
+                ∃ d ∈ B1 (d + β b = b1)               ; B1 is a group: `b1` is `d` plus `β b`
+                pick d with d ∈ B1 ∧ d + β b = b1
+                    ; g1 d = 0: `g1` sends `d + β b = b1` to `g1 d + g1 (β b)`, and `g1 (β b)` is `g1 b1`
+                    g1 (d + β b) = g1 d + g1 (β b)
+                    g1 b1 = g1 d + g1 (β b)
+                    γ (g b) = g1 (β b)                ; the right square commutes
+                    γ (g b) = g1 b1
+                    g1 (β b) = g1 b1
+                    g1 b1 = g1 d + g1 b1
+                    g1 d ∈ C1
+                    g1 b1 + zC1 = g1 b1
+                    g1 b1 + zC1 = zC1 + g1 b1
+                    zC1 + g1 b1 = g1 b1
+                    g1 d + g1 b1 = zC1 + g1 b1
+                    g1 d + g1 b1 = zC1 + g1 b1  ⇒  g1 d = zC1
+                    g1 d = zC1                        ; cancel `g1 b1` in C1
+                    g1 d = zC1  ⇒  ∃ a1 ∈ A1 (d = f1 a1)   ; exact at B1
+                    ∃ a1 ∈ A1 (d = f1 a1)
+                    pick a1 with a1 ∈ A1 ∧ d = f1 a1
+                        ∃ a ∈ A (α a = a1)           ; `α` is onto
+                        pick a with a ∈ A ∧ α a = a1
+                            β (f a) = f1 (α a)       ; the left square commutes
+                            f1 (α a) = f1 a1
+                            β (f a) = f1 a1
+                            β (f a) = d
+                            f a ∈ B
+                            f a + b ∈ B
+                            β (f a + b) = β (f a) + β b
+                            β (f a + b) = d + β b
+                            β (f a + b) = b1
+                            ∃ x ∈ B (β x = b1)
+qed
+
+; the short five lemma: if α and γ are isomorphisms, so is β (injective and onto)
+(∀ b ∈ B (β b = zB1  ⇒  b = zB)) ∧ (∀ b1 ∈ B1 ∃ b ∈ B (β b = b1))     "short-five-lemma"

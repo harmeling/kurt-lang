@@ -1,0 +1,51 @@
+; 30-prove-in-a-category.kurt
+;
+; Prove in a category
+;
+; A category is a structure like a group (lesson 24), but with morphisms between objects: for two
+; objects A and B the morphisms `f : A → B`, written `hom(f, A, B)`; every object has an identity
+; `id A`; and morphisms compose, `g ∘ f` ("first f, then g"). Kurt has no partial composition, so
+; `∘` is defined for every pair, and the axioms say what holds where `hom` says it makes sense.
+; The axioms are stated with `use`, as a theory would (a `$A` stands for any object, as in group.kurt).
+; The full demo, with more theorems, is proofs/category-theory/categories.kurt.
+load propositional, equality, logic
+
+infix ∘ 70 70
+arity id 1
+arity hom (_, _, _)
+arity iso (_, _, _, _)
+
+use hom(id $A, $A, $A)                                                           "identity-morphism"
+use hom($f, $A, $B) ∧ hom($g, $B, $C)  ⇒  hom($g ∘ $f, $A, $C)                  "composition-typed"
+use hom($f, $A, $B)  ⇒  id $B ∘ $f = $f                                           "left-unit"
+use hom($f, $A, $B)  ⇒  $f ∘ id $A = $f                                           "right-unit"
+use hom($f, $A, $B) ∧ hom($g, $B, $C) ∧ hom($h, $C, $D)  ⇒  ($h ∘ $g) ∘ $f = $h ∘ ($g ∘ $f)   "associative"
+
+; an isomorphism `f : A → B` with inverse `g`
+def iso($f, $A, $B, $g)  ⇔  hom($f, $A, $B) ∧ hom($g, $B, $A) ∧ $g ∘ $f = id $A ∧ $f ∘ $g = id $B   "iso"
+
+; The claim: an inverse is unique. Two inverses `g` and `h` of `f` are equal, by the calculation
+;     g = id ∘ g = (h ∘ f) ∘ g = h ∘ (f ∘ g) = h ∘ id = h
+; Each line below is one of its steps; the comment says which axiom Kurt found for it.
+show iso($f, $A, $B, $g) ∧ iso($f, $A, $B, $h)  ⇒  $g = $h     "inverse-unique"
+proof
+    assume iso($f, $A, $B, $g) ∧ iso($f, $A, $B, $h)
+        ; unfold the two definitions, and take the parts we need
+        hom($f, $A, $B) ∧ hom($g, $B, $A) ∧ $g ∘ $f = id $A ∧ $f ∘ $g = id $B
+        hom($f, $A, $B) ∧ hom($h, $B, $A) ∧ $h ∘ $f = id $A ∧ $f ∘ $h = id $B
+        hom($f, $A, $B)
+        hom($g, $B, $A)
+        hom($h, $B, $A)
+        $h ∘ $f = id $A
+        $f ∘ $g = id $B
+        $g = id $A ∘ $g                  ; "left-unit"
+        $g = ($h ∘ $f) ∘ $g              ; rewrite `id A` by `h ∘ f`
+        ($h ∘ $f) ∘ $g = $h ∘ ($f ∘ $g)  ; "associative"
+        $g = $h ∘ ($f ∘ $g)
+        $g = $h ∘ id $B                  ; rewrite `f ∘ g` by `id B`
+        $h ∘ id $B = $h                  ; "right-unit"
+        $g = $h
+qed
+
+; Try: `kurt --latex 30-prove-in-a-category.kurt` writes the proof as a document; for `f : A → B`
+; instead of `hom(f, A, B)`, add `tex hom $1 \colon $2 \to $3` (lesson 50-tex in keywords/).

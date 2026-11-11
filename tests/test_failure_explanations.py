@@ -31,6 +31,15 @@ class TestFailureExplanations(unittest.TestCase):
         self.assertIn('"forall-cond-elim" and then "impl-elim"', two)
         self.assertIn('`(P a) ⇒ (Q a)`', two)
 
+    def test_the_two_step_hint_names_the_bound_variable_of_the_conclusion(self):
+        # (2026-11-09: the conclusion `∃ a ∈ A (...)` was shown with its internal name, `∃ ($$355 ∈ A) ...`, which can not be typed)
+        result = kurt.check_text('load set, logic\nconst A, B, b\nprop P\narity P 1\nconst f\narity f 1\n'
+                                 'use ∀ x ∈ B (P(x) ⇒ ∃ a ∈ A (x = f(a)))\nuse b ∈ B\nuse P(b)\n∃ a ∈ A (b = f(a))\n')
+        self.assertFalse(result.ok)
+        two = failure_of(result)['two_steps']
+        self.assertNotIn('$$', two)
+        self.assertIn('∃ (a ∈ A)', two)
+
     def test_a_sort_inferred_inside_the_proof_is_named_as_the_reason(self):
         # (2026-11-02: a `def incl(U, V) ≡ U ⊂ V` has no sorts at its places, so `show incl(U, V) ...` leaves `U` unsorted
         # and the proof infers `set U`; the message only said that "the sorts differ")

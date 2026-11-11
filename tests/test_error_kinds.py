@@ -7,7 +7,7 @@ import kurt.kurt as kurt
 # also wrong arguments of a keyword), TypeError, ProofError
 
 CASES = [
-    ('ScanError', 'prop A\nA ⊕ A\n'),                         # a character that isn't a symbol
+    ('ScanError', 'prop A\nA а A\n'),                         # a character that isn't a symbol: a Cyrillic letter, not an ASCII one (a mathematical symbol such as ⊕ is one since 2026-11-11)
     ('ParseError', 'prop A\n(A\n'),                           # a bracket that isn't closed
     ('ParseError', 'prop A\nA)\n'),                           # a bracket that isn't opened
     ('ParseError', 'prop A\n    A\n'),                        # indented without a block
