@@ -6,7 +6,6 @@
 ; negate and derive `false`.
 
 load propositional
-prop p, q
 
 use p implies q
 use not q

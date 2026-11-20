@@ -6657,6 +6657,9 @@ def eval_keyword_expression(keyword_token: Token, args: Expr, input_line, label:
                     blocks.append(f'{a}-{b}')
                 case _:
                     raise KurtException('EvalError: `cert` takes line numbers, e.g. `cert 17`, or the lines of a block, `cert 12-15`', keyword_token.column)
+        # the line itself, as every line of a file is shown (`   6  cert 5`), then the certificates below it
+        if run_state.line_numbers and printing():
+            log(kb, ('cert ' + ', '.join([str(n) for n in wanted] + blocks)).rstrip(), '', kb.level)
         if not wanted and not blocks:
             earlier = [n for (f, n) in run_state.certificates_by_line if f == filename and n < line]
             wanted = [max(earlier)] if earlier else []
@@ -9636,7 +9639,11 @@ def unify_exprs_with_patterns(exprs_patterns: list[tuple[Expr, Expr]], s: State,
                 # `expr` is a variable (maybe `pattern` as well)
                 assert isinstance(expr, Token) and isinstance(expr.value, str)
                 u = expr.value
-                assert s.lookup(u) is None
+                if s.lookup(u) is not None:
+                    # a bound variable of the goal (blocked, so `walk` stops at it) that a binder already mapped to the
+                    # bound variable of the rule: it is not equal to what is left of the pattern, so no match
+                    # (proofs/debug/bound-variable-against-constant.kurt; it was an AssertionError)
+                    return
                 be = kb.is_bool(u)
                 bp = bool_expr(pattern, kb)
                 compatible = ((bp and be and not bare_operator_for(u, pattern, kb)) or (not bp and not be and not bare_operator_for(u, pattern, kb) and
@@ -14813,16 +14820,22 @@ def foundation_summary(entry: dict) -> str:
         return f'accepted relative to {" and ".join(gaps)}' + (f' (and {relative})' if relative else '')
     return f'established, relative to {relative}' if relative else 'established, rests on nothing but the rules of Kurt'
 
-def foundation_in_short(entry: dict) -> str:
+def foundation_in_short(entry: dict, links: bool = False) -> str:
     # a theorem's foundation in one line, for the editors' hover: `rests on: 2 axioms of mine.kurt,
-    # 3 axioms of propositional.kurt, 1 def, the calculator, no todo`
+    # 3 axioms of propositional.kurt, 1 def, the calculator, no todo` -- with `links`, each file a
+    # Markdown link to its first axiom used (`[mine.kurt](file:///.../mine.kurt#L3)`)
     plural = lambda n, word: f'{n} {word}' + ('' if n == 1 else 's')
     rests = entry['rests_on']
     parts = []
     for f in dict.fromkeys(p['file'] for p in rests if p['kind'] == 'use'):
         n, source = sum(1 for p in rests if p['kind'] == 'use' and p['file'] == f), postulate_source(f)
-        parts.append(f'{plural(n, "rule")} of {source[len("the rules of "):]}' if source.startswith('the rules of ')
-                     else f'{plural(n, "axiom")} of {source}')
+        if source.startswith('the rules of '):
+            parts.append(f'{plural(n, "rule")} of {source[len("the rules of "):]}')
+            continue
+        first = re.match(r'\d+', str(next(p['line'] for p in rests if p['kind'] == 'use' and p['file'] == f)))
+        if links and os.path.isabs(f):
+            source = f'[{source}]({Path(f).as_uri()}' + (f'#L{first.group()})' if first else ')')
+        parts.append(f'{plural(n, "axiom")} of {source}')
     defs = sum(1 for p in rests if p['kind'] == 'def')
     parts += [plural(defs, 'def')] if defs else []
     parts += ['the calculator'] if any(p['kind'] == 'calc' for p in rests) else []
@@ -15504,7 +15517,7 @@ class Session:
                 main_name, main_kb = run_state.main_kb or ('', None)     # (for `proves`: the file's own facts, in its context)
                 run_state.main_kb = None
         own = {'loaded': main_kb.loaded_files() if main_kb is not None else [], '_kb': main_kb, '_name': main_name, '_session': self,
-               'profile': [{'file': f, 'line': n, 'seconds': round(sec, 4), 'steps': steps, 'kernel': round(kernel, 4)}
+               'profile': [{'file': f, 'line': n, 'seconds': round(sec, 6), 'steps': steps, 'kernel': round(kernel, 6)}     # (µs: a step's kernel check takes about 50 µs)
                            for (f, n), (sec, steps, kernel) in sorted(self._state.line_profile.items())]}
         if not errors:
             return CheckResult(True, out.getvalue(), None, None, list(kb.todos()), None, events, certificates=shown, foundations=rests, **own)
@@ -15984,7 +15997,7 @@ class LanguageServer:
         # a theorem at the top level: what it rests on (`foundation_in_short`; todo 64, 2026-10-24)
         theorem = next((e for e in (result.foundations if result else []) if e['class'] == 'theorem' and line_number(e['line']) == n + 1), None)
         if theorem is not None:
-            rests = foundation_in_short(theorem)
+            rests = foundation_in_short(theorem, links=True)
             rests = f'**rests on:** {rests[len("rests on: "):]}'
             details = f'{rests}\n\n{details}' if details else rests
         return {'contents': {'kind': 'markdown', 'value': f'```kurt\n{text}\n```' + (f'\n\n{details}' if details else '')

@@ -6,8 +6,6 @@
 ; at a particular value:
 
 load logic
-prop P
-const P, c
 
 use forall x P(x)
 P(c)

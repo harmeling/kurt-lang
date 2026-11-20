@@ -60,8 +60,8 @@ person still has to understand, is a separate, open question.
 
 The logic under Kurt is classical first-order logic with equality and sorts (`doc/kurt-spec.md`; the
 soundness argument is in `doc/kurt-kernel.md` §8). Everything below is *added* to that core, or changes
-how it is used. For each: what it is for, what it buys, what it costs, and what a plain many-sorted logic
-would do instead. The paper (`dev/marketing/arxiv/kurt-intro.tex`, Section "What Kind of Logic Is This?") has
+how it is used. For each: what it is for, what it buys, what it costs, and the alternative that Kurt did not choose (a plain many-sorted logic,
+another proof assistant, or leaving the addition out). The paper (`dev/marketing/arxiv/kurt-intro.tex`, Section "What Kind of Logic Is This?") has
 the same list as a table.
 
 **Schematic variables (`%A`, `$x`, `$$x`; §3.2, §5.1).** A fact's free variables stand for all its
@@ -70,7 +70,7 @@ instances; `%A` ranges over statements, `$x` over terms of a sort, `$$x` over te
 *Pro:* the rules of logic are readable and are data, like the rest of a theory. *Con:* no model
 interprets `%A`: a fact with `%A` is read as the set of its instances, so the soundness argument is about
 instances, and a wrong rule that a user adds with `use` can make a theory inconsistent (the kernel checks
-steps, not axioms; `--foundation` lists what a fact rests on). *Instead:* rules are meta-level objects of
+steps, not axioms; `--foundation` lists what a fact rests on). *Alternative:* rules are meta-level objects of
 a Hilbert- or natural-deduction system written outside the language.
 
 **Sorts, their order and overloading (§5.2).** `sort real complex`, `real + 0 1 2`: a subsort is a subset;
@@ -79,73 +79,76 @@ sorted use, and then final; a file may set a `default`. *Use:* type errors witho
 `real` and `complex` alike. *Pro:* a rule written once holds at every sort (`$$x`). *Con:* the user must know
 that a sort is final once used; only chains, no retracts and no subsorts defined by a property (`Pos ⊂ real`
 is a set, not a sort); the checker needs the sorts of every symbol (inferred, but sometimes a `set A` is
-needed before the first use). *Instead:* a single sort, with the sorts as unary predicates (`Real x`), or
+needed before the first use). *Alternative:* a single sort, with the sorts as unary predicates (`Real x`), or
 a type theory.
 
 **Variables that nobody declared (§3.2, §3.4).** A name in a claim that no `var`/`const`/`prop`/`sort`
 declaration covers is added as a constant (or, in a statement place, a statement) at its first use, and
 `let`/`pick` introduce constants in blocks. *Use:* a proof reads like the proof on paper. *Pro:* no
 declaration boilerplate. *Con:* a typo is a new constant (`--strict` makes it an error; the replay output
-lists what was added). *Instead:* every symbol declared with its sort before use.
+lists what was added). *Alternative:* every symbol declared with its sort before use.
 
 **Binders with conditions, lists and a binding power (§4.4).** `∀ x > 0 P`, `∃ x ∈ A, y ∈ B P`,
 `∑ k ∈ A f(k)`; `binder SYMBOL POWER` says how far the body reaches, `nested` that a list of variables
 nests. *Use:* the notation of the lecture, and the same for `∑`, `lim`, `∫`, `{x ∈ A | P}`. *Pro:*
 conditioned quantifiers have rules of their own (`∀ x > 0`), so a step is not "unfold the condition, then
 instantiate". *Con:* each binder's rules are axioms of its theory (the audit lists them); the condition
-syntax is a convention the parser must agree on with the kernel (it does, one implementation). *Instead:*
-`∀ x (x > 0 ⇒ P)` everywhere.
+syntax is a convention the parser must agree on with the kernel (it does, one implementation). *Alternative:*
+only plain binders, with the condition written out in the body, as `∀ x (x > 0 ⇒ P)`.
 
 **Substitution in rules (`sub`, §6.2).** Capture-avoiding substitution may be written in a rule schema,
 `sub x t P`. *Use:* induction, the quantifier rules and `∃`-introduction as single lines. *Pro:* these
 rules are stated exactly once, in the language. *Con:* `sub` is only allowed in `use` and `def` (in a claim
 it would only stand for its own result), and capture-avoidance is a part of the kernel to trust
-(`doc/kurt-soundness.md` §3). *Instead:* substitution as a meta-operation in the implementation.
+(`doc/kurt-soundness.md` §3). *Alternative:* substitution as a meta-operation in the implementation.
 
 **Equality modulo `flat` and `sym` (§4.5).** An operator may be declared associative and commutative;
 two terms are the same step if their normal forms are. *Use:* `a + (b + c)` and `(c + b) + a` need no proof.
 *Pro:* no step blocked by bracketing or order. *Con:* the parser and the kernel share these normal forms:
 a bug there would fool both (§0 above); the declarations must be true of the operator (a `sym` on `-`
-would make a theory inconsistent: the loaded theories declare only laws they prove or audit). *Instead:*
-rewrite with the laws of associativity and commutativity, one line each.
+would make a theory inconsistent: the loaded theories declare only laws they prove or audit). *Alternative:*
+rewrite with the laws of associativity and commutativity, one line each, which a theory gets in Kurt too
+by not declaring `flat` and `sym`.
 
 **Exact computation (`calc on`).** Numerals are computed exactly (integers, fractions, powers), a fact that
 computes to the goal closes it, and `2 + 3 < 6` needs no proof. *Use:* the arithmetic of a proof stays
 out of sight, as on paper. *Pro:* readable proofs. *Con:* the kernel recomputes every such step, so it
 contains a calculator (its own part of the trusted code); only the operations of the calculator count
 (`CALCULATOR_OPERATIONS`), so a computation is never a surprise but the list is a boundary the user meets.
-*Instead:* a theory of numerals with axioms for every sum and product, or a decision procedure.
+*Alternative:* a theory of numerals with axioms for every sum and product, or a decision procedure. The
+first is Kurt with `calc off`, the default.
 
 **Operator variables (§5.4).** `var ∘`, with `infix ∘ 70 70`, stands for an operator; a definition
 with an operator parameter, `group(G, (∘), e, inv)`, unfolds into first-order formulas about the operator
 it is given. *Use:* algebraic structures without namespaces and without type classes. *Pro:* the definition
 of a group is one definition for all groups. *Con:* an operator is no object, so the structure itself
 cannot be quantified over (no "for every group"; one writes a rule per theory); a schema, not a formula.
-*Instead:* second-order quantification, or modules.
+*Alternative:* quantifying over operations (second-order logic), or a theory parametrized by its operations
+and instantiated per structure (Isabelle's locales, Lean's structures and type classes).
 
 **Statements are not terms (§5.1).** Statement places are declared (`prop`); a statement is not an
 object; binders range over terms; there is no choice or description operator. *Use:* the logic stays
 first-order. *Pro:* every step is a fact about objects, and the soundness argument stays short. *Con:*
 no `Prop`-valued functions, no `if P then a else b`, no `ε`; some proofs of the lecture need a theory
-(the characteristic function by cases). *Instead:* the higher-order encodings (`proofs/logic-encodings/`).
+(the characteristic function by cases). *Alternative:* the higher-order encodings (`proofs/logic-encodings/`).
 
 **Partial functions are total (`a / 0`).** `a / 0` is some object, and the rules carry the conditions:
 `b ≠ 0 ⇒ (a / b) * b = a`. *Pro:* no sort of the nonzero numbers, no hidden assumption (as in Lean).
 *Con:* `1 / 0` is some number that nothing is known about, and a student who forgets the condition finds the rule does not
-apply -- the failure explanation says which condition is missing. *Instead:* a sort of nonzero numbers, or
+apply -- the failure explanation says which condition is missing. *Alternative:* a sort of nonzero numbers, or
 a guard in every term.
 
 **Definitions (§6.2).** `def` is a conservative extension and is checked (a new symbol, no recursion
 through itself, the body's free variables are the parameters); `def` in a block is local to it. *Pro:*
 a definition can not make a theory inconsistent. *Con:* no recursive definitions yet (§11.1: a recursive function is
 introduced by its equations as `use` axioms in a theory, with a Lean proof or as an `axiom` in the audit).
-*Instead:* an inductive-definition principle in the logic.
+*Alternative:* an inductive-definition principle in the logic.
 
 **Natural-deduction blocks and chains (§9, §4.6).** `assume`, `case`, `let`, `pick`, `proof`/`qed`
 mirror the rules of natural deduction; a chain `a = b`, `  < c` is a calculation. *Use:* a proof is
 laid out the way a person writes it. *Pro:* the indentation is the structure; a block closed wrongly is a
 layout error. *Con:* the layout is part of the syntax (a student must learn it), and a statement that
-runs over several lines needs an open bracket or an operator at the end of the line (§2.1). *Instead:*
+runs over several lines needs an open bracket or an operator at the end of the line (§2.1). *Alternative:*
 a linear list of formulas with line numbers and justifications.
 
 **Search with a certificate for each step (`derive_expr`, `kernel_verify`; `doc/kurt-kernel.md`).** The
@@ -154,30 +157,30 @@ the file. *Use:* immediate feedback for a student without trusting the search. *
 is small (kernel plus parser), and the failure explanation can use the search freely. *Con:* a second
 implementation of unification, substitution and alpha-equivalence has to be kept in step with the
 search (the differential run and the fuzzer exist for that), and a single step is all the search
-offers (no tactics; deliberate, §0). *Instead:* tactics and a proof term, as in Lean or Coq.
+offers (no tactics; deliberate, §0). *Alternative:* tactics and a proof term, as in Lean or Coq.
 
 **Theories are files (`load`, `local`, §8).** Rules, grammar, sorts and notation live in `.kurt` files
 that a proof loads; only labelled facts and the symbols they need cross a file boundary. *Pro:* the logic
 is data, a student can read and change it, and no theory is built into the program. *Con:* no
 namespaces (§11.2), so a symbol is declared by one file only; the load time of a theory is a cost for
-every file that uses it (`load number` takes 1.4 s). *Instead:* a built-in library with fixed names.
+every file that uses it (`load number` takes 1.4 s). *Alternative:* a built-in library with fixed names.
 
 **Visible gaps and errors as tests (`todo`, `expect`, `--foundation`, §6.3, §9.6).** An unfinished step is
 admitted visibly and every report lists it; an `expect "ProofError"` checks that an error happens; each
 fact reports what it rests on. *Pro:* an unfinished proof can not pass for a finished one; a rule of
 the checker has a regression test written in Kurt. *Con:* a `todo` is a hole the whole file depends on
-until it is filled; nothing prevents a student from leaving one (the grader counts them). *Instead:*
+until it is filled; nothing prevents a student from leaving one (the grader counts them). *Alternative:*
 `sorry` that only a warning shows.
 
 **Budgets (§1).** The search for a line has a time budget (60 s on the command line, 30 s in the editors);
 a line that runs out of it fails with a `ResourceError`, neither proved nor refuted. *Pro:* a check always
 ends; a garbled statement can not hang an editor. *Con:* a proof that needs more time fails on a slow
-machine until the budget is raised (`--budget`); a `ResourceError` is no verdict. *Instead:* no limit.
+machine until the budget is raised (`--budget`); a `ResourceError` is no verdict. *Alternative:* no limit.
 
 **Export to Lean (`--lean`).** A checked proof is exported as Lean, step by step from its certificates;
 the rules of a theory with a `lean` line are theorems, the others axioms. *Use:* a second, independent
 check, and the audit of the theories. *Con:* not every file exports (finite sets, some linear algebra,
-`sorry`); the export is checked by Lean 4 with Mathlib, a toolchain the user may not have. *Instead:* the
+`sorry`); the export is checked by Lean 4 with Mathlib, a toolchain the user may not have. *Alternative:* the
 checker alone.
 
 ## 1. Running Kurt
@@ -425,7 +428,8 @@ affected. For a teacher choosing a trusted set of theories: which `use`s a theor
 `kurt --foundation LABEL foo.kurt` (or `kurt foo.kurt --foundation LABEL`) shows one fact, found by its
 label or its line: a theorem with what it rests on, an axiom, definition or `todo` with the facts of the
 file resting on it. In an editor (`kurt --lsp`), the hover of a theorem at the top level says it in
-one line: "**rests on:** 2 axioms of gauss.kurt, 3 axioms of natural.kurt, 1 def, the calculator, no todo".
+one line: "**rests on:** 2 axioms of gauss.kurt, 3 axioms of natural.kurt, 1 def, the calculator, no todo";
+each file name is a link to the first of its axioms used.
 
     gauss.kurt: what each fact at its top level rests on
 
@@ -2217,7 +2221,8 @@ the facts that match the premise -- or, for closing a block, the block and its l
 kernel checks every step; should it ever reject one that the search found (a bug in Kurt), that
 is a `KernelError`, which stops the file and can't be caught by `expect`. Variables are shown with the names they were written with (`$a`, `%A`, `x`), numbered where
 several of them have the same name (`$x1`, `$x2`). A line that failed has no certificate; a line
-that closes blocks by dedenting also has the certificates of the closings.
+that closes blocks by dedenting also has the certificates of the closings. In a file, the output shows the line `cert ...` itself with its number, as every line,
+and the certificates below it.
 
 ## 7. Goal-directed proof: `show` / `proof` / `qed`
 

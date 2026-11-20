@@ -1,0 +1,21 @@
+; Russell's paradox, written out: naive set theory is inconsistent. set.kurt has only separation
+; (`{ x ∈ A | P }`: a subset of a given set), because of exactly this file. Here the unrestricted
+; comprehension is assumed as an axiom of this file -- it is not in set.kurt, no other file loads this one --
+; and `false` follows in a few lines. (Compare proofs/soundness/russell-set-cannot-be-formed.kurt: with
+; separation the same argument only shows that the Russell set `R` is not an element of `A`.)
+load set
+
+; naive comprehension: every property has a set of exactly the objects that have it
+use $a ∈ { $$z | %F }  ≡  sub $$z $a %F                          "naive-comprehension"
+
+def R = { $x | not ($x ∈ $x) }                                    ; the set of all sets that are not members of themselves
+R ∈ { $x | not ($x ∈ $x) }  ≡  not (R ∈ R)                        ; comprehension, for the object R
+R = { $x | not ($x ∈ $x) }
+R ∈ R  ≡  not (R ∈ R)                                              ; is R a member of itself? iff it is not
+
+assume R ∈ R
+    not (R ∈ R)
+    false
+not (R ∈ R)
+R ∈ R                                                              ; and now it is a member after all
+false                                                              ; the contradiction: naive comprehension is inconsistent

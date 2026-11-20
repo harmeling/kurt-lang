@@ -1,0 +1,9 @@
+; A rule about `{ $$z | %F }` used on a goal with a set-builder `{ $x | ... }` and a constant: the unifier
+; asserted that a variable of the goal had no value, but the binder had already mapped the bound variable
+; `$x` to the bound variable of the rule, and the pattern left over was a constant (`R`): an AssertionError
+; (not a ProofError) escaped from the search. Now the match is just one that fails, and the line is found
+; by the other way (proofs/paradoxes/russell.kurt is the long version).
+load set
+use $a ∈ { $$z | %F }  ≡  sub $$z $a %F                          "naive-comprehension"
+def R = { $x | not ($x ∈ $x) }
+R ∈ { $x | not ($x ∈ $x) }  ≡  not (R ∈ R)

@@ -6,8 +6,6 @@
 ; leaving the block must not mention the witness.
 
 load logic
-prop P, B, C
-const P, B, C
 
 use forall x (P(x) implies B)
 use B implies C
@@ -35,8 +33,6 @@ qed
 ; gives the existential, to `pick` from, and "existsunique-unique" says that two elements with
 ; the property are equal.
 
-prop U
-const U, m, n
 use ∃! x U(x)
 ∃ x U(x)                 ; by existsunique-exists
 use U(m)

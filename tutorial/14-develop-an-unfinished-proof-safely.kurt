@@ -5,7 +5,6 @@
 ; Use `todo FORMULA` when a known gap should remain visible in the final result:
 
 load propositional
-prop A, B
 
 show A implies B
 proof
@@ -15,7 +14,6 @@ qed
 
 ; Use `sandbox` for experiments that must not affect the surrounding theory:
 
-prop C, D
 use C
 
 sandbox

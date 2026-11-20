@@ -6,7 +6,6 @@
 
 load propositional             ; propositional logic: or, not, iff, and-elim, ...
 
-prop A, B
 use A and B
 A                      ; "and-elim" is now available, unlike in 04-and.kurt
 B

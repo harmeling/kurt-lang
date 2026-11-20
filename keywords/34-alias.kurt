@@ -16,7 +16,6 @@ alias "^" xor          ; `^` is now just another name for `xor`
 ; A ^ B` would still *display* `(^ A B)`, not `(xor A B)` -- display prefers whatever
 ; spelling you actually typed -- but only the underlying symbol is what actually gets
 ; unified/matched.
-prop A, B
 use A xor B
 A ^ B                  ; same formula, either spelling
 
@@ -30,7 +29,6 @@ A ^ B                  ; same formula, either spelling
 ; proof may write either, and each line is printed as it was written. (Your own files may declare
 ; Unicode symbols as they like.)
 load set
-const M, N
 use M ⊂ N "M-in-N"
 M subset N             ; the same formula, printed with the word
 M ⊂ N                  ; ... and with the symbol

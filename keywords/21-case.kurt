@@ -15,7 +15,6 @@
 ; spelling `or` by itself does not.
 
 load propositional
-prop A, B, C
 use A or B
 use A implies C
 use B implies C

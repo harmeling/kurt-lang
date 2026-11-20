@@ -12,7 +12,6 @@
 ; in the core (minimal.kurt), but `not`/`or` and the inference rules (`and-elim` too) live in
 ; `propositional.kurt`.
 load propositional
-prop p, q
 
 ; Step 2: state the goal with `show`, then think about a *strategy* before writing any
 ; proof steps. Kurt can't search for a proof for you (see §11 "known gaps" in

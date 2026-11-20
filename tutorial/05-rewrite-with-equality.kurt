@@ -6,7 +6,6 @@
 ; Kurt can replace that occurrence with `b`.
 
 load equality
-const a, b, f
 
 use a = b
 use f(a) = a
@@ -28,11 +27,10 @@ f(a) = b
 ;
 ; A rule with conditions works for rewriting too, if the conditions are facts: with
 ; `$a ∈ K ⇒ $a · 1 = $a` and `b ∈ K`, the step from `c · (b · 1) = a` to `c · b = a` is
-; accepted -- Kurt derives the instance `b · 1 = b` and shows it as a step of its own (line `40a`
-; before line 40):
+; accepted -- Kurt derives the instance `b · 1 = b` and shows it as a step of its own (line `38a`
+; before line 38):
 
 load set
-const K, c
 infix · 70 70                   ; `·` is written between its arguments (keywords/27-infix.kurt)
 use $x ∈ K  ⇒  $x · 1 = $x      "one-right"
 use b ∈ K

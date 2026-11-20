@@ -6,7 +6,6 @@
 ; `help`, ...) -- so you can try things out, and then keep what worked.
 ; In a file like this one, it is simply its lines so far.
 
-prop A, B
 use A implies B "modus-ponens"
 use A
 

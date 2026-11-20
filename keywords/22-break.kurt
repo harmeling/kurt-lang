@@ -6,7 +6,6 @@
 ; want to abandon a block right now, rather than writing something at a
 ; shallower indentation to trigger the close.
 
-prop A
 use A
 
 sandbox

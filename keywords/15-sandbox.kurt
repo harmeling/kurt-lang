@@ -4,7 +4,6 @@
 ; the block closes, and never becomes part of the surrounding theory.  It's
 ; the place to try out a derivation without committing to it.
 
-prop A
 use A
 
 sandbox

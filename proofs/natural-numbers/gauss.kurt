@@ -4,12 +4,12 @@ load analysis             ; natural numbers, and sums `sum i (a, b) T` = T(a) + 
 calc on                  ; e.g. `(k + 1) + 1` is `k + 2`, and `0 * (0 + 1) / 2` is `0`
 
 2 ≠ 0                    ; needed for dividing by 2
-show ∀ $n ∈ Nat  ((sum x (0, $n) x) = $n * ($n + 1) / 2)
+show ∀ n ∈ Nat  ((sum x (0, n) x) = n * (n + 1) / 2)
 proof
     ; base case
     (sum x (0, 0) x) = 0 * (0 + 1) / 2
     ; induction step
-    show ∀ $k ∈ Nat  ((sum x (0, $k) x) = $k * ($k + 1) / 2  ⇒  (sum x (0, $k + 1) x) = ($k + 1) * ($k + 2) / 2)
+    show ∀ k ∈ Nat  ((sum x (0, k) x) = k * (k + 1) / 2  ⇒  (sum x (0, k + 1) x) = (k + 1) * (k + 2) / 2)
     proof
         let k ∈ Nat
             assume (sum x (0, k) x) = k * (k + 1) / 2

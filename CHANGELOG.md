@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: an `AssertionError` escaped from the search when a rule about `{ $$z | %F }` met a goal with a set-builder and a constant (the unifier asserted that a bound variable of the goal had no value); the match fails now (`proofs/debug/bound-variable-against-constant.kurt`).
+- Russell's paradox written out: `proofs/paradoxes/russell.kurt` assumes the unrestricted comprehension as an axiom of the file (set.kurt has only separation) and derives `false`.
+
 ## 0.13.1 (2026-11-11)
 
 - Symbols: every character of the Unicode categories Sm, So, Sc, Sk and the letters of the blocks of the mathematics (Letterlike Symbols, Mathematical Alphanumeric Symbols) is a symbol of its own, to be declared (`infix ⋈ 50 50`); it was a `ScanError` unless the character was in the table of shortcuts. Letters of other scripts, digits, combining marks and invisible characters stay errors. A line is normalised to NFC before it is scanned. A lookalike of an ASCII character (`−` U+2212, `∕`, `∶`, `∗`, the fullwidth `＋ ＝ ＜ ＞ ｜ ～`) used as a new symbol gives a warning that says the ASCII spelling. New shortcuts: `\bowtie`, `\otimes`, `\oplus`, `\odot`, `\ominus`, `\oslash`, `\oint`, `\cong`, `\simeq`, `\models`, `\star`, `\uplus`, `\sqcup`, `\sqcap`, `\succ`, `\lhd`, `\rhd`, `\hookrightarrow`, `\twoheadrightarrow`, `\rightarrowtail`. Reference §2.

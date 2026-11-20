@@ -8,7 +8,6 @@
 ; of the pairs with the first part in `A` and the second in `B` ("product"), and every element of
 ; `A × B` is such a pair ("product-pairs").
 load set
-const a, b, c, d, u, v, w, A, B
 
 ; pairs
 use (a, b) = (c, d)

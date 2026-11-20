@@ -4,9 +4,14 @@
 ;
 ; Strict mode rejects `use`, `todo`, and the declarations that claim something about an operator
 ; (`flat`, `sym`, `builtin`) outside trusted theories; a `chain` there needs its rules proved
-; before it. It also requires every
-; symbol to be declared before its first use (`const`, `var`, `prop`, `infix`, ...: any declaration
-; counts).
+; before it.
+;
+; Strict mode also requires every symbol to be declared before its first use (`const`, `var`,
+; `prop`, `infix`, ...: any declaration counts). Without `--strict`, Kurt declares a new symbol
+; itself at its first use, and the lessons so far rely on that; with `--strict`, the same first use
+; is an error. The declarations to write are the ones Kurt prints without `--strict` (`const A ;
+; added constant`, `prop A 0 ; added statement places`): copy them above the first use. Lesson 20
+; explains constants, variables and declarations.
 
 ;     kurt --strict student-proof.kurt
 

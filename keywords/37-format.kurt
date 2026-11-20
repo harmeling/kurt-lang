@@ -9,7 +9,6 @@
 ; with `-o OUT` or `-o -` for another file or the standard output.)
 
 load propositional
-prop A, B, C
 
 format sexpr
 use A

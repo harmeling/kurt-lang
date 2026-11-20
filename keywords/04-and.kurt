@@ -4,7 +4,6 @@
 ; Two already-proven facts can always be combined into a conjunction -- the
 ; rule is called "and-intro", and it is hard-coded, no `load` required:
 
-prop A, B
 
 use A
 use B
@@ -14,7 +13,6 @@ A and B                 ; "and-intro"
 ; the same automatic way -- you have to state the particular instance you
 ; need as an axiom yourself:
 
-prop C, D
 use C and D
 use C and D implies C
 C

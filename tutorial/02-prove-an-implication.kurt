@@ -11,7 +11,6 @@
 ; at the indentation of `proof` again, and closes the `assume` block and then the `proof` block.
 ; Blocks nest: the `assume` block is inside the `proof` block, so its lines are indented twice.
 
-prop A, B, C
 use A implies B
 use B implies C
 
@@ -26,13 +25,13 @@ qed
 ; is `A implies C`. The output shows it after the block, numbered by the lines of the block (the
 ; numbers in front are the lines of the file):
 ;
-;   20      assume A                              ; open block with assumption
-;   21          B                                 ; by 15(20)
-;   22          C                                 ; by 16(21)
-;           A implies C                           ; 20-22 by impl-intro
-;   23  qed                                       ; by 20-22
+;   19      assume A                              ; open block with assumption
+;   20          B                                 ; by 14(19)
+;   21          C                                 ; by 15(20)
+;           A implies C                           ; 19-21 by impl-intro
+;   22  qed                                       ; by 19-21
 ;
-; `qed` closes the proof of the claim of line 18 with the result of lines 20-22.
+; `qed` closes the proof of the claim of line 17 with the result of lines 19-21.
 ;
 ; A line indented more than the lines before it, without a line that opens a block, is an error
 ; ("unexpected increased indentation"), and so is a line that goes back to an indentation that no

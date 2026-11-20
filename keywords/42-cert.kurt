@@ -8,11 +8,10 @@
 ; certificate. `cert N` shows the long form for line `N`:
 
 load propositional
-prop A, B
 use A implies B
 use A
-B                   ; "by 12(13)": the rule of line 12, with the fact of line 13
-cert 14
+B                   ; "by 11(12)": the rule of line 11, with the fact of line 12
+cert 13
 
 ; Closing a block has a certificate too:
 
@@ -21,7 +20,7 @@ proof
     assume A
         A
 qed
-cert 23
+cert 22
 
 ; If the kernel ever rejected a step the search had found, that would be a
 ; bug in Kurt: the line fails with a `KernelError`, which no `expect` can catch.

@@ -10,7 +10,6 @@
 ; `breakpoint` shows that state and checking goes on -- as here:
 
 load propositional
-prop A, B
 use A
 use A implies B
 show A and B

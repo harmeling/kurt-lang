@@ -303,7 +303,7 @@ proof
         n! + 1 ∈ Nat ∧ 2 <= n! + 1
         ∃ p (p ∈ Nat ∧ prime p ∧ p ∣ n! + 1)          ; prime-divisor
         pick p with p ∈ Nat ∧ prime p ∧ p ∣ n! + 1
-            2 <= p ∧ ∀ $d ∈ Nat ($d ∣ p  ⇒  $d = 1 ∨ $d = p)
+            2 <= p ∧ ∀ d ∈ Nat (d ∣ p  ⇒  d = 1 ∨ d = p)
             2 <= p
             ; p <= n is impossible: then p divides n! and n! + 1
             assume p <= n

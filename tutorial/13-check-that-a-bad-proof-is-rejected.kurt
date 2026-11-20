@@ -6,7 +6,6 @@
 ; error; a second string, `expect "ProofError" "can not derive"`, is a text that the message must
 ; contain.
 
-prop A, B
 use A
 
 expect "ProofError"

@@ -5,18 +5,17 @@
 ; Kurt prints a short reason beside every accepted formula. Labels replace raw source locations
 ; when available. For more detail, use `cert` after a step:
 
-prop A, B
 use A implies B  "modus-ponens"
 use A
 B
-cert 11
+cert 10
 
-; The certificate of line 11 shows:
+; The certificate of line 10 shows:
 ;
 ; - the goal (`B`),
-; - the rule or fact used (`A implies B`, line 9, with its label "modus-ponens"),
+; - the rule or fact used (`A implies B`, line 8, with its label "modus-ponens"),
 ; - how the rule is read (premise ⇒ conclusion),
-; - the premises and their lines (`A`, line 10), and
+; - the premises and their lines (`A`, line 9), and
 ; - the kernel's verdict (checked).
 ;
 ; A rule with variables also shows how they were instantiated. `cert` without a line number shows

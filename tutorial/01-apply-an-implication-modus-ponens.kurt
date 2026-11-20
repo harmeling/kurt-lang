@@ -5,8 +5,6 @@
 ; If the theory contains `A implies B` and `A`, write `B`. Kurt applies implication elimination
 ; automatically.
 
-prop A, B, C
-
 use A implies B  "A-to-B"
 use A
 B
@@ -16,3 +14,8 @@ C
 
 ; Kurt performs one inference step at a time. It derives `B` first and can then use that new fact
 ; to derive `C`.
+;
+; `A`, `B` and `C` are not declared: at its first use, Kurt declares each symbol itself, and prints
+; what it inferred under the line, as the Kurt declarations it would take to write it out --
+; `const A ; added constant` (one fixed thing) and `prop A 0 ; added statement places` (a
+; statement, true or false). Lesson 20 says more about constants, variables and declarations.

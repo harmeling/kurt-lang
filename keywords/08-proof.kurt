@@ -10,7 +10,6 @@
 ; as four spaces).  Indentation is how Kurt knows which lines belong to the
 ; block: going back to the indentation of `show` (dedenting) closes it.
 
-prop A, B, C
 
 use A implies B
 use B implies C
@@ -25,7 +24,6 @@ qed
 ; A `proof` block doesn't have to restate the goal as its last line -- `qed`
 ; simply tries to derive the goal fresh, using the full theory at that point:
 
-prop D
 use C implies D
 
 show D

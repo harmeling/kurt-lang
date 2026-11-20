@@ -6,7 +6,6 @@
 ; `lean "label" ...` line is a `theorem` and any other `use` is an `axiom`.
 
 load logic
-const a, b
 use a = b implies b = a  "swap"
 lean "swap" intro h; exact h.symm
 

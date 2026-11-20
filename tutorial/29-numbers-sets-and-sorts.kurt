@@ -22,7 +22,6 @@ load natural
 ; ---------------------------------------------------------------------------------------------
 ; 2. A constant gets its sort at its first sorted use
 
-const x, A
 x ∈ A ⇒ x ∈ A                         ; `x` has no sort yet: the left of `∈` takes any object
 x + 0 = x                             ; the first sorted use: `x` is a number from here on (see `info x`)
 info x
@@ -30,7 +29,6 @@ A ⊂ A ⇒ A ⊂ A                         ; `A` is a set
 
 ; ... and that is final: a later use at another sort is a type error, which names both places and
 ; says what to do. (A number is a set, so a *declared* number may be used as a set.)
-const s
 use s ⊂ A                             ; `s` is a set
 expect "TypeError" "declare `real s` before that use"
     use s + 0 = s
@@ -50,7 +48,6 @@ expect "TypeError" "must have sort `real`"
 
 ; `∀ y` without a sort is over all objects, so it meets extensionality: two sets with the same
 ; elements are equal
-const B, C
 (∀ y (y ∈ B ⇔ y ∈ C)) ⇒ B = C         ; by "extensionality"
 
 ; a binder whose variable is a number by its places is over the numbers: `∀ n (n + 0 = n)`
@@ -62,7 +59,6 @@ set b
 use b ∈ Nat
 expect "TypeError" "a fact `b ∈ Nat` gives no sort"
     use b + 1 = 1 + b
-const c
 use c ∈ Nat
 c + 1 = 1 + c                         ; `c`'s first sorted use: a number
 

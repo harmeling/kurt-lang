@@ -20,7 +20,6 @@
 ; The file below is checked as every lesson is; run `kurt --profile keywords/48-profile.kurt` to see its own profile.
 
 load logic
-prop A, B
 use A implies B
 use A
 B                       ; one step: "impl-elim" of the two facts

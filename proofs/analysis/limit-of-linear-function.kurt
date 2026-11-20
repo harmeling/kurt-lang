@@ -4,24 +4,24 @@ calc on
 
 show lim x 2 (3 * x + 1) = 7
 proof
-    let e > 0
+    let ε > 0
         3 > 0
-        e / 3 > 0
+        ε / 3 > 0
         let y
-            assume 0 < abs(y - 2) ∧ abs(y - 2) < e / 3
-                abs(y - 2) < e / 3
+            assume 0 < abs(y - 2) ∧ abs(y - 2) < ε / 3
+                abs(y - 2) < ε / 3
                 (3 * y + 1) - 7 = 3 * y - 6                         ; by add-sub, computing `7 - 1`
                 (y - 2) * 3 = 3 * y - 6                             ; by distrib-sub, computing `2 * 3`
                 (3 * y + 1) - 7 = (y - 2) * 3
-                abs(y - 2) * 3 < (e / 3) * 3                        ; by lt-mul-pos
+                abs(y - 2) * 3 < (ε / 3) * 3                        ; by lt-mul-pos
                 3 ≠ 0
-                (e / 3) * 3 = e                                     ; by div-mul
+                (ε / 3) * 3 = ε                                     ; by div-mul
                 3 >= 0
                 abs(3) = 3                                          ; by abs-nonneg
                 abs((3 * y + 1) - 7) = abs((y - 2) * 3)
                     = abs(y - 2) * abs(3)
                     = abs(y - 2) * 3
-                    < (e / 3) * 3
-                    = e
-        ∃ $d > 0 ∀ $y ((0 < abs($y - 2) ∧ abs($y - 2) < $d) ⇒ abs((3 * $y + 1) - 7) < e)
+                    < (ε / 3) * 3
+                    = ε
+        ∃ δ > 0 ∀ y ((0 < abs(y - 2) ∧ abs(y - 2) < δ) ⇒ abs((3 * y + 1) - 7) < ε)
 qed

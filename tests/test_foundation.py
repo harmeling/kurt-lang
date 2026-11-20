@@ -283,9 +283,11 @@ class TestFoundationLeftovers(unittest.TestCase):
             def hover(line: int) -> str:
                 found = server.hover({'textDocument': {'uri': uri}, 'position': {'line': line - 1, 'character': 0}})
                 return found['contents']['value'] if found else ''
-            self.assertIn('**rests on:** 2 axioms of mine.kurt, 1 axiom of propositional.kurt, no todo', hover(7))
+            # each file a link to its first axiom used (only the file's name is shown)
+            self.assertRegex(hover(7), r'\*\*rests on:\*\* 2 axioms of \[mine\.kurt\]\(file://[^)]*/mine\.kurt#L\d+\), '
+                                       r'1 axiom of \[propositional\.kurt\]\(file://[^)]*/propositional\.kurt#L\d+\), no todo')
             self.assertIn('**rests on:** nothing but the rules of Kurt, no todo', hover(12))
-            self.assertIn('**rests on:** 2 axioms of mine.kurt, 1 todo', hover(17))
+            self.assertRegex(hover(17), r'\*\*rests on:\*\* 2 axioms of \[mine\.kurt\]\(file://[^)]*/mine\.kurt#L3\), 1 todo')
             self.assertIn('**rests on:** 1 def, the calculator, no todo', hover(23))
             self.assertNotIn('rests on', hover(3))                            # (an axiom: it is one)
             self.assertNotIn('rests on', hover(9))                            # (a line inside a proof)

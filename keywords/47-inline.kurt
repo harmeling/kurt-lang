@@ -6,7 +6,6 @@
 ; to switch.
 
 load number           ; (number.kurt has `inline $a > $b iff $b < $a`)
-const x
 use 0 < x
 x > 0                  ; the same term: Kurt prints `0 < x`
 

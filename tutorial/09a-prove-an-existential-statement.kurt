@@ -12,8 +12,6 @@ calc on              ; for evaluating `3 > 2` and `3 * 3` below
 
 ; 1. The witness is known to have the property: a fact about it, then the existential.
 
-prop P
-const c
 use P(c)
 
 ∃ x P(x)                          ; by exists-intro: `c` is the witness
@@ -82,7 +80,6 @@ qed
 ; 6. The witness can be an object of the proof itself, for example one from a `pick`: from an
 ; object with `S` and `T`, there is an object with `S`.
 
-prop S, T
 use ∃ y (S(y) ∧ T)
 
 show ∃ z S(z)

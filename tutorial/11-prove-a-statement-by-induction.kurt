@@ -7,8 +7,6 @@
 
 load natural
 default real                   ; the variables of this file are numbers (induction is about numbers)
-prop P
-const P
 
 use P(0) and (forall n in Nat (P(n) implies P(n + 1)))  "base-and-step"
 
@@ -21,7 +19,6 @@ forall n (n in Nat implies P(n))
 ; 06's `fact` can't be *calculated* for an arbitrary `$n` (doc/kurt-ref.md §11.1), but induction
 ; still proves a fact about all of it at once -- here, that it always produces a natural number.
 
-const fact
 use fact(0) = 1                                           "fact-zero"
 use $n in Nat implies fact($n + 1) = ($n + 1) * fact($n)  "fact-step"
 

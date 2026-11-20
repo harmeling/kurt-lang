@@ -10,7 +10,6 @@
 
 load modal
 
-const P, Q
 formula P, Q           ; P and Q are propositional letters
 
 ; An axiom: `A → (B → A)`, here for P and Q.
